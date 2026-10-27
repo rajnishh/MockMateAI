@@ -7,6 +7,7 @@ Makes narrated 9:16 videos for Reels, Shorts and WhatsApp:
 - **AI ideas:** topic suggestions for a niche or a character, tap to use.
 - **Hindi + captions:** narration can be forced to Hindi (Devanagari) or English, or follow the user's text. Short phrase captions are burned in, timed to each shot's narration. Captions are drawn with Skia + HarfBuzz (`@napi-rs/canvas`) because FFmpeg's libass and drawtext mis-shape Devanagari conjuncts such as क्ष.
 - **Accounts:** sign in with Google or an Indian mobile number + SMS code. Characters and videos are stored per user in Postgres, with a "My videos" library.
+- **Calendar + YouTube publishing:** connect one or more YouTube channels (OAuth, tokens encrypted at rest), then publish now or schedule a finished video on a month calendar. Uploads are resumable, always declare AI content (`containsSyntheticMedia`), and default kid-safe cartoons to "made for kids". Failed posts can be retried; scheduled ones cancelled.
 - **Installable on Android** (web app manifest) with a Share button that hands the MP4 to Instagram / WhatsApp / YouTube via the phone's share sheet.
 
 Two provider modes (`PROVIDER_MODE`):
@@ -31,6 +32,7 @@ The plan and the decisions behind it are in [docs/PLAN.md](docs/PLAN.md).
 | `src/lib/characters.ts`, `src/lib/suggestions.ts` | Saved characters and AI ideas |
 | `src/lib/auth-config.ts`, `src/app/login` | Better Auth: Google + phone OTP (rate-limited), sessions |
 | `src/lib/pipeline/captions.ts`, `assets/fonts` | Caption phrasing, timing and rendering; bundled Noto Sans + Noto Sans Devanagari (SIL OFL, see `assets/fonts/OFL.txt`) |
+| `src/lib/youtube.ts`, `src/lib/posts.ts`, `src/app/calendar` | YouTube OAuth + upload, scheduling/publishing, calendar UI |
 | `src/lib/db`, `drizzle/` | Drizzle schema (auth tables, characters, films) and SQL migrations |
 | `src/lib/quota` | Free plan (1 film/week, ≤60s, 720p, watermark) and cost estimates |
 | `src/lib/models/licenses.ts` | Allowlist that blocks non-commercial models (XTTS v2, F5-TTS, MusicGen…) |
@@ -61,7 +63,14 @@ npm test                      # includes an end-to-end run with fake providers a
 
 ## Not in Phase 0
 
-Billing and credits, C2PA signing, a child-like voice, a choice of narrator voice, word-by-word highlighted captions, direct publishing and the manager features, songs, and Indian languages beyond Hindi. These are Phase 1+ in the plan. Generated media lives on local disk under unguessable names until object storage arrives in Phase 1.
+Billing and credits, C2PA signing, a child-like voice, a choice of narrator voice, word-by-word highlighted captions, Instagram/Facebook publishing, analytics, songs, and Indian languages beyond Hindi. These are Phase 1+ in the plan. Generated media lives on local disk under unguessable names until object storage arrives in Phase 1.
+
+## YouTube publishing notes
+
+- The publisher runs inside `npm run worker` and only starts when `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `TOKEN_ENCRYPTION_KEY` are set.
+- Each post is a delayed BullMQ job (job id = post id); on start-up the worker re-queues any scheduled posts.
+- Until the Google Cloud project passes YouTube's API audit, every upload is forced to **private** by YouTube; the app shows this on the post. Apply for the audit early (it can take weeks).
+- A default project gets about 100 uploads a day, shared by all users.
 
 ## Changing the schema
 

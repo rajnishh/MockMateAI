@@ -14,6 +14,8 @@ const schema = z.object({
   BETTER_AUTH_SECRET: z.string().optional(),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
+  // 32 random bytes, base64. Encrypts connected-channel OAuth tokens.
+  TOKEN_ENCRYPTION_KEY: z.string().optional(),
   SMS_PROVIDER: z.enum(["console", "msg91"]).default("console"),
   MSG91_AUTH_KEY: z.string().optional(),
   MSG91_OTP_TEMPLATE_ID: z.string().optional(),

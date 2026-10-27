@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { index, integer, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { user } from "./auth-schema";
 
 export const filmStyle = pgEnum("film_style", ["cinematic", "animated", "photoreal"]);
@@ -34,6 +34,7 @@ export const film = pgTable(
     story: text("story").notNull(),
     style: filmStyle("style").notNull(),
     durationSec: integer("duration_sec").notNull(),
+    kidSafe: boolean("kid_safe").notNull().default(false),
     status: filmStatus("status").default("queued").notNull(),
     stage: text("stage"),
     title: text("title"),
@@ -45,6 +46,61 @@ export const film = pgTable(
   (t) => [index("film_user_created_idx").on(t.userId, t.createdAt)],
 );
 
+export const socialPlatform = pgEnum("social_platform", ["youtube"]);
+export const postStatus = pgEnum("post_status", ["scheduled", "publishing", "published", "failed", "cancelled"]);
+export const postPrivacy = pgEnum("post_privacy", ["public", "unlisted", "private"]);
+
+// A channel/profile the user connected for publishing. Separate from sign-in,
+// so a phone-login user can still publish to any Google account's channel.
+export const socialAccount = pgTable(
+  "social_account",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    platform: socialPlatform("platform").notNull(),
+    externalId: text("external_id").notNull(),
+    name: text("name").notNull(),
+    imageUrl: text("image_url"),
+    // Encrypted with TOKEN_ENCRYPTION_KEY.
+    accessToken: text("access_token").notNull(),
+    refreshToken: text("refresh_token").notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("social_account_user_platform_external_idx").on(t.userId, t.platform, t.externalId)],
+);
+
+export const scheduledPost = pgTable(
+  "scheduled_post",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    filmId: uuid("film_id")
+      .notNull()
+      .references(() => film.id, { onDelete: "cascade" }),
+    socialAccountId: uuid("social_account_id")
+      .notNull()
+      .references(() => socialAccount.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    tags: text("tags").array().notNull().default([]),
+    privacy: postPrivacy("privacy").notNull().default("public"),
+    madeForKids: boolean("made_for_kids").notNull().default(false),
+    scheduledAt: timestamp("scheduled_at").notNull(),
+    status: postStatus("status").notNull().default("scheduled"),
+    externalId: text("external_id"),
+    externalUrl: text("external_url"),
+    error: text("error"),
+    publishedAt: timestamp("published_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("scheduled_post_user_time_idx").on(t.userId, t.scheduledAt)],
+);
+
 export const characterRelations = relations(character, ({ one, many }) => ({
   user: one(user, { fields: [character.userId], references: [user.id] }),
   films: many(film),
@@ -53,4 +109,9 @@ export const characterRelations = relations(character, ({ one, many }) => ({
 export const filmRelations = relations(film, ({ one }) => ({
   user: one(user, { fields: [film.userId], references: [user.id] }),
   character: one(character, { fields: [film.characterId], references: [character.id] }),
+}));
+
+export const scheduledPostRelations = relations(scheduledPost, ({ one }) => ({
+  film: one(film, { fields: [scheduledPost.filmId], references: [film.id] }),
+  socialAccount: one(socialAccount, { fields: [scheduledPost.socialAccountId], references: [socialAccount.id] }),
 }));

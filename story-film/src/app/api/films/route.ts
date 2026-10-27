@@ -40,6 +40,7 @@ export async function POST(req: Request) {
     story: parsed.data.story,
     style: parsed.data.style,
     durationSec: parsed.data.durationSec,
+    kidSafe: parsed.data.kidSafe,
   });
   await getFilmQueue().add(
     "film",

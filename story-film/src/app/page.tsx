@@ -156,7 +156,10 @@ export default function Home() {
     <main>
       <header className="top">
         <h1>Story to Film</h1>
-        <button type="button" className="secondary" onClick={signOut}>Sign out</button>
+        <div className="post-actions">
+          <a href="/calendar"><button type="button" className="secondary">Calendar</button></a>
+          <button type="button" className="secondary" onClick={signOut}>Sign out</button>
+        </div>
       </header>
       {session && <p className="muted">Signed in as {session.user.phoneNumber ?? session.user.email}</p>}
       <p className="muted">Make cartoon episodes and short films for Reels, Shorts and WhatsApp.</p>
@@ -287,10 +290,16 @@ export default function Home() {
           <h2>My videos</h2>
           <div className="library">
             {library.map((f) => (
-              <a key={f.id} href={f.videoUrl ?? "#"} onClick={(e) => !f.videoUrl && e.preventDefault()}>
-                <span>{f.title ?? "Untitled"}</span>
-                <span className="muted">{f.status}</span>
-              </a>
+              <div key={f.id} className="post">
+                <a href={f.videoUrl ?? "#"} onClick={(e) => !f.videoUrl && e.preventDefault()} style={{ border: 0, padding: 0 }}>
+                  {f.title ?? "Untitled"}
+                </a>
+                {f.status === "completed" ? (
+                  <a href={`/calendar?film=${f.id}`} style={{ border: 0, padding: 0 }}>Schedule</a>
+                ) : (
+                  <span className="muted">{f.status}</span>
+                )}
+              </div>
             ))}
           </div>
         </section>

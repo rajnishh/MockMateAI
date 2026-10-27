@@ -4,16 +4,19 @@ import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
 import { updateFilm } from "@/lib/films";
 import { runFilm } from "@/lib/pipeline/orchestrator";
+import { pendingPosts, publishPost } from "@/lib/posts";
 import { buildPipelineDeps } from "@/lib/providers";
 import { FILM_QUEUE, type FilmJob, getRedis } from "@/lib/queue/films";
+import { enqueuePost, getPublishQueue, PUBLISH_QUEUE, type PublishJob } from "@/lib/queue/publish";
 import { RedisQuotaStore } from "@/lib/quota/quota";
+import { tokenKey, youtubeClient } from "@/lib/youtube-config";
 
 const env = loadEnv();
 const deps = { ...buildPipelineDeps(env), fontsDir: env.FONTS_DIR };
 const db = getDb();
 
 // Job ids are film row ids, so progress is written straight to the film.
-const worker = new Worker<FilmJob>(
+const filmWorker = new Worker<FilmJob>(
   FILM_QUEUE,
   async (job) => {
     const filmId = job.id!;
@@ -28,12 +31,29 @@ const worker = new Worker<FilmJob>(
   { connection: getRedis(), concurrency: 2 },
 );
 
-worker.on("completed", (job) => console.log(`film ${job.id} done`));
-worker.on("failed", async (job, err) => {
+filmWorker.on("completed", (job) => console.log(`film ${job.id} done`));
+filmWorker.on("failed", async (job, err) => {
   console.error(`film ${job?.id} failed:`, err.message);
   if (job && job.attemptsMade >= (job.opts.attempts ?? 1)) {
     await updateFilm(db, job.id!, { status: "failed", error: err.message.slice(0, 500) });
     await new RedisQuotaStore(getRedis()).decrement(job.data.quotaKey);
   }
 });
+
+// Publishing runs only when YouTube is configured.
+if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.TOKEN_ENCRYPTION_KEY) {
+  const publishDeps = { db, tokenKey: tokenKey(env), youtube: youtubeClient(env) };
+  const publishWorker = new Worker<PublishJob>(PUBLISH_QUEUE, (job) => publishPost(publishDeps, job.data.postId), {
+    connection: getRedis(),
+    concurrency: 2,
+  });
+  publishWorker.on("failed", (job, err) => console.error(`post ${job?.data.postId} failed:`, err.message));
+  // Re-queue anything scheduled (no-op for posts that already have a job).
+  const queue = getPublishQueue();
+  for (const post of await pendingPosts(db)) await enqueuePost(queue, post);
+  console.log(`publisher listening on queue "${PUBLISH_QUEUE}"`);
+} else {
+  console.log("publisher disabled: set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and TOKEN_ENCRYPTION_KEY");
+}
+
 console.log(`worker listening on queue "${FILM_QUEUE}"`);
