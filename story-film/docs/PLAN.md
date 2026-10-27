@@ -147,6 +147,19 @@ The product is a creator suite rather than a single film tool. All modules share
 | **Sing in my voice** | Record ~1 min of own voice (with consent) → song sung in that voice | Voice conversion on the ACE-Step vocal stem (RVC-style; verify license of models used). Consent recording stored | 2 |
 | **Creator & Manager** | Calendar, scheduling, multiple accounts, analytics, AI ideas/captions/hashtags, agency workspaces | See below | 1–3 |
 
+**Cartoon Series templates**
+
+The reference channel (Anvi's Mini English, ~212K followers) shows the format to target: one consistent 3D-animated toddler character (same hair and outfit in every post), 10–20s Reels teaching 6–10 English words, with on-screen text and a voiceover saying each word. The manual workflow it replaces is image tool → character reference → Kling/Hailuo/Runway/Veo → ElevenLabs → CapCut.
+
+| Template | Output | Pipeline |
+|---|---|---|
+| **Word list** | 6–10 words, ~2s each, word (and meaning) as big text, voice says each word | 1 keyframe per word with the character in a matching scene → short motion (pan-and-zoom free, AI clip paid) → per-word TTS → text overlay + music |
+| **Vocabulary cards** | Word groups (e.g. Bull / Cow / Calf) with the character pointing or reacting | Same as word list, grouped layout |
+| **Scene story** | Character in a themed scene (outfits, haircuts, cars) naming items | Short Film pipeline with 3–5 shots |
+| **Story episode** | 30–60s narrated mini-story | Short Film pipeline |
+
+Needs on top of the current pipeline: a saved character bible, a child-like TTS voice (Kokoro has child-sounding presets; verify), large animated text overlays, and a word-list input instead of a free-text story. Characters made from a real child's photo are allowed only with a parent/guardian consent attestation, and the photo is stored privately. Market the style as "3D cartoon", not by studio names.
+
 **Creator & Manager breakdown**
 
 | Feature | Phase |
