@@ -14,6 +14,8 @@ export interface AssembleInput {
   resolution: Resolution;
   watermark: boolean;
   output: string;
+  // Pre-rendered caption images, each shown from start to end at height y.
+  captions?: { file: string; start: number; end: number; y: number }[];
 }
 
 export const AI_LABEL = "Created with AI";
@@ -50,8 +52,15 @@ export function buildAssembleArgs(input: AssembleInput): string[] {
   filters.push(`[narr][mus]amix=inputs=2:duration=first:normalize=0[aout]`);
   // The AI label is always burned in (platform disclosure); the plan watermark is extra.
   const label = input.watermark ? `${AI_LABEL} · free plan` : AI_LABEL;
+  // Caption images are the inputs after music (index 2n + 1 onwards).
+  let video = "[vcat]";
+  (input.captions ?? []).forEach((c, i) => {
+    const out = `[cap${i}]`;
+    filters.push(`${video}[${2 * n + 1 + i}:v]overlay=x=0:y=${c.y}:enable='between(t,${c.start},${c.end})'${out}`);
+    video = out;
+  });
   filters.push(
-    `[vcat]drawtext=text='${label}':fontcolor=white@0.85:fontsize=${Math.round(h / 45)}:` +
+    `${video}drawtext=text='${label}':fontcolor=white@0.85:fontsize=${Math.round(h / 45)}:` +
       `box=1:boxcolor=black@0.35:boxborderw=8:x=(w-text_w)/2:y=h-text_h-${Math.round(h / 20)}[vout]`,
   );
 
@@ -62,6 +71,7 @@ export function buildAssembleArgs(input: AssembleInput): string[] {
     ...(input.music
       ? ["-stream_loop", "-1", "-i", input.music]
       : ["-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo"]),
+    ...(input.captions ?? []).flatMap((c) => ["-i", c.file]),
     "-filter_complex", filters.join(";"),
     "-map", "[vout]",
     "-map", "[aout]",

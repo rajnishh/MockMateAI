@@ -14,6 +14,8 @@ export const filmJobSchema = z.object({
   referenceImageUrls: z.array(z.url()).max(4).default([]),
   characterId: z.uuid().optional(),
   kidSafe: z.boolean().default(false),
+  language: z.enum(["auto", "en", "hi"]).default("auto"),
+  captions: z.boolean().default(true),
 });
 
 export type FilmJob = z.infer<typeof filmJobSchema> & {

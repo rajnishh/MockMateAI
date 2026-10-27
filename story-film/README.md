@@ -5,6 +5,7 @@ Makes narrated 9:16 videos for Reels, Shorts and WhatsApp:
 - **Short film:** a story → script + shot list → keyframes → clips → narration (+ music) → FFmpeg assembly with a burned-in "Created with AI" label.
 - **Cartoon episode:** create a character once (reference image + fixed description + seed), then one idea per episode keeps the same character. Optional "made for kids" safety rules.
 - **AI ideas:** topic suggestions for a niche or a character, tap to use.
+- **Hindi + captions:** narration can be forced to Hindi (Devanagari) or English, or follow the user's text. Short phrase captions are burned in, timed to each shot's narration. Captions are drawn with Skia + HarfBuzz (`@napi-rs/canvas`) because FFmpeg's libass and drawtext mis-shape Devanagari conjuncts such as क्ष.
 - **Accounts:** sign in with Google or an Indian mobile number + SMS code. Characters and videos are stored per user in Postgres, with a "My videos" library.
 - **Installable on Android** (web app manifest) with a Share button that hands the MP4 to Instagram / WhatsApp / YouTube via the phone's share sheet.
 
@@ -29,6 +30,7 @@ The plan and the decisions behind it are in [docs/PLAN.md](docs/PLAN.md).
 | `src/lib/providers` | Cloudflare (LLM + image), pan-and-zoom video, fal.ai (image + video), OpenRouter, Kokoro (TTS), ACE-Step (music) |
 | `src/lib/characters.ts`, `src/lib/suggestions.ts` | Saved characters and AI ideas |
 | `src/lib/auth-config.ts`, `src/app/login` | Better Auth: Google + phone OTP (rate-limited), sessions |
+| `src/lib/pipeline/captions.ts`, `assets/fonts` | Caption phrasing, timing and rendering; bundled Noto Sans + Noto Sans Devanagari (SIL OFL, see `assets/fonts/OFL.txt`) |
 | `src/lib/db`, `drizzle/` | Drizzle schema (auth tables, characters, films) and SQL migrations |
 | `src/lib/quota` | Free plan (1 film/week, ≤60s, 720p, watermark) and cost estimates |
 | `src/lib/models/licenses.ts` | Allowlist that blocks non-commercial models (XTTS v2, F5-TTS, MusicGen…) |
@@ -59,7 +61,7 @@ npm test                      # includes an end-to-end run with fake providers a
 
 ## Not in Phase 0
 
-Billing and credits, C2PA signing, a child-like voice, captions, direct publishing and the manager features, songs, and Indian languages beyond Hindi. These are Phase 1+ in the plan. Generated media lives on local disk under unguessable names until object storage arrives in Phase 1.
+Billing and credits, C2PA signing, a child-like voice, a choice of narrator voice, word-by-word highlighted captions, direct publishing and the manager features, songs, and Indian languages beyond Hindi. These are Phase 1+ in the plan. Generated media lives on local disk under unguessable names until object storage arrives in Phase 1.
 
 ## Changing the schema
 

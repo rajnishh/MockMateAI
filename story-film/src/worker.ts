@@ -9,7 +9,7 @@ import { FILM_QUEUE, type FilmJob, getRedis } from "@/lib/queue/films";
 import { RedisQuotaStore } from "@/lib/quota/quota";
 
 const env = loadEnv();
-const deps = buildPipelineDeps(env);
+const deps = { ...buildPipelineDeps(env), fontsDir: env.FONTS_DIR };
 const db = getDb();
 
 // Job ids are film row ids, so progress is written straight to the film.

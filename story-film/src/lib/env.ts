@@ -31,6 +31,7 @@ const schema = z.object({
   ACESTEP_URL: z.string().optional(),
   FREE_FILMS_PER_WEEK: z.coerce.number().int().min(1).default(3),
   OUTPUT_DIR: z.string().default("./output"),
+  FONTS_DIR: z.string().default("./assets/fonts"),
 });
 
 export type Env = z.infer<typeof schema>;

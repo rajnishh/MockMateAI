@@ -7,6 +7,7 @@ import { assertCommercialSafe } from "@/lib/models/licenses";
 import type {
   CharacterProfile,
   FilmStyle,
+  NarrationLanguage,
   ImageProvider,
   LlmProvider,
   MusicProvider,
@@ -16,6 +17,7 @@ import type {
 } from "@/lib/providers/types";
 import { CLIP_SECONDS, shotCountFor } from "@/lib/quota/plans";
 import { buildAssembleArgs } from "./assemble";
+import { buildCues, renderCaptionImages } from "./captions";
 
 const execFileAsync = promisify(execFile);
 
@@ -28,6 +30,8 @@ export interface FilmRequest {
   referenceImageUrls: string[];
   character?: CharacterProfile;
   kidSafe?: boolean;
+  language?: NarrationLanguage;
+  captions?: boolean;
 }
 
 export interface PipelineDeps {
@@ -38,6 +42,8 @@ export interface PipelineDeps {
   music?: MusicProvider;
   fetchFn?: typeof fetch;
   runFfmpeg?: (args: string[]) => Promise<void>;
+  probeDuration?: (file: string) => Promise<number>;
+  fontsDir?: string;
 }
 
 export type Stage = "script" | "keyframes" | "clips" | "audio" | "assemble" | "done";
@@ -58,6 +64,11 @@ export async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, i:
 async function download(fetchFn: typeof fetch, url: string, file: string): Promise<string> {
   await writeFile(file, await readMedia(url, fetchFn));
   return file;
+}
+
+export async function probeDuration(file: string): Promise<number> {
+  const { stdout } = await execFileAsync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file]);
+  return Number(stdout.trim());
 }
 
 export async function defaultFfmpeg(args: string[]): Promise<void> {
@@ -81,6 +92,7 @@ export async function runFilm(
     shotCount: shotCountFor(req.durationSec),
     character: req.character,
     kidSafe: req.kidSafe,
+    language: req.language,
   });
   await writeFile(path.join(workDir, "script.json"), JSON.stringify(script, null, 2));
 
@@ -121,9 +133,24 @@ export async function runFilm(
   }
 
   await onStage("assemble");
+  let captions;
+  if (req.captions !== false) {
+    const durations = await Promise.all(narration.map(deps.probeDuration ?? probeDuration));
+    const cues = buildCues(script.shots.map((s) => s.narration), durations, CLIP_SECONDS);
+    captions = await renderCaptionImages(cues, req.resolution, path.resolve(deps.fontsDir ?? "assets/fonts"), workDir);
+  }
   const output = path.join(workDir, "film.mp4");
   await (deps.runFfmpeg ?? defaultFfmpeg)(
-    buildAssembleArgs({ clips, narration, music, clipSeconds: CLIP_SECONDS, resolution: req.resolution, watermark: req.watermark, output }),
+    buildAssembleArgs({
+      clips,
+      narration,
+      music,
+      clipSeconds: CLIP_SECONDS,
+      resolution: req.resolution,
+      watermark: req.watermark,
+      output,
+      captions,
+    }),
   );
 
   await onStage("done");

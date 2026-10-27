@@ -1,5 +1,7 @@
 export type FilmStyle = "cinematic" | "animated" | "photoreal";
 export type Resolution = "480p" | "720p";
+// "auto" keeps the language the user wrote in.
+export type NarrationLanguage = "auto" | "en" | "hi";
 
 export interface Character {
   name: string;
@@ -35,6 +37,7 @@ export interface ScriptRequest {
   shotCount: number;
   character?: CharacterProfile;
   kidSafe?: boolean;
+  language?: NarrationLanguage;
 }
 
 export interface LlmProvider {

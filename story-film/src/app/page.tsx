@@ -29,6 +29,8 @@ export default function Home() {
   const [durationSec, setDurationSec] = useState(30);
   const [kidSafe, setKidSafe] = useState(true);
   const [niche, setNiche] = useState("");
+  const [language, setLanguage] = useState("auto");
+  const [captions, setCaptions] = useState(true);
 
   const [characters, setCharacters] = useState<Character[]>([]);
   const [characterId, setCharacterId] = useState<string | null>(null);
@@ -108,6 +110,7 @@ export default function Home() {
       niche: niche || undefined,
       characterId: mode === "cartoon" ? characterId ?? undefined : undefined,
       kidSafe: mode === "cartoon" && kidSafe,
+      language: language === "hi" ? "Hindi (Devanagari)" : language === "en" ? "English" : undefined,
     });
     setLoadingIdeas(false);
     if (!ok) return setError(data.error ?? "Couldn't get ideas");
@@ -123,6 +126,8 @@ export default function Home() {
     const { ok, data } = await postJson<{ id: string }>("/api/films", {
       story,
       durationSec,
+      language,
+      captions,
       ...(mode === "cartoon" ? { style: "animated", characterId, kidSafe } : { style }),
     });
     setSubmitting(false);
@@ -230,6 +235,14 @@ export default function Home() {
             </div>
           )}
           <div>
+            <label htmlFor="language">Narration</label>
+            <select id="language" value={language} onChange={(e) => setLanguage(e.target.value)}>
+              <option value="auto">Same as my text</option>
+              <option value="hi">हिन्दी (Hindi)</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+          <div>
             <label htmlFor="duration">Length</label>
             <select id="duration" value={durationSec} onChange={(e) => setDurationSec(Number(e.target.value))}>
               <option value={15}>15 seconds</option>
@@ -238,6 +251,9 @@ export default function Home() {
             </select>
           </div>
         </div>
+        <label className="check">
+          <input type="checkbox" checked={captions} onChange={(e) => setCaptions(e.target.checked)} /> Captions on video
+        </label>
         <p className="muted">Free plan: a few videos per week, 720p, labelled “Created with AI”.</p>
         <button type="submit" disabled={busy}>{busy ? "Working…" : mode === "cartoon" ? "Make episode" : "Make my film"}</button>
       </form>
