@@ -1,0 +1,29 @@
+:root {
+  --bg: #fafaf9;
+  --fg: #1c1917;
+  --muted: #78716c;
+  --accent: #b45309;
+  --border: #e7e5e4;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1917;
+    --fg: #fafaf9;
+    --muted: #a8a29e;
+    --accent: #f59e0b;
+    --border: #44403c;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, sans-serif; }
+main { max-width: 640px; margin: 0 auto; padding: 32px 16px; }
+textarea, select, button { font: inherit; width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: inherit; }
+textarea { min-height: 180px; resize: vertical; }
+button { background: var(--accent); color: #fff; border: none; cursor: pointer; }
+button:disabled { opacity: 0.6; cursor: wait; }
+label { display: block; margin: 16px 0 6px; font-weight: 600; }
+.muted { color: var(--muted); font-size: 14px; }
+.row { display: flex; gap: 12px; }
+.row > * { flex: 1; }
+.status { margin-top: 24px; padding: 16px; border: 1px solid var(--border); border-radius: 8px; }
+video { width: 100%; max-width: 360px; border-radius: 8px; display: block; margin-top: 12px; }

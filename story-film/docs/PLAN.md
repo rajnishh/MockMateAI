@@ -1,0 +1,134 @@
+# Building a Free "Story-to-Film" SaaS on Open Source: A Practical Build Plan (September 2026)
+
+> Status: source plan for the `story-film/` scaffold. See [Decisions & verification notes](#decisions--verification-notes-2026-10-27) at the bottom for what changed after review.
+
+## TL;DR
+
+- **Fork EvoLinkAI/ai-short-drama (AIDrama Studio)**: the only candidate fork base that is both permissively licensed (SaaS-legal) and already ships the multi-tenant scaffolding needed (Next.js 15 + Prisma/MySQL + Redis/BullMQ + MinIO/S3 + Remotion + a multi-provider media gateway). Do **not** fork DramaClaw (Elastic License 2.0 forbids reselling as a hosted service), and treat waoowaoo's custom license as unusable until it has been read verbatim.
+- **Launch API-first, not self-hosted.** A finished 1-minute vertical film (≈10–12 clips × 5s) costs roughly **$3.50–7.50 in API spend** using Wan 2.x/Kling on fal.ai for video, Nano Banana 2 for images, Kokoro/Chatterbox for voice, and ACE-Step for music. "Free to users" must mean a hard credit/quota + watermark model, not unlimited.
+- **The hard part is publishing and compliance, not generation.** Instagram/TikTok require Business/Professional accounts + weeks-long Meta/TikTok app review; YouTube allows **up to 100 public uploads/day per project** but still requires a Google audit before an app can publish anything **public** on users' behalf. Use an aggregator (Blotato/Zernio/Ayrshare) for the MVP and disclose AI content (C2PA + on-screen label) on every video.
+
+## Key Findings
+
+1. Many open-source "idea/script → finished short drama" pipelines exist, but most are single-user local tools or source-available/custom-licensed. Only EvoLink and Anil-matcha are cleanly permissive.
+2. Per-second video pricing has collapsed: Wan 2.x ~$0.05/s (480p) on fal.ai, Kling 2.6 Pro $0.07/s (audio off), Veo 3.1 Fast $0.10–0.15/s. API-first is viable; self-hosting only wins above ~40–60 clips/day.
+3. Voice and music are solved with permissive licenses: Kokoro (Apache 2.0), Chatterbox (MIT), CosyVoice2 (Apache 2.0), ACE-Step (Apache 2.0). Avoid XTTS v2 (CPML), F5-TTS (CC-BY-NC), MusicGen weights (CC-BY-NC).
+4. Publishing is the real blocker: IG Reels, TikTok Direct Post and public YouTube all require platform review and Business/Professional accounts.
+5. AI-content disclosure is mandatory for realistic synthetic media on all three major platforms; production-assist (captions, scripts) is exempt.
+
+## 1. Open-source end-to-end pipelines
+
+| Repo | What it does | Stack | License | Verdict |
+|---|---|---|---|---|
+| **waooAI/waoowaoo** | Novel/script → storyboard, characters, voiceover → short drama | Next.js 15, MySQL/Prisma, Redis/BullMQ | Custom, unverified | License blocks confidence; single-dev beta |
+| **dramaclaw/dramaclaw** | Script → storyboard → assets → film | FastAPI + React, SQLite | **Elastic License 2.0** (no hosted resale) | **Avoid as SaaS base**; self-hosted internal use only |
+| **EvoLinkAI/ai-short-drama** | Novel/idea → script → storyboard → images → video → voiceover | Next.js 15, Prisma/MySQL, Redis/BullMQ, MinIO/S3, NextAuth, Remotion | Permissive (see notes) | **Best fork base** |
+| **Anil-matcha/Open-AI-Micro-Drama-Generator** | Idea → screenwriter → storyboard → frames → video | FastAPI + Next.js 14, moviepy | MIT | Clean but MuAPI lock-in; reference only |
+| **rolfie-han/YoLuster-shorts** | Short-drama workspace | Closed | Custom, source not released | Not forkable |
+| **hyyyyyyz/dramai** | Browser-only pipeline | TypeScript | Verify | Too thin |
+| **dav-niu474/huobao-drama-ai** | Script → short drama, 70+ LLMs | Next.js 16 | Verify | Watch |
+| **Forget-C/Jellyfish** | AI short-drama workspace | Verify | Verify | Verify license |
+| **neopen/story-shot-agent** | Screenplay → coherent video prompts (LangGraph) | Python | Verify | Useful prompt/consistency component |
+| **SDSmirnov/AI-Story-To-Movie** | Story → MP4 with auto-casting | Python | Verify | Reference for consistency |
+
+Borrow DramaClaw/waoowaoo **ideas** (character consistency, story graph), never their code.
+
+## 2. Competitors and gap
+
+LTX Studio (Free 800 one-time credits, non-commercial; Lite $15, Standard $35, Pro $125), Katalist (~$39), InVideo AI (~$25), Runway (~$12), plus clip generators (Pika, Kling, Veo, Sora 2).
+
+**Wedge:** non-technical users uploading their *own* voice/story/stills, in *Arabic/Hindi/Indian languages*, with *one-tap publishing*, on a *genuinely free* (capped) tier.
+
+## 3. Model / API layer
+
+### fal.ai pricing snapshot (verify at launch)
+
+| Model | Type | Approx price |
+|---|---|---|
+| Wan 2.5 / 2.x | video | $0.05/s 480p, $0.10/s 720p, $0.15/s 1080p |
+| Kling 2.6 Pro | video | $0.07/s audio-off, $0.14/s with audio |
+| Kling 3.0 | video | ~$0.10–0.20/s |
+| Veo 3.1 Fast | video | $0.10–0.15/s (Lite ~$0.05/s) |
+| Veo 3.1 Full | video | ~$0.40/s |
+| Seedance 2.0 Pro | video | $0.13–0.68/s |
+| Sora 2 | video | $0.30–0.75/s |
+| Nano Banana 2 | image | $0.08 (1K), $0.06 (512px), $0.12 (2K), $0.16 (4K) |
+| Nano Banana Pro | image | $0.15 (1K), $0.30 (4K) |
+| Flux 2 [dev] | image | ~$0.025 |
+
+### Self-hosted video
+
+| Model | Min VRAM | License | Cost / finished second |
+|---|---|---|---|
+| Wan 2.1/2.2 14B | 65–80GB | Apache 2.0 | ~$0.08–0.10 (H100), ~$0.03 spot |
+| HunyuanVideo | 60–80GB | Verify | ~$0.14–0.21 |
+| LTX-2.x | 16–32GB | Open | ~$0.004–0.07 |
+| CogVideoX-1.5-5B | 24–32GB | Open | ~$0.07–0.10/clip |
+
+### Cost per finished minute (≈11 clips × 5s)
+
+- Wan 720p @ $0.10/s: video $5.50 + 11 keyframes $0.88 + voice/music ≈ $0 self-hosted + LLM $0.05–0.20 → **≈ $6.50–7.50/min**.
+- Kling no-audio @ $0.07/s → **≈ $5/min**. Wan 480p / Veo Lite @ $0.05/s → **≈ $3.50–4/min**.
+
+"Free" therefore means: 1 short film/week, watermark, 720p cap; credits for more; premium models only on paid tiers.
+
+## 4. Components (commercial-safe)
+
+- **STT:** faster-whisper (MIT), WhisperX (word timestamps).
+- **TTS:** Kokoro-82M (Apache 2.0, 54 voices / 8 languages incl. Hindi, no cloning); Chatterbox Multilingual (MIT, cloning, built-in watermark); CosyVoice2 (Apache 2.0); NAMAA Saudi TTS (MIT, Arabic); Qwen3-TTS (Apache 2.0).
+- **Avoid:** XTTS v2, F5-TTS, Fish/OpenAudio, MusicGen weights, LeVo 2, Wav2Lip OSS.
+- **Lip-sync:** MuseTalk 1.5 (MIT), LatentSync, SadTalker, LivePortrait.
+- **Music:** ACE-Step (Apache 2.0), YuE (Apache 2.0), DiffRhythm 2, HeartMuLa.
+- **Consistency:** Nano Banana reference-locking first; LoRA / IP-Adapter / PuLID later.
+- **Assembly:** FFmpeg, Remotion, MoviePy; WhisperX timestamps → burned captions.
+- **Queue:** BullMQ (Redis); ComfyUI API for self-hosted workflows later.
+
+## 5. Social publishing
+
+| Platform | Requirement | Friction |
+|---|---|---|
+| YouTube Data API v3 | OAuth + `youtube.upload` | 100 uploads/day (own bucket since Jun 1 2026); unaudited apps upload **private** only |
+| Instagram Graph API | Business account + FB Page + Meta app | App Review 2–6 weeks; Reels 9:16, 5–90s, ≤100MB |
+| Facebook | Page + Meta app | Same review |
+| TikTok Content Posting | App audit | Unaudited apps limited |
+| X / LinkedIn | Paid tiers / restricted | Limited |
+| Aggregators | Ayrshare $149–599/mo, Blotato $29/mo, Zernio free ≤2 accounts | Already reviewed — fastest path |
+
+MVP: download + share link + one-tap YouTube; aggregator next; start Meta/TikTok review early (6–8 weeks).
+
+## 6. Legal / platform risks
+
+- Mandatory AI disclosure on YouTube, Meta, TikTok → embed **C2PA** + on-screen "Created with AI" label + set platform AI toggle.
+- Voice cloning: explicit consent, block third-party voices, keep consent logs.
+- License landmines listed in §4; Stable Audio Open free only under $1M revenue.
+- AI output copyright is thin; user inputs keep their obligations — cover in ToS.
+
+## 7. Architecture & MVP
+
+- **Models at launch:** LLM via OpenRouter; Nano Banana 2 keyframes; Wan 2.x / Kling 2.6 (no audio) on fal.ai; Kokoro narrator; ACE-Step music; FFmpeg/Remotion assembly at 9:16.
+- **v1 flow:** story (typed/spoken) → script + shot list → 3 style previews → ~10–12 keyframes → 5s clips → narration + music + captions → 60s vertical film → preview → download / YouTube.
+- **Cut from day one:** 5–15 min films, native IG/TikTok/FB/X/LinkedIn, talking heads, LoRA actors, GPU fleet, collaboration, standalone song studio.
+
+### Roadmap
+
+- **Phase 0 (weeks 1–4):** pipeline end-to-end on fal.ai + Nano Banana + Kokoro + ACE-Step; 30–60s vertical film; hard quota + watermark.
+- **Phase 1 (weeks 5–10):** auth, credits, billing, YouTube OAuth upload, C2PA + AI disclosure, Arabic/Hindi narration + captions; start Meta/TikTok review.
+- **Phase 2 (months 3–5):** Chatterbox cloning with consent, LoRA consistency, aggregator publishing, 3-minute films, self-host Wan 2.2 + ACE-Step.
+- **Phase 3 (months 6+):** MuseTalk presenters, image + song studios, 5–15 min films, premium tiers.
+
+### Thresholds that change the plan
+
+>40–60 clips/day → self-host GPU. Free-tier spend per user > revenue per user → tighten quotas / add ads. Meta/TikTok approved → drop aggregator. EvoLink unmaintained → self-host DramaClaw internally (never resold) + own shell.
+
+## Caveats
+
+Prices move monthly; waoowaoo and several other licenses unverified; EvoLink is small; platform reviews are the biggest schedule risk; music-model training-data provenance is legally untested.
+
+---
+
+## Decisions & verification notes (2026-10-27)
+
+1. **Control plane: Next.js only.** The Spring Boot control plane from §7 is dropped for the MVP. Auth, credits and quotas live in the same Next.js app as the pipeline.
+2. **EvoLink license discrepancy.** At upstream commit `3991bbb` the `LICENSE` file is **Apache License 2.0**, while `package.json` says `"license": "MIT"`. Both allow a hosted commercial SaaS, but Apache 2.0 requires keeping copyright/NOTICE text and marking modified files. Treat it as Apache 2.0 when copying any code.
+3. **EvoLink maintenance.** The last upstream commit is dated **2026-06-24** (about 4 months old). That raises the maintenance risk noted in the caveats. The scaffold therefore does **not** vendor EvoLink (about 1,500 files). It is a lean, standalone app with the same stack shape (Next.js + BullMQ + provider adapters), so EvoLink pieces (Remotion editor, Prisma schema, auth) can be pulled in selectively later with attribution.
+4. **fal.ai model IDs** in `src/lib/providers/fal.ts` were checked against fal's OpenAPI schemas: `fal-ai/nano-banana-2` (+ `/edit`), `fal-ai/wan-25-preview/image-to-video`, `fal-ai/kling-video/v2.6/pro/image-to-video`. Two defaults would silently raise cost if not overridden: Kling's `generate_audio` defaults to **true** (2× price) and Wan's `resolution` defaults to **1080p**. The adapters set both explicitly. They have not yet been exercised with a live `FAL_KEY`.
