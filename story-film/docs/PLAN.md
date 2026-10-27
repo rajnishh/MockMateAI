@@ -134,6 +134,36 @@ The roadmap above stands. The launch market is **Indian creators** and it is bui
 
 Notes for the India launch: TikTok is banned in India (since 2020), so the TikTok items above apply only when expanding to other markets. Meta app review is still worth starting in Phase 1, but the share-sheet path means launch does not depend on it.
 
+### Product modules
+
+The product is a creator suite rather than a single film tool. All modules share one pipeline (script → images → motion → voice/music → assembly) and one publishing layer.
+
+| Module | What the user does | Built on | Phase |
+|---|---|---|---|
+| **Short Film** | Story → narrated 30–60s vertical film | Existing pipeline | 0 (done) |
+| **Cartoon Series** (hero feature) | Create a character once, then one tap per episode: "Anvi learns colours" → 30–60s kids cartoon with the same character every time | **Character bible**: name, fixed visual description, reference sheet (Nano Banana), voice; every episode passes the reference images. Kid-safe script prompt + content filter. LoRA later for stronger consistency | 0–1 |
+| **Short Clips** | One prompt → 5–15s single-shot clip, meme or loop | Pipeline with one shot, no narration | 1 |
+| **Song Studio** | Lyrics (typed or AI-written) + genre → song; optionally a lyric or music video | ACE-Step (vocals + instrumental); lyric video = keyframes + karaoke captions; music video = AI clips | 1 (audio), 2 (video) |
+| **Sing in my voice** | Record ~1 min of own voice (with consent) → song sung in that voice | Voice conversion on the ACE-Step vocal stem (RVC-style; verify license of models used). Consent recording stored | 2 |
+| **Creator & Manager** | Calendar, scheduling, multiple accounts, analytics, AI ideas/captions/hashtags, agency workspaces | See below | 1–3 |
+
+**Creator & Manager breakdown**
+
+| Feature | Phase |
+|---|---|
+| Download + share sheet (Instagram / WhatsApp / YouTube) | 0 |
+| Content calendar + scheduled posts; direct publish to YouTube (own channel) | 1 |
+| AI ideas, captions, hashtags, series planning ("next 7 episodes of Anvi") | 1 |
+| Multiple social accounts per user; Instagram/Facebook direct publish (after Meta review; aggregator until then) | 2 |
+| Analytics (views, followers, best posting times) from platform APIs | 2 |
+| Agency workspaces: manage other creators, roles (owner / manager / creator), approval before publish | 3 |
+
+**Rules that apply to all modules**
+
+- **No famous-artist voice cloning.** Indian courts have granted personality-rights protection against AI voice/likeness use (e.g. Arijit Singh, 2024; Amitabh Bachchan; Anil Kapoor), and platforms remove such content. Offer genre styles ("Bollywood romantic", "Punjabi pop"), original AI singers, or the user's own voice with recorded consent. Block prompts naming real artists.
+- **Kids content.** Cartoon Series output is likely "made for kids" on YouTube (COPPA: comments and personalised ads disabled, must be flagged). Scripts go through a kid-safety filter; no real children's likeness.
+- **AI disclosure** (label + C2PA) on every output, as in §6.
+
 ### Thresholds that change the plan
 
 >40–60 clips/day → self-host GPU. Free-tier spend per user > revenue per user → tighten quotas / add ads. Meta/TikTok approved → drop aggregator. EvoLink unmaintained → self-host DramaClaw internally (never resold) + own shell.
