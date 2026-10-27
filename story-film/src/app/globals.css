@@ -36,10 +36,15 @@ video { width: 100%; max-width: 360px; border-radius: 8px; display: block; margi
 .character img { width: 100%; aspect-ratio: 9 / 16; object-fit: cover; border-radius: 6px; display: block; margin-bottom: 4px; }
 .character.add { display: flex; align-items: center; justify-content: center; min-height: 120px; color: var(--muted); }
 .panel { margin-top: 12px; padding: 12px; border: 1px dashed var(--border); border-radius: 8px; }
-input[type="text"] { font: inherit; width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: inherit; }
+input[type="text"], input[type="tel"] { font: inherit; width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: inherit; }
 .check { display: flex; align-items: center; gap: 8px; font-weight: 400; }
 .check input { width: auto; }
 .ideas { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .ideas button { width: auto; background: transparent; color: inherit; border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; font-size: 14px; }
 .secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
 .actions { display: flex; gap: 8px; margin-top: 12px; }
+.prefix { flex: 0 0 auto; display: flex; align-items: center; padding: 0 12px; border: 1px solid var(--border); border-radius: 8px; color: var(--muted); }
+header.top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+header.top button { width: auto; padding: 6px 12px; font-size: 14px; }
+.library { display: grid; gap: 10px; margin-top: 12px; }
+.library a { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; color: inherit; text-decoration: none; }

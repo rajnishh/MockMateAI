@@ -1,23 +1,23 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { Readable } from "node:stream";
-import { getFilmQueue } from "@/lib/queue/films";
-import { getUserId } from "@/lib/session";
+import { getDb } from "@/lib/db";
+import { getFilm } from "@/lib/films";
+import { getUserId, unauthorized } from "@/lib/session";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const userId = await getUserId();
+  if (!userId) return unauthorized();
   const { id } = await params;
-  const job = await getFilmQueue().getJob(id);
-  if (!job || job.data.userId !== (await getUserId(false)) || !job.returnvalue?.output) {
-    return new Response("Not found", { status: 404 });
-  }
-  // Output path comes from the worker's return value, never from the request.
-  const file: string = job.returnvalue.output;
-  const { size } = await stat(file);
-  return new Response(Readable.toWeb(createReadStream(file)) as ReadableStream, {
+  const film = await getFilm(getDb(), userId, id).catch(() => undefined);
+  if (!film?.outputPath) return new Response("Not found", { status: 404 });
+  // The path was written by the worker, never taken from the request.
+  const { size } = await stat(film.outputPath);
+  return new Response(Readable.toWeb(createReadStream(film.outputPath)) as ReadableStream, {
     headers: {
       "Content-Type": "video/mp4",
       "Content-Length": String(size),
-      "Content-Disposition": `attachment; filename="film-${id}.mp4"`,
+      "Content-Disposition": `inline; filename="film-${id}.mp4"`,
     },
   });
 }

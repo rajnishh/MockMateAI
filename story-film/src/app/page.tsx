@@ -1,9 +1,10 @@
 "use client";
 
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { authClient } from "@/lib/auth-client";
 
 type Mode = "film" | "cartoon";
-type Status = { state: string; stage: string | null; title: string | null; error: string | null };
+type Status = { id: string; status: string; stage: string | null; title: string | null; error: string | null; videoUrl: string | null };
 type Character = { id: string; name: string; description: string; imageUrl: string };
 type Idea = { title: string; idea: string };
 
@@ -44,6 +45,15 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [canShareFiles, setCanShareFiles] = useState(false);
+  const [library, setLibrary] = useState<Status[]>([]);
+  const { data: session } = authClient.useSession();
+
+  const loadLibrary = useCallback(() => {
+    fetch("/api/films")
+      .then((r) => (r.ok ? r.json() : { films: [] }))
+      .then((d: { films: Status[] }) => setLibrary(d.films))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch("/api/characters")
@@ -55,7 +65,8 @@ export default function Home() {
       .catch(() => {});
     const probe = new File([""], "probe.mp4", { type: "video/mp4" });
     setCanShareFiles(typeof navigator.canShare === "function" && navigator.canShare({ files: [probe] }));
-  }, []);
+    loadLibrary();
+  }, [loadLibrary]);
 
   useEffect(() => {
     if (!jobId) return;
@@ -64,10 +75,13 @@ export default function Home() {
       if (!res.ok) return;
       const next: Status = await res.json();
       setStatus(next);
-      if (next.state === "completed" || next.state === "failed") clearInterval(timer);
+      if (next.status === "completed" || next.status === "failed") {
+        clearInterval(timer);
+        loadLibrary();
+      }
     }, 4000);
     return () => clearInterval(timer);
-  }, [jobId]);
+  }, [jobId, loadLibrary]);
 
   async function saveCharacter(e: FormEvent) {
     e.preventDefault();
@@ -126,11 +140,20 @@ export default function Home() {
     }
   }
 
-  const busy = submitting || (status !== null && status.state !== "completed" && status.state !== "failed");
+  const busy = submitting || (status !== null && status.status !== "completed" && status.status !== "failed");
+
+  async function signOut() {
+    await authClient.signOut();
+    window.location.href = "/login";
+  }
 
   return (
     <main>
-      <h1>Story to Film</h1>
+      <header className="top">
+        <h1>Story to Film</h1>
+        <button type="button" className="secondary" onClick={signOut}>Sign out</button>
+      </header>
+      {session && <p className="muted">Signed in as {session.user.phoneNumber ?? session.user.email}</p>}
       <p className="muted">Make cartoon episodes and short films for Reels, Shorts and WhatsApp.</p>
 
       <div className="tabs" role="group" aria-label="What to make">
@@ -222,11 +245,11 @@ export default function Home() {
       {error && <div className="status">{error}</div>}
       {jobId && (
         <div className="status">
-          {!status || status.state === "waiting" ? (
+          {!status || status.status === "queued" ? (
             <p>Queued…</p>
-          ) : status.state === "failed" ? (
+          ) : status.status === "failed" ? (
             <p>Something went wrong: {status.error}</p>
-          ) : status.state === "completed" ? (
+          ) : status.status === "completed" ? (
             <>
               <strong>{status.title}</strong>
               <video src={`/api/films/${jobId}/video`} controls playsInline />
@@ -241,6 +264,20 @@ export default function Home() {
             <p>{STAGE_LABELS[status.stage ?? ""] ?? "Working"}…</p>
           )}
         </div>
+      )}
+
+      {library.length > 0 && (
+        <section>
+          <h2>My videos</h2>
+          <div className="library">
+            {library.map((f) => (
+              <a key={f.id} href={f.videoUrl ?? "#"} onClick={(e) => !f.videoUrl && e.preventDefault()}>
+                <span>{f.title ?? "Untitled"}</span>
+                <span className="muted">{f.status}</span>
+              </a>
+            ))}
+          </div>
+        </section>
       )}
     </main>
   );

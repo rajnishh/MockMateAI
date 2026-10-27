@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { CharacterStore } from "@/lib/characters";
+import { getCharacter } from "@/lib/characters";
+import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
 import { buildLlm } from "@/lib/providers";
-import { getRedis } from "@/lib/queue/films";
-import { getUserId } from "@/lib/session";
+import { getUserId, unauthorized } from "@/lib/session";
 import { suggestIdeas } from "@/lib/suggestions";
 
 const requestSchema = z.object({
@@ -15,15 +15,13 @@ const requestSchema = z.object({
 });
 
 export async function POST(req: Request) {
+  const userId = await getUserId();
+  if (!userId) return unauthorized();
   const parsed = requestSchema.safeParse(await req.json());
   if (!parsed.success) {
     return NextResponse.json({ error: z.prettifyError(parsed.error) }, { status: 400 });
   }
-  const userId = await getUserId(false);
-  const character =
-    parsed.data.characterId && userId
-      ? await new CharacterStore(getRedis()).get(userId, parsed.data.characterId)
-      : undefined;
+  const character = parsed.data.characterId ? await getCharacter(getDb(), userId, parsed.data.characterId) : undefined;
   try {
     const ideas = await suggestIdeas(buildLlm(loadEnv()), { ...parsed.data, character });
     return NextResponse.json({ ideas });
