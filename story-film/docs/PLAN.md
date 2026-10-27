@@ -116,6 +116,24 @@ MVP: download + share link + one-tap YouTube; aggregator next; start Meta/TikTok
 - **Phase 2 (months 3–5):** Chatterbox cloning with consent, LoRA consistency, aggregator publishing, 3-minute films, self-host Wan 2.2 + ACE-Step.
 - **Phase 3 (months 6+):** MuseTalk presenters, image + song studios, 5–15 min films, premium tiers.
 
+### India-first additions, phased in
+
+The roadmap above stands. The launch market is **Indian creators** and it is built by a solo developer, so these items are layered onto the existing phases rather than replacing anything.
+
+| Phase | Addition | Why |
+|---|---|---|
+| **0** | **₹0 free-tier path:** pan-and-zoom ("Ken Burns") on stills via FFmpeg in place of AI video, free OpenRouter `:free` LLM models, a free image source, Kokoro voice. Selected by a provider-mode switch so the paid fal.ai path stays intact. | Price-sensitive users; free films cost ≈ $0, which makes the free tier sustainable |
+| **0** | **Installable web app (PWA)** + one-tap share of the MP4 to the Android share sheet (Web Share API with files) | Android is ~95% of Indian phones; posting to Instagram / WhatsApp / YouTube without Meta or Google review |
+| **1** | **Hindi end-to-end** (script, Kokoro Hindi voice, burned captions) ahead of Arabic | First market |
+| **1** | **Razorpay (UPI) credits** for AI-animated films; free tier stays pan-and-zoom | UPI is the default payment rail |
+| **1** | Freemium split: free = pan-and-zoom, paid = Wan/Kling clips; optional single AI "hero shot" per free film later | Keeps AI video spend tied to revenue |
+| **2** | **More Indian languages** (Tamil, Telugu, Bengali, Marathi) via AI4Bharat Indic Parler-TTS (verify license) or Sarvam Bulbul API | Kokoro only covers Hindi |
+| **2** | **Native Android app (Expo)** on the same API, once there are users | Play Store discovery, better recording/gallery access; brings Play billing rules |
+| **2** | WhatsApp Status / Reels / Shorts presets (length, safe areas, captions) | Where Indian creators actually post |
+| **3** | iOS app | Small share of the Indian market |
+
+Notes for the India launch: TikTok is banned in India (since 2020), so the TikTok items above apply only when expanding to other markets. Meta app review is still worth starting in Phase 1, but the share-sheet path means launch does not depend on it.
+
 ### Thresholds that change the plan
 
 >40–60 clips/day → self-host GPU. Free-tier spend per user > revenue per user → tighten quotas / add ads. Meta/TikTok approved → drop aggregator. EvoLink unmaintained → self-host DramaClaw internally (never resold) + own shell.
@@ -132,3 +150,4 @@ Prices move monthly; waoowaoo and several other licenses unverified; EvoLink is 
 2. **EvoLink license discrepancy.** At upstream commit `3991bbb` the `LICENSE` file is **Apache License 2.0**, while `package.json` says `"license": "MIT"`. Both allow a hosted commercial SaaS, but Apache 2.0 requires keeping copyright/NOTICE text and marking modified files. Treat it as Apache 2.0 when copying any code.
 3. **EvoLink maintenance.** The last upstream commit is dated **2026-06-24** (about 4 months old). That raises the maintenance risk noted in the caveats. The scaffold therefore does **not** vendor EvoLink (about 1,500 files). It is a lean, standalone app with the same stack shape (Next.js + BullMQ + provider adapters), so EvoLink pieces (Remotion editor, Prisma schema, auth) can be pulled in selectively later with attribution.
 4. **fal.ai model IDs** in `src/lib/providers/fal.ts` were checked against fal's OpenAPI schemas: `fal-ai/nano-banana-2` (+ `/edit`), `fal-ai/wan-25-preview/image-to-video`, `fal-ai/kling-video/v2.6/pro/image-to-video`. Two defaults would silently raise cost if not overridden: Kling's `generate_audio` defaults to **true** (2× price) and Wan's `resolution` defaults to **1080p**. The adapters set both explicitly. They have not yet been exercised with a live `FAL_KEY`.
+5. **Launch market: Indian creators, solo build.** The original plan is kept; India-specific work is phased in (see "India-first additions" under §7). The client is a web app made installable (PWA) first; a native Android app comes in Phase 2.
