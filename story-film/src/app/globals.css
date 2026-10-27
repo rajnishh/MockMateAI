@@ -27,3 +27,19 @@ label { display: block; margin: 16px 0 6px; font-weight: 600; }
 .row > * { flex: 1; }
 .status { margin-top: 24px; padding: 16px; border: 1px solid var(--border); border-radius: 8px; }
 video { width: 100%; max-width: 360px; border-radius: 8px; display: block; margin-top: 12px; }
+.tabs { display: flex; gap: 8px; margin: 16px 0; }
+.tabs button { background: transparent; color: inherit; border: 1px solid var(--border); }
+.tabs button[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+.characters { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+.character { padding: 6px; border: 2px solid var(--border); border-radius: 10px; background: transparent; color: inherit; text-align: center; font-size: 14px; }
+.character[aria-pressed="true"] { border-color: var(--accent); }
+.character img { width: 100%; aspect-ratio: 9 / 16; object-fit: cover; border-radius: 6px; display: block; margin-bottom: 4px; }
+.character.add { display: flex; align-items: center; justify-content: center; min-height: 120px; color: var(--muted); }
+.panel { margin-top: 12px; padding: 12px; border: 1px dashed var(--border); border-radius: 8px; }
+input[type="text"] { font: inherit; width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: inherit; }
+.check { display: flex; align-items: center; gap: 8px; font-weight: 400; }
+.check input { width: auto; }
+.ideas { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.ideas button { width: auto; background: transparent; color: inherit; border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; font-size: 14px; }
+.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+.actions { display: flex; gap: 8px; margin-top: 12px; }

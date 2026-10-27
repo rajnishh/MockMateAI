@@ -1,6 +1,13 @@
 import { z } from "zod";
 
 const schema = z.object({
+  // free: Cloudflare Workers AI (LLM + images) + pan-and-zoom video, ~$0 per film.
+  // paid: OpenRouter + fal.ai (Nano Banana 2 + Wan/Kling).
+  PROVIDER_MODE: z.enum(["free", "paid"]).default("free"),
+  CLOUDFLARE_ACCOUNT_ID: z.string().optional(),
+  CLOUDFLARE_API_TOKEN: z.string().optional(),
+  CF_IMAGE_MODEL: z.string().optional(),
+  CF_LLM_MODEL: z.string().optional(),
   REDIS_URL: z.string().default("redis://localhost:6379"),
   OPENROUTER_API_KEY: z.string().optional(),
   OPENROUTER_MODEL: z.string().default("google/gemini-2.5-flash"),
@@ -12,7 +19,9 @@ const schema = z.object({
   FAL_KLING_MODEL_ID: z.string().optional(),
   KOKORO_URL: z.string().default("http://localhost:8880"),
   KOKORO_VOICE: z.string().default("af_heart"),
-  ACESTEP_URL: z.string().default("http://localhost:8001"),
+  // Optional: without an ACE-Step server, films have narration only.
+  ACESTEP_URL: z.string().optional(),
+  FREE_FILMS_PER_WEEK: z.coerce.number().int().min(1).default(3),
   OUTPUT_DIR: z.string().default("./output"),
 });
 

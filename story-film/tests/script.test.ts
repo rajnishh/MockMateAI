@@ -19,8 +19,25 @@ describe("script", () => {
   });
 
   it("asks for the requested shot count and style", () => {
-    const prompt = buildScriptPrompt("A story", "animated", 6);
+    const prompt = buildScriptPrompt({ story: "A story", style: "animated", shotCount: 6 });
     expect(prompt).toContain("exactly 6 shots");
     expect(prompt).toContain("3D animated");
+    expect(prompt).not.toContain("young children");
+  });
+
+  it("pins a saved character and adds kid-safety rules", () => {
+    const prompt = buildScriptPrompt({
+      story: "Learns colours",
+      style: "animated",
+      shotCount: 4,
+      kidSafe: true,
+      character: { name: "Mia", description: "toddler, curly bun, yellow raincoat", referenceImageUrl: "file:///x.jpg", seed: 7 },
+    });
+    expect(prompt).toContain('"Mia, toddler, curly bun, yellow raincoat" verbatim');
+    expect(prompt).toContain("young children");
+  });
+
+  it("extracts JSON surrounded by prose", () => {
+    expect(parseScript("Sure! Here it is:\n" + JSON.stringify(script) + "\nEnjoy.").title).toBe("The Lantern");
   });
 });

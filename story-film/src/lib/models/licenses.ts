@@ -15,6 +15,10 @@ export const MODEL_LICENSES: Record<string, ModelLicense> = {
   "cosyvoice2": { license: "Apache-2.0", commercial: true },
   "ace-step": { license: "Apache-2.0", commercial: true },
   "faster-whisper": { license: "MIT", commercial: true },
+  "flux-1-schnell": { license: "Apache-2.0; Cloudflare Workers AI terms", commercial: true },
+  "ken-burns-ffmpeg": { license: "FFmpeg (LGPL/GPL), run server-side", commercial: true },
+  "llama-3.3-70b": { license: "Llama 3.3 Community License", commercial: true, note: "attribution; >700M MAU needs a Meta license" },
+  "openrouter": { license: "Per routed model; check the chosen model's terms", commercial: true },
 
   "xtts-v2": { license: "CPML", commercial: false, note: "Coqui defunct; no commercial license available" },
   "f5-tts": { license: "CC-BY-NC-4.0", commercial: false },

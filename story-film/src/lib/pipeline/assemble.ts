@@ -8,7 +8,8 @@ export const FRAME_SIZE: Record<Resolution, { w: number; h: number }> = {
 export interface AssembleInput {
   clips: string[];
   narration: string[];
-  music: string;
+  // Without music the narration plays over silence.
+  music?: string;
   clipSeconds: number;
   resolution: Resolution;
   watermark: boolean;
@@ -58,7 +59,9 @@ export function buildAssembleArgs(input: AssembleInput): string[] {
     "-y",
     ...input.clips.flatMap((c) => ["-i", c]),
     ...input.narration.flatMap((a) => ["-i", a]),
-    "-stream_loop", "-1", "-i", input.music,
+    ...(input.music
+      ? ["-stream_loop", "-1", "-i", input.music]
+      : ["-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo"]),
     "-filter_complex", filters.join(";"),
     "-map", "[vout]",
     "-map", "[aout]",

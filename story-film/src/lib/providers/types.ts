@@ -20,13 +20,33 @@ export interface FilmScript {
   musicPrompt: string;
 }
 
-export interface LlmProvider {
-  writeScript(input: { story: string; style: FilmStyle; shotCount: number }): Promise<FilmScript>;
+// A saved, reusable character. Its description is repeated in every image
+// prompt and its reference image (and seed) keep the look consistent.
+export interface CharacterProfile {
+  name: string;
+  description: string;
+  referenceImageUrl: string;
+  seed: number;
 }
 
+export interface ScriptRequest {
+  story: string;
+  style: FilmStyle;
+  shotCount: number;
+  character?: CharacterProfile;
+  kidSafe?: boolean;
+}
+
+export interface LlmProvider {
+  readonly modelId: string;
+  writeScript(input: ScriptRequest): Promise<FilmScript>;
+  completeJson(prompt: string): Promise<unknown>;
+}
+
+// URLs are either https:// (hosted providers) or file:// (local media store).
 export interface ImageProvider {
   readonly modelId: string;
-  generateKeyframe(input: { prompt: string; referenceImageUrls: string[] }): Promise<{ url: string }>;
+  generateKeyframe(input: { prompt: string; referenceImageUrls: string[]; seed?: number }): Promise<{ url: string }>;
 }
 
 export interface VideoProvider {

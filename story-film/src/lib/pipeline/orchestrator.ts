@@ -2,8 +2,18 @@ import { execFile } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
+import { readMedia } from "@/lib/media";
 import { assertCommercialSafe } from "@/lib/models/licenses";
-import type { FilmStyle, ImageProvider, LlmProvider, MusicProvider, Resolution, TtsProvider, VideoProvider } from "@/lib/providers/types";
+import type {
+  CharacterProfile,
+  FilmStyle,
+  ImageProvider,
+  LlmProvider,
+  MusicProvider,
+  Resolution,
+  TtsProvider,
+  VideoProvider,
+} from "@/lib/providers/types";
 import { CLIP_SECONDS, shotCountFor } from "@/lib/quota/plans";
 import { buildAssembleArgs } from "./assemble";
 
@@ -16,6 +26,8 @@ export interface FilmRequest {
   resolution: Resolution;
   watermark: boolean;
   referenceImageUrls: string[];
+  character?: CharacterProfile;
+  kidSafe?: boolean;
 }
 
 export interface PipelineDeps {
@@ -23,7 +35,7 @@ export interface PipelineDeps {
   image: ImageProvider;
   video: VideoProvider;
   tts: TtsProvider;
-  music: MusicProvider;
+  music?: MusicProvider;
   fetchFn?: typeof fetch;
   runFfmpeg?: (args: string[]) => Promise<void>;
 }
@@ -44,13 +56,11 @@ export async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, i:
 }
 
 async function download(fetchFn: typeof fetch, url: string, file: string): Promise<string> {
-  const res = await fetchFn(url);
-  if (!res.ok) throw new Error(`Download failed ${res.status}: ${url}`);
-  await writeFile(file, Buffer.from(await res.arrayBuffer()));
+  await writeFile(file, await readMedia(url, fetchFn));
   return file;
 }
 
-async function defaultFfmpeg(args: string[]): Promise<void> {
+export async function defaultFfmpeg(args: string[]): Promise<void> {
   await execFileAsync("ffmpeg", args, { maxBuffer: 16 * 1024 * 1024 });
 }
 
@@ -60,21 +70,30 @@ export async function runFilm(
   workDir: string,
   onStage: (stage: Stage) => Promise<void> | void = () => {},
 ): Promise<{ output: string; title: string }> {
-  for (const p of [deps.image, deps.video, deps.tts, deps.music]) assertCommercialSafe(p.modelId);
+  for (const p of [deps.llm, deps.image, deps.video, deps.tts, deps.music]) if (p) assertCommercialSafe(p.modelId);
   const fetchFn = deps.fetchFn ?? fetch;
   await mkdir(workDir, { recursive: true });
 
   await onStage("script");
-  const script = await deps.llm.writeScript({ story: req.story, style: req.style, shotCount: shotCountFor(req.durationSec) });
+  const script = await deps.llm.writeScript({
+    story: req.story,
+    style: req.style,
+    shotCount: shotCountFor(req.durationSec),
+    character: req.character,
+    kidSafe: req.kidSafe,
+  });
   await writeFile(path.join(workDir, "script.json"), JSON.stringify(script, null, 2));
 
-  // The first keyframe anchors character identity for the rest.
+  // A saved character's reference image anchors identity; otherwise the
+  // first keyframe does. The seed helps text-only image models stay on model.
   await onStage("keyframes");
+  const seed = req.character?.seed;
+  const refs = [...(req.character ? [req.character.referenceImageUrl] : []), ...req.referenceImageUrls];
   const [first, ...rest] = script.shots;
-  const firstFrame = await deps.image.generateKeyframe({ prompt: first.imagePrompt, referenceImageUrls: req.referenceImageUrls });
-  const anchors = [...req.referenceImageUrls, firstFrame.url].slice(-5);
+  const firstFrame = await deps.image.generateKeyframe({ prompt: first.imagePrompt, referenceImageUrls: refs, seed });
+  const anchors = req.character ? refs : [...refs, firstFrame.url].slice(-5);
   const restFrames = await mapLimit(rest, 3, (shot) =>
-    deps.image.generateKeyframe({ prompt: shot.imagePrompt, referenceImageUrls: anchors }),
+    deps.image.generateKeyframe({ prompt: shot.imagePrompt, referenceImageUrls: anchors, seed }),
   );
   const frames = [firstFrame, ...restFrames];
 
@@ -95,8 +114,11 @@ export async function runFilm(
     await writeFile(file, await deps.tts.speak({ text: shot.narration, language: script.language }));
     return file;
   });
-  const music = path.join(workDir, "music.wav");
-  await writeFile(music, await deps.music.compose({ prompt: script.musicPrompt, durationSec: clips.length * CLIP_SECONDS }));
+  let music: string | undefined;
+  if (deps.music) {
+    music = path.join(workDir, "music.wav");
+    await writeFile(music, await deps.music.compose({ prompt: script.musicPrompt, durationSec: clips.length * CLIP_SECONDS }));
+  }
 
   await onStage("assemble");
   const output = path.join(workDir, "film.mp4");

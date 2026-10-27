@@ -63,11 +63,14 @@ export class FalNanoBanana implements ImageProvider {
 
   // With reference images the edit endpoint keeps character identity;
   // without them it falls back to plain text-to-image.
-  async generateKeyframe(input: { prompt: string; referenceImageUrls: string[] }): Promise<{ url: string }> {
-    const hasRefs = input.referenceImageUrls.length > 0;
+  async generateKeyframe(input: { prompt: string; referenceImageUrls: string[]; seed?: number }): Promise<{ url: string }> {
+    // fal can only fetch public URLs; local (free-mode) references are skipped.
+    const refs = input.referenceImageUrls.filter((u) => u.startsWith("https://"));
+    const hasRefs = refs.length > 0;
     const out = await this.client.run<{ images: { url: string }[] }>(hasRefs ? this.editModelId : this.textModelId, {
       prompt: input.prompt,
-      ...(hasRefs ? { image_urls: input.referenceImageUrls } : {}),
+      ...(hasRefs ? { image_urls: refs } : {}),
+      ...(input.seed !== undefined ? { seed: input.seed } : {}),
       aspect_ratio: "9:16",
       num_images: 1,
     });
