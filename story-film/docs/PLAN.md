@@ -141,24 +141,22 @@ The product is a creator suite rather than a single film tool. All modules share
 | Module | What the user does | Built on | Phase |
 |---|---|---|---|
 | **Short Film** | Story → narrated 30–60s vertical film | Existing pipeline | 0 (done) |
-| **Cartoon Series** (hero feature) | Create a character once, then one tap per episode: "Anvi learns colours" → 30–60s kids cartoon with the same character every time | **Character bible**: name, fixed visual description, reference sheet (Nano Banana), voice; every episode passes the reference images. Kid-safe script prompt + content filter. LoRA later for stronger consistency | 0–1 |
+| **Cartoon Series** (hero feature) | Create a character once, then one tap per episode (e.g. "learns colours") → 30–60s kids cartoon with the same character every time | **Character bible**: name, fixed visual description, reference sheet (Nano Banana), voice; every episode passes the reference images. Kid-safe script prompt + content filter. LoRA later for stronger consistency | 0–1 |
 | **Short Clips** | One prompt → 5–15s single-shot clip, meme or loop | Pipeline with one shot, no narration | 1 |
 | **Song Studio** | Lyrics (typed or AI-written) + genre → song; optionally a lyric or music video | ACE-Step (vocals + instrumental); lyric video = keyframes + karaoke captions; music video = AI clips | 1 (audio), 2 (video) |
 | **Sing in my voice** | Record ~1 min of own voice (with consent) → song sung in that voice | Voice conversion on the ACE-Step vocal stem (RVC-style; verify license of models used). Consent recording stored | 2 |
 | **Creator & Manager** | Calendar, scheduling, multiple accounts, analytics, AI ideas/captions/hashtags, agency workspaces | See below | 1–3 |
 
-**Cartoon Series templates**
+**AI suggestions (all modules)**
 
-The reference channel (Anvi's Mini English, ~212K followers) shows the format to target: one consistent 3D-animated toddler character (same hair and outfit in every post), 10–20s Reels teaching 6–10 English words, with on-screen text and a voiceover saying each word. The manual workflow it replaces is image tool → character reference → Kling/Hailuo/Runway/Veo → ElevenLabs → CapCut.
+Users shouldn't start from a blank page. At each step the app offers AI suggestions the user can tap or ignore:
 
-| Template | Output | Pipeline |
-|---|---|---|
-| **Word list** | 6–10 words, ~2s each, word (and meaning) as big text, voice says each word | 1 keyframe per word with the character in a matching scene → short motion (pan-and-zoom free, AI clip paid) → per-word TTS → text overlay + music |
-| **Vocabulary cards** | Word groups (e.g. Bull / Cow / Calf) with the character pointing or reacting | Same as word list, grouped layout |
-| **Scene story** | Character in a themed scene (outfits, haircuts, cars) naming items | Short Film pipeline with 3–5 shots |
-| **Story episode** | 30–60s narrated mini-story | Short Film pipeline |
+- **What to make:** format ideas based on the user's niche and past posts (e.g. reel, short clip, cartoon episode, song, word-list or explainer reel).
+- **Content:** topic ideas, script or lyric drafts, character ideas, shot lists.
+- **Look and sound:** 2–3 style previews, voice and music options.
+- **Posting:** caption, hashtags, best time to post, which account and platform.
 
-Needs on top of the current pipeline: a saved character bible, a child-like TTS voice (Kokoro has child-sounding presets; verify), large animated text overlays, and a word-list input instead of a free-text story. Characters made from a real child's photo are allowed only with a parent/guardian consent attestation, and the photo is stored privately. Market the style as "3D cartoon", not by studio names.
+Suggestions come from the LLM and are always editable; nothing is published without the user confirming.
 
 **Creator & Manager breakdown**
 
@@ -166,7 +164,7 @@ Needs on top of the current pipeline: a saved character bible, a child-like TTS 
 |---|---|
 | Download + share sheet (Instagram / WhatsApp / YouTube) | 0 |
 | Content calendar + scheduled posts; direct publish to YouTube (own channel) | 1 |
-| AI ideas, captions, hashtags, series planning ("next 7 episodes of Anvi") | 1 |
+| AI ideas, captions, hashtags, series planning (e.g. "next 7 episodes") | 1 |
 | Multiple social accounts per user; Instagram/Facebook direct publish (after Meta review; aggregator until then) | 2 |
 | Analytics (views, followers, best posting times) from platform APIs | 2 |
 | Agency workspaces: manage other creators, roles (owner / manager / creator), approval before publish | 3 |
