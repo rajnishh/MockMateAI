@@ -1,5 +1,6 @@
 import { createHmac } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
+import { currencyForTimeZone } from "@/lib/billing/catalog";
 import { planIdsFromEnv } from "@/lib/billing/config";
 import { getBalance, grantCredits, spendCredits } from "@/lib/billing/credits";
 import { Razorpay } from "@/lib/billing/razorpay";
@@ -71,7 +72,7 @@ describe("credit packs", () => {
   it("credits once whether checkout or the webhook arrives first", async () => {
     const { rzp, calls } = fakeRazorpay();
     const checkout = await startPackCheckout(db, rzp, "u3", "starter", "INR");
-    expect(calls[0].body).toMatchObject({ amount: 19900, currency: "INR", notes: { userId: "u3", pack: "starter" } });
+    expect(calls[0].body).toMatchObject({ amount: 24900, currency: "INR", notes: { userId: "u3", pack: "starter" } });
 
     const signature = hmac(`${checkout.orderId}|pay_A`, "key_secret");
     await expect(verifyPackCheckout(db, rzp, "u2", { orderId: checkout.orderId, paymentId: "pay_A", signature })).rejects.toThrow(/Unknown order/);
@@ -81,13 +82,26 @@ describe("credit packs", () => {
     const event = { event: "order.paid", payload: { order: { entity: { id: checkout.orderId } }, payment: { entity: { id: "pay_A" } } } };
     expect(await handleWebhook(db, "evt_1", event)).toBe("handled");
     expect(await handleWebhook(db, "evt_1", event)).toBe("duplicate");
-    expect(await getBalance(db, "u3")).toBe(20);
+    expect(await getBalance(db, "u3")).toBe(50);
   });
 
   it("charges USD for international buyers", async () => {
     const { rzp, calls } = fakeRazorpay();
     await startPackCheckout(db, rzp, "u3", "creator", "USD");
-    expect(calls[0].body).toMatchObject({ amount: 799, currency: "USD" });
+    expect(calls[0].body).toMatchObject({ amount: 999, currency: "USD" });
+  });
+
+  it("picks the visitor's currency from their time zone", () => {
+    expect(currencyForTimeZone("Asia/Kolkata")).toBe("INR");
+    expect(currencyForTimeZone("Asia/Dubai")).toBe("AED");
+    expect(currencyForTimeZone("Europe/London")).toBe("USD");
+    expect(currencyForTimeZone(undefined)).toBe("USD");
+  });
+
+  it("charges dirhams for UAE buyers", async () => {
+    const { rzp, calls } = fakeRazorpay();
+    await startPackCheckout(db, rzp, "u3", "pro", "AED");
+    expect(calls[0].body).toMatchObject({ amount: 9200, currency: "AED" });
   });
 });
 
@@ -118,9 +132,9 @@ describe("monthly plans", () => {
     await handleWebhook(db, "evt_c1", charged("pay_1"));
     // Same payment in a different event (e.g. a resend) adds nothing.
     await handleWebhook(db, "evt_c1b", charged("pay_1"));
-    expect(await getBalance(db, "u4")).toBe(80);
+    expect(await getBalance(db, "u4")).toBe(120);
     await handleWebhook(db, "evt_c2", charged("pay_2"));
-    expect(await getBalance(db, "u4")).toBe(160);
+    expect(await getBalance(db, "u4")).toBe(240);
     expect((await currentSubscription(db, "u4"))?.currentEnd?.getTime()).toBe(1893456000 * 1000);
   });
 

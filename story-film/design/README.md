@@ -9,7 +9,7 @@ https://claude.ai/artifact/UBYyBwMR62t7oBhgWNQsy5
 - `v1.0/brand.md`: its brand book (voice, visual foundations, iconography, places in the app, accessibility).
 - `v1.0/components.css`: reference component styles (`rk-` classes) used by the artifact's previews.
 - `v1.0/logo/`: the app icon and the reel mark (SVG).
-- `v1.0/prototype.html`: clickable wireframes of all 38 screens (phone and desktop, light and dark, empty/loading/error states). Published: https://claude.ai/artifact/A3YU4eFPh8WDdKdHLxRNfc
+- `v1.0/prototype.html`: clickable wireframes of all 40 screens (phone and desktop, light and dark, empty/loading/error states). Published: https://claude.ai/artifact/A3YU4eFPh8WDdKdHLxRNfc
 
 When the artifact changes, refresh these copies.
 

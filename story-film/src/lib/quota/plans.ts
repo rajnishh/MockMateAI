@@ -9,7 +9,7 @@ export interface Plan {
 
 // "Free" is capped and watermarked: every free film costs real API spend.
 export const FREE_PLAN: Plan = {
-  filmsPerWeek: 1,
+  filmsPerWeek: 3,
   maxDurationSec: 60,
   resolution: "720p",
   watermark: true,

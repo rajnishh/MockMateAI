@@ -15,14 +15,14 @@ class MemoryStore implements QuotaStore {
 }
 
 describe("free plan quota", () => {
-  it("allows one film per week and rejects the second", async () => {
+  it("allows the weekly free films and rejects the next one", async () => {
     const store = new MemoryStore();
     const now = new Date("2026-10-27T10:00:00Z");
-    expect((await reserveFilm(store, "u1", 30, FREE_PLAN, now)).ok).toBe(true);
-    const second = await reserveFilm(store, "u1", 30, FREE_PLAN, now);
-    expect(second.ok).toBe(false);
+    for (let i = 0; i < FREE_PLAN.filmsPerWeek; i++) expect((await reserveFilm(store, "u1", 30, FREE_PLAN, now)).ok).toBe(true);
+    const extra = await reserveFilm(store, "u1", 30, FREE_PLAN, now);
+    expect(extra.ok).toBe(false);
     // The rejected attempt must not consume quota.
-    expect([...store.counts.values()]).toEqual([1]);
+    expect([...store.counts.values()]).toEqual([FREE_PLAN.filmsPerWeek]);
   });
 
   it("resets the next ISO week", async () => {

@@ -1,5 +1,5 @@
 import type { Env } from "@/lib/env";
-import { type Currency, PLANS, planEnvName } from "./catalog";
+import { CURRENCIES, PLANS, planEnvName } from "./catalog";
 import { Razorpay } from "./razorpay";
 
 export function razorpayFromEnv(env: Env): Razorpay | undefined {
@@ -11,7 +11,7 @@ export function razorpayFromEnv(env: Env): Razorpay | undefined {
 export function planIdsFromEnv(source: Record<string, string | undefined> = process.env): Record<string, string | undefined> {
   const ids: Record<string, string | undefined> = {};
   for (const plan of PLANS) {
-    for (const currency of ["INR", "USD"] as Currency[]) ids[`${plan.id}:${currency}`] = source[planEnvName(plan, currency)];
+    for (const currency of CURRENCIES) ids[`${plan.id}:${currency}`] = source[planEnvName(plan, currency)];
   }
   return ids;
 }

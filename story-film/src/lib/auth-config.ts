@@ -2,6 +2,8 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { betterAuth } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
 import { phoneNumber } from "better-auth/plugins";
+import { WELCOME_CREDITS } from "@/lib/billing/catalog";
+import { grantCredits } from "@/lib/billing/credits";
 import { type Db, schema } from "@/lib/db";
 import { INDIAN_MOBILE, type SmsSender } from "@/lib/sms";
 
@@ -25,6 +27,16 @@ export function createAuth(opts: AuthOptions) {
       customRules: {
         "/phone-number/send-otp": { window: 600, max: 3 },
         "/phone-number/verify": { window: 600, max: 10 },
+      },
+    },
+    // Every new account starts with a one-time gift of credits (idempotent per user).
+    databaseHooks: {
+      user: {
+        create: {
+          after: async (user) => {
+            await grantCredits(opts.db, user.id, WELCOME_CREDITS, "grant", `welcome:${user.id}`);
+          },
+        },
       },
     },
     socialProviders: opts.google ? { google: { ...opts.google, prompt: "select_account" } } : {},

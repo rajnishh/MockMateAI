@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { currencyForTimeZone } from "@/lib/billing/catalog";
 
-type Currency = "INR" | "USD";
+type Currency = "INR" | "USD" | "AED";
 type Pack = { id: string; name: string; credits: number; price: Record<Currency, number> };
 type Plan = Pack & { currencies: Currency[] };
 type Billing = {
@@ -34,20 +35,19 @@ const REASONS: Record<string, string> = {
   grant: "Bonus",
 };
 
+const LOCALE: Record<Currency, string> = { INR: "en-IN", USD: "en-US", AED: "en-AE" };
+
 function formatPrice(minor: number, currency: Currency) {
-  return new Intl.NumberFormat(currency === "INR" ? "en-IN" : "en-US", {
+  return new Intl.NumberFormat(LOCALE[currency], {
     style: "currency",
     currency,
-    maximumFractionDigits: currency === "INR" ? 0 : 2,
+    maximumFractionDigits: currency === "USD" ? 2 : 0,
   }).format(minor / 100);
 }
 
-// Visitors in India see rupees (UPI, cards, netbanking); everyone else sees dollars.
+// Visitors in India see rupees (UPI, cards, netbanking), in the UAE dirhams; everyone else dollars.
 function defaultCurrency(): Currency {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone === "Asia/Calcutta" ||
-    Intl.DateTimeFormat().resolvedOptions().timeZone === "Asia/Kolkata"
-    ? "INR"
-    : "USD";
+  return currencyForTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
 }
 
 function loadCheckout(): Promise<void> {
@@ -155,7 +155,8 @@ export default function BillingPage() {
         <>
           <div className="tabs" role="group" aria-label="Currency">
             <button type="button" aria-pressed={currency === "INR"} onClick={() => setCurrency("INR")}>₹ INR · UPI, cards</button>
-            <button type="button" aria-pressed={currency === "USD"} onClick={() => setCurrency("USD")}>$ USD · cards</button>
+            <button type="button" aria-pressed={currency === "AED"} onClick={() => setCurrency("AED")}>AED · cards, Apple Pay</button>
+            <button type="button" aria-pressed={currency === "USD"} onClick={() => setCurrency("USD")}>$ USD · cards, Apple Pay</button>
           </div>
 
           <h2>Credit packs</h2>

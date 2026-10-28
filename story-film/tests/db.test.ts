@@ -1,5 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { createAuth } from "@/lib/auth-config";
+import { WELCOME_CREDITS } from "@/lib/billing/catalog";
+import { getBalance } from "@/lib/billing/credits";
 import { getCharacter, listCharacters, saveCharacter } from "@/lib/characters";
 import type { Db } from "@/lib/db";
 import { user } from "@/lib/db/schema";
@@ -67,6 +69,8 @@ describe("phone OTP sign-in", () => {
     expect(result.status).toBe(true);
     expect(result.user).toMatchObject({ phoneNumber: "+919876543210", phoneNumberVerified: true });
     expect(result.token).toBeTruthy();
+    // New accounts start with the one-time welcome gift.
+    expect(await getBalance(db, result.user.id)).toBe(WELCOME_CREDITS);
   }, 30_000);
 
   it("rate-limits OTP sends over HTTP", async () => {

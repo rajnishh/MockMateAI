@@ -9,7 +9,7 @@ import { getUserId, unauthorized } from "@/lib/session";
 const schema = z.object({
   kind: z.enum(["pack", "plan"]),
   id: z.string().min(1),
-  currency: z.enum(["INR", "USD"]),
+  currency: z.enum(["INR", "USD", "AED"]),
 });
 
 export async function POST(req: Request) {

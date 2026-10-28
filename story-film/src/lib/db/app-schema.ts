@@ -111,7 +111,7 @@ export const scheduledPost = pgTable(
 
 export const ledgerReason = pgEnum("ledger_reason", ["purchase", "subscription", "video", "refund", "grant", "song"]);
 export const purchaseStatus = pgEnum("purchase_status", ["created", "paid", "failed"]);
-export const currency = pgEnum("currency", ["INR", "USD"]);
+export const currency = pgEnum("currency", ["INR", "USD", "AED"]);
 
 export const creditBalance = pgTable("credit_balance", {
   userId: text("user_id")

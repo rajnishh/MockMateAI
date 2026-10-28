@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { PACKS, PLANS, PREMIUM_CREDITS_PER_SHOT } from "@/lib/billing/catalog";
+import { CURRENCIES, PACKS, PLANS, PREMIUM_CREDITS_PER_SHOT } from "@/lib/billing/catalog";
 import { razorpayFromEnv, planIdsFromEnv } from "@/lib/billing/config";
 import { getBalance, recentLedger } from "@/lib/billing/credits";
 import { currentSubscription } from "@/lib/billing/service";
@@ -24,7 +24,7 @@ export async function GET() {
     premiumAvailable: premiumAvailable(env),
     premiumCreditsPerShot: PREMIUM_CREDITS_PER_SHOT,
     packs: PACKS,
-    plans: PLANS.map((p) => ({ ...p, currencies: (["INR", "USD"] as const).filter((c) => planIds[`${p.id}:${c}`]) })),
+    plans: PLANS.map((p) => ({ ...p, currencies: CURRENCIES.filter((c) => planIds[`${p.id}:${c}`]) })),
     subscription: sub
       ? { plan: sub.plan, status: sub.status, currency: sub.currency, currentEnd: sub.currentEnd?.toISOString() ?? null, cancelAtPeriodEnd: sub.cancelAtPeriodEnd }
       : null,
