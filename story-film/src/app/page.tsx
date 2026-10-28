@@ -50,6 +50,9 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [canShareFiles, setCanShareFiles] = useState(false);
+  const [caption, setCaption] = useState<string | null>(null);
+  const [captionFor, setCaptionFor] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [library, setLibrary] = useState<Status[]>([]);
   const { data: session } = authClient.useSession();
 
@@ -128,6 +131,8 @@ export default function Home() {
     setError(null);
     setNeedCredits(false);
     setStatus(null);
+    setCaption(null);
+    setCaptionFor(null);
     const { ok, data } = await postJson<{ id: string; credits: number; needCredits?: boolean }>("/api/films", {
       story,
       durationSec,
@@ -145,11 +150,31 @@ export default function Home() {
     setJobId(data.id);
   }
 
+  async function writeCaption(platform: "instagram" | "whatsapp") {
+    setCaptionFor(platform);
+    setCaption(null);
+    setCopied(false);
+    const { ok, data } = await postJson<{ text: string }>(`/api/films/${jobId}/copy`, { platform });
+    if (!ok) {
+      setCaptionFor(null);
+      return setError(data.error ?? "Couldn't write a caption");
+    }
+    setCaption(data.text);
+  }
+
+  async function copyCaption() {
+    if (!caption) return;
+    await navigator.clipboard.writeText(caption).catch(() => {});
+    setCopied(true);
+  }
+
   async function share() {
     const blob = await (await fetch(`/api/films/${jobId}/video`)).blob();
     const file = new File([blob], `${status?.title ?? "video"}.mp4`, { type: "video/mp4" });
+    // Instagram drops shared text, so the caption also goes on the clipboard to paste.
+    if (caption) await copyCaption();
     try {
-      await navigator.share({ files: [file], title: status?.title ?? undefined });
+      await navigator.share({ files: [file], title: status?.title ?? undefined, ...(caption ? { text: caption } : {}) });
     } catch {
       // User closed the share sheet; nothing to do.
     }
@@ -304,6 +329,26 @@ export default function Home() {
                   <button type="button" className="secondary">Download</button>
                 </a>
               </div>
+              <div className="actions">
+                <button type="button" className="secondary" onClick={() => writeCaption("instagram")}>✨ Instagram caption</button>
+                <button type="button" className="secondary" onClick={() => writeCaption("whatsapp")}>✨ WhatsApp message</button>
+              </div>
+              {captionFor && (
+                <div className="panel">
+                  {caption === null ? (
+                    <p className="muted">Writing…</p>
+                  ) : (
+                    <>
+                      <textarea value={caption} onChange={(e) => setCaption(e.target.value)} style={{ minHeight: 200 }} />
+                      <div className="actions">
+                        <button type="button" className="secondary" onClick={copyCaption}>{copied ? "Copied" : "Copy"}</button>
+                        <button type="button" className="secondary" onClick={() => writeCaption(captionFor as "instagram" | "whatsapp")}>Try again</button>
+                      </div>
+                      {canShareFiles && <p className="muted">Tapping Share also copies this caption, so you can paste it in Instagram.</p>}
+                    </>
+                  )}
+                </div>
+              )}
             </>
           ) : (
             <p>{STAGE_LABELS[status.stage ?? ""] ?? "Working"}…</p>

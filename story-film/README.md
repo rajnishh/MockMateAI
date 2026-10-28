@@ -8,6 +8,7 @@ Makes narrated 9:16 videos for Reels, Shorts and WhatsApp:
 - **Hindi + captions:** narration can be forced to Hindi (Devanagari) or English, or follow the user's text. Short phrase captions are burned in, timed to each shot's narration. Captions are drawn with Skia + HarfBuzz (`@napi-rs/canvas`) because FFmpeg's libass and drawtext mis-shape Devanagari conjuncts such as क्ष.
 - **Accounts:** sign in with Google or an Indian mobile number + SMS code. Characters and videos are stored per user in Postgres, with a "My videos" library.
 - **Calendar + YouTube publishing:** connect one or more YouTube channels (OAuth, tokens encrypted at rest), then publish now or schedule a finished video on a month calendar. Uploads are resumable, always declare AI content (`containsSyntheticMedia`), and default kid-safe cartoons to "made for kids". Failed posts can be retried; scheduled ones cancelled.
+- **AI captions and hashtags:** one tap writes platform-specific copy for a finished video from its script: YouTube title, description, hashtags (with #Shorts) and search tags in the calendar; Instagram captions (3-5 hashtags) and WhatsApp messages on the video screen. Hindi videos get Hindi copy; children's content never asks kids to engage. Every caption ends with "Made with AI." Limited to 60 per user per day.
 - **Credits + payments (Razorpay):** credit packs and monthly plans, priced in ₹ (UPI, cards, netbanking) for India and $ (cards) for everyone else. Credits are an append-only ledger; payments are verified by signature and credited exactly once whether the checkout callback or the webhook arrives first; failed videos are refunded automatically.
 - **Installable on Android** (web app manifest) with a Share button that hands the MP4 to Instagram / WhatsApp / YouTube via the phone's share sheet.
 
@@ -35,6 +36,7 @@ The plan and the decisions behind it are in [docs/PLAN.md](docs/PLAN.md).
 | `src/lib/auth-config.ts`, `src/app/login` | Better Auth: Google + phone OTP (rate-limited), sessions |
 | `src/lib/pipeline/captions.ts`, `assets/fonts` | Caption phrasing, timing and rendering; bundled Noto Sans + Noto Sans Devanagari (SIL OFL, see `assets/fonts/OFL.txt`) |
 | `src/lib/youtube.ts`, `src/lib/posts.ts`, `src/app/calendar` | YouTube OAuth + upload, scheduling/publishing, calendar UI |
+| `src/lib/post-copy.ts` | AI titles, captions, hashtags and tags per platform |
 | `src/lib/billing`, `src/app/billing` | Pricing catalog, credit ledger, Razorpay client, checkout + webhook handling, Credits page |
 | `src/lib/db`, `drizzle/` | Drizzle schema (auth tables, characters, films) and SQL migrations |
 | `src/lib/quota` | Free plan (1 film/week, ≤60s, 720p, watermark) and cost estimates |

@@ -54,6 +54,7 @@ export default function CalendarPage() {
   const [madeForKids, setMadeForKids] = useState(false);
   const [when, setWhen] = useState(() => toLocalInput(new Date(Date.now() + 60 * 60 * 1000)));
   const [saving, setSaving] = useState(false);
+  const [writing, setWriting] = useState(false);
 
   const grid = useMemo(() => monthGrid(month), [month]);
 
@@ -92,6 +93,22 @@ export default function CalendarPage() {
     setTitle(f.title ?? "");
     setMadeForKids(f.kidSafe);
     setDescription(`${f.title ?? ""}\n\nMade with AI.\n#Shorts`);
+  }
+
+  async function writeWithAi() {
+    setWriting(true);
+    setError(null);
+    const res = await fetch(`/api/films/${filmId}/copy`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ platform: "youtube" }),
+    });
+    const copy = await res.json();
+    setWriting(false);
+    if (!res.ok) return setError(copy.error);
+    setTitle(copy.title);
+    setDescription(copy.text);
+    setTags(copy.tags.join(", "));
   }
 
   async function schedule(e: FormEvent, now = false) {
@@ -245,6 +262,11 @@ export default function CalendarPage() {
             <select id="account" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
               {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
+            <div className="actions">
+              <button type="button" className="secondary" onClick={writeWithAi} disabled={writing}>
+                {writing ? "Writing…" : "✨ Write title, description and tags with AI"}
+              </button>
+            </div>
             <label htmlFor="title">Title</label>
             <input id="title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={100} required />
             <label htmlFor="desc">Description</label>
