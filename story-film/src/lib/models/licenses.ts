@@ -14,6 +14,7 @@ export const MODEL_LICENSES: Record<string, ModelLicense> = {
   "chatterbox": { license: "MIT", commercial: true, note: "built-in audio watermark" },
   "cosyvoice2": { license: "Apache-2.0", commercial: true },
   "ace-step": { license: "Apache-2.0", commercial: true },
+  "ace-step-1.5": { license: "MIT; fal.ai API terms", commercial: true, note: "training-data provenance untested; get legal sign-off before selling songs" },
   "faster-whisper": { license: "MIT", commercial: true },
   "flux-1-schnell": { license: "Apache-2.0; Cloudflare Workers AI terms", commercial: true },
   "ken-burns-ffmpeg": { license: "FFmpeg (LGPL/GPL), run server-side", commercial: true },

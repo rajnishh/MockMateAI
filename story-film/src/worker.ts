@@ -1,3 +1,4 @@
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Worker } from "bullmq";
 import { getDb } from "@/lib/db";
@@ -6,7 +7,9 @@ import { updateFilm } from "@/lib/films";
 import { type PipelineDeps, runFilm } from "@/lib/pipeline/orchestrator";
 import { pendingPosts, publishPost } from "@/lib/posts";
 import { grantCredits } from "@/lib/billing/credits";
-import { buildPipelineDeps, type Quality } from "@/lib/providers";
+import { buildPipelineDeps, buildSongProvider, type Quality, songsAvailable } from "@/lib/providers";
+import { SONG_QUEUE, type SongJob } from "@/lib/queue/songs";
+import { updateSong } from "@/lib/songs/songs";
 import { FILM_QUEUE, type FilmJob, getRedis } from "@/lib/queue/films";
 import { enqueuePost, getPublishQueue, PUBLISH_QUEUE, type PublishJob } from "@/lib/queue/publish";
 import { RedisQuotaStore } from "@/lib/quota/quota";
@@ -46,6 +49,33 @@ filmWorker.on("failed", async (job, err) => {
     if (job.data.credits > 0) await grantCredits(db, job.data.userId, job.data.credits, "refund", job.id!);
   }
 });
+
+// Songs run only when fal.ai is configured.
+if (songsAvailable(env)) {
+  const singer = buildSongProvider(env);
+  const songWorker = new Worker<SongJob>(
+    SONG_QUEUE,
+    async (job) => {
+      const { songId } = job.data;
+      await updateSong(db, songId, { status: "running", error: null });
+      const audio = await singer.sing(job.data);
+      const dir = path.resolve(env.OUTPUT_DIR, "songs");
+      await mkdir(dir, { recursive: true });
+      const outputPath = path.join(dir, `${songId}.${audio.ext}`);
+      await writeFile(outputPath, audio.data);
+      await updateSong(db, songId, { status: "completed", outputPath, completedAt: new Date() });
+    },
+    { connection: getRedis(), concurrency: 2 },
+  );
+  songWorker.on("failed", async (job, err) => {
+    console.error(`song ${job?.data.songId} failed:`, err.message);
+    if (job && job.attemptsMade >= (job.opts.attempts ?? 1)) {
+      await updateSong(db, job.data.songId, { status: "failed", error: err.message.slice(0, 500) });
+      await grantCredits(db, job.data.userId, job.data.credits, "refund", `song:${job.data.songId}`);
+    }
+  });
+  console.log(`song worker listening on queue "${SONG_QUEUE}"`);
+}
 
 // Publishing runs only when YouTube is configured.
 if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.TOKEN_ENCRYPTION_KEY) {

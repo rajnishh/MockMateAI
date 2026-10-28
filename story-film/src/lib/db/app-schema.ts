@@ -105,7 +105,7 @@ export const scheduledPost = pgTable(
   (t) => [index("scheduled_post_user_time_idx").on(t.userId, t.scheduledAt)],
 );
 
-export const ledgerReason = pgEnum("ledger_reason", ["purchase", "subscription", "video", "refund", "grant"]);
+export const ledgerReason = pgEnum("ledger_reason", ["purchase", "subscription", "video", "refund", "grant", "song"]);
 export const purchaseStatus = pgEnum("purchase_status", ["created", "paid", "failed"]);
 export const currency = pgEnum("currency", ["INR", "USD"]);
 
@@ -179,6 +179,29 @@ export const webhookEvent = pgTable("webhook_event", {
   id: text("id").primaryKey(),
   receivedAt: timestamp("received_at").defaultNow().notNull(),
 });
+
+export const song = pgTable(
+  "song",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    genre: text("genre").notNull(),
+    mood: text("mood").notNull().default(""),
+    language: text("language").notNull(),
+    lyrics: text("lyrics").notNull(),
+    durationSec: integer("duration_sec").notNull(),
+    credits: integer("credits").notNull().default(0),
+    status: filmStatus("status").default("queued").notNull(),
+    outputPath: text("output_path"),
+    error: text("error"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    completedAt: timestamp("completed_at"),
+  },
+  (t) => [index("song_user_created_idx").on(t.userId, t.createdAt)],
+);
 
 export const characterRelations = relations(character, ({ one, many }) => ({
   user: one(user, { fields: [character.userId], references: [user.id] }),

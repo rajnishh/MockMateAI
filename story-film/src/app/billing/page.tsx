@@ -29,6 +29,7 @@ const REASONS: Record<string, string> = {
   purchase: "Credit pack",
   subscription: "Monthly plan",
   video: "Video",
+  song: "Song",
   refund: "Refund (video failed)",
   grant: "Bonus",
 };

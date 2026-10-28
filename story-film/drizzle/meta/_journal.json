@@ -22,6 +22,20 @@
       "when": 1793184448896,
       "tag": "0002_billing",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793185665917,
+      "tag": "0003_songs",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793185769804,
+      "tag": "0004_song_ledger_reason",
+      "breakpoints": true
     }
   ]
 }

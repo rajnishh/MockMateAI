@@ -27,7 +27,7 @@ export async function grantCredits(db: Db, userId: string, delta: number, reason
 }
 
 // Charges credits atomically; false (and nothing charged) if the balance is too low.
-export async function spendCredits(db: Db, userId: string, amount: number, ref: string): Promise<boolean> {
+export async function spendCredits(db: Db, userId: string, amount: number, ref: string, reason: "video" | "song" = "video"): Promise<boolean> {
   return db.transaction(async (tx) => {
     const updated = await tx
       .update(creditBalance)
@@ -35,7 +35,7 @@ export async function spendCredits(db: Db, userId: string, amount: number, ref: 
       .where(and(eq(creditBalance.userId, userId), gte(creditBalance.balance, amount)))
       .returning({ balance: creditBalance.balance });
     if (!updated.length) return false;
-    await tx.insert(creditLedger).values({ userId, delta: -amount, reason: "video", ref });
+    await tx.insert(creditLedger).values({ userId, delta: -amount, reason, ref });
     return true;
   });
 }

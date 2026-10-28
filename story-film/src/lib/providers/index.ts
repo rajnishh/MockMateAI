@@ -5,6 +5,7 @@ import { defaultFfmpeg, type PipelineDeps } from "@/lib/pipeline/orchestrator";
 import { AceStepMusic } from "./acestep";
 import { CLOUDFLARE_DEFAULTS, cloudflareAiBase, CloudflareFluxImage } from "./cloudflare";
 import { DEFAULT_FAL_MODELS, FalImageToVideo, FalNanoBanana, FalQueueClient } from "./fal";
+import { FalAceStep } from "./fal-music";
 import { KenBurnsVideo } from "./kenburns";
 import { KokoroTts } from "./kokoro";
 import { OpenAiCompatibleLlm } from "./llm";
@@ -27,8 +28,23 @@ export function buildPipelineDeps(env: Env, quality: Quality = "standard"): Pipe
     image: buildImage(env, quality),
     video: quality === "premium" ? buildAiVideo(env) : new KenBurnsVideo(mediaStore(env), defaultFfmpeg),
     tts: new KokoroTts(env.KOKORO_URL, env.KOKORO_VOICE),
-    music: env.ACESTEP_URL ? new AceStepMusic(env.ACESTEP_URL) : undefined,
+    music: buildMusic(env, quality),
   };
+}
+
+// Self-hosted ACE-Step when configured; otherwise premium videos use ACE-Step on fal.
+function buildMusic(env: Env, quality: Quality) {
+  if (env.ACESTEP_URL) return new AceStepMusic(env.ACESTEP_URL);
+  if (quality === "premium" && env.FAL_KEY) return new FalAceStep(new FalQueueClient(env.FAL_KEY));
+  return undefined;
+}
+
+export function songsAvailable(env: Env): boolean {
+  return Boolean(env.FAL_KEY);
+}
+
+export function buildSongProvider(env: Env): FalAceStep {
+  return new FalAceStep(new FalQueueClient(requireKey(env.FAL_KEY, "FAL_KEY")));
 }
 
 // OpenRouter when configured (stronger models), otherwise the free Workers AI Llama.

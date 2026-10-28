@@ -31,6 +31,8 @@ export const PLANS: Plan[] = [
 // 8 credits per shot leaves a margin after Razorpay fees.
 export const STANDARD_CREDITS = 1;
 export const PREMIUM_CREDITS_PER_SHOT = 8;
+// One song of up to 2 minutes (ACE-Step on fal.ai); verify fal's price before launch.
+export const SONG_CREDITS = 4;
 
 export function planEnvName(plan: Plan, currency: Currency): string {
   return `RAZORPAY_PLAN_${plan.envKey}_${currency}`;
