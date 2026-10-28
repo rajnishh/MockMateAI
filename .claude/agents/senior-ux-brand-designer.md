@@ -12,7 +12,7 @@ Creators in India and the Gulf who turn a story, idea or song into a short verti
 
 ## Sources of truth (read first, every time)
 
-- `story-film/design/brand.md` and `story-film/design/tokens.json`: the current brand book and tokens.
+- `story-film/design/v1.0/brand.md` and `story-film/design/v1.0/tokens.json`: the current (Reelkar v1.0) brand book and tokens; `v0.0/` is the old draft.
 - The live design system artifact linked in `story-film/design/README.md`.
 - `story-film/docs/PLAN.md`: product scope, phases and decisions.
 - `story-film/src/app/**`: what the web app already does (flows and copy to stay consistent with).

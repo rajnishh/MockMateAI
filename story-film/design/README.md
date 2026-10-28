@@ -1,16 +1,22 @@
 # Design system
 
-The design system v0.0 (draft; brand book, colour and type tokens, components and app screens) is a Claude Design System artifact:
-https://claude.ai/artifact/BSn8jyzsznEwJSgi7QSnns
+## v1.0: Reelkar (current)
 
-- `tokens.json`: a copy of its tokens (light and dark themes, type, spacing, radius, sizes, shadows). The Expo app generates its theme from this file.
-- `brand.md`: a copy of its brand book (voice, languages, colour and type rules, iconography, states, accessibility).
+Brand book, tokens, components and phone, web and desktop screens, as a Claude Design System artifact:
+https://claude.ai/artifact/UBYyBwMR62t7oBhgWNQsy5
+
+- `v1.0/tokens.json`: its tokens (dark default + light, type, spacing, radius, sizes, breakpoints, shadows). The Expo, web and desktop apps generate their themes from this file.
+- `v1.0/brand.md`: its brand book (voice, visual foundations, iconography, places in the app, accessibility).
+- `v1.0/components.css`: reference component styles (`rk-` classes) used by the artifact's previews.
+- `v1.0/logo/`: the app icon and the reel mark (SVG).
 
 When the artifact changes, refresh these copies.
 
-## Versions
+## v0.0: Story to Film (draft)
 
-- **v0.0 (draft)**: the peacock/marigold system above, kept for reference.
-- **v1.0**: built from the brand direction chosen on the Brand Directions canvas (https://claude.ai/artifact/DHH2tfKbuFHqEunJM8MGYy), followed by wireframes for every screen before the Expo app is built.
+The first peacock/marigold system, kept for reference: https://claude.ai/artifact/BSn8jyzsznEwJSgi7QSnns (copies in `v0.0/`).
 
-The project's design agent lives at `.claude/agents/senior-ux-brand-designer.md`.
+## Other design files
+
+- Brand directions (Qissa, Reelkar, Kathaa, Filmy, Jugnu, v0.0): https://claude.ai/artifact/DHH2tfKbuFHqEunJM8MGYy
+- The project's design agent: `.claude/agents/senior-ux-brand-designer.md`
