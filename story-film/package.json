@@ -13,7 +13,8 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "auth:schema": "npx auth@latest generate --config src/lib/auth.ts --output src/lib/db/auth-schema.ts --yes"
+    "auth:schema": "npx auth@latest generate --config src/lib/auth.ts --output src/lib/db/auth-schema.ts --yes",
+    "billing:plans": "tsx --env-file=.env scripts/create-razorpay-plans.ts"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.7.14",

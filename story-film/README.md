@@ -8,16 +8,18 @@ Makes narrated 9:16 videos for Reels, Shorts and WhatsApp:
 - **Hindi + captions:** narration can be forced to Hindi (Devanagari) or English, or follow the user's text. Short phrase captions are burned in, timed to each shot's narration. Captions are drawn with Skia + HarfBuzz (`@napi-rs/canvas`) because FFmpeg's libass and drawtext mis-shape Devanagari conjuncts such as क्ष.
 - **Accounts:** sign in with Google or an Indian mobile number + SMS code. Characters and videos are stored per user in Postgres, with a "My videos" library.
 - **Calendar + YouTube publishing:** connect one or more YouTube channels (OAuth, tokens encrypted at rest), then publish now or schedule a finished video on a month calendar. Uploads are resumable, always declare AI content (`containsSyntheticMedia`), and default kid-safe cartoons to "made for kids". Failed posts can be retried; scheduled ones cancelled.
+- **Credits + payments (Razorpay):** credit packs and monthly plans, priced in ₹ (UPI, cards, netbanking) for India and $ (cards) for everyone else. Credits are an append-only ledger; payments are verified by signature and credited exactly once whether the checkout callback or the webhook arrives first; failed videos are refunded automatically.
 - **Installable on Android** (web app manifest) with a Share button that hands the MP4 to Instagram / WhatsApp / YouTube via the phone's share sheet.
 
-Two provider modes (`PROVIDER_MODE`):
+Two quality levels, chosen per video:
 
-| | free (default) | paid |
+| | Standard | Premium (AI animation) |
 |---|---|---|
-| Script + ideas | Llama 3.3 70B on Cloudflare Workers AI | OpenRouter (Gemini Flash by default) |
+| Script + ideas | OpenRouter if configured, else Llama 3.3 70B on Workers AI | same |
 | Images | FLUX.1 schnell on Workers AI | Nano Banana 2 on fal.ai (reference-image consistency) |
 | Motion | Pan-and-zoom over stills, rendered locally with FFmpeg | Wan 2.5 / Kling 2.6 image-to-video on fal.ai |
-| Cost | ≈ $0 (Workers AI free tier ≈ 14 six-shot videos/day) | ≈ $3.50–7.50 per finished minute |
+| Cost to you | ≈ $0 (Workers AI free tier ≈ 14 six-shot videos/day) | ≈ $0.58 per 5s shot |
+| Price to user | Free weekly allowance, then 1 credit | 8 credits per 5s shot |
 
 The plan and the decisions behind it are in [docs/PLAN.md](docs/PLAN.md).
 
@@ -33,6 +35,7 @@ The plan and the decisions behind it are in [docs/PLAN.md](docs/PLAN.md).
 | `src/lib/auth-config.ts`, `src/app/login` | Better Auth: Google + phone OTP (rate-limited), sessions |
 | `src/lib/pipeline/captions.ts`, `assets/fonts` | Caption phrasing, timing and rendering; bundled Noto Sans + Noto Sans Devanagari (SIL OFL, see `assets/fonts/OFL.txt`) |
 | `src/lib/youtube.ts`, `src/lib/posts.ts`, `src/app/calendar` | YouTube OAuth + upload, scheduling/publishing, calendar UI |
+| `src/lib/billing`, `src/app/billing` | Pricing catalog, credit ledger, Razorpay client, checkout + webhook handling, Credits page |
 | `src/lib/db`, `drizzle/` | Drizzle schema (auth tables, characters, films) and SQL migrations |
 | `src/lib/quota` | Free plan (1 film/week, ≤60s, 720p, watermark) and cost estimates |
 | `src/lib/models/licenses.ts` | Allowlist that blocks non-commercial models (XTTS v2, F5-TTS, MusicGen…) |
@@ -63,7 +66,7 @@ npm test                      # includes an end-to-end run with fake providers a
 
 ## Not in Phase 0
 
-Billing and credits, C2PA signing, a child-like voice, a choice of narrator voice, word-by-word highlighted captions, Instagram/Facebook publishing, analytics, songs, and Indian languages beyond Hindi. These are Phase 1+ in the plan. Generated media lives on local disk under unguessable names until object storage arrives in Phase 1.
+GST invoices, C2PA signing, a child-like voice, a choice of narrator voice, word-by-word highlighted captions, Instagram/Facebook publishing, analytics, songs, and Indian languages beyond Hindi. These are Phase 1+ in the plan. Generated media lives on local disk under unguessable names until object storage arrives in Phase 1.
 
 ## YouTube publishing notes
 
@@ -71,6 +74,13 @@ Billing and credits, C2PA signing, a child-like voice, a choice of narrator voic
 - Each post is a delayed BullMQ job (job id = post id); on start-up the worker re-queues any scheduled posts.
 - Until the Google Cloud project passes YouTube's API audit, every upload is forced to **private** by YouTube; the app shows this on the post. Apply for the audit early (it can take weeks).
 - A default project gets about 100 uploads a day, shared by all users.
+
+## Payments notes
+
+- Set the Razorpay keys and webhook secret, run `npm run billing:plans` once per Razorpay mode (test/live), and paste the printed plan ids into `.env`.
+- Prices live in `src/lib/billing/catalog.ts` (placeholders, GST-inclusive for India). Credit costs per video are there too.
+- USD needs **International Payments** enabled in the Razorpay dashboard (requires extra KYC). Foreign-sales tax (VAT/sales tax) is your responsibility with Razorpay; switch global sales to a Merchant of Record such as Paddle if that grows.
+- Indian sales need GST invoices; not generated yet.
 
 ## Changing the schema
 

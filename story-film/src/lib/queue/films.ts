@@ -16,14 +16,16 @@ export const filmJobSchema = z.object({
   kidSafe: z.boolean().default(false),
   language: z.enum(["auto", "en", "hi"]).default("auto"),
   captions: z.boolean().default(true),
+  quality: z.enum(["standard", "premium"]).default("standard"),
 });
 
 export type FilmJob = z.infer<typeof filmJobSchema> & {
   character?: CharacterProfile;
   resolution: "480p" | "720p";
   watermark: boolean;
-  // Released if the film ultimately fails, so users don't lose their weekly film.
-  quotaKey: string;
+  // If the film ultimately fails: the free weekly slot is released, credits refunded.
+  quotaKey?: string;
+  credits: number;
 };
 
 let redis: Redis | undefined;

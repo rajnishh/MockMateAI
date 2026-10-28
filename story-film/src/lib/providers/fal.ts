@@ -1,3 +1,4 @@
+import { readMedia } from "@/lib/media";
 import type { ImageProvider, Resolution, VideoProvider } from "./types";
 
 // Default fal.ai model IDs, checked against fal's OpenAPI schemas on 2026-10-27.
@@ -64,8 +65,13 @@ export class FalNanoBanana implements ImageProvider {
   // With reference images the edit endpoint keeps character identity;
   // without them it falls back to plain text-to-image.
   async generateKeyframe(input: { prompt: string; referenceImageUrls: string[]; seed?: number }): Promise<{ url: string }> {
-    // fal can only fetch public URLs; local (free-mode) references are skipped.
-    const refs = input.referenceImageUrls.filter((u) => u.startsWith("https://"));
+    // fal can't fetch local files, so locally stored references (e.g. a character
+    // drawn in standard quality) are sent inline as data URIs.
+    const refs = await Promise.all(
+      input.referenceImageUrls.map(async (u) =>
+        u.startsWith("file://") ? `data:image/jpeg;base64,${(await readMedia(u)).toString("base64")}` : u,
+      ),
+    );
     const hasRefs = refs.length > 0;
     const out = await this.client.run<{ images: { url: string }[] }>(hasRefs ? this.editModelId : this.textModelId, {
       prompt: input.prompt,

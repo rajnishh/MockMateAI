@@ -33,6 +33,8 @@ export function filmView(f: Film) {
     title: f.title,
     story: f.story,
     kidSafe: f.kidSafe,
+    quality: f.quality,
+    credits: f.credits,
     error: f.error,
     createdAt: f.createdAt.toISOString(),
     videoUrl: f.status === "completed" ? `/api/films/${f.id}/video` : null,

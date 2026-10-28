@@ -31,6 +31,9 @@ export default function Home() {
   const [niche, setNiche] = useState("");
   const [language, setLanguage] = useState("auto");
   const [captions, setCaptions] = useState(true);
+  const [quality, setQuality] = useState("standard");
+  const [billing, setBilling] = useState<{ balance: number; premiumAvailable: boolean; premiumCreditsPerShot: number } | null>(null);
+  const [needCredits, setNeedCredits] = useState(false);
 
   const [characters, setCharacters] = useState<Character[]>([]);
   const [characterId, setCharacterId] = useState<string | null>(null);
@@ -68,6 +71,7 @@ export default function Home() {
     const probe = new File([""], "probe.mp4", { type: "video/mp4" });
     setCanShareFiles(typeof navigator.canShare === "function" && navigator.canShare({ files: [probe] }));
     loadLibrary();
+    fetch("/api/billing").then(async (r) => r.ok && setBilling(await r.json())).catch(() => {});
   }, [loadLibrary]);
 
   useEffect(() => {
@@ -122,16 +126,22 @@ export default function Home() {
     if (mode === "cartoon" && !characterId) return setError("Create or pick a character first");
     setSubmitting(true);
     setError(null);
+    setNeedCredits(false);
     setStatus(null);
-    const { ok, data } = await postJson<{ id: string }>("/api/films", {
+    const { ok, data } = await postJson<{ id: string; credits: number; needCredits?: boolean }>("/api/films", {
       story,
       durationSec,
       language,
       captions,
+      quality,
       ...(mode === "cartoon" ? { style: "animated", characterId, kidSafe } : { style }),
     });
     setSubmitting(false);
-    if (!ok) return setError(data.error ?? "Something went wrong");
+    if (!ok) {
+      setNeedCredits(Boolean(data.needCredits));
+      return setError(data.error ?? "Something went wrong");
+    }
+    if (data.credits && billing) setBilling({ ...billing, balance: billing.balance - data.credits });
     setJobId(data.id);
   }
 
@@ -157,6 +167,7 @@ export default function Home() {
       <header className="top">
         <h1>Story to Film</h1>
         <div className="post-actions">
+          <a href="/billing"><button type="button" className="secondary">{billing ? `${billing.balance} credits` : "Credits"}</button></a>
           <a href="/calendar"><button type="button" className="secondary">Calendar</button></a>
           <button type="button" className="secondary" onClick={signOut}>Sign out</button>
         </div>
@@ -254,6 +265,17 @@ export default function Home() {
             </select>
           </div>
         </div>
+        {billing?.premiumAvailable && (
+          <>
+            <label htmlFor="quality">Animation</label>
+            <select id="quality" value={quality} onChange={(e) => setQuality(e.target.value)}>
+              <option value="standard">Standard: moving pictures (free weekly)</option>
+              <option value="premium">
+                AI animation: {Math.round(durationSec / 5) * billing.premiumCreditsPerShot} credits
+              </option>
+            </select>
+          </>
+        )}
         <label className="check">
           <input type="checkbox" checked={captions} onChange={(e) => setCaptions(e.target.checked)} /> Captions on video
         </label>
@@ -261,7 +283,11 @@ export default function Home() {
         <button type="submit" disabled={busy}>{busy ? "Working…" : mode === "cartoon" ? "Make episode" : "Make my film"}</button>
       </form>
 
-      {error && <div className="status">{error}</div>}
+      {error && (
+        <div className="status">
+          {error} {needCredits && <a href="/billing">Get credits</a>}
+        </div>
+      )}
       {jobId && (
         <div className="status">
           {!status || status.status === "queued" ? (

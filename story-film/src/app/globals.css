@@ -64,3 +64,9 @@ input[type="datetime-local"] { font: inherit; width: 100%; padding: 10px; border
 .account span { flex: 1; }
 .account button, .post-actions button { width: auto; padding: 6px 10px; font-size: 14px; }
 .post-actions { display: flex; gap: 6px; flex: 0 0 auto; }
+.balance { display: flex; justify-content: space-between; align-items: baseline; margin-top: 16px; padding: 16px; border: 1px solid var(--border); border-radius: 10px; }
+.balance strong { font-size: 24px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.card { display: flex; flex-direction: column; gap: 6px; padding: 14px; border: 1px solid var(--border); border-radius: 10px; }
+.card .big { font-size: 20px; font-weight: 700; }
+.card button { margin-top: 6px; }

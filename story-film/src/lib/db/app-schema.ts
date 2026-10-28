@@ -3,6 +3,7 @@ import { boolean, index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex,
 import { user } from "./auth-schema";
 
 export const filmStyle = pgEnum("film_style", ["cinematic", "animated", "photoreal"]);
+export const filmQuality = pgEnum("film_quality", ["standard", "premium"]);
 export const filmStatus = pgEnum("film_status", ["queued", "running", "completed", "failed"]);
 
 export const character = pgTable(
@@ -35,6 +36,9 @@ export const film = pgTable(
     style: filmStyle("style").notNull(),
     durationSec: integer("duration_sec").notNull(),
     kidSafe: boolean("kid_safe").notNull().default(false),
+    quality: filmQuality("quality").notNull().default("standard"),
+    // Credits charged for this film; refunded if it fails.
+    credits: integer("credits").notNull().default(0),
     status: filmStatus("status").default("queued").notNull(),
     stage: text("stage"),
     title: text("title"),
@@ -100,6 +104,81 @@ export const scheduledPost = pgTable(
   },
   (t) => [index("scheduled_post_user_time_idx").on(t.userId, t.scheduledAt)],
 );
+
+export const ledgerReason = pgEnum("ledger_reason", ["purchase", "subscription", "video", "refund", "grant"]);
+export const purchaseStatus = pgEnum("purchase_status", ["created", "paid", "failed"]);
+export const currency = pgEnum("currency", ["INR", "USD"]);
+
+export const creditBalance = pgTable("credit_balance", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  balance: integer("balance").notNull().default(0),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Append-only history. (reason, ref) is unique so a payment or film can never
+// be credited or charged twice, even if a webhook is delivered again.
+export const creditLedger = pgTable(
+  "credit_ledger",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    delta: integer("delta").notNull(),
+    reason: ledgerReason("reason").notNull(),
+    ref: text("ref").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("credit_ledger_reason_ref_idx").on(t.reason, t.ref), index("credit_ledger_user_idx").on(t.userId, t.createdAt)],
+);
+
+export const purchase = pgTable(
+  "purchase",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    pack: text("pack").notNull(),
+    currency: currency("currency").notNull(),
+    // Smallest unit: paise or cents.
+    amount: integer("amount").notNull(),
+    credits: integer("credits").notNull(),
+    razorpayOrderId: text("razorpay_order_id").notNull().unique(),
+    razorpayPaymentId: text("razorpay_payment_id"),
+    status: purchaseStatus("status").notNull().default("created"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    paidAt: timestamp("paid_at"),
+  },
+  (t) => [index("purchase_user_idx").on(t.userId)],
+);
+
+export const subscription = pgTable(
+  "subscription",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    plan: text("plan").notNull(),
+    currency: currency("currency").notNull(),
+    razorpaySubscriptionId: text("razorpay_subscription_id").notNull().unique(),
+    // Mirrors Razorpay: created, authenticated, active, pending, halted, cancelled, completed.
+    status: text("status").notNull().default("created"),
+    cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+    currentEnd: timestamp("current_end"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("subscription_user_idx").on(t.userId)],
+);
+
+// Razorpay event ids already handled (webhooks can be delivered more than once).
+export const webhookEvent = pgTable("webhook_event", {
+  id: text("id").primaryKey(),
+  receivedAt: timestamp("received_at").defaultNow().notNull(),
+});
 
 export const characterRelations = relations(character, ({ one, many }) => ({
   user: one(user, { fields: [character.userId], references: [user.id] }),

@@ -1,9 +1,6 @@
 import { z } from "zod";
 
 const schema = z.object({
-  // free: Cloudflare Workers AI (LLM + images) + pan-and-zoom video, ~$0 per film.
-  // paid: OpenRouter + fal.ai (Nano Banana 2 + Wan/Kling).
-  PROVIDER_MODE: z.enum(["free", "paid"]).default("free"),
   CLOUDFLARE_ACCOUNT_ID: z.string().optional(),
   CLOUDFLARE_API_TOKEN: z.string().optional(),
   CF_IMAGE_MODEL: z.string().optional(),
@@ -16,6 +13,9 @@ const schema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   // 32 random bytes, base64. Encrypts connected-channel OAuth tokens.
   TOKEN_ENCRYPTION_KEY: z.string().optional(),
+  RAZORPAY_KEY_ID: z.string().optional(),
+  RAZORPAY_KEY_SECRET: z.string().optional(),
+  RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
   SMS_PROVIDER: z.enum(["console", "msg91"]).default("console"),
   MSG91_AUTH_KEY: z.string().optional(),
   MSG91_OTP_TEMPLATE_ID: z.string().optional(),
