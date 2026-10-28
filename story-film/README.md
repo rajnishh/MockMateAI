@@ -10,6 +10,7 @@ Makes narrated 9:16 videos for Reels, Shorts and WhatsApp:
 - **Calendar + YouTube publishing:** connect one or more YouTube channels (OAuth, tokens encrypted at rest), then publish now or schedule a finished video on a month calendar. Uploads are resumable, always declare AI content (`containsSyntheticMedia`), and default kid-safe cartoons to "made for kids". Failed posts can be retried; scheduled ones cancelled.
 - **AI captions and hashtags:** one tap writes platform-specific copy for a finished video from its script: YouTube title, description, hashtags (with #Shorts) and search tags in the calendar; Instagram captions (3-5 hashtags) and WhatsApp messages on the video screen. Hindi videos get Hindi copy; children's content never asks kids to engage. Every caption ends with "Made with AI." Limited to 60 per user per day.
 - **Song Studio:** pick a topic, genre preset (Bollywood romantic, Punjabi pop, kids rhyme, bhajan…), mood, language (Hindi, Hinglish, English) and length; AI writes lyrics with [Verse]/[Chorus] tags (editable), and ACE-Step 1.5 on fal.ai sings them. 4 credits a song, refunded if it fails. Songs can't name or imitate real artists: a name list plus an LLM check run on the topic, AI lyrics and the final title/lyrics, and the request is refused if the check can't run. Premium videos also get ACE-Step background music when no self-hosted ACE-Step server is set.
+- **C2PA Content Credentials:** every finished video (MP4) and song (MP3/WAV) gets a signed C2PA manifest saying it was created with generative AI (IPTC `trainedAlgorithmicMedia`), using Adobe's open-source `@contentauth/c2pa-node`. The app shows a "Content Credentials" badge with a link to verify. Signing never fails a job: if it can't sign, the file is delivered without credentials and the badge is hidden.
 - **Credits + payments (Razorpay):** credit packs and monthly plans, priced in ₹ (UPI, cards, netbanking) for India and $ (cards) for everyone else. Credits are an append-only ledger; payments are verified by signature and credited exactly once whether the checkout callback or the webhook arrives first; failed videos are refunded automatically.
 - **Installable on Android** (web app manifest) with a Share button that hands the MP4 to Instagram / WhatsApp / YouTube via the phone's share sheet.
 
@@ -39,6 +40,7 @@ The plan and the decisions behind it are in [docs/PLAN.md](docs/PLAN.md).
 | `src/lib/youtube.ts`, `src/lib/posts.ts`, `src/app/calendar` | YouTube OAuth + upload, scheduling/publishing, calendar UI |
 | `src/lib/post-copy.ts` | AI titles, captions, hashtags and tags per platform |
 | `src/lib/songs`, `src/app/songs`, `src/lib/providers/fal-music.ts` | Genre presets, lyrics writer, real-artist safety, ACE-Step on fal, Song Studio page |
+| `src/lib/provenance.ts`, `scripts/dev-c2pa-cert.sh` | C2PA signing and reading; development certificate chain |
 | `src/lib/billing`, `src/app/billing` | Pricing catalog, credit ledger, Razorpay client, checkout + webhook handling, Credits page |
 | `src/lib/db`, `drizzle/` | Drizzle schema (auth tables, characters, films) and SQL migrations |
 | `src/lib/quota` | Free plan (1 film/week, ≤60s, 720p, watermark) and cost estimates |
@@ -70,7 +72,7 @@ npm test                      # includes an end-to-end run with fake providers a
 
 ## Not in Phase 0
 
-GST invoices, C2PA signing, a child-like voice, a choice of narrator voice, word-by-word highlighted captions, Instagram/Facebook publishing, analytics, songs, and Indian languages beyond Hindi. These are Phase 1+ in the plan. Generated media lives on local disk under unguessable names until object storage arrives in Phase 1.
+GST invoices signing, a child-like voice, a choice of narrator voice, word-by-word highlighted captions, Instagram/Facebook publishing, analytics, songs, and Indian languages beyond Hindi. These are Phase 1+ in the plan. Generated media lives on local disk under unguessable names until object storage arrives in Phase 1.
 
 ## YouTube publishing notes
 
@@ -85,6 +87,12 @@ GST invoices, C2PA signing, a child-like voice, a choice of narrator voice, word
 - Prices live in `src/lib/billing/catalog.ts` (placeholders, GST-inclusive for India). Credit costs per video are there too.
 - USD needs **International Payments** enabled in the Razorpay dashboard (requires extra KYC). Foreign-sales tax (VAT/sales tax) is your responsibility with Razorpay; switch global sales to a Merchant of Record such as Paddle if that grows.
 - Indian sales need GST invoices; not generated yet.
+
+## Content Credentials notes
+
+- Run `scripts/dev-c2pa-cert.sh` for a development certificate. Verifiers (e.g. contentcredentials.org/verify) will show it as an unrecognised signer; the AI disclosure and tamper check still work.
+- For production, buy a document-signing certificate from a CA on the C2PA trust list, keep the key in a secret manager, and set `C2PA_TSA_URL`.
+- Platforms often re-encode uploads and may strip the manifest. That's why videos also carry the burned-in label and YouTube's synthetic-media flag.
 
 ## Changing the schema
 

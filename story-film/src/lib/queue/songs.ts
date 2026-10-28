@@ -6,6 +6,7 @@ export const SONG_QUEUE = "songs";
 export interface SongJob {
   songId: string;
   userId: string;
+  title: string;
   style: string;
   lyrics: string;
   durationSec: number;

@@ -4,7 +4,15 @@ import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 
 type Mode = "film" | "cartoon";
-type Status = { id: string; status: string; stage: string | null; title: string | null; error: string | null; videoUrl: string | null };
+type Status = {
+  id: string;
+  status: string;
+  stage: string | null;
+  title: string | null;
+  error: string | null;
+  videoUrl: string | null;
+  contentCredentials?: boolean;
+};
 type Character = { id: string; name: string; description: string; imageUrl: string };
 type Idea = { title: string; idea: string };
 
@@ -323,6 +331,12 @@ export default function Home() {
           ) : status.status === "completed" ? (
             <>
               <strong>{status.title}</strong>
+              {status.contentCredentials && (
+                <p className="muted cc">
+                  <span className="cc-badge">cr</span> Content Credentials: marked as AI-generated ·{" "}
+                  <a href="https://contentcredentials.org/verify" target="_blank" rel="noreferrer">verify</a>
+                </p>
+              )}
               <video src={`/api/films/${jobId}/video`} controls playsInline />
               <div className="actions">
                 {canShareFiles && <button type="button" onClick={share}>Share</button>}

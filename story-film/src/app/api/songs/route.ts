@@ -60,6 +60,7 @@ export async function POST(req: Request) {
       {
         songId,
         userId,
+        title: song.title,
         style: stylePrompt(genre, parsed.data.mood),
         lyrics,
         durationSec: song.durationSec,

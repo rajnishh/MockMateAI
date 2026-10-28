@@ -6,6 +6,7 @@ import { loadEnv } from "@/lib/env";
 import { updateFilm } from "@/lib/films";
 import { type PipelineDeps, runFilm } from "@/lib/pipeline/orchestrator";
 import { pendingPosts, publishPost } from "@/lib/posts";
+import { provenanceFromEnv, trySign } from "@/lib/provenance";
 import { grantCredits } from "@/lib/billing/credits";
 import { buildPipelineDeps, buildSongProvider, type Quality, songsAvailable } from "@/lib/providers";
 import { SONG_QUEUE, type SongJob } from "@/lib/queue/songs";
@@ -23,6 +24,8 @@ function depsFor(quality: Quality): PipelineDeps {
   return depsByQuality.get(quality)!;
 }
 const db = getDb();
+const provenance = provenanceFromEnv(env);
+if (!provenance) console.log("C2PA Content Credentials disabled: set C2PA_CERT_CHAIN and C2PA_PRIVATE_KEY");
 
 // Job ids are film row ids, so progress is written straight to the film.
 const filmWorker = new Worker<FilmJob>(
@@ -33,7 +36,17 @@ const filmWorker = new Worker<FilmJob>(
     const result = await runFilm(depsFor(job.data.quality), job.data, path.resolve(env.OUTPUT_DIR, filmId), (stage) =>
       updateFilm(db, filmId, { stage }),
     );
-    await updateFilm(db, filmId, { status: "completed", title: result.title, outputPath: result.output, completedAt: new Date() });
+    const contentCredentials = await trySign(provenance, result.output, {
+      title: result.title,
+      description: "AI-generated video: script, images, motion and narration made with generative AI models",
+    });
+    await updateFilm(db, filmId, {
+      status: "completed",
+      title: result.title,
+      outputPath: result.output,
+      contentCredentials,
+      completedAt: new Date(),
+    });
     return result;
   },
   // Each film fans out its own parallel API calls; keep films per worker low.
@@ -63,7 +76,11 @@ if (songsAvailable(env)) {
       await mkdir(dir, { recursive: true });
       const outputPath = path.join(dir, `${songId}.${audio.ext}`);
       await writeFile(outputPath, audio.data);
-      await updateSong(db, songId, { status: "completed", outputPath, completedAt: new Date() });
+      const contentCredentials = await trySign(provenance, outputPath, {
+        title: job.data.title,
+        description: "AI-generated song: lyrics, music and vocals made with generative AI models",
+      });
+      await updateSong(db, songId, { status: "completed", outputPath, contentCredentials, completedAt: new Date() });
     },
     { connection: getRedis(), concurrency: 2 },
   );

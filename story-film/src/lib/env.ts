@@ -13,6 +13,11 @@ const schema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   // 32 random bytes, base64. Encrypts connected-channel OAuth tokens.
   TOKEN_ENCRYPTION_KEY: z.string().optional(),
+  // C2PA signing: PEM text or file paths. See scripts/dev-c2pa-cert.sh for a dev certificate.
+  C2PA_CERT_CHAIN: z.string().optional(),
+  C2PA_PRIVATE_KEY: z.string().optional(),
+  // RFC 3161 timestamp authority, so signatures stay valid after the certificate expires.
+  C2PA_TSA_URL: z.string().optional(),
   RAZORPAY_KEY_ID: z.string().optional(),
   RAZORPAY_KEY_SECRET: z.string().optional(),
   RAZORPAY_WEBHOOK_SECRET: z.string().optional(),

@@ -10,6 +10,7 @@ type Song = {
   status: string;
   error: string | null;
   audioUrl: string | null;
+  contentCredentials: boolean;
   createdAt: string;
 };
 
@@ -188,6 +189,11 @@ export default function SongsPage() {
                   <>
                     <audio src={s.audioUrl} controls preload="none" />
                     <a href={s.audioUrl} download>Download</a>
+                    {s.contentCredentials && (
+                      <span className="muted cc">
+                        <span className="cc-badge">cr</span> Content Credentials: marked as AI-generated
+                      </span>
+                    )}
                   </>
                 )}
                 {s.error && <span className="muted">{s.error}</span>}

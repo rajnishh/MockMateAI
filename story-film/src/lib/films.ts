@@ -34,6 +34,7 @@ export function filmView(f: Film) {
     story: f.story,
     kidSafe: f.kidSafe,
     quality: f.quality,
+    contentCredentials: f.contentCredentials,
     credits: f.credits,
     error: f.error,
     createdAt: f.createdAt.toISOString(),

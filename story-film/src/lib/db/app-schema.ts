@@ -43,6 +43,8 @@ export const film = pgTable(
     stage: text("stage"),
     title: text("title"),
     outputPath: text("output_path"),
+    // True when C2PA Content Credentials were embedded in the output.
+    contentCredentials: boolean("content_credentials").notNull().default(false),
     error: text("error"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     completedAt: timestamp("completed_at"),
@@ -196,6 +198,7 @@ export const song = pgTable(
     credits: integer("credits").notNull().default(0),
     status: filmStatus("status").default("queued").notNull(),
     outputPath: text("output_path"),
+    contentCredentials: boolean("content_credentials").notNull().default(false),
     error: text("error"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     completedAt: timestamp("completed_at"),

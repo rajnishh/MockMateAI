@@ -32,6 +32,7 @@ export function songView(s: Song) {
     lyrics: s.lyrics,
     durationSec: s.durationSec,
     status: s.status,
+    contentCredentials: s.contentCredentials,
     error: s.error,
     createdAt: s.createdAt.toISOString(),
     audioUrl: s.status === "completed" ? `/api/songs/${s.id}/audio` : null,

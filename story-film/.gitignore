@@ -4,3 +4,4 @@ output/
 .env
 next-env.d.ts
 *.tsbuildinfo
+.c2pa-dev/
