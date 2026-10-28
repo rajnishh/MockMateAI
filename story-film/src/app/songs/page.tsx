@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { MusicVideoPanel } from "./music-video-panel";
 
 type Song = {
   id: string;
@@ -10,6 +11,7 @@ type Song = {
   status: string;
   error: string | null;
   audioUrl: string | null;
+  durationSec: number;
   contentCredentials: boolean;
   createdAt: string;
 };
@@ -51,6 +53,9 @@ export default function SongsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [needCredits, setNeedCredits] = useState(false);
+  const [videoFor, setVideoFor] = useState<string | null>(null);
+  const [characters, setCharacters] = useState<{ id: string; name: string; imageUrl: string }[]>([]);
+  const [billing, setBilling] = useState({ premiumAvailable: false, premiumCreditsPerShot: 8 });
 
   const load = useCallback(async () => {
     const res = await fetch("/api/songs");
@@ -63,6 +68,8 @@ export default function SongsPage() {
 
   useEffect(() => {
     load();
+    fetch("/api/characters").then(async (r) => r.ok && setCharacters((await r.json()).characters)).catch(() => {});
+    fetch("/api/billing").then(async (r) => r.ok && setBilling(await r.json())).catch(() => {});
   }, [load]);
 
   // Poll while any song is still being made.
@@ -193,6 +200,17 @@ export default function SongsPage() {
                       <span className="muted cc">
                         <span className="cc-badge">cr</span> Content Credentials: marked as AI-generated
                       </span>
+                    )}
+                    {videoFor === s.id ? (
+                      <MusicVideoPanel
+                        songId={s.id}
+                        durationSec={s.durationSec}
+                        characters={characters}
+                        premiumAvailable={billing.premiumAvailable}
+                        premiumCreditsPerShot={billing.premiumCreditsPerShot}
+                      />
+                    ) : (
+                      <button type="button" className="secondary" onClick={() => setVideoFor(s.id)}>🎬 Make music video</button>
                     )}
                   </>
                 )}

@@ -92,7 +92,8 @@ export class FalImageToVideo implements VideoProvider {
   ) {}
 
   async animate(input: { imageUrl: string; prompt: string; durationSec: number; resolution: Resolution }): Promise<{ url: string }> {
-    const payload: Record<string, unknown> = { prompt: input.prompt, duration: String(input.durationSec) };
+    // Wan and Kling only take 5 or 10 seconds; longer than needed is trimmed in assembly.
+    const payload: Record<string, unknown> = { prompt: input.prompt, duration: input.durationSec > 5 ? "10" : "5" };
     if (this.modelId === "wan-2.x") {
       payload.image_url = input.imageUrl;
       // Wan defaults to 1080p, which costs 1.5x the 720p rate.

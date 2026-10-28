@@ -28,8 +28,33 @@ export type FilmJob = z.infer<typeof filmJobSchema> & {
   credits: number;
 };
 
+export const musicVideoRequestSchema = z.object({
+  style: z.enum(["cinematic", "animated", "photoreal"]).default("animated"),
+  quality: z.enum(["standard", "premium"]).default("standard"),
+  characterId: z.uuid().optional(),
+  kidSafe: z.boolean().default(false),
+  captions: z.boolean().default(true),
+});
+
+// Music videos share the films queue (job name "music-video") and the film table.
+export type MusicVideoJob = z.infer<typeof musicVideoRequestSchema> & {
+  userId: string;
+  songId: string;
+  songFile: string;
+  title: string;
+  lyrics: string;
+  genre: string;
+  mood: string;
+  character?: CharacterProfile;
+  resolution: "480p" | "720p";
+  watermark: boolean;
+  credits: number;
+};
+
+export type FilmQueueJob = FilmJob | MusicVideoJob;
+
 let redis: Redis | undefined;
-let queue: Queue<FilmJob> | undefined;
+let queue: Queue<FilmQueueJob> | undefined;
 
 export function getRedis(): Redis {
   // BullMQ requires maxRetriesPerRequest: null on its connections.
@@ -37,7 +62,7 @@ export function getRedis(): Redis {
   return redis;
 }
 
-export function getFilmQueue(): Queue<FilmJob> {
-  queue ??= new Queue<FilmJob>(FILM_QUEUE, { connection: getRedis() });
+export function getFilmQueue(): Queue<FilmQueueJob> {
+  queue ??= new Queue<FilmQueueJob>(FILM_QUEUE, { connection: getRedis() });
   return queue;
 }

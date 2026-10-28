@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { boolean, index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { type AnyPgColumn, boolean, index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { user } from "./auth-schema";
 
 export const filmStyle = pgEnum("film_style", ["cinematic", "animated", "photoreal"]);
@@ -32,6 +32,8 @@ export const film = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     characterId: uuid("character_id").references(() => character.id, { onDelete: "set null" }),
+    // Set for music videos: the song this video was made for.
+    songId: uuid("song_id").references((): AnyPgColumn => song.id, { onDelete: "set null" }),
     story: text("story").notNull(),
     style: filmStyle("style").notNull(),
     durationSec: integer("duration_sec").notNull(),

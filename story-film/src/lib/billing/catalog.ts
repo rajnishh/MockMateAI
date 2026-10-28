@@ -33,6 +33,13 @@ export const STANDARD_CREDITS = 1;
 export const PREMIUM_CREDITS_PER_SHOT = 8;
 // One song of up to 2 minutes (ACE-Step on fal.ai); verify fal's price before launch.
 export const SONG_CREDITS = 4;
+// Music videos: Standard (pan-and-zoom scenes, ~$0 to make) is a flat price;
+// Premium animates every 5s scene with AI at the usual per-shot price.
+export const MUSIC_VIDEO_STANDARD_CREDITS = 2;
+
+export function musicVideoCredits(quality: "standard" | "premium", durationSec: number): number {
+  return quality === "standard" ? MUSIC_VIDEO_STANDARD_CREDITS : Math.ceil(durationSec / 5) * PREMIUM_CREDITS_PER_SHOT;
+}
 
 export function planEnvName(plan: Plan, currency: Currency): string {
   return `RAZORPAY_PLAN_${plan.envKey}_${currency}`;

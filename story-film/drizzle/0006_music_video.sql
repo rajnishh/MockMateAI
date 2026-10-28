@@ -1,0 +1,2 @@
+ALTER TABLE "film" ADD COLUMN "song_id" uuid;--> statement-breakpoint
+ALTER TABLE "film" ADD CONSTRAINT "film_song_id_song_id_fk" FOREIGN KEY ("song_id") REFERENCES "public"."song"("id") ON DELETE set null ON UPDATE no action;

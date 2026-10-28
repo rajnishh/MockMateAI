@@ -18,7 +18,7 @@ const MOVES = [
 
 export function buildKenBurnsArgs(image: string, output: string, durationSec: number, resolution: Resolution, move: number): string[] {
   const { w, h } = FRAME_SIZE[resolution];
-  const frames = durationSec * FPS;
+  const frames = Math.ceil(durationSec * FPS);
   const m = MOVES[move % MOVES.length];
   const expr = (e: string) => e.replaceAll("FRAMES", String(frames));
   return [

@@ -43,6 +43,13 @@
       "when": 1793186462365,
       "tag": "0005_content_credentials",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793186832066,
+      "tag": "0006_music_video",
+      "breakpoints": true
     }
   ]
 }
