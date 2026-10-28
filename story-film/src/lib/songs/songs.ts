@@ -32,6 +32,7 @@ export function songView(s: Song) {
     lyrics: s.lyrics,
     durationSec: s.durationSec,
     status: s.status,
+    myVoice: Boolean(s.voiceProfileId),
     contentCredentials: s.contentCredentials,
     error: s.error,
     createdAt: s.createdAt.toISOString(),

@@ -36,6 +36,8 @@ const schema = z.object({
   KOKORO_VOICE: z.string().default("af_heart"),
   // Optional: without an ACE-Step server, films have narration only.
   ACESTEP_URL: z.string().optional(),
+  // Optional self-hosted Seed-VC singing-voice service; otherwise Chatterbox on fal.ai is used.
+  SEEDVC_URL: z.string().optional(),
   FREE_FILMS_PER_WEEK: z.coerce.number().int().min(1).default(3),
   OUTPUT_DIR: z.string().default("./output"),
   FONTS_DIR: z.string().default("./assets/fonts"),

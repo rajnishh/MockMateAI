@@ -1,11 +1,14 @@
 import path from "node:path";
 import { type Env, requireKey } from "@/lib/env";
 import { LocalMediaStore } from "@/lib/media";
-import { defaultFfmpeg, type PipelineDeps } from "@/lib/pipeline/orchestrator";
+import { defaultFfmpeg } from "@/lib/ffmpeg";
+import type { PipelineDeps } from "@/lib/pipeline/orchestrator";
 import { AceStepMusic } from "./acestep";
 import { CLOUDFLARE_DEFAULTS, cloudflareAiBase, CloudflareFluxImage } from "./cloudflare";
 import { DEFAULT_FAL_MODELS, FalImageToVideo, FalNanoBanana, FalQueueClient } from "./fal";
 import { FalAceStep } from "./fal-music";
+import { FalChatterboxVc, FalDemucs, SeedVcServer } from "./voice";
+import { CloudflareWhisper } from "./whisper";
 import { KenBurnsVideo } from "./kenburns";
 import { KokoroTts } from "./kokoro";
 import { OpenAiCompatibleLlm } from "./llm";
@@ -45,6 +48,27 @@ export function songsAvailable(env: Env): boolean {
 
 export function buildSongProvider(env: Env): FalAceStep {
   return new FalAceStep(new FalQueueClient(requireKey(env.FAL_KEY, "FAL_KEY")));
+}
+
+// "Sing in my voice" needs fal (separation) and Whisper (consent check).
+export function myVoiceAvailable(env: Env): boolean {
+  return Boolean(env.FAL_KEY && env.CLOUDFLARE_ACCOUNT_ID && env.CLOUDFLARE_API_TOKEN);
+}
+
+export function buildWhisper(env: Env): CloudflareWhisper {
+  return new CloudflareWhisper(
+    requireKey(env.CLOUDFLARE_ACCOUNT_ID, "CLOUDFLARE_ACCOUNT_ID"),
+    requireKey(env.CLOUDFLARE_API_TOKEN, "CLOUDFLARE_API_TOKEN"),
+  );
+}
+
+// Seed-VC keeps the melody better; Chatterbox works with just a fal key.
+export function buildSingDeps(env: Env) {
+  const fal = new FalQueueClient(requireKey(env.FAL_KEY, "FAL_KEY"));
+  return {
+    separator: new FalDemucs(fal),
+    converter: env.SEEDVC_URL ? new SeedVcServer(env.SEEDVC_URL) : new FalChatterboxVc(fal),
+  };
 }
 
 // OpenRouter when configured (stronger models), otherwise the free Workers AI Llama.

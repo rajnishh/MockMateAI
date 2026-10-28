@@ -36,6 +36,8 @@ export const SONG_CREDITS = 4;
 // Music videos: Standard (pan-and-zoom scenes, ~$0 to make) is a flat price;
 // Premium animates every 5s scene with AI at the usual per-shot price.
 export const MUSIC_VIDEO_STANDARD_CREDITS = 2;
+// Re-singing a song in the user's voice: separation plus voice conversion.
+export const MY_VOICE_CREDITS = 4;
 
 export function musicVideoCredits(quality: "standard" | "premium", durationSec: number): number {
   return quality === "standard" ? MUSIC_VIDEO_STANDARD_CREDITS : Math.ceil(durationSec / 5) * PREMIUM_CREDITS_PER_SHOT;

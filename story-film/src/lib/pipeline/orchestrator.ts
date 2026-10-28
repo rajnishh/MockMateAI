@@ -1,7 +1,6 @@
-import { execFile } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { promisify } from "node:util";
+import { defaultFfmpeg, probeDuration } from "@/lib/ffmpeg";
 import { readMedia } from "@/lib/media";
 import { assertCommercialSafe } from "@/lib/models/licenses";
 import type {
@@ -18,8 +17,6 @@ import type {
 import { CLIP_SECONDS, shotCountFor } from "@/lib/quota/plans";
 import { buildAssembleArgs } from "./assemble";
 import { buildCues, renderCaptionImages } from "./captions";
-
-const execFileAsync = promisify(execFile);
 
 export interface FilmRequest {
   story: string;
@@ -66,14 +63,8 @@ async function download(fetchFn: typeof fetch, url: string, file: string): Promi
   return file;
 }
 
-export async function probeDuration(file: string): Promise<number> {
-  const { stdout } = await execFileAsync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file]);
-  return Number(stdout.trim());
-}
-
-export async function defaultFfmpeg(args: string[]): Promise<void> {
-  await execFileAsync("ffmpeg", args, { maxBuffer: 16 * 1024 * 1024 });
-}
+// Re-exported for existing callers; new code imports from @/lib/ffmpeg.
+export { defaultFfmpeg, probeDuration };
 
 export async function runFilm(
   deps: PipelineDeps,
@@ -137,7 +128,7 @@ export async function runFilm(
   if (req.captions !== false) {
     const durations = await Promise.all(narration.map(deps.probeDuration ?? probeDuration));
     const cues = buildCues(script.shots.map((s) => s.narration), durations, CLIP_SECONDS);
-    captions = await renderCaptionImages(cues, req.resolution, path.resolve(deps.fontsDir ?? "assets/fonts"), workDir);
+    captions = await renderCaptionImages(cues, req.resolution, path.resolve(/*turbopackIgnore: true*/ deps.fontsDir ?? "assets/fonts"), workDir);
   }
   const output = path.join(workDir, "film.mp4");
   await (deps.runFfmpeg ?? defaultFfmpeg)(

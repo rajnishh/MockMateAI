@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { MusicVideoPanel } from "./music-video-panel";
+import { MyVoices, type Voice } from "./my-voice";
 
 type Song = {
   id: string;
@@ -12,6 +13,7 @@ type Song = {
   error: string | null;
   audioUrl: string | null;
   durationSec: number;
+  myVoice: boolean;
   contentCredentials: boolean;
   createdAt: string;
 };
@@ -54,6 +56,9 @@ export default function SongsPage() {
   const [error, setError] = useState<string | null>(null);
   const [needCredits, setNeedCredits] = useState(false);
   const [videoFor, setVideoFor] = useState<string | null>(null);
+  const [voices, setVoices] = useState<Voice[]>([]);
+  const [voiceFor, setVoiceFor] = useState<string | null>(null);
+  const [voiceId, setVoiceId] = useState("");
   const [characters, setCharacters] = useState<{ id: string; name: string; imageUrl: string }[]>([]);
   const [billing, setBilling] = useState({ premiumAvailable: false, premiumCreditsPerShot: 8 });
 
@@ -89,6 +94,18 @@ export default function SongsPage() {
     if (!ok) return setError(data.error ?? "Couldn't write lyrics");
     setTitle(data.title);
     setLyrics(data.lyrics);
+  }
+
+  async function singInMyVoice(songId: string) {
+    setError(null);
+    setNeedCredits(false);
+    const { ok, data } = await postJson<{ id: string }>(`/api/songs/${songId}/my-voice`, { voiceProfileId: voiceId || voices[0]?.id });
+    if (!ok) {
+      setNeedCredits(Boolean(data.needCredits));
+      return setError(data.error ?? "Something went wrong");
+    }
+    setVoiceFor(null);
+    load();
   }
 
   async function makeSong(e: FormEvent) {
@@ -182,6 +199,8 @@ export default function SongsPage() {
         </div>
       )}
 
+      <MyVoices onChange={setVoices} />
+
       {songs.length > 0 && (
         <section>
           <h2>My songs</h2>
@@ -200,6 +219,18 @@ export default function SongsPage() {
                       <span className="muted cc">
                         <span className="cc-badge">cr</span> Content Credentials: marked as AI-generated
                       </span>
+                    )}
+                    {voices.length > 0 && !s.myVoice && (
+                      voiceFor === s.id ? (
+                        <div className="row">
+                          <select value={voiceId || voices[0].id} onChange={(e) => setVoiceId(e.target.value)} aria-label="Voice">
+                            {voices.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                          </select>
+                          <button type="button" onClick={() => singInMyVoice(s.id)}>Sing it · 4 credits</button>
+                        </div>
+                      ) : (
+                        <button type="button" className="secondary" onClick={() => setVoiceFor(s.id)}>🎤 Sing it in my voice</button>
+                      )
                     )}
                     {videoFor === s.id ? (
                       <MusicVideoPanel

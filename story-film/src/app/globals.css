@@ -78,3 +78,5 @@ header.top .post-actions { flex-wrap: wrap; justify-content: flex-start; }
 header.top h1 { margin: 16px 0 8px; }
 .cc { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .cc-badge { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid currentColor; font-size: 10px; font-weight: 700; }
+.consent { margin: 8px 0; padding: 12px 14px; border-left: 4px solid var(--accent); background: rgba(180, 83, 9, 0.08); border-radius: 6px; font-size: 18px; line-height: 1.5; }
+input[type="file"] { font: inherit; width: 100%; }

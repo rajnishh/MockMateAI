@@ -184,6 +184,30 @@ export const webhookEvent = pgTable("webhook_event", {
   receivedAt: timestamp("received_at").defaultNow().notNull(),
 });
 
+// A user's own voice, kept only with recorded, verified consent.
+export const voiceProfile = pgTable(
+  "voice_profile",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    samplePath: text("sample_path").notNull(),
+    durationSec: integer("duration_sec").notNull(),
+    // Consent evidence: the statement shown, the code the user had to say, what
+    // the recording was transcribed as, and when/where they agreed.
+    consentText: text("consent_text").notNull(),
+    consentCode: text("consent_code").notNull(),
+    transcript: text("transcript").notNull(),
+    consentIp: text("consent_ip"),
+    consentUserAgent: text("consent_user_agent"),
+    consentedAt: timestamp("consented_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("voice_profile_user_idx").on(t.userId)],
+);
+
 export const song = pgTable(
   "song",
   {
@@ -197,6 +221,9 @@ export const song = pgTable(
     language: text("language").notNull(),
     lyrics: text("lyrics").notNull(),
     durationSec: integer("duration_sec").notNull(),
+    // Set for "my voice" versions: the original song and the voice used.
+    parentSongId: uuid("parent_song_id").references((): AnyPgColumn => song.id, { onDelete: "set null" }),
+    voiceProfileId: uuid("voice_profile_id").references(() => voiceProfile.id, { onDelete: "set null" }),
     credits: integer("credits").notNull().default(0),
     status: filmStatus("status").default("queued").notNull(),
     outputPath: text("output_path"),

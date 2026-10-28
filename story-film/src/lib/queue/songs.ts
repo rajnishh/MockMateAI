@@ -14,9 +14,21 @@ export interface SongJob {
   credits: number;
 }
 
-let queue: Queue<SongJob> | undefined;
+// Job name "my-voice": re-sing an existing song in the user's recorded voice.
+export interface MyVoiceJob {
+  songId: string;
+  userId: string;
+  title: string;
+  parentSongFile: string;
+  sampleFile: string;
+  credits: number;
+}
 
-export function getSongQueue(): Queue<SongJob> {
-  queue ??= new Queue<SongJob>(SONG_QUEUE, { connection: getRedis() });
+export type SongQueueJob = SongJob | MyVoiceJob;
+
+let queue: Queue<SongQueueJob> | undefined;
+
+export function getSongQueue(): Queue<SongQueueJob> {
+  queue ??= new Queue<SongQueueJob>(SONG_QUEUE, { connection: getRedis() });
   return queue;
 }

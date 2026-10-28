@@ -50,6 +50,13 @@
       "when": 1793186832066,
       "tag": "0006_music_video",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793187389305,
+      "tag": "0007_voice_profiles",
+      "breakpoints": true
     }
   ]
 }

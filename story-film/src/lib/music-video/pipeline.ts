@@ -5,7 +5,8 @@ import { readMedia } from "@/lib/media";
 import { assertCommercialSafe } from "@/lib/models/licenses";
 import { buildMusicVideoArgs } from "@/lib/pipeline/assemble";
 import { type Cue, renderCaptionImages } from "@/lib/pipeline/captions";
-import { defaultFfmpeg, mapLimit, probeDuration } from "@/lib/pipeline/orchestrator";
+import { defaultFfmpeg, probeDuration } from "@/lib/ffmpeg";
+import { mapLimit } from "@/lib/pipeline/orchestrator";
 import { STYLE_HINTS } from "@/lib/pipeline/script";
 import type { CharacterProfile, FilmStyle, ImageProvider, LlmProvider, Resolution, VideoProvider } from "@/lib/providers/types";
 import { planScenes, type Scene, singableLines, type TimedLine, timeLines, type Word } from "./timing";
@@ -139,7 +140,7 @@ export async function runMusicVideo(
   const captions =
     req.captions === false
       ? undefined
-      : await renderCaptionImages(lyricCues(timed), req.resolution, path.resolve(deps.fontsDir ?? "assets/fonts"), workDir);
+      : await renderCaptionImages(lyricCues(timed), req.resolution, path.resolve(/*turbopackIgnore: true*/ deps.fontsDir ?? "assets/fonts"), workDir);
   const output = path.join(workDir, "film.mp4");
   await runFfmpeg(buildMusicVideoArgs({ clips, durations, song, resolution: req.resolution, watermark: req.watermark, output, captions }));
 

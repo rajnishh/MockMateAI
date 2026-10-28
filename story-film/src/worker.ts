@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { type Job, Worker } from "bullmq";
 import { getDb } from "@/lib/db";
@@ -8,8 +8,9 @@ import { type PipelineDeps, runFilm } from "@/lib/pipeline/orchestrator";
 import { pendingPosts, publishPost } from "@/lib/posts";
 import { provenanceFromEnv, trySign } from "@/lib/provenance";
 import { grantCredits } from "@/lib/billing/credits";
-import { buildPipelineDeps, buildSongProvider, type Quality, songsAvailable } from "@/lib/providers";
-import { SONG_QUEUE, type SongJob } from "@/lib/queue/songs";
+import { buildPipelineDeps, buildSingDeps, buildSongProvider, type Quality, songsAvailable } from "@/lib/providers";
+import { type MyVoiceJob, SONG_QUEUE, type SongJob, type SongQueueJob } from "@/lib/queue/songs";
+import { singInMyVoice } from "@/lib/voice/sing";
 import { updateSong } from "@/lib/songs/songs";
 import { FILM_QUEUE, type FilmJob, type FilmQueueJob, getRedis, type MusicVideoJob } from "@/lib/queue/films";
 import { runMusicVideo } from "@/lib/music-video/pipeline";
@@ -86,19 +87,32 @@ filmWorker.on("failed", async (job, err) => {
 // Songs run only when fal.ai is configured.
 if (songsAvailable(env)) {
   const singer = buildSongProvider(env);
-  const songWorker = new Worker<SongJob>(
+  const singDeps = buildSingDeps(env);
+  const songWorker = new Worker<SongQueueJob>(
     SONG_QUEUE,
     async (job) => {
       const { songId } = job.data;
       await updateSong(db, songId, { status: "running", error: null });
-      const audio = await singer.sing(job.data);
       const dir = path.resolve(env.OUTPUT_DIR, "songs");
       await mkdir(dir, { recursive: true });
-      const outputPath = path.join(dir, `${songId}.${audio.ext}`);
-      await writeFile(outputPath, audio.data);
+      let outputPath: string;
+      if (job.name === "my-voice") {
+        const d = job.data as MyVoiceJob;
+        const mixed = await singInMyVoice(singDeps, d.parentSongFile, d.sampleFile, path.join(dir, `${songId}-work`));
+        outputPath = path.join(dir, `${songId}.mp3`);
+        await rename(mixed, outputPath);
+        await rm(path.join(dir, `${songId}-work`), { recursive: true, force: true });
+      } else {
+        const audio = await singer.sing(job.data as SongJob);
+        outputPath = path.join(dir, `${songId}.${audio.ext}`);
+        await writeFile(outputPath, audio.data);
+      }
       const contentCredentials = await trySign(provenance, outputPath, {
         title: job.data.title,
-        description: "AI-generated song: lyrics, music and vocals made with generative AI models",
+        description:
+          job.name === "my-voice"
+            ? "AI-generated song, re-sung with AI voice conversion in the account holder's own consented voice"
+            : "AI-generated song: lyrics, music and vocals made with generative AI models",
       });
       await updateSong(db, songId, { status: "completed", outputPath, contentCredentials, completedAt: new Date() });
     },
