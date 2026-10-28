@@ -1,6 +1,6 @@
 # Reelkar v1.0
 
-Reelkar is a creator studio for India and the Gulf. It takes a person from "I want to be a creator" to posting every day: it builds their brand kit, turns ideas into reels, cartoons and songs, posts to Instagram, YouTube, Facebook, LinkedIn, TikTok and X, answers comments with DMs, and helps them earn from guides, courses and brand deals. The name follows *kalakar* and *filmkar*: *-kar* means "the one who makes". This system replaces the **Story to Film v0.0 draft**, which stays as a reference.
+Reelkar is a creator studio for India and the Gulf. It takes a person from "I want to be a creator" to posting every day: it builds their brand kit, turns ideas into reels, cartoons and songs, posts to Instagram, YouTube, Facebook, LinkedIn, TikTok and X, answers comments with DMs, and helps them earn from guides, courses and brand deals. The name follows *kalakar* and *filmkar*: *-kar* means "the one who makes". This system replaces the **Story to Film v0.0 draft**, which stays as a reference. Its colours and type come from the Trust Navy direction (shared with the Bachat app's brand directions); the Reelkar name, mark and voice are its own.
 
 One system covers three apps with the same tokens and components:
 
@@ -22,22 +22,24 @@ One system covers three apps with the same tokens and components:
 
 ## Visual foundations
 
-**Dark by default.** The app looks like an editing suite at night, the place creators already work in CapCut and Instagram. Light theme is available and fully designed; the app follows the phone's setting until the person picks one.
+**Trust navy, light by default.** Reelkar borrows the Trust Navy direction: deep navy reads safe and serious (creators hand us their accounts and their money), fresh teal shows growth, and coral marks the wins. The app is light by default and follows the phone's dark setting; dark theme is fully designed.
 
-**Two accents, two jobs.**
-- `coral` is the record light: the **one** main action per screen ("Make my reel", "Post now", "Buy credits"), live and recording states. Fill with `on-coral` text; coral as text uses `coral-text`.
-- `sky` is everything you can tweak: selection, links, progress, sliders, credit counts. Selected things sit on `sky-tint`.
-- Everything else is neutral: `surface`, `surface-raised`, `surface-sunken`, `surface-overlay`, `line`, `line-strong`, `ink`, `ink-muted`. Status colours (`success`, `warning`, `danger`) always come with an icon and a word.
+**Three colours, three jobs.**
+- `brand` (navy #18264a) is the identity: the app icon, the splash screen and one **hero card** per screen (this week's progress, earnings), with `on-brand` text. Navy as text is `brand-text`.
+- `action` is the **one** main button per screen ("Make my reel", "Post now", "Buy credits"): navy in light theme, teal in dark, with `on-action` text.
+- `teal` is growth and everything you can tweak: progress, selected chips and tabs, switches, rising numbers. As text, icon or border it is `teal-text`; selected things sit on `teal-tint`.
+- `coral` is for wins and live moments only: "You posted 7 days in a row", the recording dot, unread counts. Never a button.
+- Neutrals: `surface`, `surface-raised`, `surface-sunken`, `surface-overlay`, `line`, `line-strong`, `ink`, `ink-muted`. Status colours (`success`, `warning`, `danger`) always come with an icon and a word.
 
-**Type.** Sora (display) for Latin headlines and the wordmark; Hind for all running text because one family covers Latin and Devanagari, with sister families for Bengali (Hind Siliguri), Tamil (Hind Madurai) and Telugu (Hind Guntur); Noto Sans Arabic for Arabic. JetBrains Mono only for timecodes and keywords. Indic and Arabic headlines use the body family at 700, never Sora. Body line height stays at 1.6 or more so vowel signs never clip.
+**Type.** Manrope for Latin text and headings: crisp, modern, the fintech feel that says "safe". Manrope has no Indian scripts, so every stack falls back to Hind (Devanagari for Hindi and Marathi) and its sister families for Bengali (Hind Siliguri), Tamil (Hind Madurai) and Telugu (Hind Guntur), and to Noto Sans Arabic for Arabic. Headings use weight 800 with tight letter-spacing (-0.02em) in Latin only. JetBrains Mono only for timecodes and keywords. Body line height stays at 1.6 or more so vowel signs never clip.
 
-**Shape and space.** Geometric and calm: `radius-md` (12px) for cards and inputs, `radius-pill` for buttons and chips, `radius-lg` for sheets. A 4px spacing grid (`space-1` … `space-7`); phones use 16px side margins, desktop 32px.
+**Shape and space.** Soft and friendly: `radius-md` (12px) for cards and inputs, `radius-lg` (20px) for hero cards and sheets, `radius-pill` for buttons and chips. A 4px spacing grid (`space-1` … `space-7`); phones use 16px side margins, desktop 32px.
 
 **Layout by width.** Under `bp-tablet` (768px): one column, bottom tab bar. 768-1023px: icon sidebar, two columns. From `bp-desktop` (1024px): full sidebar, list + detail panes. From `bp-wide` (1440px): week calendar with previews, 5-up reel grid. Content never exceeds `content-max`.
 
-**Motion.** Quick and functional: 150ms ease-out for presses and toggles, 250ms for sheets. One signature moment: the reel icon turns a quarter turn while a reel is being made. Everything respects reduced-motion.
+**Motion.** Quick and functional: 150ms ease-out for presses and toggles, 250ms for sheets. One signature moment: the reel turns a quarter turn while a reel is being made. Everything respects reduced-motion.
 
-**Imagery.** The creator's own reels are the imagery. Empty states use simple shapes in the brand colours, never stock photos or 3D mascots.
+**Imagery.** The creator's own reels are the imagery. Empty states use simple shapes in navy, teal and coral, never stock photos or 3D mascots.
 
 ## Iconography
 
@@ -49,11 +51,11 @@ Home (today's next action and the zero-to-hero checklist) · Create · Calendar 
 
 ## Accessibility and reach
 
-- WCAG 2.1 AA in both themes: text 4.5:1 or better on its stated surfaces, borders and icons 3:1. Coral on the light surface is 2.9:1, so coral shapes always carry a text label.
+- WCAG 2.1 AA in both themes: text 4.5:1 or better on its stated surfaces, borders and icons 3:1. The bright `teal` fill is 2:1 on the light surface, so it is used only behind `on-teal` text or inside navy hero cards; on light surfaces, progress and selection use `teal-text`.
 - Touch targets at least `tap-min` (48px); buttons 52px on touch, 40px with a mouse.
 - Arabic flips the whole layout right-to-left (tab order, sidebar side, progress direction); icons with direction (send, arrows) mirror.
 - Built for low-end Android: no blur effects, no video autoplay on lists, thumbnails lazy-loaded.
 
 ## Tokens in code
 
-Use the token names as they are: CSS custom properties on web and desktop (`var(--coral)`), and the same names in a `theme.ts` object for Expo. Component class names use the `rk-` prefix.
+Use the token names as they are: CSS custom properties on web and desktop (`var(--action)`), and the same names in a `theme.ts` object for Expo. Component class names use the `rk-` prefix.
