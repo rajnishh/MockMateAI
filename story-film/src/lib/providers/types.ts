@@ -1,7 +1,9 @@
+import type { LanguageCode } from "@/lib/languages";
+
 export type FilmStyle = "cinematic" | "animated" | "photoreal";
 export type Resolution = "480p" | "720p";
 // "auto" keeps the language the user wrote in.
-export type NarrationLanguage = "auto" | "en" | "hi";
+export type NarrationLanguage = "auto" | LanguageCode;
 
 export interface Character {
   name: string;

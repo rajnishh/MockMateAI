@@ -5,6 +5,7 @@ Makes narrated 9:16 videos for Reels, Shorts and WhatsApp:
 - **Short film:** a story → script + shot list → keyframes → clips → narration (+ music) → FFmpeg assembly with a burned-in "Created with AI" label.
 - **Cartoon episode:** create a character once (reference image + fixed description + seed), then one idea per episode keeps the same character. Optional "made for kids" safety rules.
 - **AI ideas:** topic suggestions for a niche or a character, tap to use.
+- **Languages:** English, Hindi, Marathi, Bengali, Tamil, Telugu and Arabic for scripts, narration, captions, AI post copy, ideas and songs (plus Hinglish for songs), all in native script. Narration engine per language: Kokoro (English, Hindi), Sarvam Bulbul (Marathi, Bengali, Tamil, Telugu), Chatterbox Multilingual on fal.ai (Arabic). Languages whose engine isn't configured show as "coming soon" and are refused before any credits are charged. Captions use Noto fonts per script and render Arabic right-to-left.
 - **Hindi + captions:** narration can be forced to Hindi (Devanagari) or English, or follow the user's text. Short phrase captions are burned in, timed to each shot's narration. Captions are drawn with Skia + HarfBuzz (`@napi-rs/canvas`) because FFmpeg's libass and drawtext mis-shape Devanagari conjuncts such as क्ष.
 - **Accounts:** sign in with Google or an Indian mobile number + SMS code. Characters and videos are stored per user in Postgres, with a "My videos" library.
 - **Calendar + YouTube publishing:** connect one or more YouTube channels (OAuth, tokens encrypted at rest), then publish now or schedule a finished video on a month calendar. Uploads are resumable, always declare AI content (`containsSyntheticMedia`), and default kid-safe cartoons to "made for kids". Failed posts can be retried; scheduled ones cancelled.
@@ -38,7 +39,7 @@ The plan and the decisions behind it are in [docs/PLAN.md](docs/PLAN.md).
 | `src/lib/providers` | Cloudflare (LLM + image), pan-and-zoom video, fal.ai (image + video), OpenRouter, Kokoro (TTS), ACE-Step (music) |
 | `src/lib/characters.ts`, `src/lib/suggestions.ts` | Saved characters and AI ideas |
 | `src/lib/auth-config.ts`, `src/app/login` | Better Auth: Google + phone OTP (rate-limited), sessions |
-| `src/lib/pipeline/captions.ts`, `assets/fonts` | Caption phrasing, timing and rendering; bundled Noto Sans + Noto Sans Devanagari (SIL OFL, see `assets/fonts/OFL.txt`) |
+| `src/lib/pipeline/captions.ts`, `assets/fonts` | Caption phrasing, timing and rendering; bundled Noto Sans, Devanagari, Bengali, Tamil, Telugu and Arabic fonts (SIL OFL, see `assets/fonts/OFL.txt`) |
 | `src/lib/youtube.ts`, `src/lib/posts.ts`, `src/app/calendar` | YouTube OAuth + upload, scheduling/publishing, calendar UI |
 | `src/lib/post-copy.ts` | AI titles, captions, hashtags and tags per platform |
 | `src/lib/songs`, `src/app/songs`, `src/lib/providers/fal-music.ts` | Genre presets, lyrics writer, real-artist safety, ACE-Step on fal, Song Studio page |
@@ -46,6 +47,7 @@ The plan and the decisions behind it are in [docs/PLAN.md](docs/PLAN.md).
 | `src/lib/music-video`, `src/lib/providers/whisper.ts` | Lyric timing, scene planning and the music-video pipeline |
 | `src/lib/voice`, `src/lib/providers/voice.ts`, `src/app/songs/my-voice.tsx` | Consent code check, voice profiles, separation + conversion + remix, recorder UI |
 | `src/lib/billing`, `src/app/billing` | Pricing catalog, credit ledger, Razorpay client, checkout + webhook handling, Credits page |
+| `src/lib/languages.ts`, `src/lib/providers/tts.ts` | Language catalogue (codes, scripts, engines) and per-language narration routing |
 | `src/lib/db`, `drizzle/` | Drizzle schema (auth tables, characters, films) and SQL migrations |
 | `src/lib/quota` | Free plan (1 film/week, ≤60s, 720p, watermark) and cost estimates |
 | `src/lib/models/licenses.ts` | Allowlist that blocks non-commercial models (XTTS v2, F5-TTS, MusicGen…) |

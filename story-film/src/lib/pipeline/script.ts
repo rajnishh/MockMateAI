@@ -1,5 +1,6 @@
 import { z } from "zod";
-import type { FilmScript, FilmStyle, ScriptRequest } from "@/lib/providers/types";
+import { writeInRule } from "@/lib/languages";
+import type { FilmScript, FilmStyle, NarrationLanguage, ScriptRequest } from "@/lib/providers/types";
 
 export const filmScriptSchema = z.object({
   title: z.string().min(1),
@@ -28,17 +29,18 @@ const KID_SAFE_RULES = [
   "no violence, fear, romance, brands, real people or unsafe behaviour; simple words and short sentences.",
 ];
 
-const LANGUAGE_RULES = {
-  auto: "Detect the idea's language and write all narration in that language; use its ISO 639-1 code for `language`.",
-  en: 'Write all narration in simple, natural English; set `language` to "en".',
-  hi: 'Write all narration in natural spoken Hindi using Devanagari script (not Latin letters); set `language` to "hi".',
-};
+function languageRule(language: NarrationLanguage): string {
+  if (language === "auto") {
+    return "Detect the idea's language and write all narration in that language, in its native script; use its ISO 639-1 code for `language`.";
+  }
+  return `Narration: ${writeInRule(language)} Set \`language\` to "${language}".`;
+}
 
 export function buildScriptPrompt({ story, style, shotCount, character, kidSafe, language = "auto" }: ScriptRequest): string {
   return [
     "You are a screenwriter turning a user's idea into a short vertical (9:16) video.",
     `Write exactly ${shotCount} shots of 5 seconds each.`,
-    LANGUAGE_RULES[language],
+    languageRule(language),
     "title follows the narration language; imagePrompt, motionPrompt and musicPrompt are always in English.",
     "Narration per shot must be speakable in about 5 seconds (max ~14 words).",
     ...(character

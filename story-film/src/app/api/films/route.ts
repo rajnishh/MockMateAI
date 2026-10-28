@@ -7,7 +7,8 @@ import { getCharacter } from "@/lib/characters";
 import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
 import { createFilm, filmView, listFilms } from "@/lib/films";
-import { premiumAvailable } from "@/lib/providers";
+import { findLanguage } from "@/lib/languages";
+import { buildTts, premiumAvailable } from "@/lib/providers";
 import { filmJobSchema, getFilmQueue, getRedis } from "@/lib/queue/films";
 import { FREE_PLAN, shotCountFor } from "@/lib/quota/plans";
 import { RedisQuotaStore, reserveFilm } from "@/lib/quota/quota";
@@ -33,6 +34,12 @@ export async function POST(req: Request) {
   const { quality, durationSec } = parsed.data;
   if (quality === "premium" && !premiumAvailable(env)) {
     return NextResponse.json({ error: "AI animation isn't available yet" }, { status: 400 });
+  }
+
+  // Refuse before charging if this server can't speak the chosen language.
+  const { language } = parsed.data;
+  if (language !== "auto" && !buildTts(env).supports(language)) {
+    return NextResponse.json({ error: `Narration in ${findLanguage(language)?.name ?? language} isn't available yet` }, { status: 400 });
   }
 
   let character;

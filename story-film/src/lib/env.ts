@@ -32,6 +32,9 @@ const schema = z.object({
   FAL_IMAGE_EDIT_MODEL_ID: z.string().optional(),
   FAL_WAN_MODEL_ID: z.string().optional(),
   FAL_KLING_MODEL_ID: z.string().optional(),
+  // Indian-language narration (Marathi, Bengali, Tamil, Telugu).
+  SARVAM_API_KEY: z.string().optional(),
+  SARVAM_TTS_MODEL: z.string().default("bulbul:v4-flash"),
   KOKORO_URL: z.string().default("http://localhost:8880"),
   KOKORO_VOICE: z.string().default("af_heart"),
   // Optional: without an ACE-Step server, films have narration only.

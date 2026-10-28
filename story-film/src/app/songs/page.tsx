@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { LANGUAGES } from "@/lib/languages";
 import { MusicVideoPanel } from "./music-video-panel";
 import { MyVoices, type Voice } from "./my-voice";
 
@@ -128,7 +129,7 @@ export default function SongsPage() {
         <h1>Song Studio</h1>
         <Link href="/">← Create</Link>
       </header>
-      <p className="muted">Write a song about anything and hear it sung, in Hindi, English or Hinglish.</p>
+      <p className="muted">Write a song about anything and hear it sung, in Hindi, Marathi, Bengali, Tamil, Telugu, Arabic, English or Hinglish.</p>
       {!available && <div className="status">Song Studio isn&apos;t set up on this server yet.</div>}
 
       <form onSubmit={makeSong}>
@@ -152,9 +153,8 @@ export default function SongsPage() {
           <div>
             <label htmlFor="lang">Language</label>
             <select id="lang" value={language} onChange={(e) => setLanguage(e.target.value)}>
-              <option value="hi">हिन्दी</option>
+              {LANGUAGES.map((l) => <option key={l.code} value={l.code}>{l.native}</option>)}
               <option value="hinglish">Hinglish</option>
-              <option value="en">English</option>
             </select>
           </div>
           <div>

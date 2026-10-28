@@ -12,7 +12,20 @@ export interface Cue {
 
 const MAX_WORDS = 3;
 const MAX_CHARS = 22;
-const DEVANAGARI = /[ऀ-ॿ]/;
+// Caption font per script; the first script found in a phrase decides.
+const SCRIPT_FONTS: { test: RegExp; family: string; file: string; rtl?: boolean }[] = [
+  { test: /[\u0900-\u097F]/, family: "Noto Sans Devanagari", file: "NotoSansDevanagari-Bold.ttf" },
+  { test: /[\u0980-\u09FF]/, family: "Noto Sans Bengali", file: "NotoSansBengali-Bold.ttf" },
+  { test: /[\u0B80-\u0BFF]/, family: "Noto Sans Tamil", file: "NotoSansTamil-Bold.ttf" },
+  { test: /[\u0C00-\u0C7F]/, family: "Noto Sans Telugu", file: "NotoSansTelugu-Bold.ttf" },
+  { test: /[\u0600-\u06FF\u0750-\u077F]/, family: "Noto Sans Arabic", file: "NotoSansArabic-Bold.ttf", rtl: true },
+];
+
+export function captionFont(text: string): { family: string; rtl: boolean } {
+  const match = SCRIPT_FONTS.find((f) => f.test.test(text));
+  // Latin fallback second, so mixed phrases (a Hindi line with an English word) still render.
+  return { family: match ? `'${match.family}', 'Noto Sans'` : "'Noto Sans'", rtl: Boolean(match?.rtl) };
+}
 
 // Short phrases read better on vertical video than full sentences.
 export function chunkWords(text: string): string[] {
@@ -68,7 +81,7 @@ let fontsRegistered = "";
 
 function registerFonts(fontsDir: string) {
   if (fontsRegistered === fontsDir) return;
-  GlobalFonts.registerFromPath(path.join(fontsDir, "NotoSansDevanagari-Bold.ttf"), "Noto Sans Devanagari");
+  for (const f of SCRIPT_FONTS) GlobalFonts.registerFromPath(path.join(fontsDir, f.file), f.family);
   GlobalFonts.registerFromPath(path.join(fontsDir, "NotoSans-Bold.ttf"), "Noto Sans");
   fontsRegistered = fontsDir;
 }
@@ -87,7 +100,7 @@ export async function renderCaptionImages(
   for (const [i, cue] of cues.entries()) {
     const canvas = createCanvas(w, boxH);
     const ctx = canvas.getContext("2d");
-    const family = DEVANAGARI.test(cue.text) ? "'Noto Sans Devanagari', 'Noto Sans'" : "'Noto Sans', 'Noto Sans Devanagari'";
+    const { family, rtl } = captionFont(cue.text);
     let size = Math.round(h / 20);
     ctx.font = `${size}px ${family}`;
     // Shrink long single words instead of letting them run off-screen.
@@ -96,6 +109,7 @@ export async function renderCaptionImages(
       ctx.font = `${size}px ${family}`;
     }
     ctx.textAlign = "center";
+    ctx.direction = rtl ? "rtl" : "ltr";
     ctx.textBaseline = "middle";
     ctx.lineJoin = "round";
     ctx.lineWidth = Math.max(4, Math.round(size / 7));

@@ -20,7 +20,7 @@ export function buildIdeasPrompt(req: SuggestionRequest): string {
     req.niche ? `Creator's niche: ${req.niche}.` : "Pick popular, broadly appealing topics.",
     req.character ? `Every idea stars the recurring character ${req.character.name} (${req.character.description}).` : "",
     req.kidSafe ? "Audience is young children: gentle, educational, age-appropriate only." : "",
-    `Write in ${req.language ?? "English"}.`,
+    `Write in ${req.language ?? "English"}, in its native script.`,
     "Each idea: a catchy title (max 6 words) and a 1-2 sentence idea the video can be generated from.",
     'Reply with JSON only: {"ideas":[{"title":string,"idea":string}]}',
   ]

@@ -2,6 +2,7 @@ import { Queue } from "bullmq";
 import { Redis } from "ioredis";
 import { z } from "zod";
 import { loadEnv } from "@/lib/env";
+import { LANGUAGE_CODES } from "@/lib/languages";
 import type { CharacterProfile } from "@/lib/providers/types";
 
 export const FILM_QUEUE = "films";
@@ -14,7 +15,7 @@ export const filmJobSchema = z.object({
   referenceImageUrls: z.array(z.url()).max(4).default([]),
   characterId: z.uuid().optional(),
   kidSafe: z.boolean().default(false),
-  language: z.enum(["auto", "en", "hi"]).default("auto"),
+  language: z.enum(["auto", ...LANGUAGE_CODES]).default("auto"),
   captions: z.boolean().default(true),
   quality: z.enum(["standard", "premium"]).default("standard"),
 });

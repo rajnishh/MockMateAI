@@ -11,6 +11,7 @@ import { FalChatterboxVc, FalDemucs, SeedVcServer } from "./voice";
 import { CloudflareWhisper } from "./whisper";
 import { KenBurnsVideo } from "./kenburns";
 import { KokoroTts } from "./kokoro";
+import { FalChatterboxTts, RoutedTts, SarvamTts } from "./tts";
 import { OpenAiCompatibleLlm } from "./llm";
 
 // standard: Cloudflare Workers AI images + local pan-and-zoom, ~$0 per video.
@@ -30,9 +31,19 @@ export function buildPipelineDeps(env: Env, quality: Quality = "standard"): Pipe
     llm: buildLlm(env),
     image: buildImage(env, quality),
     video: quality === "premium" ? buildAiVideo(env) : new KenBurnsVideo(mediaStore(env), defaultFfmpeg),
-    tts: new KokoroTts(env.KOKORO_URL, env.KOKORO_VOICE),
+    tts: buildTts(env),
     music: buildMusic(env, quality),
   };
+}
+
+// English and Hindi via Kokoro; other Indian languages via Sarvam; Arabic via
+// Chatterbox on fal. Languages whose engine isn't configured are unavailable.
+export function buildTts(env: Env): RoutedTts {
+  return new RoutedTts({
+    kokoro: new KokoroTts(env.KOKORO_URL, env.KOKORO_VOICE),
+    sarvam: env.SARVAM_API_KEY ? new SarvamTts(env.SARVAM_API_KEY, env.SARVAM_TTS_MODEL) : undefined,
+    chatterbox: env.FAL_KEY ? new FalChatterboxTts(new FalQueueClient(env.FAL_KEY)) : undefined,
+  });
 }
 
 // Self-hosted ACE-Step when configured; otherwise premium videos use ACE-Step on fal.

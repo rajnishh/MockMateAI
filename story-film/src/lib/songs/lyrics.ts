@@ -1,8 +1,10 @@
 import { z } from "zod";
+import { type LanguageCode, writeInRule } from "@/lib/languages";
 import type { LlmProvider } from "@/lib/providers/types";
 import type { Genre } from "./styles";
 
-export type SongLanguage = "hi" | "en" | "hinglish";
+// Hinglish is a song-only option (Hindi and English mixed, Latin script).
+export type SongLanguage = LanguageCode | "hinglish";
 
 export interface LyricsRequest {
   topic: string;
@@ -13,11 +15,11 @@ export interface LyricsRequest {
   kidSafe?: boolean;
 }
 
-const LANGUAGE_RULES: Record<SongLanguage, string> = {
-  hi: "Write the lyrics in Hindi using Devanagari script.",
-  en: "Write the lyrics in English.",
-  hinglish: "Write the lyrics in Hinglish (Hindi and English mixed, Latin script), as in modern Indian pop.",
-};
+function lyricsLanguageRule(language: SongLanguage): string {
+  return language === "hinglish"
+    ? "Write the lyrics in Hinglish (Hindi and English mixed, Latin script), as in modern Indian pop."
+    : `Lyrics: ${writeInRule(language)}`;
+}
 
 // Roughly 2.5 sung lines per 10 seconds keeps lyrics from being rushed or cut off.
 export function targetLines(durationSec: number): number {
@@ -29,7 +31,7 @@ export function buildLyricsPrompt(req: LyricsRequest): string {
     "You are a songwriter. Write original song lyrics.",
     `Topic: ${req.topic}`,
     `Genre: ${req.genre.label}. Mood: ${req.mood || "any"}.`,
-    LANGUAGE_RULES[req.language],
+    lyricsLanguageRule(req.language),
     `About ${targetLines(req.durationSec)} lines in total for a ${req.durationSec}-second song.`,
     "Structure with section tags on their own lines: [Verse], [Chorus], optionally [Bridge] and [Outro]. Repeat the chorus.",
     "Short, singable lines with natural rhythm and some rhyme. A memorable chorus hook.",

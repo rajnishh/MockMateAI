@@ -2,6 +2,7 @@
 
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import { findLanguage, LANGUAGES } from "@/lib/languages";
 
 type Mode = "film" | "cartoon";
 type Status = {
@@ -38,6 +39,9 @@ export default function Home() {
   const [kidSafe, setKidSafe] = useState(true);
   const [niche, setNiche] = useState("");
   const [language, setLanguage] = useState("auto");
+  const [languages, setLanguages] = useState<{ code: string; name: string; native: string; available: boolean }[]>(
+    LANGUAGES.map((l) => ({ ...l, available: true })),
+  );
   const [captions, setCaptions] = useState(true);
   const [quality, setQuality] = useState("standard");
   const [billing, setBilling] = useState<{ balance: number; premiumAvailable: boolean; premiumCreditsPerShot: number } | null>(null);
@@ -83,6 +87,7 @@ export default function Home() {
     setCanShareFiles(typeof navigator.canShare === "function" && navigator.canShare({ files: [probe] }));
     loadLibrary();
     fetch("/api/billing").then(async (r) => r.ok && setBilling(await r.json())).catch(() => {});
+    fetch("/api/languages").then(async (r) => r.ok && setLanguages((await r.json()).languages)).catch(() => {});
   }, [loadLibrary]);
 
   useEffect(() => {
@@ -125,7 +130,7 @@ export default function Home() {
       niche: niche || undefined,
       characterId: mode === "cartoon" ? characterId ?? undefined : undefined,
       kidSafe: mode === "cartoon" && kidSafe,
-      language: language === "hi" ? "Hindi (Devanagari)" : language === "en" ? "English" : undefined,
+      language: language === "auto" ? undefined : findLanguage(language)?.name,
     });
     setLoadingIdeas(false);
     if (!ok) return setError(data.error ?? "Couldn't get ideas");
@@ -286,8 +291,11 @@ export default function Home() {
             <label htmlFor="language">Narration</label>
             <select id="language" value={language} onChange={(e) => setLanguage(e.target.value)}>
               <option value="auto">Same as my text</option>
-              <option value="hi">हिन्दी (Hindi)</option>
-              <option value="en">English</option>
+              {languages.map((l) => (
+                <option key={l.code} value={l.code} disabled={!l.available}>
+                  {l.native === l.name ? l.name : `${l.native} (${l.name})`}{l.available ? "" : " · coming soon"}
+                </option>
+              ))}
             </select>
           </div>
           <div>

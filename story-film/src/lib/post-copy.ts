@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
+import { findLanguage, writeInRule } from "@/lib/languages";
 import type { FilmScript, LlmProvider } from "@/lib/providers/types";
 
 export type Platform = "youtube" | "instagram" | "whatsapp";
@@ -57,8 +58,8 @@ export function buildCopyPrompt(platform: Platform, ctx: CopyContext): string {
   return [
     "Write social media copy for a short vertical AI-generated video.",
     ...PLATFORM_RULES[platform],
-    ctx.language === "hi"
-      ? "Write title and caption in natural Hindi (Devanagari). Hashtags may mix Hindi and English, as Indian creators do."
+    ctx.language && findLanguage(ctx.language)
+      ? `Title and caption: ${writeInRule(ctx.language)}${ctx.language === "en" ? "" : " Hashtags may mix that language and English, as local creators do."}`
       : "Write in the same language as the video narration.",
     ctx.kidSafe
       ? "This is children's content: keep it wholesome, address parents, and never ask children to comment, follow or share."
