@@ -1,8 +1,11 @@
+import { STYLE_IDS } from "@/lib/styles";
 import { relations } from "drizzle-orm";
 import { type AnyPgColumn, boolean, index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { user } from "./auth-schema";
 
-export const filmStyle = pgEnum("film_style", ["cinematic", "animated", "photoreal"]);
+export const filmStyle = pgEnum("film_style", STYLE_IDS);
+// "story": AI pictures and motion; "motion": animated text and graphics (no image or video models).
+export const filmFormat = pgEnum("film_format", ["story", "motion"]);
 export const filmQuality = pgEnum("film_quality", ["standard", "premium"]);
 export const filmStatus = pgEnum("film_status", ["queued", "running", "completed", "failed"]);
 
@@ -36,6 +39,7 @@ export const film = pgTable(
     songId: uuid("song_id").references((): AnyPgColumn => song.id, { onDelete: "set null" }),
     story: text("story").notNull(),
     style: filmStyle("style").notNull(),
+    format: filmFormat("format").notNull().default("story"),
     durationSec: integer("duration_sec").notNull(),
     kidSafe: boolean("kid_safe").notNull().default(false),
     quality: filmQuality("quality").notNull().default("standard"),

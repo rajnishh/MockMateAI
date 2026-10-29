@@ -1,3 +1,4 @@
+import { STYLE_IDS } from "@/lib/styles";
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
 import { z } from "zod";
@@ -10,7 +11,7 @@ export const FILM_QUEUE = "films";
 export const filmJobSchema = z.object({
   userId: z.string().min(1),
   story: z.string().min(20).max(8000),
-  style: z.enum(["cinematic", "animated", "photoreal"]),
+  style: z.enum(STYLE_IDS),
   durationSec: z.number().int().min(10).max(60),
   referenceImageUrls: z.array(z.url()).max(4).default([]),
   characterId: z.uuid().optional(),
@@ -18,6 +19,8 @@ export const filmJobSchema = z.object({
   language: z.enum(["auto", ...LANGUAGE_CODES]).default("auto"),
   captions: z.boolean().default(true),
   quality: z.enum(["standard", "premium"]).default("standard"),
+  // "motion" reels are animated text slides with a voice-over: always standard quality.
+  format: z.enum(["story", "motion"]).default("story"),
 });
 
 export type FilmJob = z.infer<typeof filmJobSchema> & {
@@ -30,7 +33,7 @@ export type FilmJob = z.infer<typeof filmJobSchema> & {
 };
 
 export const musicVideoRequestSchema = z.object({
-  style: z.enum(["cinematic", "animated", "photoreal"]).default("animated"),
+  style: z.enum(STYLE_IDS).default("animated"),
   quality: z.enum(["standard", "premium"]).default("standard"),
   characterId: z.uuid().optional(),
   kidSafe: z.boolean().default(false),

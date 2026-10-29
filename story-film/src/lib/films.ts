@@ -34,6 +34,7 @@ export function filmView(f: Film) {
     story: f.story,
     kidSafe: f.kidSafe,
     quality: f.quality,
+    format: f.format,
     songId: f.songId,
     contentCredentials: f.contentCredentials,
     credits: f.credits,

@@ -31,6 +31,8 @@ export async function POST(req: Request) {
   }
   const env = loadEnv();
   const db = getDb();
+  // Motion reels use no image or video models, so they are always priced as standard videos.
+  if (parsed.data.format === "motion") parsed.data.quality = "standard";
   const { quality, durationSec } = parsed.data;
   if (quality === "premium" && !premiumAvailable(env)) {
     return NextResponse.json({ error: "AI animation isn't available yet" }, { status: 400 });
@@ -75,6 +77,7 @@ export async function POST(req: Request) {
     characterId: character?.id,
     story: parsed.data.story,
     style: parsed.data.style,
+    format: parsed.data.format,
     durationSec,
     kidSafe: parsed.data.kidSafe,
     quality,

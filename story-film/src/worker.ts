@@ -14,6 +14,7 @@ import { type MyVoiceJob, SONG_QUEUE, type SongJob, type SongQueueJob } from "@/
 import { singInMyVoice } from "@/lib/voice/sing";
 import { updateSong } from "@/lib/songs/songs";
 import { FILM_QUEUE, type FilmJob, type FilmQueueJob, getRedis, type MusicVideoJob } from "@/lib/queue/films";
+import { runMotionReel } from "@/lib/motion/pipeline";
 import { runMusicVideo } from "@/lib/music-video/pipeline";
 import { CloudflareWhisper } from "@/lib/providers/whisper";
 import { enqueuePost, getPublishQueue, PUBLISH_QUEUE, type PublishJob } from "@/lib/queue/publish";
@@ -57,6 +58,11 @@ const filmWorker = new Worker<FilmQueueJob>(
         onStage,
       );
       description = "AI-generated music video: song, scenes and motion made with generative AI models";
+    } else if ((job.data as FilmJob).format === "motion") {
+      const d = job.data as FilmJob;
+      const { llm, tts, music, fontsDir } = depsFor("standard");
+      result = await runMotionReel({ llm, tts, music, fontsDir }, d, workDir, onStage);
+      description = "Motion reel: script and voice-over made with AI; animated text and graphics rendered by Reelkar";
     } else {
       result = await runFilm(depsFor(job.data.quality), job.data as FilmJob, workDir, onStage);
       description = "AI-generated video: script, images, motion and narration made with generative AI models";

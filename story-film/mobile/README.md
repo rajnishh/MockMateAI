@@ -24,7 +24,7 @@ With a backend:
 | Sign-in: Google, Indian mobile OTP | Working (Better Auth, session in secure storage) |
 | Onboarding: Quick start → first reel free | Working |
 | Home: this week, checklist, recent reels | Working |
-| Create: format, idea or AI ideas, language, length, standard or premium | Working |
+| Create: story or motion reel, 3 looks + 7 Indian art styles, idea or AI ideas, language, length, standard or premium | Working |
 | Making progress, finished reel with video, AI captions, share | Working |
 | Connect Instagram and YouTube (in-app browser), post now or schedule from a reel | Working |
 | Calendar: upcoming and recent posts, cancel, retry, open | Working |

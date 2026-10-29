@@ -79,7 +79,7 @@ export interface CaptionImage extends Cue {
 
 let fontsRegistered = "";
 
-function registerFonts(fontsDir: string) {
+export function registerFonts(fontsDir: string) {
   if (fontsRegistered === fontsDir) return;
   for (const f of SCRIPT_FONTS) GlobalFonts.registerFromPath(path.join(fontsDir, f.file), f.family);
   GlobalFonts.registerFromPath(path.join(fontsDir, "NotoSans-Bold.ttf"), "Noto Sans");

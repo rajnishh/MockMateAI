@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { writeInRule } from "@/lib/languages";
-import type { FilmScript, FilmStyle, NarrationLanguage, ScriptRequest } from "@/lib/providers/types";
+import type { FilmScript, NarrationLanguage, ScriptRequest } from "@/lib/providers/types";
+import { STYLE_HINTS } from "@/lib/styles";
 
 export const filmScriptSchema = z.object({
   title: z.string().min(1),
@@ -18,11 +19,7 @@ export const filmScriptSchema = z.object({
   musicPrompt: z.string().min(1),
 });
 
-export const STYLE_HINTS: Record<FilmStyle, string> = {
-  cinematic: "cinematic film still, anamorphic lens, dramatic lighting, shallow depth of field",
-  animated: "high-quality 3D animated cartoon style, soft lighting, expressive characters, vibrant colors",
-  photoreal: "photorealistic, natural light, documentary look",
-};
+export { STYLE_HINTS } from "@/lib/styles";
 
 const KID_SAFE_RULES = [
   "The audience is young children. Keep everything gentle, positive and age-appropriate:",

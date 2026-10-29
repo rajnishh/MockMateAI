@@ -6,13 +6,15 @@ import { Banner, Button, Card, ChipRow, Credits, Field, Header, ListRow, Screen,
 import { api, ApiError, type Idea } from "@/lib/api";
 import { LANGUAGES } from "@/lib/languages";
 import { useSession } from "@/lib/session";
+import { INDIAN_ART, LOOKS, type Style } from "@/lib/styles";
 import { useData } from "@/lib/use-data";
 
-type Style = "animated" | "cinematic" | "photoreal";
+type Kind = "story" | "motion";
 
 export default function Create() {
   const { prefs } = useSession();
   const billing = useData(() => api.billing());
+  const [kind, setKind] = useState<Kind>("story");
   const [style, setStyle] = useState<Style>("animated");
   const [story, setStory] = useState("");
   const [language, setLanguage] = useState(prefs?.language ?? "hi");
@@ -27,6 +29,7 @@ export default function Create() {
   const perShot = billing.data?.premiumCreditsPerShot ?? 12;
   const premiumCost = Math.round(durationSec / 5) * perShot;
   const tooShort = story.trim().length < 20;
+  const motion = kind === "motion";
 
   async function getIdeas() {
     setIdeasBusy(true);
@@ -43,7 +46,7 @@ export default function Create() {
     setBusy(true);
     setError(null);
     try {
-      const { id } = await api.createFilm({ story: story.trim(), language, durationSec, quality, style });
+      const { id } = await api.createFilm({ story: story.trim(), language, durationSec, quality: motion ? "standard" : quality, style, format: kind });
       setStory("");
       router.push(`/making/${id}`);
     } catch (err) {
@@ -57,7 +60,7 @@ export default function Create() {
     <Screen
       footer={
         <>
-          <Button label={quality === "premium" ? `Make my reel · ${premiumCost} credits` : "Make my reel"} icon="sparkle" block disabled={tooShort} loading={busy} onPress={make} />
+          <Button label={quality === "premium" && !motion ? `Make my reel · ${premiumCost} credits` : "Make my reel"} icon="sparkle" block disabled={tooShort} loading={busy} onPress={make} />
           <Txt variant="cap" style={{ textAlign: "center" }}>
             {tooShort ? "Write at least 20 characters, or pick an idea" : "About 2 minutes · you can leave this screen"}
           </Txt>
@@ -73,17 +76,29 @@ export default function Create() {
         />
       ) : null}
       <View style={{ gap: 6 }}>
-        <Txt variant="cap">Format</Txt>
-        <ChipRow<Style>
+        <Txt variant="cap">Kind of reel</Txt>
+        <ChipRow<Kind>
           options={[
-            { value: "animated", label: "Cartoon" },
-            { value: "cinematic", label: "Short film" },
-            { value: "photoreal", label: "Realistic" },
+            { value: "story", label: "Story with pictures" },
+            { value: "motion", label: "Motion reel · text and graphics" },
           ]}
-          value={style}
-          onChange={setStyle}
+          value={kind}
+          onChange={setKind}
         />
+        {motion ? <Txt variant="cap">Tips, lists, numbers and quotes animated on screen with a voice-over. Uses your free weekly reels.</Txt> : null}
       </View>
+      {motion ? null : (
+        <>
+          <View style={{ gap: 6 }}>
+            <Txt variant="cap">Look</Txt>
+            <ChipRow<Style> options={[...LOOKS]} value={style} onChange={setStyle} />
+          </View>
+          <View style={{ gap: 6 }}>
+            <Txt variant="cap">Indian art</Txt>
+            <ChipRow<Style> options={[...INDIAN_ART]} value={style} onChange={setStyle} />
+          </View>
+        </>
+      )}
       <Field label="Your idea or story" value={story} onChangeText={setStory} multiline maxLength={2000} placeholder="Mia finds colours in the puddles after the rain…" />
       <Button label={ideasBusy ? "Finding ideas…" : "Give me ideas for my topic"} kind="ghost" icon="sparkle" disabled={ideasBusy} onPress={getIdeas} style={{ paddingHorizontal: 0 }} />
       {ideas ? (
@@ -109,17 +124,19 @@ export default function Create() {
           onChange={setLength}
         />
       </View>
-      <View style={{ gap: 6 }}>
-        <Txt variant="cap">Quality</Txt>
-        <ChipRow<"standard" | "premium">
-          options={[
-            { value: "standard", label: `Standard · free (${billing.data?.freeVideosPerWeek ?? 3} a week)` },
-            ...(billing.data?.premiumAvailable === false ? [] : [{ value: "premium" as const, label: `Premium AI animation · ${premiumCost} credits` }]),
-          ]}
-          value={quality}
-          onChange={setQuality}
-        />
-      </View>
+      {motion ? null : (
+        <View style={{ gap: 6 }}>
+          <Txt variant="cap">Quality</Txt>
+          <ChipRow<"standard" | "premium">
+            options={[
+              { value: "standard", label: `Standard · free (${billing.data?.freeVideosPerWeek ?? 3} a week)` },
+              ...(billing.data?.premiumAvailable === false ? [] : [{ value: "premium" as const, label: `Premium AI animation · ${premiumCost} credits` }]),
+            ]}
+            value={quality}
+            onChange={setQuality}
+          />
+        </View>
+      )}
     </Screen>
   );
 }

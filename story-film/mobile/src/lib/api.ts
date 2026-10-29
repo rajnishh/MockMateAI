@@ -1,4 +1,5 @@
 import { authClient } from "./auth-client";
+import type { Style } from "./styles";
 import { API_URL, DEMO } from "./config";
 
 export type FilmStatus = "queued" | "running" | "completed" | "failed";
@@ -93,7 +94,9 @@ export interface NewFilm {
   language: string;
   durationSec: number;
   quality: "standard" | "premium";
-  style: "cinematic" | "animated" | "photoreal";
+  style: Style;
+  // "motion": animated text and graphics with a voice-over (no AI animation credits).
+  format?: "story" | "motion";
   kidSafe?: boolean;
 }
 
@@ -199,7 +202,7 @@ const demo: typeof real = {
   },
   createFilm: async (input) => {
     await wait(400);
-    const cost = input.quality === "premium" ? Math.round(input.durationSec / 5) * 12 : 0;
+    const cost = input.quality === "premium" && input.format !== "motion" ? Math.round(input.durationSec / 5) * 12 : 0;
     if (cost > demoBalance) throw new ApiError(`AI animation needs ${cost} credits for this length.`, 402, true);
     demoBalance -= cost;
     const f: Film = { ...sample(`d${Date.now()}`, input.story.slice(0, 40), "queued", 0), quality: input.quality, credits: cost, story: input.story };

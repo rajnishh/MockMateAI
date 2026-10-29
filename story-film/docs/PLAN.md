@@ -266,3 +266,11 @@ Prices move monthly; waoowaoo and several other licenses unverified; EvoLink is 
     - **Tested locally in Docker:** all services healthy, migrations applied, HTTPS through Caddy, phone OTP sign-in with welcome credits, worker reaching Kokoro.
     - **Not yet tested:** video rendering. It needs Cloudflare keys.
     - **Guide:** `docs/DEPLOY.md`.
+25. **Indian art styles (2026-10-29).** Seven looks join cinematic, 3D cartoon and realistic: Madhubani, Warli, Gond, Pattachitra, Kalamkari, Indian miniature and classic Indian storybook (Panchatantra mood). One catalogue (`src/lib/styles.ts`) supplies the image-prompt hints, the `film_style` enum (migration 0010) and the pickers on web and mobile. These are traditional forms, several with GI tags, so we describe them as a look and never present a reel as an authentic artisan work. This was inspired by Madhubani and Panchatantra story reels getting about 4k likes and 5k comments.
+26. **Motion reels on our own engine (2026-10-29).** Remotion (used in the viral "Claude + Remotion" reels) needs a paid company licence once the company has more than 3 people. So motion reels run on the Skia and FFmpeg stack we already use for captions.
+    - **Script:** the LLM writes a typed script: title, list, stat, quote and cta slides; one of four themes; native-script text; no invented statistics.
+    - **Voice and timing:** each slide's voice-over is made with the normal text-to-speech; slide length is the narration plus a beat, with extra time for list items.
+    - **Rendering:** frames are drawn at 30 fps with simple easing (pop, slide, stagger, count-up ring, word-by-word quote, pulsing button) and streamed as raw RGBA into FFmpeg, which mixes the delayed narration and optional music.
+    - **Pricing:** `film.format` = `story` | `motion` (migration 0011); motion reels are always standard quality, so they are free within the weekly allowance and cost 1 credit after it.
+    - **Speed:** a 19-second 720p reel renders in about 8 seconds on one CPU.
+    - **Next:** brand-kit colours and fonts as themes, more slide types (before/after, steps with icons, chart), and per-word highlight synced to the voice.

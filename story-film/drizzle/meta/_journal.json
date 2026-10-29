@@ -71,6 +71,20 @@
       "when": 1793307988537,
       "tag": "0009_instagram",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793310807567,
+      "tag": "0010_indian_art_styles",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793311079678,
+      "tag": "0011_motion_reels",
+      "breakpoints": true
     }
   ]
 }

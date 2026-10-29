@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildScriptPrompt, parseScript } from "@/lib/pipeline/script";
+import { filmJobSchema } from "@/lib/queue/films";
 
 const script = {
   title: "The Lantern",
@@ -39,5 +40,15 @@ describe("script", () => {
 
   it("extracts JSON surrounded by prose", () => {
     expect(parseScript("Sure! Here it is:\n" + JSON.stringify(script) + "\nEnjoy.").title).toBe("The Lantern");
+  });
+});
+
+describe("Indian art styles", () => {
+  it("puts the chosen art style into every image prompt and accepts it in film jobs", () => {
+    const prompt = buildScriptPrompt({ story: "A peacock learns to dance in the rain", style: "madhubani", shotCount: 6 });
+    expect(prompt).toContain("Madhubani (Mithila) folk painting style");
+    const job = filmJobSchema.parse({ userId: "u", story: "A clever crow and a thirsty afternoon", style: "warli", durationSec: 30 });
+    expect(job.style).toBe("warli");
+    expect(() => filmJobSchema.parse({ userId: "u", story: "A clever crow and a thirsty afternoon", style: "cubism", durationSec: 30 })).toThrow();
   });
 });

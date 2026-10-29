@@ -3,8 +3,9 @@
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { findLanguage, LANGUAGES } from "@/lib/languages";
+import { FILM_STYLES } from "@/lib/styles";
 
-type Mode = "film" | "cartoon";
+type Mode = "film" | "cartoon" | "motion";
 type Status = {
   id: string;
   status: string;
@@ -152,7 +153,7 @@ export default function Home() {
       language,
       captions,
       quality,
-      ...(mode === "cartoon" ? { style: "animated", characterId, kidSafe } : { style }),
+      ...(mode === "cartoon" ? { style: "animated", characterId, kidSafe } : mode === "motion" ? { style: "animated", format: "motion" } : { style }),
     });
     setSubmitting(false);
     if (!ok) {
@@ -217,6 +218,7 @@ export default function Home() {
       <div className="tabs" role="group" aria-label="What to make">
         <button type="button" aria-pressed={mode === "cartoon"} onClick={() => setMode("cartoon")}>Cartoon episode</button>
         <button type="button" aria-pressed={mode === "film"} onClick={() => setMode("film")}>Short film</button>
+        <button type="button" aria-pressed={mode === "motion"} onClick={() => setMode("motion")}>Motion reel</button>
       </div>
 
       {mode === "cartoon" && (
@@ -274,16 +276,24 @@ export default function Home() {
           </div>
         )}
 
-        <label htmlFor="story">{mode === "cartoon" ? "What happens in this episode?" : "Your story"}</label>
+        {mode === "motion" && <p className="muted">Animated text and graphics with a voice-over: tips, lists, numbers and quotes. Uses your free weekly reels, no AI animation credits.</p>}
+        <label htmlFor="story">{mode === "cartoon" ? "What happens in this episode?" : mode === "motion" ? "What is the reel about?" : "Your story"}</label>
         <textarea id="story" value={story} onChange={(e) => setStory(e.target.value)} minLength={20} required />
         <div className="row">
           {mode === "film" && (
             <div>
               <label htmlFor="style">Style</label>
               <select id="style" value={style} onChange={(e) => setStyle(e.target.value)}>
-                <option value="cinematic">Cinematic</option>
-                <option value="animated">Animated</option>
-                <option value="photoreal">Photoreal</option>
+                <optgroup label="Looks">
+                  {FILM_STYLES.filter((s) => s.group === "look").map((s) => (
+                    <option key={s.id} value={s.id}>{s.label}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Indian art">
+                  {FILM_STYLES.filter((s) => s.group === "indian").map((s) => (
+                    <option key={s.id} value={s.id}>{s.label}</option>
+                  ))}
+                </optgroup>
               </select>
             </div>
           )}
@@ -307,7 +317,7 @@ export default function Home() {
             </select>
           </div>
         </div>
-        {billing?.premiumAvailable && (
+        {billing?.premiumAvailable && mode !== "motion" && (
           <>
             <label htmlFor="quality">Animation</label>
             <select id="quality" value={quality} onChange={(e) => setQuality(e.target.value)}>
@@ -318,11 +328,13 @@ export default function Home() {
             </select>
           </>
         )}
-        <label className="check">
-          <input type="checkbox" checked={captions} onChange={(e) => setCaptions(e.target.checked)} /> Captions on video
-        </label>
+        {mode !== "motion" && (
+          <label className="check">
+            <input type="checkbox" checked={captions} onChange={(e) => setCaptions(e.target.checked)} /> Captions on video
+          </label>
+        )}
         <p className="muted">Free plan: a few videos per week, 720p, labelled “Created with AI”.</p>
-        <button type="submit" disabled={busy}>{busy ? "Working…" : mode === "cartoon" ? "Make episode" : "Make my film"}</button>
+        <button type="submit" disabled={busy}>{busy ? "Working…" : mode === "cartoon" ? "Make episode" : mode === "motion" ? "Make my reel" : "Make my film"}</button>
       </form>
 
       {error && (
