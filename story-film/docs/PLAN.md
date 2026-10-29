@@ -281,3 +281,14 @@ Prices move monthly; waoowaoo and several other licenses unverified; EvoLink is 
     - **Brand look:** a brand colour, light or dark background, and a handle, set once in the app's Account screen. The colour is adjusted automatically until text and buttons pass contrast checks.
     - **Speed:** a 22-second 1080p reel renders in about 15 seconds on one CPU.
     - **Rule:** the reels the founder shared are market research. They tell us what to make easy; they are not templates to copy, so endings, keywords and looks are all choices.
+28. **Edit my video, step 1 (2026-10-29).** This is for creators who film themselves, the group shown by the "Claude video effects" reels. `POST /api/edits` takes a multipart upload (≤60 s, ≤200 MB, MP4/MOV/WebM), probes it, charges like a standard reel and queues an `edit` job (`film.format = edit`, migration 0012). Caddy's upload limit was raised to 250 MB.
+    - **Transcription:** Cloudflare `whisper-large-v3-turbo` with segment word timings and a language hint, at about $0.0005 per audio minute.
+    - **Edit plan:** the AI plans zooms and cards from a timed transcript. Cards: point, list, a stat the creator actually says, optional cta that follows the ending choice. The plan is cleaned before use: times clamped to the video, overlaps dropped, at most 4 cards.
+    - **Rendering:** FFmpeg decodes to 1080×1920 RGBA (crop to fill); Skia draws the zoom (aimed slightly above centre), the cards, word-timed captions on a dark pill, the handle and the free-plan label; FFmpeg encodes with the original audio. An 8-second clip renders in about 10 seconds.
+    - **No Content Credentials:** the creator's own footage is not marked as AI-generated.
+    - **Open items:**
+      - Face tracking and person cut-out (step 2: OpenCV YuNet + MediaPipe, both permissively licensed).
+      - Editing captions before rendering.
+      - Landscape videos are cropped, not padded.
+      - Uploaded originals stay on disk and need clean-up when an account is deleted.
+      - Test Whisper's Hindi and Hinglish accuracy on real creator clips.

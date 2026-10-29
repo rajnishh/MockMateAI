@@ -4,8 +4,9 @@ import { type AnyPgColumn, boolean, index, integer, pgEnum, pgTable, text, times
 import { user } from "./auth-schema";
 
 export const filmStyle = pgEnum("film_style", STYLE_IDS);
-// "story": AI pictures and motion; "motion": animated text and graphics (no image or video models).
-export const filmFormat = pgEnum("film_format", ["story", "motion"]);
+// "story": AI pictures and motion; "motion": animated text and graphics (no image or video models);
+// "edit": the creator's own uploaded video with captions, zooms and cards.
+export const filmFormat = pgEnum("film_format", ["story", "motion", "edit"]);
 export const filmQuality = pgEnum("film_quality", ["standard", "premium"]);
 export const filmStatus = pgEnum("film_status", ["queued", "running", "completed", "failed"]);
 

@@ -85,6 +85,13 @@
       "when": 1793311079678,
       "tag": "0011_motion_reels",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793313630726,
+      "tag": "0012_edit_my_video",
+      "breakpoints": true
     }
   ]
 }

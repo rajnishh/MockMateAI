@@ -66,7 +66,32 @@ export type MusicVideoJob = z.infer<typeof musicVideoRequestSchema> & {
   credits: number;
 };
 
-export type FilmQueueJob = FilmJob | MusicVideoJob;
+// Options for "Edit my video", sent as form fields with the upload.
+export const editRequestSchema = z.object({
+  language: z.enum(["auto", ...LANGUAGE_CODES]).default("auto"),
+  captions: z.boolean().default(true),
+  zooms: z.boolean().default(true),
+  ending: z.enum(ENDINGS).default("auto"),
+  keyword: z.string().trim().max(20).regex(/^[\p{L}\p{N}_-]*$/u, "One word, no spaces").optional(),
+  brand: z
+    .object({
+      accent: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+      background: z.enum(["light", "dark"]).optional(),
+      handle: z.string().trim().max(30).optional(),
+    })
+    .optional(),
+});
+
+// Edits share the films queue (job name "edit") and the film table.
+export type EditJob = z.infer<typeof editRequestSchema> & {
+  userId: string;
+  source: string;
+  watermark: boolean;
+  quotaKey?: string;
+  credits: number;
+};
+
+export type FilmQueueJob = FilmJob | MusicVideoJob | EditJob;
 
 let redis: Redis | undefined;
 let queue: Queue<FilmQueueJob> | undefined;

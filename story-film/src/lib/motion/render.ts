@@ -78,15 +78,15 @@ export function brandPalette(brand: Brand, fallback: Palette): Palette {
   };
 }
 
-const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
-const easeOutCubic = (x: number) => 1 - (1 - clamp01(x)) ** 3;
-const easeOutBack = (x: number) => {
+export const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
+export const easeOutCubic = (x: number) => 1 - (1 - clamp01(x)) ** 3;
+export const easeOutBack = (x: number) => {
   const c = 1.7;
   const p = clamp01(x) - 1;
   return 1 + (c + 1) * p ** 3 + c * p ** 2;
 };
 // Progress of an element that starts `delay` seconds into the slide and animates for `dur` seconds.
-const enter = (t: number, delay: number, dur = 0.45) => clamp01((t - delay) / dur);
+export const enter = (t: number, delay: number, dur = 0.45) => clamp01((t - delay) / dur);
 
 interface Frame {
   ctx: SKRSContext2D;
@@ -99,7 +99,7 @@ interface Frame {
   global: number;
 }
 
-function font(ctx: SKRSContext2D, text: string, size: number): boolean {
+export function font(ctx: SKRSContext2D, text: string, size: number): boolean {
   const { family, rtl } = captionFont(text);
   ctx.font = `${size}px ${family}`;
   ctx.direction = rtl ? "rtl" : "ltr";
@@ -122,7 +122,7 @@ function wrap(ctx: SKRSContext2D, text: string, maxWidth: number): string[] {
 }
 
 // Largest size (down to min) at which the text fits in maxLines.
-function fit(ctx: SKRSContext2D, text: string, maxWidth: number, start: number, maxLines: number, min = 28): { size: number; lines: string[] } {
+export function fit(ctx: SKRSContext2D, text: string, maxWidth: number, start: number, maxLines: number, min = 28): { size: number; lines: string[] } {
   for (let size = start; size >= min; size -= 4) {
     font(ctx, text, size);
     const lines = wrap(ctx, text, maxWidth);
@@ -132,10 +132,10 @@ function fit(ctx: SKRSContext2D, text: string, maxWidth: number, start: number, 
   return { size: min, lines: wrap(ctx, text, maxWidth) };
 }
 
-const norm = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{M}\p{N}]/gu, "");
+export const norm = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{M}\p{N}]/gu, "");
 
 // Draws one centred line, colouring the words that belong to the highlight phrase.
-function drawLine(ctx: SKRSContext2D, line: string, cx: number, y: number, color: string, accent: string, highlight: Set<string>, rtl: boolean) {
+export function drawLine(ctx: SKRSContext2D, line: string, cx: number, y: number, color: string, accent: string, highlight: Set<string>, rtl: boolean) {
   if (!highlight.size || rtl) {
     ctx.textAlign = "center";
     ctx.fillStyle = color;

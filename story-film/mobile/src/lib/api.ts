@@ -89,6 +89,17 @@ export interface NewPost {
   scheduledAt?: string;
 }
 
+export interface EditUpload {
+  // Local file picked from the gallery.
+  video: { uri: string; name: string; type: string };
+  language: string;
+  captions: boolean;
+  zooms: boolean;
+  ending: "auto" | "none" | "follow" | "comment";
+  keyword?: string;
+  brand?: { accent?: string; background?: "light" | "dark"; handle?: string };
+}
+
 export interface NewFilm {
   story: string;
   language: string;
@@ -135,6 +146,23 @@ const real = {
   ideas: async (niche: string, language: string) =>
     (await call<{ ideas: Idea[] }>("/api/suggestions", { method: "POST", body: JSON.stringify({ niche, language }) })).ideas,
   caption: (id: string, platform: Platform) => call<PostCopy>(`/api/films/${id}/copy`, { method: "POST", body: JSON.stringify({ platform }) }),
+  // "Edit my video": multipart upload; the server adds captions, zooms and cards.
+  uploadEdit: async (input: EditUpload) => {
+    const form = new FormData();
+    // React Native's FormData takes { uri, name, type } for files.
+    form.append("video", input.video as unknown as Blob);
+    form.append("language", input.language);
+    form.append("captions", String(input.captions));
+    form.append("zooms", String(input.zooms));
+    form.append("ending", input.ending);
+    if (input.keyword) form.append("keyword", input.keyword);
+    if (input.brand) form.append("brand", JSON.stringify(input.brand));
+    const cookie = await authClient.getCookie();
+    const res = await fetch(`${API_URL}/api/edits`, { method: "POST", body: form, credentials: "omit", headers: cookie ? { Cookie: cookie } : {} });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new ApiError(body.error ?? `Upload failed (${res.status})`, res.status, Boolean(body.needCredits));
+    return body as { id: string; credits: number };
+  },
   accounts: () => call<Accounts>("/api/accounts"),
   // Returns the provider's sign-in page; the app opens it in the in-app browser.
   connectUrl: async (platform: SocialPlatform) => (await call<{ url: string }>(`/api/connect/${platform}`, { method: "POST" })).url,
@@ -247,6 +275,12 @@ const demo: typeof real = {
     const title = f?.title ?? "My reel";
     const tags = platform === "whatsapp" ? [] : ["#reels", "#hindistory", "#madewithai"];
     return { title, caption: `${title} 🎬 Save this for later! · Made with AI`, hashtags: tags };
+  },
+  uploadEdit: async (input) => {
+    await wait(800);
+    const f: Film = { ...sample(`d${Date.now()}`, input.video.name.replace(/\.[a-z0-9]+$/i, ""), "queued", 0), story: `Edit of ${input.video.name}` };
+    demoFilms.push(f);
+    return { id: f.id, credits: 0 };
   },
   accounts: async () => (await wait(200), { instagramAvailable: true, youtubeAvailable: true, accounts: [...demoAccounts] }),
   connectUrl: async (platform) => {

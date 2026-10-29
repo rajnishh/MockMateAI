@@ -25,6 +25,7 @@ With a backend:
 | Onboarding: Quick start → first reel free | Working |
 | Home: this week, checklist, recent reels | Working |
 | Create: story or motion reel, 3 looks + 7 Indian art styles, idea or AI ideas, language, length, standard or premium | Working |
+| Edit my video: pick a clip from the gallery, language, captions, zooms, ending, brand look | Working |
 | Making progress, finished reel with video, AI captions, share | Working |
 | Connect Instagram and YouTube (in-app browser), post now or schedule from a reel | Working |
 | Calendar: upcoming and recent posts, cancel, retry, open | Working |

@@ -8,7 +8,7 @@ import { CLOUDFLARE_DEFAULTS, cloudflareAiBase, CloudflareFluxImage } from "./cl
 import { DEFAULT_FAL_MODELS, FalImageToVideo, FalNanoBanana, FalQueueClient } from "./fal";
 import { FalAceStep } from "./fal-music";
 import { FalChatterboxVc, FalDemucs, SeedVcServer } from "./voice";
-import { CloudflareWhisper } from "./whisper";
+import { CloudflareTranscriber, CloudflareWhisper } from "./whisper";
 import { KenBurnsVideo } from "./kenburns";
 import { KokoroTts } from "./kokoro";
 import { FalChatterboxTts, RoutedTts, SarvamTts } from "./tts";
@@ -68,6 +68,18 @@ export function myVoiceAvailable(env: Env): boolean {
 
 export function buildWhisper(env: Env): CloudflareWhisper {
   return new CloudflareWhisper(
+    requireKey(env.CLOUDFLARE_ACCOUNT_ID, "CLOUDFLARE_ACCOUNT_ID"),
+    requireKey(env.CLOUDFLARE_API_TOKEN, "CLOUDFLARE_API_TOKEN"),
+  );
+}
+
+// "Edit my video" needs word-timed transcripts (Cloudflare) for captions and the edit plan.
+export function editsAvailable(env: Env): boolean {
+  return Boolean(env.CLOUDFLARE_ACCOUNT_ID && env.CLOUDFLARE_API_TOKEN);
+}
+
+export function buildTranscriber(env: Env): CloudflareTranscriber {
+  return new CloudflareTranscriber(
     requireKey(env.CLOUDFLARE_ACCOUNT_ID, "CLOUDFLARE_ACCOUNT_ID"),
     requireKey(env.CLOUDFLARE_API_TOKEN, "CLOUDFLARE_API_TOKEN"),
   );

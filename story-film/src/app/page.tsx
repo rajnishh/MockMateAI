@@ -5,7 +5,7 @@ import { authClient } from "@/lib/auth-client";
 import { findLanguage, LANGUAGES } from "@/lib/languages";
 import { FILM_STYLES } from "@/lib/styles";
 
-type Mode = "film" | "cartoon" | "motion";
+type Mode = "film" | "cartoon" | "motion" | "edit";
 type Status = {
   id: string;
   status: string;
@@ -47,6 +47,8 @@ export default function Home() {
   const [quality, setQuality] = useState("standard");
   const [ending, setEnding] = useState("auto");
   const [keyword, setKeyword] = useState("");
+  const [video, setVideo] = useState<File | null>(null);
+  const [zooms, setZooms] = useState(true);
   const [billing, setBilling] = useState<{ balance: number; premiumAvailable: boolean; premiumCreditsPerShot: number } | null>(null);
   const [needCredits, setNeedCredits] = useState(false);
 
@@ -149,6 +151,28 @@ export default function Home() {
     setStatus(null);
     setCaption(null);
     setCaptionFor(null);
+    if (mode === "edit") {
+      if (!video) {
+        setSubmitting(false);
+        return setError("Choose a video to edit");
+      }
+      const form = new FormData();
+      form.append("video", video);
+      form.append("language", language);
+      form.append("captions", String(captions));
+      form.append("zooms", String(zooms));
+      form.append("ending", ending);
+      if (ending === "comment" && keyword) form.append("keyword", keyword);
+      const res = await fetch("/api/edits", { method: "POST", body: form });
+      const body = (await res.json().catch(() => ({}))) as { id?: string; credits?: number; error?: string; needCredits?: boolean };
+      setSubmitting(false);
+      if (!res.ok || !body.id) {
+        setNeedCredits(Boolean(body.needCredits));
+        return setError(body.error ?? "Upload failed");
+      }
+      if (body.credits && billing) setBilling({ ...billing, balance: billing.balance - body.credits });
+      return setJobId(body.id);
+    }
     const { ok, data } = await postJson<{ id: string; credits: number; needCredits?: boolean }>("/api/films", {
       story,
       durationSec,
@@ -221,6 +245,7 @@ export default function Home() {
         <button type="button" aria-pressed={mode === "cartoon"} onClick={() => setMode("cartoon")}>Cartoon episode</button>
         <button type="button" aria-pressed={mode === "film"} onClick={() => setMode("film")}>Short film</button>
         <button type="button" aria-pressed={mode === "motion"} onClick={() => setMode("motion")}>Motion reel</button>
+        <button type="button" aria-pressed={mode === "edit"} onClick={() => setMode("edit")}>Edit my video</button>
       </div>
 
       {mode === "cartoon" && (
@@ -278,9 +303,19 @@ export default function Home() {
           </div>
         )}
 
-        {mode === "motion" && (
+        {mode === "edit" && (
           <>
-            <p className="muted">Animated text and graphics with a voice-over: tips, lists, numbers, charts and quotes. Uses your free weekly reels, no AI animation credits.</p>
+            <p className="muted">Upload a video you filmed (up to 60 seconds). We add captions in your language, zooms on key moments and cards for your main points.</p>
+            <label htmlFor="video">Your video</label>
+            <input id="video" type="file" accept="video/mp4,video/quicktime,video/webm" onChange={(e) => setVideo(e.target.files?.[0] ?? null)} />
+            <label className="check">
+              <input type="checkbox" checked={zooms} onChange={(e) => setZooms(e.target.checked)} /> Zoom in on key moments
+            </label>
+          </>
+        )}
+        {(mode === "motion" || mode === "edit") && (
+          <>
+            {mode === "motion" && <p className="muted">Animated text and graphics with a voice-over: tips, lists, numbers, charts and quotes. Uses your free weekly reels, no AI animation credits.</p>}
             <div className="row">
               <div>
                 <label htmlFor="ending">Ending</label>
@@ -300,8 +335,12 @@ export default function Home() {
             </div>
           </>
         )}
-        <label htmlFor="story">{mode === "cartoon" ? "What happens in this episode?" : mode === "motion" ? "What is the reel about?" : "Your story"}</label>
-        <textarea id="story" value={story} onChange={(e) => setStory(e.target.value)} minLength={20} required />
+        {mode !== "edit" && (
+          <>
+            <label htmlFor="story">{mode === "cartoon" ? "What happens in this episode?" : mode === "motion" ? "What is the reel about?" : "Your story"}</label>
+            <textarea id="story" value={story} onChange={(e) => setStory(e.target.value)} minLength={20} required />
+          </>
+        )}
         <div className="row">
           {mode === "film" && (
             <div>
@@ -331,7 +370,7 @@ export default function Home() {
               ))}
             </select>
           </div>
-          <div>
+          <div hidden={mode === "edit"}>
             <label htmlFor="duration">Length</label>
             <select id="duration" value={durationSec} onChange={(e) => setDurationSec(Number(e.target.value))}>
               <option value={15}>15 seconds</option>
@@ -340,7 +379,7 @@ export default function Home() {
             </select>
           </div>
         </div>
-        {billing?.premiumAvailable && mode !== "motion" && (
+        {billing?.premiumAvailable && mode !== "motion" && mode !== "edit" && (
           <>
             <label htmlFor="quality">Animation</label>
             <select id="quality" value={quality} onChange={(e) => setQuality(e.target.value)}>
@@ -357,7 +396,7 @@ export default function Home() {
           </label>
         )}
         <p className="muted">Free plan: a few videos per week, 720p, labelled “Created with AI”.</p>
-        <button type="submit" disabled={busy}>{busy ? "Working…" : mode === "cartoon" ? "Make episode" : mode === "motion" ? "Make my reel" : "Make my film"}</button>
+        <button type="submit" disabled={busy}>{busy ? "Working…" : mode === "cartoon" ? "Make episode" : mode === "motion" ? "Make my reel" : mode === "edit" ? "Edit my video" : "Make my film"}</button>
       </form>
 
       {error && (

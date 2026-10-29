@@ -9,11 +9,12 @@ import { instagramAvailable, instagramClient, youtubeAvailable } from "@/lib/con
 import { pendingPosts, publishPost } from "@/lib/posts";
 import { provenanceFromEnv, trySign } from "@/lib/provenance";
 import { grantCredits } from "@/lib/billing/credits";
-import { buildPipelineDeps, buildSingDeps, buildSongProvider, type Quality, songsAvailable } from "@/lib/providers";
+import { buildPipelineDeps, buildSingDeps, buildSongProvider, buildTranscriber, type Quality, songsAvailable } from "@/lib/providers";
 import { type MyVoiceJob, SONG_QUEUE, type SongJob, type SongQueueJob } from "@/lib/queue/songs";
 import { singInMyVoice } from "@/lib/voice/sing";
 import { updateSong } from "@/lib/songs/songs";
-import { FILM_QUEUE, type FilmJob, type FilmQueueJob, getRedis, type MusicVideoJob } from "@/lib/queue/films";
+import { type EditJob, FILM_QUEUE, type FilmJob, type FilmQueueJob, getRedis, type MusicVideoJob } from "@/lib/queue/films";
+import { runEditVideo } from "@/lib/edit/pipeline";
 import { runMotionReel } from "@/lib/motion/pipeline";
 import { runMusicVideo } from "@/lib/music-video/pipeline";
 import { CloudflareWhisper } from "@/lib/providers/whisper";
@@ -35,6 +36,10 @@ if (!provenance) console.log("C2PA Content Credentials disabled: set C2PA_CERT_C
 const whisper =
   env.CLOUDFLARE_ACCOUNT_ID && env.CLOUDFLARE_API_TOKEN ? new CloudflareWhisper(env.CLOUDFLARE_ACCOUNT_ID, env.CLOUDFLARE_API_TOKEN) : undefined;
 
+function isEdit(job: Job<FilmQueueJob>): job is Job<EditJob> {
+  return job.name === "edit";
+}
+
 function isMusicVideo(job: Job<FilmQueueJob>): job is Job<MusicVideoJob> {
   return job.name === "music-video";
 }
@@ -48,8 +53,11 @@ const filmWorker = new Worker<FilmQueueJob>(
     const onStage = (stage: string) => updateFilm(db, filmId, { stage });
     await updateFilm(db, filmId, { status: "running", error: null });
     let result;
-    let description;
-    if (isMusicVideo(job)) {
+    let description: string | undefined;
+    if (isEdit(job)) {
+      // The creator's own footage: no Content Credentials claiming it was AI-generated.
+      result = await runEditVideo({ llm: depsFor("standard").llm, transcriber: buildTranscriber(env), fontsDir: env.FONTS_DIR }, job.data, workDir, onStage);
+    } else if (isMusicVideo(job)) {
       const d = job.data;
       result = await runMusicVideo(
         { ...depsFor(d.quality), whisper },
@@ -64,10 +72,10 @@ const filmWorker = new Worker<FilmQueueJob>(
       result = await runMotionReel({ llm, tts, music, fontsDir }, d, workDir, onStage);
       description = "Motion reel: script and voice-over made with AI; animated text and graphics rendered by Reelkar";
     } else {
-      result = await runFilm(depsFor(job.data.quality), job.data as FilmJob, workDir, onStage);
+      result = await runFilm(depsFor((job.data as FilmJob).quality), job.data as FilmJob, workDir, onStage);
       description = "AI-generated video: script, images, motion and narration made with generative AI models";
     }
-    const contentCredentials = await trySign(provenance, result.output, { title: result.title, description });
+    const contentCredentials = description ? await trySign(provenance, result.output, { title: result.title, description }) : false;
     await updateFilm(db, filmId, {
       status: "completed",
       title: result.title,
