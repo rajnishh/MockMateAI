@@ -84,8 +84,8 @@ export default function CalendarPage() {
       if (pick) choose(pick);
     });
     const q = new URLSearchParams(window.location.search);
-    if (q.get("connected")) setNotice("YouTube channel connected.");
-    if (q.get("error")) setError(q.get("error") === "denied" ? "YouTube access was not granted." : `Couldn't connect: ${q.get("error")}`);
+    if (q.get("connected")) setNotice(q.get("connected") === "instagram" ? "Instagram connected." : "YouTube channel connected.");
+    if (q.get("error")) setError(`Couldn't connect: ${q.get("error")}`);
   }, []);
 
   function choose(f: Film) {

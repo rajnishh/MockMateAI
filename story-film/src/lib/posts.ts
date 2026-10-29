@@ -3,7 +3,9 @@ import { z } from "zod";
 import type { Db } from "@/lib/db";
 import { film, scheduledPost, socialAccount } from "@/lib/db/schema";
 import { getFilm } from "@/lib/films";
-import { accessTokenFor } from "@/lib/social-accounts";
+import { InstagramError, type InstagramClient } from "@/lib/instagram";
+import { publicVideoUrl } from "@/lib/public-video";
+import { accessTokenFor, instagramTokenFor } from "@/lib/social-accounts";
 import { YouTubeError, type YouTubeClient } from "@/lib/youtube";
 
 export type Post = typeof scheduledPost.$inferSelect;
@@ -11,6 +13,7 @@ export type Post = typeof scheduledPost.$inferSelect;
 export const newPostSchema = z.object({
   filmId: z.uuid(),
   socialAccountId: z.uuid(),
+  // YouTube title; Instagram uses the description as its caption.
   title: z.string().trim().min(1).max(100),
   description: z.string().max(5000).default(""),
   tags: z.array(z.string().trim().min(1).max(40)).max(15).default([]),
@@ -20,7 +23,7 @@ export const newPostSchema = z.object({
   scheduledAt: z.iso.datetime({ offset: true }).optional(),
 });
 
-export function postView(p: Post, extra?: { filmTitle?: string | null; accountName?: string }) {
+export function postView(p: Post, extra?: { filmTitle?: string | null; accountName?: string; platform?: string }) {
   return {
     id: p.id,
     filmId: p.filmId,
@@ -33,6 +36,7 @@ export function postView(p: Post, extra?: { filmTitle?: string | null; accountNa
     error: p.error,
     publishedAt: p.publishedAt?.toISOString() ?? null,
     accountName: extra?.accountName ?? null,
+    platform: extra?.platform ?? null,
   };
 }
 
@@ -43,7 +47,8 @@ export async function createPost(db: Db, userId: string, input: z.infer<typeof n
     .select()
     .from(socialAccount)
     .where(and(eq(socialAccount.id, input.socialAccountId), eq(socialAccount.userId, userId)));
-  if (!account) throw new PostError("Connect a YouTube channel first");
+  if (!account) throw new PostError("Connect Instagram or YouTube first");
+  if (account.platform === "instagram" && input.description.length > 2200) throw new PostError("Instagram captions can be up to 2,200 characters");
   const scheduledAt = input.scheduledAt ? new Date(input.scheduledAt) : new Date();
   if (scheduledAt.getTime() > Date.now() + 90 * 24 * 3600 * 1000) throw new PostError("Schedule up to 90 days ahead");
   const [row] = await db
@@ -66,7 +71,7 @@ export async function createPost(db: Db, userId: string, input: z.infer<typeof n
 
 export async function listPosts(db: Db, userId: string, from: Date, to: Date) {
   return db
-    .select({ post: scheduledPost, accountName: socialAccount.name })
+    .select({ post: scheduledPost, accountName: socialAccount.name, platform: socialAccount.platform })
     .from(scheduledPost)
     .innerJoin(socialAccount, eq(scheduledPost.socialAccountId, socialAccount.id))
     .where(and(eq(scheduledPost.userId, userId), gte(scheduledPost.scheduledAt, from), lt(scheduledPost.scheduledAt, to)))
@@ -100,7 +105,10 @@ export async function pendingPosts(db: Db): Promise<Post[]> {
 export interface PublishDeps {
   db: Db;
   tokenKey: string;
-  youtube: YouTubeClient;
+  youtube?: YouTubeClient;
+  instagram?: InstagramClient;
+  // Public base URL of this server; Instagram fetches the video from it.
+  baseUrl: string;
 }
 
 // Runs in the worker when a post is due. Claims the post first so a duplicate
@@ -122,6 +130,19 @@ export async function publishPost(deps: PublishDeps, postId: string): Promise<"p
       .where(eq(film.id, claimed.filmId));
     if (!row?.film.outputPath) throw new PostError("The video file is missing");
 
+    if (row.account.platform === "instagram") {
+      if (!deps.instagram) throw new PostError("Instagram posting isn't set up on this server");
+      const token = await instagramTokenFor(db, deps.tokenKey, deps.instagram, row.account);
+      const caption = claimed.description || claimed.title;
+      const media = await deps.instagram.publishReel(token, row.account.externalId, publicVideoUrl(deps.baseUrl, deps.tokenKey, row.film.id), caption);
+      await db
+        .update(scheduledPost)
+        .set({ status: "published", externalId: media.id, externalUrl: media.url, publishedAt: new Date() })
+        .where(eq(scheduledPost.id, postId));
+      return "published";
+    }
+
+    if (!deps.youtube) throw new PostError("YouTube posting isn't set up on this server");
     const token = await accessTokenFor(db, deps.tokenKey, deps.youtube, row.account);
     const video = await deps.youtube.upload(token, row.film.outputPath, {
       title: claimed.title,
@@ -138,7 +159,12 @@ export async function publishPost(deps: PublishDeps, postId: string): Promise<"p
       .where(eq(scheduledPost.id, postId));
     return "published";
   } catch (err) {
-    const message = err instanceof YouTubeError && err.needsReconnect ? "YouTube access was revoked. Reconnect the channel and try again." : (err as Error).message;
+    const message =
+      err instanceof YouTubeError && err.needsReconnect
+        ? "YouTube access was revoked. Reconnect the channel and try again."
+        : err instanceof InstagramError && err.needsReconnect
+          ? "Instagram access expired. Reconnect Instagram and try again."
+          : (err as Error).message;
     await db.update(scheduledPost).set({ status: "failed", error: message.slice(0, 500) }).where(eq(scheduledPost.id, postId));
     throw err;
   }

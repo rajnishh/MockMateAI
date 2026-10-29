@@ -54,7 +54,7 @@ export const film = pgTable(
   (t) => [index("film_user_created_idx").on(t.userId, t.createdAt)],
 );
 
-export const socialPlatform = pgEnum("social_platform", ["youtube"]);
+export const socialPlatform = pgEnum("social_platform", ["youtube", "instagram"]);
 export const postStatus = pgEnum("post_status", ["scheduled", "publishing", "published", "failed", "cancelled"]);
 export const postPrivacy = pgEnum("post_privacy", ["public", "unlisted", "private"]);
 
@@ -73,7 +73,8 @@ export const socialAccount = pgTable(
     imageUrl: text("image_url"),
     // Encrypted with TOKEN_ENCRYPTION_KEY.
     accessToken: text("access_token").notNull(),
-    refreshToken: text("refresh_token").notNull(),
+    // YouTube only; Instagram refreshes the long-lived access token itself.
+    refreshToken: text("refresh_token"),
     expiresAt: timestamp("expires_at").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },

@@ -26,8 +26,10 @@ With a backend:
 | Home: this week, checklist, recent reels | Working |
 | Create: format, idea or AI ideas, language, length, standard or premium | Working |
 | Making progress, finished reel with video, AI captions, share | Working |
+| Connect Instagram and YouTube (in-app browser), post now or schedule from a reel | Working |
+| Calendar: upcoming and recent posts, cancel, retry, open | Working |
 | My reels, Account (language, light/dark, sign out, delete account), Credits (prices only) | Working |
-| Calendar, Inbox, Earn | "Coming soon" screens; their backend is not built yet |
+| Inbox, Earn | "Coming soon" screens; their backend is not built yet |
 | Buying credits | Off during the free beta (in-app purchases need Apple/Google billing) |
 
 ## Scripts

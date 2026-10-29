@@ -1,39 +1,27 @@
-import { timingSafeEqual } from "node:crypto";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { connectResultUrl, readConnectState } from "@/lib/connect";
 import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
-import { getUserId } from "@/lib/session";
 import { saveYouTubeAccount } from "@/lib/social-accounts";
-import { STATE_COOKIE, tokenKey, youtubeClient } from "@/lib/youtube-config";
-
-function sameState(a: string | undefined, b: string | null): boolean {
-  if (!a || !b || a.length !== b.length) return false;
-  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
-}
+import { tokenKey, youtubeClient } from "@/lib/youtube-config";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const back = (q: string) => NextResponse.redirect(new URL(`/calendar?${q}`, req.url));
-  const userId = await getUserId();
-  if (!userId) return NextResponse.redirect(new URL("/login", req.url));
-
-  const jar = await cookies();
-  const expected = jar.get(STATE_COOKIE)?.value;
-  jar.delete({ name: STATE_COOKIE, path: "/api/connect/youtube" });
-  if (!sameState(expected, url.searchParams.get("state"))) return back("error=state");
-  if (url.searchParams.get("error")) return back("error=denied");
-  const code = url.searchParams.get("code");
-  if (!code) return back("error=denied");
-
   const env = loadEnv();
+  // The signed state proves which user started the connection (and guards against CSRF).
+  const state = readConnectState(env, "youtube", url.searchParams.get("state"));
+  if (!state) return NextResponse.redirect(connectResultUrl(env.BETTER_AUTH_URL, "web", "youtube", "The connection link expired. Try again."));
+  const back = (error?: string) => NextResponse.redirect(connectResultUrl(env.BETTER_AUTH_URL, state.r, "youtube", error));
+
+  const code = url.searchParams.get("code");
+  if (url.searchParams.get("error") || !code) return back("You didn't allow access to YouTube.");
   try {
     const yt = youtubeClient(env);
     const tokens = await yt.exchangeCode(code);
     const channel = await yt.getChannel(tokens.accessToken);
-    await saveYouTubeAccount(getDb(), tokenKey(env), userId, channel, tokens);
-    return back("connected=youtube");
+    await saveYouTubeAccount(getDb(), tokenKey(env), state.uid, channel, tokens);
+    return back();
   } catch (err) {
-    return back(`error=${encodeURIComponent((err as Error).message.slice(0, 200))}`);
+    return back((err as Error).message);
   }
 }

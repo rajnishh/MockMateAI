@@ -64,6 +64,13 @@
       "when": 1793226273806,
       "tag": "0008_currency_aed",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793307988537,
+      "tag": "0009_instagram",
+      "breakpoints": true
     }
   ]
 }

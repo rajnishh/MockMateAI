@@ -18,6 +18,8 @@ export default function Home() {
   const { colors } = useTheme();
   const films = useData(() => api.films());
   const billing = useData(() => api.billing());
+  const accounts = useData(() => api.accounts());
+  const connected = (accounts.data?.accounts.length ?? 0) > 0;
 
   // Captured once per visit so filtering stays pure during render.
   const [now] = useState(() => Date.now());
@@ -80,10 +82,15 @@ export default function Home() {
       <Card>
         <Row style={{ justifyContent: "space-between" }}>
           <Txt variant="md">Your first week</Txt>
-          <Txt variant="cap">{list.length > 0 ? 1 : 0} of 4</Txt>
+          <Txt variant="cap">{(list.length > 0 ? 1 : 0) + (connected ? 1 : 0) + (thisWeek.length >= 5 ? 1 : 0)} of 4</Txt>
         </Row>
         <CheckRow label="Make your first reel" done={list.length > 0} sub={list.length ? undefined : "About 2 minutes"} />
-        <CheckRow label="Connect Instagram and YouTube" done={false} sub="Coming in the next beta" />
+        <CheckRow
+          label="Connect Instagram or YouTube"
+          done={connected}
+          sub={connected ? undefined : "2 minutes"}
+          action={connected ? undefined : <Button label="Connect" small kind="secondary" onPress={() => router.push("/connections")} />}
+        />
         <CheckRow label="Create your brand kit" done={false} sub="Coming in the next beta" />
         <CheckRow label="Make 5 reels this week" done={thisWeek.length >= 5} sub={`${Math.min(thisWeek.length, 5)} of 5`} />
       </Card>

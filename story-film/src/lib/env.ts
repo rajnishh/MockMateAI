@@ -11,6 +11,9 @@ const schema = z.object({
   BETTER_AUTH_SECRET: z.string().optional(),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
+  // Instagram API with Instagram Login (Meta App Dashboard → Instagram → API setup).
+  INSTAGRAM_APP_ID: z.string().optional(),
+  INSTAGRAM_APP_SECRET: z.string().optional(),
   // 32 random bytes, base64. Encrypts connected-channel OAuth tokens.
   TOKEN_ENCRYPTION_KEY: z.string().optional(),
   // C2PA signing: PEM text or file paths. See scripts/dev-c2pa-cert.sh for a dev certificate.

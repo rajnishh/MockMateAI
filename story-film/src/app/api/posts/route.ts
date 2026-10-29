@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   const range = rangeSchema.safeParse(params);
   if (!range.success) return NextResponse.json({ error: "from and to are required ISO dates" }, { status: 400 });
   const rows = await listPosts(getDb(), userId, new Date(range.data.from), new Date(range.data.to));
-  return NextResponse.json({ posts: rows.map((r) => postView(r.post, { accountName: r.accountName })) });
+  return NextResponse.json({ posts: rows.map((r) => postView(r.post, { accountName: r.accountName, platform: r.platform })) });
 }
 
 export async function POST(req: Request) {

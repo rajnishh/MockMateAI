@@ -48,6 +48,46 @@ export interface PostCopy {
 
 export type Platform = "instagram" | "youtube" | "whatsapp";
 
+export type SocialPlatform = "instagram" | "youtube";
+
+export interface Account {
+  id: string;
+  platform: SocialPlatform;
+  name: string;
+  imageUrl: string | null;
+  needsReconnect?: boolean;
+}
+
+export interface Accounts {
+  instagramAvailable: boolean;
+  youtubeAvailable: boolean;
+  accounts: Account[];
+}
+
+export type PostStatus = "scheduled" | "publishing" | "published" | "failed" | "cancelled";
+
+export interface Post {
+  id: string;
+  filmId: string;
+  title: string;
+  scheduledAt: string;
+  status: PostStatus;
+  externalUrl: string | null;
+  error: string | null;
+  accountName: string | null;
+  platform: SocialPlatform | null;
+}
+
+export interface NewPost {
+  filmId: string;
+  socialAccountId: string;
+  title: string;
+  description: string;
+  tags: string[];
+  // Omit to post now.
+  scheduledAt?: string;
+}
+
 export interface NewFilm {
   story: string;
   language: string;
@@ -88,6 +128,15 @@ const real = {
   ideas: async (niche: string, language: string) =>
     (await call<{ ideas: Idea[] }>("/api/suggestions", { method: "POST", body: JSON.stringify({ niche, language }) })).ideas,
   caption: (id: string, platform: Platform) => call<PostCopy>(`/api/films/${id}/copy`, { method: "POST", body: JSON.stringify({ platform }) }),
+  accounts: () => call<Accounts>("/api/accounts"),
+  // Returns the provider's sign-in page; the app opens it in the in-app browser.
+  connectUrl: async (platform: SocialPlatform) => (await call<{ url: string }>(`/api/connect/${platform}`, { method: "POST" })).url,
+  disconnect: (id: string) => call<unknown>(`/api/accounts/${id}`, { method: "DELETE" }),
+  posts: async (from: Date, to: Date) =>
+    (await call<{ posts: Post[] }>(`/api/posts?${new URLSearchParams({ from: from.toISOString(), to: to.toISOString() })}`)).posts,
+  createPost: async (input: NewPost) => (await call<{ post: Post }>("/api/posts", { method: "POST", body: JSON.stringify(input) })).post,
+  cancelPost: (id: string) => call<unknown>(`/api/posts/${id}`, { method: "DELETE" }),
+  retryPost: (id: string) => call<unknown>(`/api/posts/${id}/retry`, { method: "POST" }),
   videoUrl: (film: Film) => (film.videoUrl ? `${API_URL}${film.videoUrl}` : null),
   videoHeaders: async (): Promise<Record<string, string>> => {
     const cookie = await authClient.getCookie();
@@ -104,6 +153,18 @@ const demoFilms: Film[] = [
   sample("d3", "Monsoon recipe in 10 minutes", "completed", 3),
 ];
 let demoBalance = 20;
+const demoAccounts: Account[] = [];
+const at = (days: number, h: number, m = 0) => {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  d.setHours(h, m, 0, 0);
+  return d.toISOString();
+};
+const demoPosts: Post[] = [
+  { id: "p1", filmId: "d1", title: "Mia and the rain", scheduledAt: at(-1, 19, 30), status: "published", externalUrl: "https://www.instagram.com/", error: null, accountName: "@priyacooks", platform: "instagram" },
+  { id: "p2", filmId: "d2", title: "3 chai hacks nobody told you", scheduledAt: at(0, 19, 30), status: "scheduled", externalUrl: null, error: null, accountName: "@priyacooks", platform: "instagram" },
+  { id: "p3", filmId: "d3", title: "Monsoon recipe in 10 minutes", scheduledAt: at(1, 13), status: "scheduled", externalUrl: null, error: null, accountName: "Priya Cooks", platform: "youtube" },
+];
 
 function sample(id: string, title: string, status: FilmStatus, daysAgo: number): Film {
   return {
@@ -179,6 +240,49 @@ const demo: typeof real = {
     const title = f?.title ?? "My reel";
     const tags = platform === "whatsapp" ? [] : ["#reels", "#hindistory", "#madewithai"];
     return { title, caption: `${title} 🎬 Save this for later! · Made with AI`, hashtags: tags };
+  },
+  accounts: async () => (await wait(200), { instagramAvailable: true, youtubeAvailable: true, accounts: [...demoAccounts] }),
+  connectUrl: async (platform) => {
+    await wait(300);
+    // Demo: pretend the person finished the provider's sign-in.
+    if (!demoAccounts.some((a) => a.platform === platform))
+      demoAccounts.push({ id: `a-${platform}`, platform, name: platform === "instagram" ? "@priyacooks" : "Priya Cooks", imageUrl: null });
+    return "";
+  },
+  disconnect: async (id) => {
+    const i = demoAccounts.findIndex((a) => a.id === id);
+    if (i >= 0) demoAccounts.splice(i, 1);
+    return {};
+  },
+  posts: async (from, to) =>
+    (await wait(200), demoPosts.filter((p) => p.status !== "cancelled" && new Date(p.scheduledAt) >= from && new Date(p.scheduledAt) < to)),
+  createPost: async (input) => {
+    await wait(300);
+    const account = demoAccounts.find((a) => a.id === input.socialAccountId);
+    const now = !input.scheduledAt;
+    const post: Post = {
+      id: `p${Date.now()}${demoPosts.length}`,
+      filmId: input.filmId,
+      title: input.title,
+      scheduledAt: input.scheduledAt ?? new Date().toISOString(),
+      status: now ? "published" : "scheduled",
+      externalUrl: now ? "https://www.instagram.com/" : null,
+      error: null,
+      accountName: account?.name ?? null,
+      platform: account?.platform ?? null,
+    };
+    demoPosts.push(post);
+    return post;
+  },
+  cancelPost: async (id) => {
+    const p = demoPosts.find((x) => x.id === id);
+    if (p) p.status = "cancelled";
+    return {};
+  },
+  retryPost: async (id) => {
+    const p = demoPosts.find((x) => x.id === id);
+    if (p) Object.assign(p, { status: "scheduled", error: null, scheduledAt: new Date().toISOString() });
+    return {};
   },
   videoUrl: () => null,
   videoHeaders: async () => ({}),

@@ -250,3 +250,12 @@ Prices move monthly; waoowaoo and several other licenses unverified; EvoLink is 
       - Calendar, Inbox and Earn show "coming soon" until their backends exist.
       - No purchases: in-app purchases need Apple and Google billing.
     - **Demo mode:** without `EXPO_PUBLIC_API_URL` the app uses sample data, so it can be tried without the backend.
+23. **Posting to Instagram and YouTube from the app (2026-10-29).** Instagram uses the *Instagram API with Instagram Login*: a Creator or Business account, no Facebook Page. Scopes are `instagram_business_basic` and `instagram_business_content_publish`; long-lived tokens last 60 days and are refreshed in their last 10 days.
+    - **Video delivery:** with Instagram Login, Meta only accepts a public `video_url`. Resumable upload is for Facebook Login apps only. So each post gets a signed link (`/api/public/video/<token>.mp4`) that expires after 2 hours and works only for that film. This needs a public https backend.
+    - **Publishing:** the worker creates a Reels container, polls `status_code` every 30 seconds for up to ~5 minutes, then calls `media_publish`. Meta allows 100 API posts per account per 24 hours.
+    - **Connecting accounts:** OAuth for both platforms now uses a signed, 10-minute `state` that names the user. This lets the mobile app start the flow with its session (`POST /api/connect/<platform>` returns the URL) and finish in the in-app browser. The callback sends the person back to `reelkar://connected`. The web keeps the same callback and returns to `/calendar`.
+    - **Mobile app:** Connected accounts screen; "Post it" on each finished reel, with Now, Today 7:30 pm or Tomorrow (1 pm or 7:30 pm) for every connected account, each using its own AI caption; a real Calendar tab with cancel, retry and open.
+    - **Open items:**
+      - Meta App Review for Advanced Access, before people outside the app's testers can connect.
+      - Google's YouTube API audit; until it passes, uploads stay private.
+      - Best posting times from each account's own insights.

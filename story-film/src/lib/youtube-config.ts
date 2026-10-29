@@ -1,8 +1,6 @@
 import { type Env, requireKey } from "@/lib/env";
 import { YouTubeClient } from "@/lib/youtube";
 
-export const STATE_COOKIE = "yt_oauth_state";
-
 // Same Google OAuth client as sign-in, with an extra redirect URI for channel connections.
 export function youtubeOAuth(env: Env) {
   return {

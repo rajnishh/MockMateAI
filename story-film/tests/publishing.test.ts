@@ -115,8 +115,8 @@ describe("scheduling and publishing", () => {
 
   it("publishes once, refreshes the token and notes YouTube's privacy override", async () => {
     const post = await createPost(db, "u1", { filmId, socialAccountId: accountId, title: "Ep 2", description: "", tags: ["a"], privacy: "public" });
-    expect(await publishPost({ db, tokenKey: key, youtube }, post.id)).toBe("published");
-    expect(await publishPost({ db, tokenKey: key, youtube }, post.id)).toBe("skipped");
+    expect(await publishPost({ db, tokenKey: key, youtube, baseUrl: "https://app.test" }, post.id)).toBe("published");
+    expect(await publishPost({ db, tokenKey: key, youtube, baseUrl: "https://app.test" }, post.id)).toBe("skipped");
     expect(uploads.map((u) => u.title)).toEqual(["Ep 2"]);
 
     const [account] = await listAccounts(db, "u1");
@@ -127,16 +127,16 @@ describe("scheduling and publishing", () => {
   it("marks failures, allows retry, and cancels only pending posts", async () => {
     const post = await createPost(db, "u1", { filmId, socialAccountId: accountId, title: "Ep 3", description: "", tags: [], privacy: "public" });
     failNext = true;
-    await expect(publishPost({ db, tokenKey: key, youtube }, post.id)).rejects.toThrow("quota exceeded");
+    await expect(publishPost({ db, tokenKey: key, youtube, baseUrl: "https://app.test" }, post.id)).rejects.toThrow("quota exceeded");
     expect(await retryPost(db, "u2", post.id)).toBeUndefined();
     const retried = await retryPost(db, "u1", post.id);
     expect(retried?.status).toBe("scheduled");
-    expect(await publishPost({ db, tokenKey: key, youtube }, post.id)).toBe("published");
+    expect(await publishPost({ db, tokenKey: key, youtube, baseUrl: "https://app.test" }, post.id)).toBe("published");
     expect(await cancelPost(db, "u1", post.id)).toBe(false);
 
     const later = await createPost(db, "u1", { filmId, socialAccountId: accountId, title: "Ep 4", description: "", tags: [], privacy: "public", scheduledAt: new Date(Date.now() + 86400_000).toISOString() });
     expect(await cancelPost(db, "u1", later.id)).toBe(true);
-    expect(await publishPost({ db, tokenKey: key, youtube }, later.id)).toBe("skipped");
+    expect(await publishPost({ db, tokenKey: key, youtube, baseUrl: "https://app.test" }, later.id)).toBe("skipped");
   });
 
   it("queues a delayed job keyed by the post id", async () => {

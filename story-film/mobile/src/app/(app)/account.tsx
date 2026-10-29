@@ -66,6 +66,7 @@ export default function Account() {
       </Card>
 
       <Card>
+        <ListRow icon="link" title="Connected accounts" sub="Instagram, YouTube" onPress={() => router.push("/connections")} />
         <ListRow icon="sparkle" title="Credits and plans" onPress={() => router.push("/credits")} />
         <ListRow icon="film" title="My reels" onPress={() => router.push("/reels")} />
         {SUPPORT_EMAIL ? (

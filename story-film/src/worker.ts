@@ -5,6 +5,7 @@ import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
 import { updateFilm } from "@/lib/films";
 import { type PipelineDeps, runFilm } from "@/lib/pipeline/orchestrator";
+import { instagramAvailable, instagramClient, youtubeAvailable } from "@/lib/connect";
 import { pendingPosts, publishPost } from "@/lib/posts";
 import { provenanceFromEnv, trySign } from "@/lib/provenance";
 import { grantCredits } from "@/lib/billing/credits";
@@ -128,12 +129,20 @@ if (songsAvailable(env)) {
   console.log(`song worker listening on queue "${SONG_QUEUE}"`);
 }
 
-// Publishing runs only when YouTube is configured.
-if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.TOKEN_ENCRYPTION_KEY) {
-  const publishDeps = { db, tokenKey: tokenKey(env), youtube: youtubeClient(env) };
+// Publishing runs when YouTube and/or Instagram is configured.
+if (youtubeAvailable(env) || instagramAvailable(env)) {
+  const publishDeps = {
+    db,
+    tokenKey: tokenKey(env),
+    youtube: youtubeAvailable(env) ? youtubeClient(env) : undefined,
+    instagram: instagramAvailable(env) ? instagramClient(env) : undefined,
+    baseUrl: env.BETTER_AUTH_URL,
+  };
   const publishWorker = new Worker<PublishJob>(PUBLISH_QUEUE, (job) => publishPost(publishDeps, job.data.postId), {
     connection: getRedis(),
     concurrency: 2,
+    // Instagram processing is polled inside the job for up to ~5 minutes.
+    lockDuration: 10 * 60_000,
   });
   publishWorker.on("failed", (job, err) => console.error(`post ${job?.data.postId} failed:`, err.message));
   // Re-queue anything scheduled (no-op for posts that already have a job).
@@ -141,7 +150,7 @@ if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.TOKEN_ENCRYPTION_KEY
   for (const post of await pendingPosts(db)) await enqueuePost(queue, post);
   console.log(`publisher listening on queue "${PUBLISH_QUEUE}"`);
 } else {
-  console.log("publisher disabled: set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and TOKEN_ENCRYPTION_KEY");
+  console.log("publisher disabled: set TOKEN_ENCRYPTION_KEY plus Google (YouTube) and/or Instagram app keys");
 }
 
 console.log(`worker listening on queue "${FILM_QUEUE}"`);

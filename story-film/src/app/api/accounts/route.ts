@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { instagramAvailable, youtubeAvailable } from "@/lib/connect";
 import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
 import { getUserId, unauthorized } from "@/lib/session";
@@ -9,7 +10,8 @@ export async function GET() {
   if (!userId) return unauthorized();
   const env = loadEnv();
   return NextResponse.json({
-    youtubeAvailable: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.TOKEN_ENCRYPTION_KEY),
+    youtubeAvailable: youtubeAvailable(env),
+    instagramAvailable: instagramAvailable(env),
     accounts: (await listAccounts(getDb(), userId)).map(accountView),
   });
 }
