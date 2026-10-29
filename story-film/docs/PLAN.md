@@ -259,3 +259,10 @@ Prices move monthly; waoowaoo and several other licenses unverified; EvoLink is 
       - Meta App Review for Advanced Access, before people outside the app's testers can connect.
       - Google's YouTube API audit; until it passes, uploads stay private.
       - Best posting times from each account's own insights.
+24. **Beta server (2026-10-29).** One Ubuntu machine with Docker Compose (`deploy/`): Caddy (automatic HTTPS), web, worker, a one-off migration job, Postgres 17, Redis 7 (with append-only persistence), and Kokoro TTS (CPU, pinned to v0.9.1). The web app and worker share an `output` volume. The same image runs web, worker and migrations. Official images are pulled through `mirror.gcr.io` to avoid Docker Hub limits.
+    - **Health check:** `/api/health` (Postgres + Redis).
+    - **Setup script:** installs Docker, a firewall (22/80/443), swap, automatic updates and nightly backups (database + videos, 7 days kept). It generates the secrets.
+    - **Recommended machine:** 4 vCPU / 8 GB in Mumbai or Bangalore (DigitalOcean or AWS Lightsail), about $45–50 a month.
+    - **Tested locally in Docker:** all services healthy, migrations applied, HTTPS through Caddy, phone OTP sign-in with welcome credits, worker reaching Kokoro.
+    - **Not yet tested:** video rendering. It needs Cloudflare keys.
+    - **Guide:** `docs/DEPLOY.md`.

@@ -1,0 +1,106 @@
+# Reelkar beta server: one machine runs everything.
+# Official images come through mirror.gcr.io (Google's Docker Hub mirror) to avoid Docker Hub pull limits.
+#   cd deploy && cp .env.example .env  (fill it in)  && docker compose up -d --build
+name: reelkar
+
+x-app: &app
+  build:
+    context: ..
+  image: reelkar-app
+  env_file: .env
+  environment:
+    DATABASE_URL: postgres://reelkar:${POSTGRES_PASSWORD}@postgres:5432/reelkar
+    REDIS_URL: redis://redis:6379
+    KOKORO_URL: http://kokoro:8880
+    BETTER_AUTH_URL: https://${DOMAIN}
+  volumes:
+    # Finished videos, songs and voices; shared by the web app and the worker.
+    - output:/app/output
+  restart: unless-stopped
+
+services:
+  caddy:
+    image: mirror.gcr.io/library/caddy:2.10
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [web]
+    restart: unless-stopped
+
+  web:
+    <<: *app
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  worker:
+    <<: *app
+    command: ["npx", "tsx", "src/worker.ts"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    # Rendering is CPU-heavy; leave headroom for the web app.
+    deploy:
+      resources:
+        limits:
+          cpus: "2.5"
+
+  migrate:
+    <<: *app
+    command: ["npx", "drizzle-kit", "migrate"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: mirror.gcr.io/library/postgres:17-alpine
+    environment:
+      POSTGRES_USER: reelkar
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: reelkar
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reelkar"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: mirror.gcr.io/library/redis:7.4-alpine
+    # Jobs and schedules live in Redis, so persist them to disk.
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  # Free English/Hindi narration (Kokoro TTS, Apache-2.0), CPU build.
+  kokoro:
+    image: ghcr.io/remsky/kokoro-fastapi-cpu:v0.9.1
+    restart: unless-stopped
+
+volumes:
+  output:
+  pgdata:
+  redisdata:
+  caddy_data:
+  caddy_config:
