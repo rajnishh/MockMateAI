@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
+import { buildIdeasPrompt } from "@/lib/suggestions";
 import { findLanguage, LANGUAGES, writeInRule } from "@/lib/languages";
 import { captionFont } from "@/lib/pipeline/captions";
 import { buildScriptPrompt } from "@/lib/pipeline/script";
@@ -116,5 +117,12 @@ describe("consent code in every language", () => {
   it("matches both encodings of Bengali য়", () => {
     expect(transcriptHasCode("ছয় ছয় ছয় ছয়", "6666")).toBe(true);
     expect(transcriptHasCode("ছয় ছয় নয় নয়", "6699")).toBe(true);
+  });
+});
+
+describe("idea suggestions language", () => {
+  it("turns a language code into a native-script instruction", () => {
+    expect(buildIdeasPrompt({ niche: "cooking", language: "hi" })).toContain("Hindi using Devanagari script");
+    expect(buildIdeasPrompt({ niche: "cooking", language: "Hindi" })).toContain("Write in Hindi, in its native script.");
   });
 });
