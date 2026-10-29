@@ -274,3 +274,10 @@ Prices move monthly; waoowaoo and several other licenses unverified; EvoLink is 
     - **Pricing:** `film.format` = `story` | `motion` (migration 0011); motion reels are always standard quality, so they are free within the weekly allowance and cost 1 credit after it.
     - **Speed:** a 19-second 720p reel renders in about 8 seconds on one CPU.
     - **Next:** brand-kit colours and fonts as themes, more slide types (before/after, steps with icons, chart), and per-word highlight synced to the voice.
+27. **Motion reels upgrade (2026-10-29).**
+    - **Ending is the creator's choice:** none, follow, comment a keyword, or let the AI decide. It defaults to the AI deciding, and the AI is told never to force a call to action. "None" removes any ending the AI added anyway.
+    - **New scenes:** contrast (strike-through, then the better idea), chart (a line that grows across real values), compare (before → after cards), timer (a countdown ring) and question (a speech bubble).
+    - **On screen:** highlighted key words in the hook; voice-over captions on a dark pill, with the word being spoken in colour; output at 1080×1920.
+    - **Brand look:** a brand colour, light or dark background, and a handle, set once in the app's Account screen. The colour is adjusted automatically until text and buttons pass contrast checks.
+    - **Speed:** a 22-second 1080p reel renders in about 15 seconds on one CPU.
+    - **Rule:** the reels the founder shared are market research. They tell us what to make easy; they are not templates to copy, so endings, keywords and looks are all choices.

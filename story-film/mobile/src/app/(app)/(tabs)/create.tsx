@@ -10,11 +10,14 @@ import { INDIAN_ART, LOOKS, type Style } from "@/lib/styles";
 import { useData } from "@/lib/use-data";
 
 type Kind = "story" | "motion";
+type Ending = "auto" | "none" | "follow" | "comment";
 
 export default function Create() {
   const { prefs } = useSession();
   const billing = useData(() => api.billing());
   const [kind, setKind] = useState<Kind>("story");
+  const [ending, setEnding] = useState<Ending>("auto");
+  const [keyword, setKeyword] = useState("");
   const [style, setStyle] = useState<Style>("animated");
   const [story, setStory] = useState("");
   const [language, setLanguage] = useState(prefs?.language ?? "hi");
@@ -46,7 +49,17 @@ export default function Create() {
     setBusy(true);
     setError(null);
     try {
-      const { id } = await api.createFilm({ story: story.trim(), language, durationSec, quality: motion ? "standard" : quality, style, format: kind });
+      const { id } = await api.createFilm({
+        story: story.trim(),
+        language,
+        durationSec,
+        quality: motion ? "standard" : quality,
+        style,
+        format: kind,
+        ...(motion
+          ? { ending, keyword: ending === "comment" && keyword.trim() ? keyword.trim().toUpperCase() : undefined, brand: prefs?.brand }
+          : {}),
+      });
       setStory("");
       router.push(`/making/${id}`);
     } catch (err) {
@@ -87,6 +100,31 @@ export default function Create() {
         />
         {motion ? <Txt variant="cap">Tips, lists, numbers and quotes animated on screen with a voice-over. Uses your free weekly reels.</Txt> : null}
       </View>
+      {motion ? (
+        <View style={{ gap: 6 }}>
+          <Txt variant="cap">Ending</Txt>
+          <ChipRow<Ending>
+            options={[
+              { value: "auto", label: "Let AI decide" },
+              { value: "none", label: "No ending ask" },
+              { value: "follow", label: "Ask to follow" },
+              { value: "comment", label: "Ask to comment a word" },
+            ]}
+            value={ending}
+            onChange={setEnding}
+          />
+          {ending === "comment" ? (
+            <Field label="Word to comment (optional)" value={keyword} onChangeText={(t) => setKeyword(t.replace(/\s/g, "").slice(0, 20))} placeholder="GUIDE" autoCapitalize="characters" />
+          ) : null}
+          <Button
+            label={prefs?.brand?.accent || prefs?.brand?.handle ? "Using your brand look · change" : "Add your brand colour and handle"}
+            kind="ghost"
+            icon="edit"
+            onPress={() => router.push("/account")}
+            style={{ paddingHorizontal: 0 }}
+          />
+        </View>
+      ) : null}
       {motion ? null : (
         <>
           <View style={{ gap: 6 }}>

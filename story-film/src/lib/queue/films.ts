@@ -1,3 +1,4 @@
+import { ENDINGS } from "@/lib/motion/script";
 import { STYLE_IDS } from "@/lib/styles";
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
@@ -21,6 +22,16 @@ export const filmJobSchema = z.object({
   quality: z.enum(["standard", "premium"]).default("standard"),
   // "motion" reels are animated text slides with a voice-over: always standard quality.
   format: z.enum(["story", "motion"]).default("story"),
+  // Motion reels only: how the reel ends, and the creator's brand look.
+  ending: z.enum(ENDINGS).default("auto"),
+  keyword: z.string().trim().max(20).regex(/^[\p{L}\p{N}_-]*$/u, "One word, no spaces").optional(),
+  brand: z
+    .object({
+      accent: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+      background: z.enum(["light", "dark"]).optional(),
+      handle: z.string().trim().max(30).optional(),
+    })
+    .optional(),
 });
 
 export type FilmJob = z.infer<typeof filmJobSchema> & {

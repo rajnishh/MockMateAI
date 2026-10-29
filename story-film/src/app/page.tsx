@@ -45,6 +45,8 @@ export default function Home() {
   );
   const [captions, setCaptions] = useState(true);
   const [quality, setQuality] = useState("standard");
+  const [ending, setEnding] = useState("auto");
+  const [keyword, setKeyword] = useState("");
   const [billing, setBilling] = useState<{ balance: number; premiumAvailable: boolean; premiumCreditsPerShot: number } | null>(null);
   const [needCredits, setNeedCredits] = useState(false);
 
@@ -153,7 +155,7 @@ export default function Home() {
       language,
       captions,
       quality,
-      ...(mode === "cartoon" ? { style: "animated", characterId, kidSafe } : mode === "motion" ? { style: "animated", format: "motion" } : { style }),
+      ...(mode === "cartoon" ? { style: "animated", characterId, kidSafe } : mode === "motion" ? { style: "animated", format: "motion", ending, keyword: ending === "comment" && keyword ? keyword : undefined } : { style }),
     });
     setSubmitting(false);
     if (!ok) {
@@ -276,7 +278,28 @@ export default function Home() {
           </div>
         )}
 
-        {mode === "motion" && <p className="muted">Animated text and graphics with a voice-over: tips, lists, numbers and quotes. Uses your free weekly reels, no AI animation credits.</p>}
+        {mode === "motion" && (
+          <>
+            <p className="muted">Animated text and graphics with a voice-over: tips, lists, numbers, charts and quotes. Uses your free weekly reels, no AI animation credits.</p>
+            <div className="row">
+              <div>
+                <label htmlFor="ending">Ending</label>
+                <select id="ending" value={ending} onChange={(e) => setEnding(e.target.value)}>
+                  <option value="auto">Let AI decide</option>
+                  <option value="none">No ending ask</option>
+                  <option value="follow">Ask to follow</option>
+                  <option value="comment">Ask to comment a word</option>
+                </select>
+              </div>
+              {ending === "comment" && (
+                <div>
+                  <label htmlFor="keyword">Word to comment</label>
+                  <input id="keyword" value={keyword} maxLength={20} placeholder="GUIDE" onChange={(e) => setKeyword(e.target.value.replace(/\s/g, "").toUpperCase())} />
+                </div>
+              )}
+            </div>
+          </>
+        )}
         <label htmlFor="story">{mode === "cartoon" ? "What happens in this episode?" : mode === "motion" ? "What is the reel about?" : "Your story"}</label>
         <textarea id="story" value={story} onChange={(e) => setStory(e.target.value)} minLength={20} required />
         <div className="row">

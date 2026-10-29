@@ -4,8 +4,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { runMotionReel } from "@/lib/motion/pipeline";
-import { formatStat, motionFfmpegArgs, renderMotionVideo, type RenderInput } from "@/lib/motion/render";
-import { buildMotionPrompt, motionScriptSchema, slideCountFor, slideDurations } from "@/lib/motion/script";
+import { activeWord, brandPalette, contrastRatio, formatStat, motionFfmpegArgs, renderMotionVideo, type RenderInput, THEMES } from "@/lib/motion/render";
+import { applyEnding, buildMotionPrompt, motionScriptSchema, slideCountFor, slideDurations } from "@/lib/motion/script";
+import { filmJobSchema } from "@/lib/queue/films";
 import type { LlmProvider, TtsProvider } from "@/lib/providers/types";
 
 const dir = mkdtempSync(path.join(tmpdir(), "motion-"));
@@ -29,9 +30,9 @@ describe("motion reel script", () => {
     expect(slideCountFor(10)).toBe(3);
     expect(slideCountFor(120)).toBe(10);
     const prompt = buildMotionPrompt({ story: "3 money tips", durationSec: 30, language: "hi" });
-    expect(prompt).toContain("exactly 5 slides");
+    expect(prompt).toContain("about 5 slides");
     expect(prompt).toContain("Devanagari");
-    expect(prompt).toContain("never invent statistics");
+    expect(prompt).toContain("Never invent statistics");
   });
 
   it("validates slides and falls back to a known theme", () => {
@@ -56,13 +57,49 @@ describe("motion reel script", () => {
   });
 
   it("delays each voice-over to its slide and mixes music under it", () => {
-    const args = motionFfmpegArgs({ durations: [3, 4], narration: ["a.wav", "b.wav"], music: "m.wav", width: 480, height: 854, watermark: false, output: "o.mp4" });
+    const args = motionFfmpegArgs({ durations: [3, 4], narration: ["a.wav", "b.wav"], music: "m.wav", width: 480, height: 854, output: "o.mp4" });
     const filter = args[args.indexOf("-filter_complex") + 1];
     expect(filter).toContain("adelay=250|250");
     expect(filter).toContain("adelay=3250|3250");
     expect(filter).toContain("volume=0.14");
     expect(args).toContain("pipe:0");
     expect(args[args.indexOf("-t") + 1]).toBe("7.00");
+  });
+});
+
+describe("endings, brand and captions", () => {
+  it("lets the creator decide the ending; the AI never forces one", () => {
+    expect(buildMotionPrompt({ story: "x", durationSec: 30, ending: "none" })).toContain("Do NOT add a call to action");
+    expect(buildMotionPrompt({ story: "x", durationSec: 30 })).toContain("Never force it");
+    expect(buildMotionPrompt({ story: "x", durationSec: 30, ending: "comment", keyword: "RECIPE" })).toContain('Comment RECIPE');
+    expect(buildMotionPrompt({ story: "x", durationSec: 30, ending: "follow", handle: "@priya" })).toContain("@priya");
+    const parsed = motionScriptSchema.parse(script);
+    expect(applyEnding(parsed, "none").slides.map((x) => x.type)).toEqual(["title", "list", "stat"]);
+    expect(applyEnding(parsed, "auto").slides).toHaveLength(4);
+  });
+
+  it("validates the keyword and brand colour in film jobs", () => {
+    const base = { userId: "u", story: "Three ways to save money every month", style: "animated", durationSec: 30, format: "motion" };
+    expect(filmJobSchema.parse({ ...base, ending: "comment", keyword: "GUIDE" }).keyword).toBe("GUIDE");
+    expect(() => filmJobSchema.parse({ ...base, keyword: "two words" })).toThrow();
+    expect(() => filmJobSchema.parse({ ...base, brand: { accent: "pink" } })).toThrow();
+  });
+
+  it("builds a readable palette from any brand colour", () => {
+    for (const [accent, background] of [["#ffe600", "light"], ["#1a1a1a", "dark"], ["#e0198a", "light"], ["#0a756b", "dark"]] as const) {
+      const p = brandPalette({ accent, background }, THEMES.navy);
+      expect(contrastRatio(p.accent, p.bg[0])).toBeGreaterThanOrEqual(3);
+      expect(contrastRatio(p.onAccent, p.accent)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(p.text, p.bg[0])).toBeGreaterThanOrEqual(7);
+    }
+    expect(brandPalette({ accent: "not-a-colour" }, THEMES.mint)).toBe(THEMES.mint);
+  });
+
+  it("moves the caption highlight along the spoken words", () => {
+    const words = ["पैसे", "बचाने", "के", "तरीके"];
+    expect(activeWord(words, 2, 0)).toBe(0);
+    expect(activeWord(words, 2, 1.99)).toBe(3);
+    expect(activeWord(words, 2, 5)).toBe(3);
   });
 });
 
@@ -75,15 +112,17 @@ describe("motion reel pipeline", () => {
     const tts = { modelId: "kokoro-82m", speak: async ({ text }: { text: string }) => (spoken.push(text), Buffer.from("wav")) } as unknown as TtsProvider;
     const res = await runMotionReel(
       { llm, tts, probeDuration: async () => 2, render: async (input) => void (rendered = input) },
-      { story: "money tips", durationSec: 20, resolution: "480p", watermark: true, language: "hi" },
+      { story: "money tips", durationSec: 20, watermark: true, language: "hi", ending: "none", brand: { accent: "#e0198a", handle: "@priyacooks" } },
       path.join(dir, "pipe"),
       (s) => void stages.push(s),
     );
     expect(stages).toEqual(["script", "audio", "assemble", "done"]);
     expect(res.title).toBe(script.title);
-    expect(spoken).toHaveLength(4);
-    expect(rendered).toMatchObject({ width: 480, height: 854, watermark: true });
-    expect(rendered!.durations).toHaveLength(4);
+    // "none" removes the model's call to action, so 3 slides are voiced, not 4.
+    expect(spoken).toHaveLength(3);
+    expect(rendered).toMatchObject({ width: 1080, height: 1920, watermark: true, brand: { handle: "@priyacooks" } });
+    expect(rendered!.script.slides.some((sl) => sl.type === "cta")).toBe(false);
+    expect(rendered!.spoken).toEqual([2, 2, 2]);
   });
 
   it("renders a real reel with FFmpeg: right length, video and audio", async () => {

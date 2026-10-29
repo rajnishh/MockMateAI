@@ -2,11 +2,10 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { probeDuration } from "@/lib/ffmpeg";
 import { assertCommercialSafe } from "@/lib/models/licenses";
-import { FRAME_SIZE } from "@/lib/pipeline/assemble";
 import { mapLimit, type Stage } from "@/lib/pipeline/orchestrator";
-import type { LlmProvider, MusicProvider, NarrationLanguage, Resolution, TtsProvider } from "@/lib/providers/types";
-import { renderMotionVideo, type RenderInput } from "./render";
-import { buildMotionPrompt, type MotionScript, motionScriptSchema, slideDurations } from "./script";
+import type { LlmProvider, MusicProvider, NarrationLanguage, TtsProvider } from "@/lib/providers/types";
+import { type Brand, MOTION_SIZE, renderMotionVideo, type RenderInput } from "./render";
+import { applyEnding, buildMotionPrompt, type Ending, type MotionScript, motionScriptSchema, slideDurations } from "./script";
 
 export interface MotionDeps {
   llm: LlmProvider;
@@ -20,10 +19,13 @@ export interface MotionDeps {
 export interface MotionRequest {
   story: string;
   durationSec: number;
-  resolution: Resolution;
   watermark: boolean;
   language?: NarrationLanguage;
   kidSafe?: boolean;
+  captions?: boolean;
+  ending?: Ending;
+  keyword?: string;
+  brand?: Brand;
 }
 
 const MUSIC_BY_THEME: Record<MotionScript["theme"], string> = {
@@ -44,7 +46,8 @@ export async function runMotionReel(
   await mkdir(workDir, { recursive: true });
 
   await onStage("script");
-  const script = motionScriptSchema.parse(await deps.llm.completeJson(buildMotionPrompt(req)));
+  const raw = await deps.llm.completeJson(buildMotionPrompt({ ...req, handle: req.brand?.handle }));
+  const script = applyEnding(motionScriptSchema.parse(raw), req.ending);
   await writeFile(path.join(workDir, "script.json"), JSON.stringify(script, null, 2));
 
   await onStage("audio");
@@ -63,12 +66,15 @@ export async function runMotionReel(
   }
 
   await onStage("assemble");
-  const { w, h } = FRAME_SIZE[req.resolution];
+  const { w, h } = MOTION_SIZE;
   const output = path.join(workDir, "film.mp4");
   await (deps.render ?? renderMotionVideo)({
     script,
     durations,
     narration,
+    spoken,
+    captions: req.captions,
+    brand: req.brand,
     music,
     width: w,
     height: h,

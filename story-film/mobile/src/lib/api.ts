@@ -97,6 +97,10 @@ export interface NewFilm {
   style: Style;
   // "motion": animated text and graphics with a voice-over (no AI animation credits).
   format?: "story" | "motion";
+  // Motion reels: how the reel ends, the comment keyword, and the creator's brand look.
+  ending?: "auto" | "none" | "follow" | "comment";
+  keyword?: string;
+  brand?: { accent?: string; background?: "light" | "dark"; handle?: string };
   kidSafe?: boolean;
 }
 

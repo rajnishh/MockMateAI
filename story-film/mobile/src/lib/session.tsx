@@ -4,7 +4,15 @@ import { authClient } from "./auth-client";
 import { DEMO } from "./config";
 import { getItem, setItem } from "./storage";
 
+export interface Brand {
+  // Brand colour for motion reels; empty lets the AI pick a theme.
+  accent?: string;
+  background?: "light" | "dark";
+  handle?: string;
+}
+
 export interface Prefs {
+  brand?: Brand;
   topic: string;
   niche: string;
   language: string;
