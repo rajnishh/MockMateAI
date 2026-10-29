@@ -21,7 +21,10 @@ describe("signed tokens", () => {
     const t = signToken({ uid: "u1" }, key, "connect", 60);
     expect(verifyToken<{ uid: string }>(t, key, "connect")?.uid).toBe("u1");
     expect(verifyToken(t, key, "video")).toBeNull();
-    expect(verifyToken(t.slice(0, -2) + "xx", key, "connect")).toBeNull();
+    // Flip the first signature character (the last one only carries padding bits).
+    const [body, sig] = t.split(".");
+    expect(verifyToken(`${body}.${sig[0] === "A" ? "B" : "A"}${sig.slice(1)}`, key, "connect")).toBeNull();
+    expect(verifyToken(`${body.slice(0, -1)}${body.at(-1) === "A" ? "B" : "A"}.${sig}`, key, "connect")).toBeNull();
     expect(verifyToken(signToken({ uid: "u1" }, key, "connect", -1), key, "connect")).toBeNull();
     expect(verifyToken(t, randomBytes(32).toString("base64"), "connect")).toBeNull();
   });
