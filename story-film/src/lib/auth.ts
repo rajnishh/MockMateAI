@@ -21,4 +21,6 @@ export const auth = createAuth({
   baseURL: env.BETTER_AUTH_URL,
   secret: env.BETTER_AUTH_SECRET,
   google: googleEnabled ? { clientId: env.GOOGLE_CLIENT_ID!, clientSecret: env.GOOGLE_CLIENT_SECRET! } : undefined,
+  // Expo Go and dev builds use exp:// URLs on the local network.
+  trustedOrigins: process.env.NODE_ENV === "development" ? ["exp://", "exp://**"] : [],
 });

@@ -1,4 +1,5 @@
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
+import { expo } from "@better-auth/expo";
 import { betterAuth } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
 import { phoneNumber } from "better-auth/plugins";
@@ -13,7 +14,12 @@ export interface AuthOptions {
   baseURL: string;
   secret?: string;
   google?: { clientId: string; clientSecret: string };
+  // Extra trusted origins, e.g. Expo's exp:// URLs in development.
+  trustedOrigins?: string[];
 }
+
+// Deep-link scheme of the Reelkar mobile app (mobile/app.json "scheme").
+export const MOBILE_SCHEME = "reelkar";
 
 // Kept separate from auth.ts so tests can build it against an in-process database.
 export function createAuth(opts: AuthOptions) {
@@ -21,6 +27,8 @@ export function createAuth(opts: AuthOptions) {
     baseURL: opts.baseURL,
     secret: opts.secret,
     database: drizzleAdapter(opts.db, { provider: "pg", schema }),
+    // The mobile app signs in through deep links back to its scheme.
+    trustedOrigins: [`${MOBILE_SCHEME}://`, ...(opts.trustedOrigins ?? [])],
     // SMS costs money and attracts "SMS pumping" abuse, so OTP sends are tightly limited.
     rateLimit: {
       enabled: true,
@@ -29,6 +37,9 @@ export function createAuth(opts: AuthOptions) {
         "/phone-number/verify": { window: 600, max: 10 },
       },
     },
+    // People can delete their account from the app (an App Store and Play Store requirement).
+    // Their reels, voices, songs and connected accounts go with it (ON DELETE CASCADE).
+    user: { deleteUser: { enabled: true } },
     // Every new account starts with a one-time gift of credits (idempotent per user).
     databaseHooks: {
       user: {
@@ -53,6 +64,7 @@ export function createAuth(opts: AuthOptions) {
           getTempName: (n) => `Creator ${n.slice(-4)}`,
         },
       }),
+      expo(),
       nextCookies(), // must stay last
     ],
   });
