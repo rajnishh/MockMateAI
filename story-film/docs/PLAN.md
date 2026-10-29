@@ -242,7 +242,7 @@ Prices move monthly; waoowaoo and several other licenses unverified; EvoLink is 
 21. **Shorter onboarding (2026-10-28).** Sign-up is now Welcome → Sign in → Code → **Quick start** (topic, reel language, new or existing) → **Your first reel** (pick one of 3 ideas, free) → making → ready → Home. Brand kit, connecting platforms and the 30-day plan move to the Home checklist. Connecting platforms is also triggered by "Post now". The old Goals, Niche, Languages and 30-day-plan screens stay in the prototype, marked "Replaced", for reference.
 22. **Mobile app for the free beta (2026-10-29).** `mobile/` is an Expo SDK 58 app (Expo Router, React Native 0.88) for Android and iOS. Its theme is generated from `design/v1.0/tokens.json`.
     - **App ids:** `app.reelkar` on both stores. These are permanent, so they are tied to the product, not the company.
-    - **Publisher:** "7EM Labs" (7emlabs.app; .app, .com and .in were unregistered on 2026-10-29) until the Indian private limited company exists. Apple and Google developer accounts can be moved to the company later.
+    - **Publisher:** the studio name is still open (shortlist: Kikishu Labs, K2 Studio, Kimay Labs). Support email and privacy link are env settings until it's chosen. The beta can ship from personal Apple and Google developer accounts; both can be moved to the company later.
     - **Sign-in:** Google and Indian mobile OTP through Better Auth's Expo plugin. The backend trusts the `reelkar://` scheme (plus `exp://` in development) and now lets people delete their account, as both stores require. Their data is removed by `ON DELETE CASCADE`.
     - **Beta scope:**
       - Quick start, then a free first reel.

@@ -44,4 +44,4 @@ With a backend:
 - App ids: `app.reelkar` (iOS bundle id and Android package). These can't change after the first store release.
 - Builds use EAS (`eas.json`): `development` (dev client, demo mode), `preview` (internal APK / ad-hoc for testers), `production`.
 - Beta testers: TestFlight on iOS and a Google Play internal or closed test track. Both need developer accounts (Apple $99/year, Google $25 once).
-- Publisher name for now: **7EM Labs** (domain 7emlabs.app). Developer accounts can move to the company later: Apple can convert an individual account to an organization, and Google can transfer apps to another developer account.
+- Studio (publisher) name: not chosen yet. Support email, privacy link and API URL come from `EXPO_PUBLIC_*` env vars (set them per build in EAS). Developer accounts can move to the company later: Apple can convert an individual account to an organization, and Google can transfer apps to another developer account.

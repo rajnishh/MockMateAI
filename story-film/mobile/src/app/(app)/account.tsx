@@ -5,7 +5,7 @@ import { Linking, View } from "react-native";
 
 import { Banner, Button, Card, ChipRow, Header, ListRow, Row, Screen, Txt } from "@/components/ui";
 import { authClient } from "@/lib/auth-client";
-import { DEMO } from "@/lib/config";
+import { DEMO, PRIVACY_URL, SUPPORT_EMAIL } from "@/lib/config";
 import { LANGUAGES } from "@/lib/languages";
 import { useSession } from "@/lib/session";
 import { useTheme, type Mode } from "@/theme";
@@ -68,8 +68,15 @@ export default function Account() {
       <Card>
         <ListRow icon="sparkle" title="Credits and plans" onPress={() => router.push("/credits")} />
         <ListRow icon="film" title="My reels" onPress={() => router.push("/reels")} />
-        <ListRow icon="send" title="Send feedback" sub="Tell us what to build next" onPress={() => Linking.openURL("mailto:hello@7emlabs.app?subject=Reelkar%20beta%20feedback").catch(() => undefined)} />
-        <ListRow icon="lock" title="Privacy policy" onPress={() => Linking.openURL("https://7emlabs.app/privacy").catch(() => undefined)} />
+        {SUPPORT_EMAIL ? (
+          <ListRow
+            icon="send"
+            title="Send feedback"
+            sub={SUPPORT_EMAIL}
+            onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=Reelkar%20beta%20feedback`).catch(() => undefined)}
+          />
+        ) : null}
+        {PRIVACY_URL ? <ListRow icon="lock" title="Privacy policy" onPress={() => Linking.openURL(PRIVACY_URL).catch(() => undefined)} /> : null}
       </Card>
 
       <Button label="Sign out" kind="secondary" icon="out" block onPress={signOut} />
@@ -90,7 +97,7 @@ export default function Account() {
         )}
       </Card>
       <Txt variant="cap" style={{ textAlign: "center" }}>
-        Reelkar {Constants.expoConfig?.version ?? ""} · by 7EM Labs{DEMO ? " · demo mode" : ""}
+        Reelkar {Constants.expoConfig?.version ?? ""}{DEMO ? " · demo mode" : ""}
       </Txt>
     </Screen>
   );
