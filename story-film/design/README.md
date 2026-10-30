@@ -1,5 +1,21 @@
 # Design system
 
+## v2.0: Creator energy (proposed, 2026-10-30)
+
+More energy for creators, keeping the v1.0 reel logo:
+- **Light theme, "Creator studio":** navy with a stronger coral for main buttons (navy text on coral), a sunny yellow for wins, bigger radii, pressable buttons, and Plus Jakarta Sans.
+- **Dark theme, "Neon night":** near-black with neon pink, cyan and lime, glows, and Space Grotesk headings.
+- **Motion:**
+  - The logo animates: the reel turns, the film tail feeds out and the hub clicks. It loops on a new splash screen and wherever something loads, instead of a spinner or grey skeleton.
+  - Screens slide in piece by piece, progress bars shimmer, chips pop, and confetti plays when a reel is ready.
+  - All of it is off with reduced motion.
+
+Files and links:
+- `v2.0/prototype.html`: the v1.0 prototype with the v2.0 tokens, splash, loaders and motion. Published: https://claude.ai/artifact/3WniUxZ8zBAVrhc5jJR8tK
+- Style directions and the five animated logo marks: https://claude.ai/artifact/6aCNu5hnuvBaqN2aEMkyBo
+
+Once approved, `tokens.json` and the apps' themes move to v2.0.
+
 ## v1.0: Reelkar (current)
 
 Brand book, tokens, components and phone, web and desktop screens, as a Claude Design System artifact:
