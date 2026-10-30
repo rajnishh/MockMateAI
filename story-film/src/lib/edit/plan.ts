@@ -113,6 +113,7 @@ export function sanitizePlan(plan: EditPlan, durationSec: number, ending: Ending
   let cards = plan.cards
     .map(clampSpan)
     .filter((c) => c.end - c.start >= 1.5)
+    .map((c) => ({ ...c, end: Math.min(c.end, c.start + 8) }))
     .filter((c) => !(ending === "none" && c.type === "cta"))
     .sort((a, b) => a.start - b.start)
     .reduce<Card[]>((kept, c) => (kept.length && c.start < kept[kept.length - 1].end ? kept : [...kept, c]), []);

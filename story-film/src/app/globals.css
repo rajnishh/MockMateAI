@@ -4,6 +4,7 @@
   --muted: #78716c;
   --accent: #b45309;
   --border: #e7e5e4;
+  --danger: #b42318;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -12,6 +13,7 @@
     --muted: #a8a29e;
     --accent: #f59e0b;
     --border: #44403c;
+    --danger: #ff8b7e;
   }
 }
 * { box-sizing: border-box; }
@@ -23,6 +25,7 @@ button { background: var(--accent); color: #fff; border: none; cursor: pointer; 
 button:disabled { opacity: 0.6; cursor: wait; }
 label { display: block; margin: 16px 0 6px; font-weight: 600; }
 .muted { color: var(--muted); font-size: 14px; }
+.error { color: var(--danger); font-size: 14px; }
 .row { display: flex; gap: 12px; }
 .row > * { flex: 1; min-width: 0; }
 .status { margin-top: 24px; padding: 16px; border: 1px solid var(--border); border-radius: 8px; }

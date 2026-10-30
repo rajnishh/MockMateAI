@@ -334,4 +334,10 @@ Prices move monthly; waoowaoo and several other licenses unverified; EvoLink is 
       - Text can be fixed: the backdrop word, stamp and label, and card text and list items. Switching to a text effect starts from the longest word said then.
       - Captions, sound effects and voice can be changed too.
       - The server sanitises the changes the same way it sanitises the AI's plan. The app warns when a backdrop or stamp would be hidden by a card at the same time.
-    - **Not yet:** moving or stretching moments in time, adding new moments, editing caption words.
+    - **Timing, new moments and captions (same day):**
+      - Each moment moves earlier or later and gets shorter or longer in 0.25 s steps.
+      - New moments (any effect the analysis supports; key point, list or ending card; zoom) are added at the start of a chosen caption line. Number cards stay AI-only, because they must be a number the creator said.
+      - Caption words are edited line by line: a new line after a 0.6 s pause or every 8 words. The same number of words keeps each word's timing; otherwise the line's time is shared evenly, and an empty line hides it. The server keeps words inside the video and in order.
+      - One shared module (`src/lib/edit/moments.ts`, copied byte for byte into `mobile/src/lib/moments.ts`, checked by a test) holds the limits: effects 0.8–4 s, cards 1.5–8 s, zooms 0.5–3 s; at most 6 effects, 4 cards, 20 zooms; gaps of 0.5 s between effects and 1 s between zooms.
+      - Clashes are shown in red on the moment and block rendering, where the server would otherwise drop the later moment silently. A test checks that a clash-free plan passes `sanitizePlan` unchanged.
+    - **Not yet:** a drag timeline over a video preview; per-word caption timing.

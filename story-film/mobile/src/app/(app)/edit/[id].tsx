@@ -1,9 +1,21 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 
 import { Banner, Button, Card, ChipRow, Field, Header, Row, Screen, Skeleton, Txt } from "@/components/ui";
-import { api, type EditCard, type EditDraft, type EditEffect, type EditOptions, type EditPlan, type EffectType, type Voice } from "@/lib/api";
+import { api, type EditCard, type EditDraft, type EditEffect, type EditOptions, type EditPlan, type EffectType, type Span, type Voice } from "@/lib/api";
+import {
+  applyCaptionEdits,
+  captionLines,
+  conflicts,
+  formatTime,
+  MAX_COUNT,
+  type MomentKind,
+  moveSpan,
+  newSpan,
+  resizeSpan,
+  STEP,
+} from "@/lib/moments";
 
 const EFFECT_LABEL: Record<EffectType, string> = {
   backdrop: "Word behind you",
@@ -15,35 +27,39 @@ const EFFECT_LABEL: Record<EffectType, string> = {
 const CARD_LABEL: Record<EditCard["type"], string> = { point: "Key point card", list: "List card", stat: "Number card", cta: "Ending card" };
 // These need the person's outline, not just the face.
 const NEEDS_OUTLINE = new Set<EffectType>(["backdrop", "spotlight", "cutout"]);
+// What can be added by hand ("e:" effects, "c:" cards, "z" zoom). Number cards need a number
+// the creator said, so only the AI adds them.
+type AddType = `e:${EffectType}` | "c:point" | "c:list" | "c:cta" | "z";
 
-type Kind = "effect" | "card" | "zoom";
-type Moment = { key: string; kind: Kind; index: number; start: number; end: number };
-
-const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+type Words = EditDraft["words"];
+type Moment = { key: string; kind: MomentKind; index: number; start: number; end: number };
 
 // What the creator says during a moment, so they know which part of the video it is.
-function said(words: EditDraft["words"], start: number, end: number): string {
+function said(words: Words, start: number, end: number): string {
   return words
     .filter((w) => w.end > start && w.start < end)
     .map((w) => w.word)
     .join(" ");
 }
 
-// A word to start from when switching to an effect that shows text: the longest word said then.
-function keyWord(words: EditDraft["words"], start: number, end: number): string {
+// A word to start from for an effect that shows text: the longest word said then.
+function keyWord(words: Words, start: number, end: number): string {
   const inSpan = words.filter((w) => w.end > start && w.start < end).map((w) => w.word.replace(/[^\p{L}\p{N}]/gu, ""));
-  return (inSpan.sort((a, b) => b.length - a.length)[0] ?? "WOW").toUpperCase().slice(0, 16);
+  return (inSpan.sort((a, b) => b.length - a.length)[0] || "WOW").toUpperCase().slice(0, 16);
 }
 
-function swapEffect(e: EditEffect, type: EffectType, words: EditDraft["words"]): EditEffect {
-  const span = { start: e.start, end: e.end };
-  const text = "text" in e ? e.text : "label" in e && e.label ? e.label.toUpperCase().slice(0, 16) : keyWord(words, e.start, e.end);
+function makeEffect(type: EffectType, span: Span, words: Words, from?: EditEffect): EditEffect {
+  const text = from && "text" in from ? from.text : from && "label" in from && from.label ? from.label.toUpperCase().slice(0, 16) : keyWord(words, span.start, span.end);
   if (type === "backdrop" || type === "stamp") return { type, text, ...span };
-  if (type === "focus") return { type, label: "label" in e ? e.label : undefined, ...span };
+  if (type === "focus") return { type, label: from && "label" in from ? from.label : undefined, ...span };
   return { type, ...span };
 }
 
-const overlaps = (a: { start: number; end: number }, b: { start: number; end: number }) => a.start < b.end && b.start < a.end;
+function makeCard(type: "point" | "list" | "cta", span: Span, words: Words): EditCard {
+  if (type === "point") return { type, text: said(words, span.start, span.end).slice(0, 60), ...span };
+  if (type === "list") return { type, heading: "", items: ["", ""], ...span };
+  return { type, text: "Follow for more", ...span };
+}
 
 export default function EditMoments() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -51,14 +67,23 @@ export default function EditMoments() {
   const [plan, setPlan] = useState<EditPlan | null>(null);
   const [off, setOff] = useState<Set<string>>(new Set());
   const [options, setOptions] = useState<EditOptions | null>(null);
+  const [texts, setTexts] = useState<string[]>([]);
+  const [addType, setAddType] = useState<AddType>("z");
+  const [addAt, setAddAt] = useState("0");
+  const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Caption lines come from the words as loaded, so a line doesn't jump while it's being edited.
+  const lines = useMemo(() => captionLines(draft?.words ?? []), [draft]);
 
   const reset = useCallback((d: EditDraft) => {
     setDraft(d);
     setPlan(d.plan);
     setOptions(d.options);
     setOff(new Set());
+    setTexts(captionLines(d.words).map((l) => l.text));
+    setNote(null);
   }, []);
 
   useEffect(() => {
@@ -74,6 +99,9 @@ export default function EditMoments() {
     );
   }
 
+  const duration = draft.durationSec;
+  const words = applyCaptionEdits(draft.words, lines, texts);
+  const captionsChanged = texts.some((t, i) => t !== lines[i]?.text);
   const review = draft.status === "review";
   const canRender = review || (draft.rendersLeft ?? 0) > 0;
   const moments: Moment[] = [
@@ -81,17 +109,39 @@ export default function EditMoments() {
     ...plan.cards.map((c, index) => ({ key: `c${index}`, kind: "card" as const, index, start: c.start, end: c.end })),
     ...plan.zooms.map((z, index) => ({ key: `z${index}`, kind: "zoom" as const, index, start: z.start, end: z.end })),
   ].sort((a, b) => a.start - b.start);
-  const effectTypes = (Object.keys(EFFECT_LABEL) as EffectType[]).filter((t) => draft.available.mask || !NEEDS_OUTLINE.has(t));
-  const activeCards = plan.cards.filter((_, i) => !off.has(`c${i}`));
+  const effectTypes = draft.available.faces ? (Object.keys(EFFECT_LABEL) as EffectType[]).filter((t) => draft.available.mask || !NEEDS_OUTLINE.has(t)) : [];
+  const problems = conflicts(plan, off);
 
   const setEffect = (i: number, e: EditEffect) => setPlan({ ...plan, effects: plan.effects.map((x, j) => (j === i ? e : x)) });
   const setCard = (i: number, c: EditCard) => setPlan({ ...plan, cards: plan.cards.map((x, j) => (j === i ? c : x)) });
+  const setSpan = (m: Moment, span: Span) => {
+    if (m.kind === "effect") setEffect(m.index, { ...plan.effects[m.index], ...span });
+    else if (m.kind === "card") setCard(m.index, { ...plan.cards[m.index], ...span });
+    else setPlan({ ...plan, zooms: plan.zooms.map((z, j) => (j === m.index ? span : z)) });
+  };
   const toggle = (key: string) => {
     const next = new Set(off);
     if (next.has(key)) next.delete(key);
     else next.add(key);
     setOff(next);
   };
+  const onCount = (kind: MomentKind) => moments.filter((m) => m.kind === kind && !off.has(m.key)).length;
+
+  // When a new moment can start: at each caption line, or every 2 seconds if nothing is said.
+  const when = lines.length
+    ? lines.map((l) => ({ value: String(l.start), label: `${formatTime(l.start)} “${l.text.split(" ").slice(0, 4).join(" ")}…”` }))
+    : Array.from({ length: Math.max(1, Math.floor(duration / 2)) }, (_, i) => ({ value: String(i * 2), label: formatTime(i * 2) }));
+  const addKind: MomentKind = addType === "z" ? "zoom" : addType.startsWith("e:") ? "effect" : "card";
+  const addFull = onCount(addKind) >= MAX_COUNT[addKind];
+  const at = when.some((w) => w.value === addAt) ? addAt : when[0].value;
+
+  function add() {
+    const span = newSpan(addKind, Number(at), duration);
+    if (addType === "z") setPlan({ ...plan!, zooms: [...plan!.zooms, span] });
+    else if (addType.startsWith("e:")) setPlan({ ...plan!, effects: [...plan!.effects, makeEffect(addType.slice(2) as EffectType, span, words)] });
+    else setPlan({ ...plan!, cards: [...plan!.cards, makeCard(addType.slice(2) as "point" | "list" | "cta", span, words)] });
+    setNote(`Added at ${formatTime(span.start)}. Find it in the list above to adjust it.`);
+  }
 
   // Text the creator emptied: the video can't show it, so ask them to fill it or turn the moment off.
   const missing = moments.some((m) => {
@@ -120,7 +170,7 @@ export default function EditMoments() {
           .map((c) => (c.type === "list" ? { ...c, items: c.items.map((x) => x.trim()).filter(Boolean) } : c)),
         zooms: plan!.zooms.filter((_, i) => !off.has(`z${i}`)),
       };
-      await api.saveEdit(id, { plan: kept, ...options! });
+      await api.saveEdit(id, { plan: kept, ...options!, ...(captionsChanged ? { words } : {}) });
       router.replace(`/making/${id}`);
     } catch (err) {
       setError((err as Error).message);
@@ -136,37 +186,44 @@ export default function EditMoments() {
             label={review ? "Render my video" : canRender ? `Render again · ${draft.rendersLeft} free left` : "No free re-renders left"}
             icon="sparkle"
             block
-            disabled={!canRender || missing}
+            disabled={!canRender || missing || problems.size > 0}
             loading={busy}
             onPress={render}
           />
           <Txt variant="cap" style={{ textAlign: "center" }}>
-            {missing ? "Fill in the empty text, or turn that moment off" : review ? "About as long as your video · you can leave this screen" : "Your current video stays until the new one is ready"}
+            {problems.size
+              ? "Fix the moments marked in red, or turn them off"
+              : missing
+                ? "Fill in the empty text, or turn that moment off"
+                : review
+                  ? "About as long as your video · you can leave this screen"
+                  : "Your current video stays until the new one is ready"}
           </Txt>
         </>
       }>
       <Header
         title={review ? "Check your effects" : "Fine-tune"}
-        sub="Turn moments off, swap effects or fix the words"
+        sub="Move, stretch, swap or add moments, and fix your captions"
         back
         right={<Button label="Reset" small kind="ghost" icon="refresh" onPress={() => reset(draft)} />}
       />
       {error ? <Banner kind="error" text={error} /> : null}
       {!draft.available.faces ? <Banner kind="info" text="We couldn't find your face in this video, so effects around you are off. Zooms, cards and captions still work." /> : null}
 
-      {moments.length === 0 ? <Txt variant="cap">The AI kept this video plain. You can still change the captions, sounds and voice below.</Txt> : null}
+      {moments.length === 0 ? <Txt variant="cap">No moments yet. Add one below.</Txt> : null}
       {moments.map((m) => {
         const isOff = off.has(m.key);
+        const problem = problems.get(m.key);
         const title =
           m.kind === "effect" ? EFFECT_LABEL[plan.effects[m.index].type] : m.kind === "card" ? CARD_LABEL[plan.cards[m.index].type] : "Zoom in";
-        const quote = said(draft.words, m.start, m.end);
+        const quote = said(words, m.start, m.end);
         return (
           <Card key={m.key} flat={isOff}>
             <Row style={{ justifyContent: "space-between", alignItems: "center" }}>
               <View style={{ flex: 1, gap: 2 }}>
                 <Txt variant="label">{title}</Txt>
                 <Txt variant="cap">
-                  {clock(m.start)}–{clock(m.end)}
+                  {formatTime(m.start)}–{formatTime(m.end)}
                   {quote ? ` · “${quote}”` : ""}
                 </Txt>
               </View>
@@ -179,23 +236,54 @@ export default function EditMoments() {
                 onChange={() => toggle(m.key)}
               />
             </Row>
-            {isOff ? null : m.kind === "effect" ? (
-              <EffectEditor
-                effect={plan.effects[m.index]}
-                types={effectTypes}
-                hidden={(() => {
-                  const e = plan.effects[m.index];
-                  return (e.type === "backdrop" || e.type === "stamp") && activeCards.some((c) => overlaps(c, e));
-                })()}
-                onChange={(e) => setEffect(m.index, e)}
-                onSwap={(t) => setEffect(m.index, swapEffect(plan.effects[m.index], t, draft.words))}
-              />
-            ) : m.kind === "card" ? (
-              <CardEditor card={plan.cards[m.index]} onChange={(c) => setCard(m.index, c)} />
-            ) : null}
+            {isOff ? null : (
+              <>
+                <Timing moment={m} duration={duration} onChange={(span) => setSpan(m, span)} />
+                {problem ? (
+                  <Txt variant="cap" color="danger">
+                    {problem}
+                  </Txt>
+                ) : null}
+                {m.kind === "effect" ? (
+                  <EffectEditor
+                    effect={plan.effects[m.index]}
+                    types={effectTypes}
+                    onChange={(e) => setEffect(m.index, e)}
+                    onSwap={(t) => setEffect(m.index, makeEffect(t, { start: m.start, end: m.end }, words, plan.effects[m.index]))}
+                  />
+                ) : m.kind === "card" ? (
+                  <CardEditor card={plan.cards[m.index]} onChange={(c) => setCard(m.index, c)} />
+                ) : null}
+              </>
+            )}
           </Card>
         );
       })}
+
+      <Card>
+        <Txt variant="md">Add a moment</Txt>
+        <ChipRow<AddType>
+          options={[
+            ...effectTypes.map((t) => ({ value: `e:${t}` as AddType, label: EFFECT_LABEL[t] })),
+            { value: "c:point", label: CARD_LABEL.point },
+            { value: "c:list", label: CARD_LABEL.list },
+            { value: "c:cta", label: CARD_LABEL.cta },
+            { value: "z", label: "Zoom in" },
+          ]}
+          value={addType}
+          onChange={setAddType}
+        />
+        <Txt variant="cap">When</Txt>
+        <ChipRow options={when} value={at} onChange={setAddAt} />
+        <Button
+          label={addFull ? `${MAX_COUNT[addKind]} is the most for this kind` : "Add"}
+          icon="plus"
+          kind="secondary"
+          disabled={addFull}
+          onPress={add}
+        />
+        {note ? <Txt variant="cap">{note}</Txt> : null}
+      </Card>
 
       <Card>
         <Txt variant="md">Sound and captions</Txt>
@@ -234,23 +322,49 @@ export default function EditMoments() {
           onChange={(voice) => setOptions({ ...options, voice })}
         />
       </Card>
+
+      {options.captions && lines.length ? (
+        <Card>
+          <Txt variant="md">Caption words</Txt>
+          <Txt variant="cap">Fix any word we heard wrong. Clear a line to hide it.</Txt>
+          {lines.map((l, i) => (
+            <Field
+              key={l.from}
+              label={formatTime(l.start)}
+              value={texts[i] ?? l.text}
+              onChangeText={(t) => setTexts(texts.map((x, j) => (j === i ? t : x)))}
+            />
+          ))}
+        </Card>
+      ) : null}
     </Screen>
   );
 }
 
-function EffectEditor({
-  effect,
-  types,
-  hidden,
-  onChange,
-  onSwap,
-}: {
-  effect: EditEffect;
-  types: EffectType[];
-  hidden: boolean;
-  onChange: (e: EditEffect) => void;
-  onSwap: (t: EffectType) => void;
-}) {
+// Moves a moment earlier or later, and makes it shorter or longer, a quarter second at a time.
+function Timing({ moment, duration, onChange }: { moment: Moment; duration: number; onChange: (s: Span) => void }) {
+  const span = { start: moment.start, end: moment.end };
+  return (
+    <View style={{ gap: 6 }}>
+      <Row style={{ alignItems: "center", gap: 8 }}>
+        <Txt variant="cap" style={{ width: 110 }}>
+          Starts {formatTime(moment.start)}
+        </Txt>
+        <Button label="Earlier" small kind="secondary" disabled={moment.start <= 0} onPress={() => onChange(moveSpan(span, -STEP, duration))} />
+        <Button label="Later" small kind="secondary" disabled={moment.end >= duration} onPress={() => onChange(moveSpan(span, STEP, duration))} />
+      </Row>
+      <Row style={{ alignItems: "center", gap: 8 }}>
+        <Txt variant="cap" style={{ width: 110 }}>
+          Lasts {(moment.end - moment.start).toFixed(2)} s
+        </Txt>
+        <Button label="Shorter" small kind="secondary" onPress={() => onChange(resizeSpan(span, -STEP, moment.kind, duration))} />
+        <Button label="Longer" small kind="secondary" onPress={() => onChange(resizeSpan(span, STEP, moment.kind, duration))} />
+      </Row>
+    </View>
+  );
+}
+
+function EffectEditor({ effect, types, onChange, onSwap }: { effect: EditEffect; types: EffectType[]; onChange: (e: EditEffect) => void; onSwap: (t: EffectType) => void }) {
   return (
     <View style={{ gap: 8 }}>
       <ChipRow<EffectType> options={types.map((t) => ({ value: t, label: EFFECT_LABEL[t] }))} value={effect.type} onChange={onSwap} />
@@ -266,7 +380,6 @@ function EffectEditor({
       {effect.type === "focus" ? (
         <Field label="Label (optional)" value={effect.label ?? ""} maxLength={24} onChangeText={(label) => onChange({ ...effect, label: label || undefined })} />
       ) : null}
-      {hidden ? <Txt variant="cap" color="warning">A card shows at the same time, so this won&apos;t appear. Turn that card off to use it.</Txt> : null}
     </View>
   );
 }
@@ -305,6 +418,7 @@ function CardEditor({ card, onChange }: { card: EditCard; onChange: (c: EditCard
           onChangeText={(v) => onChange({ ...card, items: card.items.map((x, j) => (j === i ? v : x)) })}
         />
       ))}
+      {card.items.length < 4 ? <Button label="Add item" small kind="ghost" icon="plus" onPress={() => onChange({ ...card, items: [...card.items, ""] })} /> : null}
     </>
   );
 }

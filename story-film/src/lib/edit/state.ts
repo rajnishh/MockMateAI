@@ -3,7 +3,7 @@ import path from "node:path";
 import type { Brand } from "@/lib/motion/render";
 import type { Ending } from "@/lib/motion/script";
 import type { NarrationLanguage } from "@/lib/providers/types";
-import type { Transcript } from "@/lib/providers/whisper";
+import type { TimedWord, Transcript } from "@/lib/providers/whisper";
 import type { Voice } from "./audio";
 import { type EditPlan, editPlanSchema, sanitizePlan, supportedEffects } from "./plan";
 
@@ -54,13 +54,23 @@ export interface EditChanges {
   captions?: boolean;
   sounds?: boolean;
   voice?: Voice;
+  words?: TimedWord[];
 }
 
 // The creator's own changes: kept inside the video and limited to what the analysis supports.
 export function applyEditChanges(state: EditState, changes: EditChanges): EditState {
   const plan = sanitizePlan(editPlanSchema.parse(changes.plan), state.durationSec, state.request.ending);
+  // Fixed captions: kept inside the video, in order, each word at least a frame long.
+  const words = changes.words
+    ?.map((w) => {
+      const start = Math.min(Math.max(0, w.start), state.durationSec);
+      return { word: w.word.trim(), start, end: Math.min(Math.max(start + 1 / 30, w.end), state.durationSec) };
+    })
+    .filter((w) => w.word)
+    .sort((a, b) => a.start - b.start);
   return {
     ...state,
+    transcript: words ? { ...state.transcript, words } : state.transcript,
     plan: { ...plan, effects: supportedEffects(plan.effects, state.available) },
     request: {
       ...state.request,

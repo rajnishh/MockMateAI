@@ -123,6 +123,9 @@ export interface EditOptions {
   sounds: boolean;
   voice: Voice;
 }
+// What the creator changed; words only when they fixed caption words.
+export type EditChanges = { plan: EditPlan; words?: EditDraft["words"] } & EditOptions;
+
 export interface EditDraft {
   status: FilmStatus;
   durationSec: number;
@@ -220,7 +223,7 @@ const real = {
   },
   editDraft: (id: string) => call<EditDraft>(`/api/edits/${id}`),
   // Saves the creator's changes and renders the video (again).
-  saveEdit: (id: string, changes: { plan: EditPlan } & EditOptions) =>
+  saveEdit: (id: string, changes: EditChanges) =>
     call<{ id: string; rendersLeft: number }>(`/api/edits/${id}`, { method: "PUT", body: JSON.stringify(changes) }),
   accounts: () => call<Accounts>("/api/accounts"),
   // Returns the provider's sign-in page; the app opens it in the in-app browser.
@@ -381,8 +384,8 @@ const demo: typeof real = {
     if (!f || !d) throw new ApiError("Reel not found", 404);
     const rerender = f.status === "completed";
     if (rerender && d.rendersLeft === 0) throw new ApiError("You've re-rendered this video 5 times.", 402);
-    const { plan, ...options } = changes;
-    demoDrafts.set(id, { ...d, plan, options, rendersLeft: rerender ? (d.rendersLeft ?? 5) - 1 : 5 });
+    const { plan, words, ...options } = changes;
+    demoDrafts.set(id, { ...d, plan, options, words: words ?? d.words, rendersLeft: rerender ? (d.rendersLeft ?? 5) - 1 : 5 });
     Object.assign(f, { status: "queued", stage: "assemble", title: plan.title });
     return { id, rendersLeft: rerender ? (d.rendersLeft ?? 5) - 1 : 5 };
   },

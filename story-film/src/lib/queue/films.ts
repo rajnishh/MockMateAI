@@ -103,6 +103,11 @@ export const editChangesSchema = z.object({
   captions: z.boolean().optional(),
   sounds: z.boolean().optional(),
   voice: z.enum(VOICES).optional(),
+  // Caption words with their times, after the creator fixed them.
+  words: z
+    .array(z.object({ word: z.string().trim().min(1).max(40), start: z.number().finite().min(0), end: z.number().finite().min(0) }))
+    .max(3000)
+    .optional(),
 });
 
 // Renders a saved edit plan (job name "edit-render"). Its job id is not the film id, so the film is named.
