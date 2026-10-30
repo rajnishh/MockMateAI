@@ -136,6 +136,9 @@ export interface EditDraft {
   available: { faces: boolean; mask: boolean };
   // null before the first render.
   rendersLeft: number | null;
+  // A small copy of the clip in the final 9:16 crop, and the face position 10 times a second.
+  previewUrl?: string | null;
+  faces?: { rate: number; boxes: ([number, number, number, number] | null)[] } | null;
 }
 
 export interface EditUpload {
@@ -222,6 +225,7 @@ const real = {
     return body as { id: string; credits: number };
   },
   editDraft: (id: string) => call<EditDraft>(`/api/edits/${id}`),
+  previewUri: (draft: EditDraft) => (draft.previewUrl ? `${API_URL}${draft.previewUrl}` : null),
   // Saves the creator's changes and renders the video (again).
   saveEdit: (id: string, changes: EditChanges) =>
     call<{ id: string; rendersLeft: number }>(`/api/edits/${id}`, { method: "PUT", body: JSON.stringify(changes) }),
@@ -297,6 +301,8 @@ function demoDraft(): EditDraft {
     options: { captions: true, sounds: true, voice: "natural" },
     available: { faces: true, mask: true },
     rendersLeft: 5,
+    previewUrl: null,
+    faces: { rate: 10, boxes: Array.from({ length: 120 }, (_, i) => [0.36 + 0.02 * Math.sin(i / 10), 0.24, 0.28, 0.16] as [number, number, number, number]) },
   };
 }
 const demoDrafts = new Map<string, EditDraft>();
@@ -433,6 +439,7 @@ const demo: typeof real = {
     return {};
   },
   videoUrl: () => null,
+  previewUri: () => null,
   videoHeaders: async () => ({}),
 };
 

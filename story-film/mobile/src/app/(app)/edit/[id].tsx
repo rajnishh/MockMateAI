@@ -2,6 +2,8 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 
+import { EditPreview, usePreviewClock } from "@/components/edit-preview";
+import { EditTimeline } from "@/components/edit-timeline";
 import { Banner, Button, Card, ChipRow, Field, Header, Row, Screen, Skeleton, Txt } from "@/components/ui";
 import { api, type EditCard, type EditDraft, type EditEffect, type EditOptions, type EditPlan, type EffectType, type Span, type Voice } from "@/lib/api";
 import {
@@ -14,8 +16,10 @@ import {
   moveSpan,
   newSpan,
   resizeSpan,
+  snapPoints,
   STEP,
 } from "@/lib/moments";
+import { useSession } from "@/lib/session";
 
 const EFFECT_LABEL: Record<EffectType, string> = {
   backdrop: "Word behind you",
@@ -73,6 +77,14 @@ export default function EditMoments() {
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [headers, setHeaders] = useState<Record<string, string> | null>(null);
+  const { prefs } = useSession();
+  const clock = usePreviewClock(draft ? api.previewUri(draft) : null, headers, draft?.durationSec ?? 1);
+
+  useEffect(() => {
+    api.videoHeaders().then(setHeaders);
+  }, []);
 
   // Caption lines come from the words as loaded, so a line doesn't jump while it's being edited.
   const lines = useMemo(() => captionLines(draft?.words ?? []), [draft]);
@@ -84,6 +96,7 @@ export default function EditMoments() {
     setOff(new Set());
     setTexts(captionLines(d.words).map((l) => l.text));
     setNote(null);
+    setSelected(null);
   }, []);
 
   useEffect(() => {
@@ -128,20 +141,42 @@ export default function EditMoments() {
   const onCount = (kind: MomentKind) => moments.filter((m) => m.kind === kind && !off.has(m.key)).length;
 
   // When a new moment can start: at each caption line, or every 2 seconds if nothing is said.
-  const when = lines.length
-    ? lines.map((l) => ({ value: String(l.start), label: `${formatTime(l.start)} “${l.text.split(" ").slice(0, 4).join(" ")}…”` }))
-    : Array.from({ length: Math.max(1, Math.floor(duration / 2)) }, (_, i) => ({ value: String(i * 2), label: formatTime(i * 2) }));
+  const when = [{ value: "playhead", label: `At the playhead · ${formatTime(clock.time)}` }].concat(
+    lines.length
+      ? lines.map((l) => ({ value: String(l.start), label: `${formatTime(l.start)} “${l.text.split(" ").slice(0, 4).join(" ")}…”` }))
+      : Array.from({ length: Math.max(1, Math.floor(duration / 2)) }, (_, i) => ({ value: String(i * 2), label: formatTime(i * 2) })),
+  );
   const addKind: MomentKind = addType === "z" ? "zoom" : addType.startsWith("e:") ? "effect" : "card";
   const addFull = onCount(addKind) >= MAX_COUNT[addKind];
   const at = when.some((w) => w.value === addAt) ? addAt : when[0].value;
 
   function add() {
-    const span = newSpan(addKind, Number(at), duration);
-    if (addType === "z") setPlan({ ...plan!, zooms: [...plan!.zooms, span] });
-    else if (addType.startsWith("e:")) setPlan({ ...plan!, effects: [...plan!.effects, makeEffect(addType.slice(2) as EffectType, span, words)] });
-    else setPlan({ ...plan!, cards: [...plan!.cards, makeCard(addType.slice(2) as "point" | "list" | "cta", span, words)] });
-    setNote(`Added at ${formatTime(span.start)}. Find it in the list above to adjust it.`);
+    const span = newSpan(addKind, at === "playhead" ? clock.time : Number(at), duration);
+    let key: string;
+    if (addType === "z") {
+      key = `z${plan!.zooms.length}`;
+      setPlan({ ...plan!, zooms: [...plan!.zooms, span] });
+    } else if (addType.startsWith("e:")) {
+      key = `e${plan!.effects.length}`;
+      setPlan({ ...plan!, effects: [...plan!.effects, makeEffect(addType.slice(2) as EffectType, span, words)] });
+    } else {
+      key = `c${plan!.cards.length}`;
+      setPlan({ ...plan!, cards: [...plan!.cards, makeCard(addType.slice(2) as "point" | "list" | "cta", span, words)] });
+    }
+    setSelected(key);
+    clock.seek(span.start);
+    setNote(`Added at ${formatTime(span.start)}. It's selected on the timeline above.`);
   }
+
+  const labelOf = (m: Moment) =>
+    m.kind === "effect" ? EFFECT_LABEL[plan.effects[m.index].type] : m.kind === "card" ? CARD_LABEL[plan.cards[m.index].type] : "Zoom in";
+  const select = (key: string) => {
+    setSelected(key);
+    const m = moments.find((x) => x.key === key);
+    if (m) clock.seek(m.start);
+  };
+  const current = moments.find((m) => m.key === selected) ?? null;
+  const at_ = current ? moments.indexOf(current) : -1;
 
   // Text the creator emptied: the video can't show it, so ask them to fill it or turn the moment off.
   const missing = moments.some((m) => {
@@ -210,55 +245,107 @@ export default function EditMoments() {
       {error ? <Banner kind="error" text={error} /> : null}
       {!draft.available.faces ? <Banner kind="info" text="We couldn't find your face in this video, so effects around you are off. Zooms, cards and captions still work." /> : null}
 
-      {moments.length === 0 ? <Txt variant="cap">No moments yet. Add one below.</Txt> : null}
-      {moments.map((m) => {
-        const isOff = off.has(m.key);
-        const problem = problems.get(m.key);
-        const title =
-          m.kind === "effect" ? EFFECT_LABEL[plan.effects[m.index].type] : m.kind === "card" ? CARD_LABEL[plan.cards[m.index].type] : "Zoom in";
-        const quote = said(words, m.start, m.end);
-        return (
-          <Card key={m.key} flat={isOff}>
-            <Row style={{ justifyContent: "space-between", alignItems: "center" }}>
-              <View style={{ flex: 1, gap: 2 }}>
-                <Txt variant="label">{title}</Txt>
-                <Txt variant="cap">
-                  {formatTime(m.start)}–{formatTime(m.end)}
-                  {quote ? ` · “${quote}”` : ""}
-                </Txt>
-              </View>
-              <ChipRow<"on" | "off">
-                options={[
-                  { value: "on", label: "On" },
-                  { value: "off", label: "Off" },
-                ]}
-                value={isOff ? "off" : "on"}
-                onChange={() => toggle(m.key)}
-              />
-            </Row>
-            {isOff ? null : (
-              <>
-                <Timing moment={m} duration={duration} onChange={(span) => setSpan(m, span)} />
-                {problem ? (
-                  <Txt variant="cap" color="danger">
-                    {problem}
+      <EditPreview
+        player={clock.player}
+        time={clock.time}
+        plan={plan}
+        off={off}
+        words={words}
+        lines={lines}
+        faces={draft.faces ?? null}
+        captions={options.captions}
+        accent={prefs?.brand?.accent ?? "#2BC4B4"}
+      />
+      <Row style={{ justifyContent: "center", alignItems: "center", gap: 12 }}>
+        <Button label={clock.playing ? "Pause" : "Play"} small kind="secondary" onPress={clock.toggle} />
+        <Txt variant="cap">
+          {formatTime(clock.time)} / {formatTime(duration)}
+        </Txt>
+      </Row>
+      <Txt variant="cap" style={{ textAlign: "center" }}>
+        A rough preview: in the final video, words and effects sit around you.
+      </Txt>
+
+      <EditTimeline
+        duration={duration}
+        moments={moments.map((m) => ({ key: m.key, kind: m.kind, label: labelOf(m), start: m.start, end: m.end, off: off.has(m.key), problem: problems.get(m.key) }))}
+        lines={lines}
+        snaps={snapPoints(words)}
+        time={clock.time}
+        playing={clock.playing}
+        selected={selected}
+        onSelect={select}
+        onSeek={clock.seek}
+        onChange={(key, span, mode) => {
+          const m = moments.find((x) => x.key === key);
+          if (!m) return;
+          setSpan(m, span);
+          clock.seek(mode === "end" ? span.end : span.start);
+        }}
+      />
+      <Txt variant="cap">Drag a block to move it, or drag its edges to stretch it. Tap the ruler to move the playhead.</Txt>
+
+      {current ? (
+        (() => {
+          const m = current;
+          const isOff = off.has(m.key);
+          const problem = problems.get(m.key);
+          const quote = said(words, m.start, m.end);
+          return (
+            <Card>
+              <Row style={{ justifyContent: "space-between", alignItems: "center" }}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Txt variant="label">{labelOf(m)}</Txt>
+                  <Txt variant="cap">
+                    {formatTime(m.start)}–{formatTime(m.end)}
+                    {quote ? ` · “${quote}”` : ""}
                   </Txt>
-                ) : null}
-                {m.kind === "effect" ? (
-                  <EffectEditor
-                    effect={plan.effects[m.index]}
-                    types={effectTypes}
-                    onChange={(e) => setEffect(m.index, e)}
-                    onSwap={(t) => setEffect(m.index, makeEffect(t, { start: m.start, end: m.end }, words, plan.effects[m.index]))}
-                  />
-                ) : m.kind === "card" ? (
-                  <CardEditor card={plan.cards[m.index]} onChange={(c) => setCard(m.index, c)} />
-                ) : null}
-              </>
-            )}
-          </Card>
-        );
-      })}
+                </View>
+                <ChipRow<"on" | "off">
+                  options={[
+                    { value: "on", label: "On" },
+                    { value: "off", label: "Off" },
+                  ]}
+                  value={isOff ? "off" : "on"}
+                  onChange={() => toggle(m.key)}
+                />
+              </Row>
+              {isOff ? null : (
+                <>
+                  <Timing moment={m} duration={duration} onChange={(span) => setSpan(m, span)} />
+                  {problem ? (
+                    <Txt variant="cap" color="danger">
+                      {problem}
+                    </Txt>
+                  ) : null}
+                  {m.kind === "effect" ? (
+                    <EffectEditor
+                      effect={plan.effects[m.index]}
+                      types={effectTypes}
+                      onChange={(e) => setEffect(m.index, e)}
+                      onSwap={(t) => setEffect(m.index, makeEffect(t, { start: m.start, end: m.end }, words, plan.effects[m.index]))}
+                    />
+                  ) : m.kind === "card" ? (
+                    <CardEditor card={plan.cards[m.index]} onChange={(c) => setCard(m.index, c)} />
+                  ) : null}
+                </>
+              )}
+              <Row style={{ justifyContent: "space-between" }}>
+                <Button label="Previous" small kind="ghost" disabled={at_ <= 0} onPress={() => select(moments[at_ - 1].key)} />
+                <Button label="Next" small kind="ghost" disabled={at_ >= moments.length - 1} onPress={() => select(moments[at_ + 1].key)} />
+              </Row>
+            </Card>
+          );
+        })()
+      ) : (
+        <Card flat>
+          <Txt variant="cap">
+            {moments.length ? "Tap a block on the timeline to change it." : "No moments yet. Add one below."}
+            {problems.size ? ` ${problems.size} ${problems.size === 1 ? "moment needs" : "moments need"} fixing: the red blocks.` : ""}
+          </Txt>
+          {moments.length ? <Button label="Edit the first moment" small kind="secondary" onPress={() => select(moments[0].key)} /> : null}
+        </Card>
+      )}
 
       <Card>
         <Txt variant="md">Add a moment</Txt>

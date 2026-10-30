@@ -132,3 +132,41 @@ export function applyCaptionEdits(words: Word[], lines: CaptionLine[], texts: st
   for (let i = lines.length - 1; i >= 0; i--) if (texts[i] !== undefined && texts[i] !== lines[i].text) out = editLine(out, lines[i], texts[i]);
   return out;
 }
+
+// Dragging on the timeline: move the whole moment, or pull its start or end edge.
+export type DragMode = "move" | "start" | "end";
+
+// Times worth snapping to: where each word starts (moments then begin on a word).
+export function snapPoints(words: Word[]): number[] {
+  return words.map((w) => w.start);
+}
+
+// The nearest snap point within `tolerance` seconds, else the time rounded to 0.05 s.
+export function snapTime(t: number, points: number[], tolerance = 0.15): number {
+  let best = t;
+  let bestGap = tolerance;
+  for (const p of points) {
+    const gap = Math.abs(p - t);
+    if (gap <= bestGap) {
+      best = p;
+      bestGap = gap;
+    }
+  }
+  return best === t ? Math.round(t * 20) / 20 : best;
+}
+
+// Where a moment ends up after dragging by delta seconds from where the drag began.
+export function dragSpan(origin: Span, mode: DragMode, delta: number, kind: MomentKind, duration: number, points: number[] = []): Span {
+  const { min, max } = LIMITS[kind];
+  if (mode === "move") {
+    const len = origin.end - origin.start;
+    const start = Math.max(0, Math.min(duration - len, snapTime(origin.start + delta, points)));
+    return { start: round(start), end: round(start + len) };
+  }
+  if (mode === "start") {
+    const start = Math.max(0, origin.end - max, Math.min(origin.end - min, snapTime(origin.start + delta, points)));
+    return { start: round(start), end: origin.end };
+  }
+  const end = Math.min(duration, origin.start + max, Math.max(origin.start + min, snapTime(origin.end + delta, points)));
+  return { start: origin.start, end: round(end) };
+}

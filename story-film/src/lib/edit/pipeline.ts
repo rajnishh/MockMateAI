@@ -10,6 +10,7 @@ import type { Transcript } from "@/lib/providers/whisper";
 import { mixAudio as defaultMixAudio } from "./audio";
 import { buildEditPrompt, type EditPlan, editPlanSchema, sanitizePlan, soundCues, supportedEffects } from "./plan";
 import { type EditRenderInput, renderEdit } from "./render";
+import { PREVIEW_FILE, previewArgs } from "./preview";
 import { type EditRequest, type EditState, saveEditState } from "./state";
 import { analyzeVideo, loadVision, type Vision } from "./vision";
 
@@ -25,9 +26,20 @@ export interface EditDeps {
   extractAudio?: (source: string, wav: string) => Promise<boolean>;
   render?: (input: EditRenderInput) => Promise<void>;
   analyze?: (source: string, outDir: string) => Promise<Vision | null>;
+  makePreview?: (source: string, output: string) => Promise<boolean>;
   mixAudio?: typeof defaultMixAudio;
 }
 
+
+async function defaultMakePreview(source: string, output: string): Promise<boolean> {
+  try {
+    await execFileAsync("ffmpeg", previewArgs(source, output));
+    return true;
+  } catch (err) {
+    console.warn("[edit] preview failed:", (err as Error).message.slice(0, 300));
+    return false;
+  }
+}
 
 // 16 kHz mono WAV for transcription; false when the video has no sound.
 async function defaultExtractAudio(source: string, wav: string): Promise<boolean> {
@@ -51,6 +63,7 @@ export async function planEdit(deps: EditDeps, req: EditRequest, workDir: string
   const effectsOn = req.effects !== false;
   // Finding the face and the person runs while the voice is transcribed and the edit planned.
   const visionP = effectsOn ? (deps.analyze ?? analyzeVideo)(req.source, path.join(workDir, "vision")) : Promise.resolve(null);
+  const previewP = (deps.makePreview ?? defaultMakePreview)(req.source, path.join(workDir, PREVIEW_FILE));
   const hasAudio = await (deps.extractAudio ?? defaultExtractAudio)(req.source, wav);
   const transcript: Transcript = hasAudio ? await deps.transcriber.transcribe(await readFile(wav), language) : { text: "", words: [] };
   let plan: EditPlan = { title: "My video", zooms: [], cards: [], effects: [] };
@@ -70,7 +83,7 @@ export async function planEdit(deps: EditDeps, req: EditRequest, workDir: string
     plan = sanitizePlan(editPlanSchema.parse(raw), durationSec, req.ending);
     if (req.zooms === false) plan = { ...plan, zooms: [] };
   }
-  const vision = await visionP;
+  const [vision] = await Promise.all([visionP, previewP]);
   const available = { faces: Boolean(vision?.faces.some(Boolean)), mask: Boolean(vision?.mask) };
   plan = { ...plan, effects: supportedEffects(plan.effects, available) };
   const state: EditState = { request: req, durationSec, hasAudio, transcript, plan, available, renders: 0 };

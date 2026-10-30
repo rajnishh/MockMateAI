@@ -228,6 +228,7 @@ describe("edit pipeline", () => {
     let rendered: EditRenderInput | undefined;
     const stages: string[] = [];
     const mixes: unknown[] = [];
+    const previews: string[] = [];
     const deps = {
       llm,
       transcriber,
@@ -235,12 +236,15 @@ describe("edit pipeline", () => {
       extractAudio: async (_src: string, wav: string) => (writeFileSync(wav, "wav"), true),
       render: async (i: EditRenderInput) => void (rendered = i),
       analyze: async () => null,
+      makePreview: async (_src: string, out: string) => (previews.push(out), true),
       mixAudio: async (o: { output: string }) => (mixes.push(o), o.output),
     };
     const res = await runEditVideo(deps, { source: "in.mp4", watermark: true, ending: "none" }, path.join(dir, "a"), (s) => void stages.push(s));
     expect(stages).toEqual(["script", "assemble", "done"]);
     expect(res.title).toBe("Save money");
     expect(rendered).toMatchObject({ captions: true, words, plan: { zooms: [{ start: 1, end: 2 }], effects: [] }, vision: null });
+    // A preview copy is made for the editing screens.
+    expect(previews[0]).toMatch(/preview\.mp4$/);
     // The zoom gets a whoosh, so a soundtrack is mixed.
     expect(mixes).toHaveLength(1);
     expect(rendered!.audio).toMatch(/soundtrack\.m4a$/);

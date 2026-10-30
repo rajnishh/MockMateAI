@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   applyCaptionEdits,
   captionLines,
@@ -11,10 +11,12 @@ import {
   moveSpan,
   newSpan,
   resizeSpan,
+  snapPoints,
   type Span,
   STEP,
 } from "@/lib/edit/moments";
 import type { Card, EditPlan, Effect } from "@/lib/edit/plan";
+import { EditPreview, EditTimeline } from "./edit-timeline";
 
 type EffectType = Effect["type"];
 type Word = { word: string; start: number; end: number };
@@ -26,6 +28,8 @@ type Draft = {
   options: { captions: boolean; sounds: boolean; voice: string };
   available: { faces: boolean; mask: boolean };
   rendersLeft: number | null;
+  previewUrl: string | null;
+  faces: { rate: number; boxes: ([number, number, number, number] | null)[] } | null;
 };
 
 const EFFECT_LABEL: Record<EffectType, string> = {
@@ -68,7 +72,11 @@ export function EditMoments({ filmId, onRendering }: { filmId: string; onRenderi
   const [busy, setBusy] = useState(false);
   const [texts, setTexts] = useState<string[]>([]);
   const [addType, setAddType] = useState<AddType>("z");
-  const [addAt, setAddAt] = useState(0);
+  const [addAt, setAddAt] = useState(-1);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [time, setTime] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const video = useRef<HTMLVideoElement>(null);
   // Caption lines from the words as loaded, so a line doesn't regroup while it's being edited.
   const lines = useMemo(() => captionLines(draft?.words ?? []), [draft]);
 
@@ -84,6 +92,15 @@ export function EditMoments({ filmId, onRendering }: { filmId: string; onRenderi
       })
       .catch((e) => setError((e as Error).message));
   }, [filmId]);
+
+  // Without a preview file a timer moves the playhead, so the timeline still plays.
+  const hasVideo = Boolean(draft?.previewUrl);
+  const length = draft?.durationSec ?? 0;
+  useEffect(() => {
+    if (hasVideo || !playing) return;
+    const timer = setInterval(() => setTime((t) => (t + 0.1 >= length ? (setPlaying(false), length) : t + 0.1)), 100);
+    return () => clearInterval(timer);
+  }, [hasVideo, playing, length]);
 
   if (!draft || !plan || !options) return <p className="muted">{error ?? "Loading the effects…"}</p>;
 
@@ -110,11 +127,37 @@ export function EditMoments({ filmId, onRendering }: { filmId: string; onRenderi
   const addKind: MomentKind = addType === "z" ? "zoom" : addType.startsWith("e:") ? "effect" : "card";
   const addFull = moments.filter((m) => m.kind === addKind && !off.has(m.key)).length >= MAX_COUNT[addKind];
   const when = lines.length ? lines.map((l) => ({ at: l.start, label: `${formatTime(l.start)} “${l.text.split(" ").slice(0, 5).join(" ")}…”` })) : [{ at: 0, label: "0:00.0" }];
+  const seek = (t: number) => {
+    setTime(t);
+    if (video.current) video.current.currentTime = t;
+  };
+  const play = () => {
+    const v = video.current;
+    if (v) {
+      if (v.paused) {
+        if (v.currentTime >= duration - 0.05) v.currentTime = 0;
+        v.play().catch(() => {});
+      } else v.pause();
+    } else {
+      if (!playing && time >= duration) setTime(0);
+      setPlaying(!playing);
+    }
+  };
+  const select = (key: string) => {
+    setSelected(key);
+    const m = moments.find((x) => x.key === key);
+    if (m) seek(m.start);
+  };
+  const labelOf = (m: (typeof moments)[number]) => (m.kind === "effect" ? EFFECT_LABEL[plan.effects[m.i].type] : m.kind === "card" ? CARD_LABEL[plan.cards[m.i].type] : "Zoom in");
+  const index = moments.findIndex((m) => m.key === selected);
   const add = () => {
-    const span = newSpan(addKind, addAt, duration);
+    const span = newSpan(addKind, addAt < 0 ? time : addAt, duration);
+    const key = addType === "z" ? `z${plan.zooms.length}` : addType.startsWith("e:") ? `e${plan.effects.length}` : `c${plan.cards.length}`;
     if (addType === "z") setPlan({ ...plan, zooms: [...plan.zooms, span] });
     else if (addType.startsWith("e:")) setPlan({ ...plan, effects: [...plan.effects, makeEffect(addType.slice(2) as EffectType, span, words)] });
     else setPlan({ ...plan, cards: [...plan.cards, makeCard(addType.slice(2) as "point" | "list" | "cta", span, words)] });
+    setSelected(key);
+    seek(span.start);
   };
 
   async function render() {
@@ -139,7 +182,51 @@ export function EditMoments({ filmId, onRendering }: { filmId: string; onRenderi
       <strong>{review ? "Check your effects" : "Fine-tune"}</strong>
       <p className="muted">Move, stretch, swap or add moments, and fix your captions.</p>
       {!draft.available.faces && <p className="muted">We couldn&apos;t find your face in this video, so effects around you are off.</p>}
-      {moments.map((m) => {
+      <EditPreview
+        src={draft.previewUrl}
+        videoRef={video}
+        time={time}
+        plan={plan}
+        off={off}
+        words={words}
+        lines={lines}
+        faces={draft.faces}
+        captions={options.captions}
+        onTime={setTime}
+        onPlaying={setPlaying}
+      />
+      <div className="actions" style={{ justifyContent: "center" }}>
+        <button type="button" className="secondary" onClick={play}>{playing ? "Pause" : "Play"}</button>
+        <span className="muted">
+          {formatTime(time)} / {formatTime(duration)}
+        </span>
+      </div>
+      <p className="muted" style={{ textAlign: "center" }}>A rough preview: in the final video, words and effects sit around you.</p>
+      <EditTimeline
+        duration={duration}
+        moments={moments.map((m) => ({ key: m.key, kind: m.kind, label: labelOf(m), start: m.start, end: m.end, off: off.has(m.key), problem: problems.get(m.key) }))}
+        lines={lines}
+        snaps={snapPoints(words)}
+        time={time}
+        selected={selected}
+        onSelect={select}
+        onSeek={seek}
+        onChange={(key, span, mode) => {
+          const m = moments.find((x) => x.key === key);
+          if (!m) return;
+          setSpan(key, m.i, span);
+          seek(mode === "end" ? span.end : span.start);
+        }}
+      />
+      <p className="muted">Drag a block to move it, or drag its edges to stretch it. Click the ruler to move the playhead.</p>
+      {selected && (
+        <div className="actions">
+          <button type="button" className="secondary" disabled={index <= 0} onClick={() => select(moments[index - 1].key)}>Previous</button>
+          <button type="button" className="secondary" disabled={index >= moments.length - 1} onClick={() => select(moments[index + 1].key)}>Next</button>
+          <button type="button" className="secondary" onClick={() => setSelected(null)}>Show all moments</button>
+        </div>
+      )}
+      {moments.filter((m) => !selected || m.key === selected).map((m) => {
         const kind = m.key[0];
         const isOff = off.has(m.key);
         const effect = kind === "e" ? plan.effects[m.i] : null;
@@ -209,6 +296,7 @@ export function EditMoments({ filmId, onRendering }: { filmId: string; onRenderi
           <option value="z">Zoom in</option>
         </select>
         <select value={addAt} onChange={(e) => setAddAt(Number(e.target.value))}>
+          <option value={-1}>At the playhead · {formatTime(time)}</option>
           {when.map((w) => (
             <option key={w.at} value={w.at}>{w.label}</option>
           ))}

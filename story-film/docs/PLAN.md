@@ -340,4 +340,17 @@ Prices move monthly; waoowaoo and several other licenses unverified; EvoLink is 
       - Caption words are edited line by line: a new line after a 0.6 s pause or every 8 words. The same number of words keeps each word's timing; otherwise the line's time is shared evenly, and an empty line hides it. The server keeps words inside the video and in order.
       - One shared module (`src/lib/edit/moments.ts`, copied byte for byte into `mobile/src/lib/moments.ts`, checked by a test) holds the limits: effects 0.8–4 s, cards 1.5–8 s, zooms 0.5–3 s; at most 6 effects, 4 cards, 20 zooms; gaps of 0.5 s between effects and 1 s between zooms.
       - Clashes are shown in red on the moment and block rendering, where the server would otherwise drop the later moment silently. A test checks that a clash-free plan passes `sanitizePlan` unchanged.
-    - **Not yet:** a drag timeline over a video preview; per-word caption timing.
+    - **Drag timeline with a preview (same day):**
+      - The moments screen opens with a preview and a timeline. There is one lane each for effects, cards and zooms, plus the caption lines for reference.
+      - Drag a block to move it, or drag its edges to stretch it. Edges snap to word starts within 0.15 s, otherwise to 0.05 s. Blocks narrower than about 0.9 s only move; the buttons stretch them.
+      - Tap the ruler or a lane to seek. Selecting a block seeks to its start and opens its editor, with Previous and Next.
+      - Clashing blocks get a red border, off blocks are dashed, and the selected block is outlined. Each block has a screen-reader label with its times and any problem, and the buttons remain for anyone who can't drag.
+      - The drag rules live in `dragSpan` and `snapTime` in the shared module.
+      - **Preview:**
+        - `planEdit` also writes `preview.mp4`: 540×960 in the final crop, H.264 CRF 30, a keyframe every 0.5 s, about 0.7 MB for 6 s. It is served from `GET /api/edits/[id]/preview`.
+        - The draft includes the face box 10 times a second.
+        - The overlay roughly sketches the active moment: zoom towards the face, spotlight dim, cut-out frame, the backdrop word, a stamp beside the face, focus brackets, the card, and 3-word captions with the spoken word highlighted. It is labelled as a rough preview, because the real render puts words behind the person.
+        - Without a preview file (demo mode, or older edits) a timer drives the playhead.
+      - Mobile uses `PanResponder` (core React Native, works on web too) and expo-video's `timeUpdate` event; the web app uses pointer events and a `<video>`.
+    - **Range requests:** video, song and public-link routes now answer `Range` requests with 206 responses (`src/lib/serve-file.ts`). iOS needs this to play or seek an MP4 over HTTP, and the reel screen didn't have it before.
+    - **Not yet:** per-word caption timing; pinch to zoom the timeline (it's fixed at 56 px per second on mobile, 64 on web).

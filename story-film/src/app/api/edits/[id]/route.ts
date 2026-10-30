@@ -1,6 +1,9 @@
+import { access } from "node:fs/promises";
 import path from "node:path";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { PREVIEW_FILE } from "@/lib/edit/preview";
+import { loadVision, sampleFaces } from "@/lib/edit/vision";
 import { applyEditChanges, type EditState, FREE_RERENDERS, loadEditState, saveEditState } from "@/lib/edit/state";
 import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
@@ -20,8 +23,13 @@ async function load(id: string) {
   return { userId, film, workDir, state };
 }
 
-function view(status: string, state: EditState) {
+async function view(status: string, state: EditState, workDir: string) {
   const { request: r } = state;
+  const vision = await loadVision(path.join(workDir, "vision"));
+  const preview = await access(path.join(workDir, PREVIEW_FILE)).then(
+    () => true,
+    () => false,
+  );
   return {
     status,
     durationSec: state.durationSec,
@@ -31,15 +39,18 @@ function view(status: string, state: EditState) {
     available: state.available,
     // Before the first render, rendering is part of the upload; afterwards a few re-renders are free.
     rendersLeft: status === "review" ? null : Math.max(0, FREE_RERENDERS - state.renders),
+    // For the preview: the clip in the final 9:16 crop, and where the face is (10 boxes a second).
+    previewUrl: preview ? `/api/edits/${encodeURIComponent(path.basename(workDir))}/preview` : null,
+    faces: vision ? { rate: 10, boxes: sampleFaces(vision.faces, vision.fps, 10) } : null,
   };
 }
 
 // The planned edit: every zoom, card and effect, for the review and fine-tune screens.
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { error, film, state } = await load((await params).id);
+  const { error, film, state, workDir } = await load((await params).id);
   if (error) return error;
   if (!state) return bad("This video's edit plan isn't ready yet.", 409);
-  return NextResponse.json(view(film.status, state));
+  return NextResponse.json(await view(film.status, state, workDir));
 }
 
 // Saves the creator's changes and renders the video (again).

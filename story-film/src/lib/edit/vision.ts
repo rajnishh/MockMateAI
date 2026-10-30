@@ -54,6 +54,12 @@ export function faceAt(faces: FaceBox[], fps: number, t: number): FaceBox {
   return faces[Math.min(faces.length - 1, Math.max(0, Math.round(t * fps)))] ?? null;
 }
 
+// Face boxes at a lower rate for the editing screens' preview (10 per second is plenty for overlays).
+export function sampleFaces(faces: FaceBox[], fps: number, rate = 10): FaceBox[] {
+  const step = Math.max(1, Math.round(fps / rate));
+  return faces.filter((_, i) => i % step === 0);
+}
+
 // Reads the mask video one frame at a time, in step with the edit's own frames.
 export class MaskReader {
   private proc: ChildProcess;

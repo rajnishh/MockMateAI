@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { applyCaptionEdits, captionLines, conflicts, editLine, moveSpan, newSpan, resizeSpan } from "@/lib/edit/moments";
+import { applyCaptionEdits, captionLines, conflicts, dragSpan, editLine, moveSpan, newSpan, resizeSpan, snapPoints, snapTime } from "@/lib/edit/moments";
 import { editPlanSchema, sanitizePlan } from "@/lib/edit/plan";
 import { applyEditChanges, type EditState } from "@/lib/edit/state";
 import { editChangesSchema } from "@/lib/queue/films";
@@ -48,6 +48,32 @@ describe("moving and stretching moments", () => {
     });
     expect(conflicts(plan).size).toBe(0);
     expect(sanitizePlan(plan, 20)).toEqual(plan);
+  });
+});
+
+describe("dragging on the timeline", () => {
+  const snaps = [1, 2.5, 4];
+
+  it("snaps to the nearest word start, else to 0.05 s", () => {
+    expect(snapTime(2.42, snaps)).toBe(2.5);
+    expect(snapTime(3.33, snaps)).toBe(3.35);
+    expect(snapPoints(words.slice(0, 2))).toEqual([0, 0.5]);
+  });
+
+  it("moves a whole moment, snapping its start and keeping it in the video", () => {
+    expect(dragSpan({ start: 1, end: 2 }, "move", 1.45, "effect", 10, snaps)).toEqual({ start: 2.5, end: 3.5 });
+    expect(dragSpan({ start: 1, end: 2 }, "move", -5, "effect", 10, snaps)).toEqual({ start: 0, end: 1 });
+    expect(dragSpan({ start: 8, end: 9.5 }, "move", 3, "card", 10)).toEqual({ start: 8.5, end: 10 });
+  });
+
+  it("pulls one edge within the kind's limits", () => {
+    // Start edge: can't pass the end minus the minimum, nor make it longer than the maximum.
+    expect(dragSpan({ start: 1, end: 2 }, "start", 0.9, "effect", 10)).toEqual({ start: 1.2, end: 2 });
+    expect(dragSpan({ start: 5, end: 6 }, "start", -5, "zoom", 10)).toEqual({ start: 3, end: 6 });
+    // End edge: stops at the video's end and at the maximum length.
+    expect(dragSpan({ start: 1, end: 2 }, "end", 0.6, "card", 10, snaps)).toEqual({ start: 1, end: 2.5 });
+    expect(dragSpan({ start: 1, end: 2 }, "end", 20, "effect", 10)).toEqual({ start: 1, end: 5 });
+    expect(dragSpan({ start: 8, end: 9 }, "end", 5, "card", 10)).toEqual({ start: 8, end: 10 });
   });
 });
 
