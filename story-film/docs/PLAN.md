@@ -353,4 +353,14 @@ Prices move monthly; waoowaoo and several other licenses unverified; EvoLink is 
         - Without a preview file (demo mode, or older edits) a timer drives the playhead.
       - Mobile uses `PanResponder` (core React Native, works on web too) and expo-video's `timeUpdate` event; the web app uses pointer events and a `<video>`.
     - **Range requests:** video, song and public-link routes now answer `Range` requests with 206 responses (`src/lib/serve-file.ts`). iOS needs this to play or seek an MP4 over HTTP, and the reel screen didn't have it before.
-    - **Not yet:** per-word caption timing; pinch to zoom the timeline (it's fixed at 56 px per second on mobile, 64 on web).
+    - **Zoom and word timing (same day):**
+      - **Zooming:** the timeline zooms from "whole video fits" up to 240 px per second.
+        - Mobile: a two-finger pinch around the point between the fingers (a capturing `PanResponder`; a block being dragged hands over when a second finger lands), or −, Fit and +.
+        - Web: Ctrl/⌘ + scroll, which is how trackpad pinches arrive (a non-passive listener, so the page doesn't zoom), or the same buttons.
+        - The time under the fingers or pointer stays put (`scrollForZoom`). The ruler ticks adapt.
+      - **Words:** past 90 px per second the captions lane shows single words. Tapping a caption line zooms straight in on it.
+        - Drag a word to move it, or drag an edge to retime it (`dragWord`). Words stay between their neighbours, inside the video and at least 0.05 s long.
+        - Selecting a word opens a word editor with 0.05 s Earlier/Later/Shorter/Longer and Previous/Next word.
+      - **Caption words are now the source of truth.** Typing in a caption line is applied when the field loses focus (or at render), so the line doesn't regroup while you type. Retimed words are sent with the render like fixed text.
+      - **Fixed:** the wide timeline widened the whole screen on web (a flex child's default `min-width: auto`). It now scrolls inside its own box.
+      - On a very short clip, "Fit" is already past the word threshold, so the lane shows words straight away.

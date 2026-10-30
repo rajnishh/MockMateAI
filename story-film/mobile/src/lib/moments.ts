@@ -170,3 +170,36 @@ export function dragSpan(origin: Span, mode: DragMode, delta: number, kind: Mome
   const end = Math.min(duration, origin.start + max, Math.max(origin.start + min, snapTime(origin.end + delta, points)));
   return { start: origin.start, end: round(end) };
 }
+
+// Timeline zoom, in pixels per second: from the whole video fitting the view up to 240 px/s.
+// Past WORD_ZOOM the captions lane shows single words, which can then be retimed.
+export const MAX_ZOOM = 240;
+export const WORD_ZOOM = 90;
+export function fitZoom(viewWidth: number, duration: number): number {
+  return Math.max(4, Math.min(MAX_ZOOM, viewWidth / Math.max(1, duration)));
+}
+export function clampZoom(pps: number, viewWidth: number, duration: number): number {
+  return Math.max(fitZoom(viewWidth, duration), Math.min(MAX_ZOOM, pps));
+}
+// Scroll offset that keeps the time under `focusX` (pixels from the view's left) in place after a zoom.
+export function scrollForZoom(scrollX: number, focusX: number, from: number, to: number): number {
+  return Math.max(0, ((scrollX + focusX) / from) * to - focusX);
+}
+
+// Retimes one caption word by dragging: it never overlaps its neighbours or leaves the video,
+// and stays at least 0.05 s long.
+export const WORD_STEP = 0.05;
+export function dragWord(words: Word[], i: number, origin: Span, mode: DragMode, delta: number, duration: number): Word[] {
+  const lo = i > 0 ? words[i - 1].end : 0;
+  const hi = i < words.length - 1 ? words[i + 1].start : duration;
+  const r = (v: number) => Math.round(v * 100) / 100;
+  let { start, end } = origin;
+  if (mode === "move") {
+    const len = end - start;
+    if (hi - lo < len) return words;
+    start = Math.max(lo, Math.min(hi - len, start + delta));
+    end = start + len;
+  } else if (mode === "start") start = Math.max(lo, Math.min(end - WORD_STEP, start + delta));
+  else end = Math.min(hi, Math.max(start + WORD_STEP, end + delta));
+  return words.map((w, j) => (j === i ? { ...w, start: r(start), end: r(end) } : w));
+}

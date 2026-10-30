@@ -7,9 +7,12 @@ import { EditTimeline } from "@/components/edit-timeline";
 import { Banner, Button, Card, ChipRow, Field, Header, Row, Screen, Skeleton, Txt } from "@/components/ui";
 import { api, type EditCard, type EditDraft, type EditEffect, type EditOptions, type EditPlan, type EffectType, type Span, type Voice } from "@/lib/api";
 import {
-  applyCaptionEdits,
   captionLines,
   conflicts,
+  type DragMode,
+  dragSpan,
+  dragWord,
+  editLine,
   formatTime,
   MAX_COUNT,
   type MomentKind,
@@ -18,6 +21,7 @@ import {
   resizeSpan,
   snapPoints,
   STEP,
+  WORD_STEP,
 } from "@/lib/moments";
 import { useSession } from "@/lib/session";
 
@@ -71,7 +75,10 @@ export default function EditMoments() {
   const [plan, setPlan] = useState<EditPlan | null>(null);
   const [off, setOff] = useState<Set<string>>(new Set());
   const [options, setOptions] = useState<EditOptions | null>(null);
-  const [texts, setTexts] = useState<string[]>([]);
+  // Caption words with their times: the creator can fix the text and retime each word.
+  const [capWords, setCapWords] = useState<Words>([]);
+  // The caption line being typed in; it is applied to the words when the field loses focus.
+  const [editing, setEditing] = useState<{ from: number; text: string } | null>(null);
   const [addType, setAddType] = useState<AddType>("z");
   const [addAt, setAddAt] = useState("0");
   const [note, setNote] = useState<string | null>(null);
@@ -86,15 +93,15 @@ export default function EditMoments() {
     api.videoHeaders().then(setHeaders);
   }, []);
 
-  // Caption lines come from the words as loaded, so a line doesn't jump while it's being edited.
-  const lines = useMemo(() => captionLines(draft?.words ?? []), [draft]);
+  const lines = useMemo(() => captionLines(capWords), [capWords]);
 
   const reset = useCallback((d: EditDraft) => {
     setDraft(d);
     setPlan(d.plan);
     setOptions(d.options);
     setOff(new Set());
-    setTexts(captionLines(d.words).map((l) => l.text));
+    setCapWords(d.words);
+    setEditing(null);
     setNote(null);
     setSelected(null);
   }, []);
@@ -113,8 +120,10 @@ export default function EditMoments() {
   }
 
   const duration = draft.durationSec;
-  const words = applyCaptionEdits(draft.words, lines, texts);
-  const captionsChanged = texts.some((t, i) => t !== lines[i]?.text);
+  // The words including a line still being typed.
+  const editingLine = editing ? lines.find((l) => l.from === editing.from) : undefined;
+  const words = editing && editingLine ? editLine(capWords, editingLine, editing.text) : capWords;
+  const captionsChanged = words !== draft.words;
   const review = draft.status === "review";
   const canRender = review || (draft.rendersLeft ?? 0) > 0;
   const moments: Moment[] = [
@@ -174,6 +183,14 @@ export default function EditMoments() {
     setSelected(key);
     const m = moments.find((x) => x.key === key);
     if (m) clock.seek(m.start);
+    else if (key[0] === "w") clock.seek(capWords[Number(key.slice(1))]?.start ?? clock.time);
+  };
+  const wordIndex = selected?.[0] === "w" ? Number(selected.slice(1)) : -1;
+  const word = wordIndex >= 0 ? capWords[wordIndex] : undefined;
+  const retime = (i: number, origin: Span, mode: DragMode, delta: number) => {
+    const next = dragWord(capWords, i, origin, mode, delta, duration);
+    setCapWords(next);
+    clock.seek(mode === "end" ? next[i].end : next[i].start);
   };
   const current = moments.find((m) => m.key === selected) ?? null;
   const at_ = current ? moments.indexOf(current) : -1;
@@ -270,22 +287,50 @@ export default function EditMoments() {
         duration={duration}
         moments={moments.map((m) => ({ key: m.key, kind: m.kind, label: labelOf(m), start: m.start, end: m.end, off: off.has(m.key), problem: problems.get(m.key) }))}
         lines={lines}
+        words={capWords}
         snaps={snapPoints(words)}
         time={clock.time}
         playing={clock.playing}
         selected={selected}
         onSelect={select}
         onSeek={clock.seek}
-        onChange={(key, span, mode) => {
+        onChange={(key, origin, mode, delta) => {
           const m = moments.find((x) => x.key === key);
           if (!m) return;
+          const span = dragSpan(origin, mode, delta, m.kind, duration, snapPoints(words));
           setSpan(m, span);
           clock.seek(mode === "end" ? span.end : span.start);
         }}
+        onWordDrag={retime}
       />
       <Txt variant="cap">Drag a block to move it, or drag its edges to stretch it. Tap the ruler to move the playhead.</Txt>
 
-      {current ? (
+      {word ? (
+        <Card>
+          <Txt variant="label">Caption word “{word.word}”</Txt>
+          <Txt variant="cap">
+            {formatTime(word.start)}–{formatTime(word.end)} · shows while you say it
+          </Txt>
+          <Row style={{ alignItems: "center", gap: 8 }}>
+            <Txt variant="cap" style={{ width: 110 }}>
+              Starts {formatTime(word.start)}
+            </Txt>
+            <Button label="Earlier" small kind="secondary" onPress={() => retime(wordIndex, word, "move", -WORD_STEP)} />
+            <Button label="Later" small kind="secondary" onPress={() => retime(wordIndex, word, "move", WORD_STEP)} />
+          </Row>
+          <Row style={{ alignItems: "center", gap: 8 }}>
+            <Txt variant="cap" style={{ width: 110 }}>
+              Lasts {(word.end - word.start).toFixed(2)} s
+            </Txt>
+            <Button label="Shorter" small kind="secondary" onPress={() => retime(wordIndex, word, "end", -WORD_STEP)} />
+            <Button label="Longer" small kind="secondary" onPress={() => retime(wordIndex, word, "end", WORD_STEP)} />
+          </Row>
+          <Row style={{ justifyContent: "space-between" }}>
+            <Button label="Previous word" small kind="ghost" disabled={wordIndex <= 0} onPress={() => select(`w${wordIndex - 1}`)} />
+            <Button label="Next word" small kind="ghost" disabled={wordIndex >= capWords.length - 1} onPress={() => select(`w${wordIndex + 1}`)} />
+          </Row>
+        </Card>
+      ) : current ? (
         (() => {
           const m = current;
           const isOff = off.has(m.key);
@@ -413,13 +458,18 @@ export default function EditMoments() {
       {options.captions && lines.length ? (
         <Card>
           <Txt variant="md">Caption words</Txt>
-          <Txt variant="cap">Fix any word we heard wrong. Clear a line to hide it.</Txt>
-          {lines.map((l, i) => (
+          <Txt variant="cap">Fix any word we heard wrong. Clear a line to hide it. To change when words show, zoom into the timeline.</Txt>
+          {lines.map((l) => (
             <Field
               key={l.from}
               label={formatTime(l.start)}
-              value={texts[i] ?? l.text}
-              onChangeText={(t) => setTexts(texts.map((x, j) => (j === i ? t : x)))}
+              value={editing?.from === l.from ? editing.text : l.text}
+              onChangeText={(text) => setEditing({ from: l.from, text })}
+              onBlur={() => {
+                if (editing?.from !== l.from) return;
+                setCapWords(editLine(capWords, l, editing.text));
+                setEditing(null);
+              }}
             />
           ))}
         </Card>

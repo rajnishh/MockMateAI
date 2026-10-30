@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  applyCaptionEdits,
   captionLines,
   conflicts,
+  dragWord,
+  editLine,
   formatTime,
   MAX_COUNT,
   type MomentKind,
@@ -14,6 +15,7 @@ import {
   snapPoints,
   type Span,
   STEP,
+  WORD_STEP,
 } from "@/lib/edit/moments";
 import type { Card, EditPlan, Effect } from "@/lib/edit/plan";
 import { EditPreview, EditTimeline } from "./edit-timeline";
@@ -70,7 +72,9 @@ export function EditMoments({ filmId, onRendering }: { filmId: string; onRenderi
   const [options, setOptions] = useState<Draft["options"] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [texts, setTexts] = useState<string[]>([]);
+  // Caption words with their times; a line being typed is applied when its field loses focus.
+  const [capWords, setCapWords] = useState<Word[]>([]);
+  const [editing, setEditing] = useState<{ from: number; text: string } | null>(null);
   const [addType, setAddType] = useState<AddType>("z");
   const [addAt, setAddAt] = useState(-1);
   const [selected, setSelected] = useState<string | null>(null);
@@ -78,7 +82,7 @@ export function EditMoments({ filmId, onRendering }: { filmId: string; onRenderi
   const [playing, setPlaying] = useState(false);
   const video = useRef<HTMLVideoElement>(null);
   // Caption lines from the words as loaded, so a line doesn't regroup while it's being edited.
-  const lines = useMemo(() => captionLines(draft?.words ?? []), [draft]);
+  const lines = useMemo(() => captionLines(capWords), [capWords]);
 
   useEffect(() => {
     fetch(`/api/edits/${filmId}`)
@@ -88,7 +92,7 @@ export function EditMoments({ filmId, onRendering }: { filmId: string; onRenderi
         setDraft(d);
         setPlan(d.plan);
         setOptions(d.options);
-        setTexts(captionLines(d.words).map((l) => l.text));
+        setCapWords(d.words);
       })
       .catch((e) => setError((e as Error).message));
   }, [filmId]);
@@ -105,8 +109,9 @@ export function EditMoments({ filmId, onRendering }: { filmId: string; onRenderi
   if (!draft || !plan || !options) return <p className="muted">{error ?? "Loading the effects…"}</p>;
 
   const duration = draft.durationSec;
-  const words = applyCaptionEdits(draft.words, lines, texts);
-  const captionsChanged = texts.some((t, i) => t !== lines[i]?.text);
+  const editingLine = editing ? lines.find((l) => l.from === editing.from) : undefined;
+  const words = editing && editingLine ? editLine(capWords, editingLine, editing.text) : capWords;
+  const captionsChanged = words !== draft.words;
   const problems = conflicts(plan, off);
   const review = draft.status === "review";
   const canRender = review || (draft.rendersLeft ?? 0) > 0;
@@ -147,6 +152,14 @@ export function EditMoments({ filmId, onRendering }: { filmId: string; onRenderi
     setSelected(key);
     const m = moments.find((x) => x.key === key);
     if (m) seek(m.start);
+    else if (key[0] === "w") seek(capWords[Number(key.slice(1))]?.start ?? time);
+  };
+  const wordIndex = selected?.[0] === "w" ? Number(selected.slice(1)) : -1;
+  const word = wordIndex >= 0 ? capWords[wordIndex] : undefined;
+  const retime = (i: number, origin: Span, mode: "move" | "start" | "end", delta: number) => {
+    const next = dragWord(capWords, i, origin, mode, delta, duration);
+    setCapWords(next);
+    seek(mode === "end" ? next[i].end : next[i].start);
   };
   const labelOf = (m: (typeof moments)[number]) => (m.kind === "effect" ? EFFECT_LABEL[plan.effects[m.i].type] : m.kind === "card" ? CARD_LABEL[plan.cards[m.i].type] : "Zoom in");
   const index = moments.findIndex((m) => m.key === selected);
@@ -206,6 +219,8 @@ export function EditMoments({ filmId, onRendering }: { filmId: string; onRenderi
         duration={duration}
         moments={moments.map((m) => ({ key: m.key, kind: m.kind, label: labelOf(m), start: m.start, end: m.end, off: off.has(m.key), problem: problems.get(m.key) }))}
         lines={lines}
+        words={capWords}
+        onWordDrag={retime}
         snaps={snapPoints(words)}
         time={time}
         selected={selected}
@@ -219,14 +234,34 @@ export function EditMoments({ filmId, onRendering }: { filmId: string; onRenderi
         }}
       />
       <p className="muted">Drag a block to move it, or drag its edges to stretch it. Click the ruler to move the playhead.</p>
-      {selected && (
+      {word && (
+        <fieldset>
+          <strong>Caption word “{word.word}”</strong>{" "}
+          <span className="muted">
+            {formatTime(word.start)}–{formatTime(word.end)}
+          </span>
+          <div className="actions">
+            <button type="button" className="secondary" onClick={() => retime(wordIndex, word, "move", -WORD_STEP)}>Earlier</button>
+            <button type="button" className="secondary" onClick={() => retime(wordIndex, word, "move", WORD_STEP)}>Later</button>
+            <span className="muted">Lasts {(word.end - word.start).toFixed(2)} s</span>
+            <button type="button" className="secondary" onClick={() => retime(wordIndex, word, "end", -WORD_STEP)}>Shorter</button>
+            <button type="button" className="secondary" onClick={() => retime(wordIndex, word, "end", WORD_STEP)}>Longer</button>
+          </div>
+          <div className="actions">
+            <button type="button" className="secondary" disabled={wordIndex <= 0} onClick={() => select(`w${wordIndex - 1}`)}>Previous word</button>
+            <button type="button" className="secondary" disabled={wordIndex >= capWords.length - 1} onClick={() => select(`w${wordIndex + 1}`)}>Next word</button>
+            <button type="button" className="secondary" onClick={() => setSelected(null)}>Show all moments</button>
+          </div>
+        </fieldset>
+      )}
+      {selected && !word && (
         <div className="actions">
           <button type="button" className="secondary" disabled={index <= 0} onClick={() => select(moments[index - 1].key)}>Previous</button>
           <button type="button" className="secondary" disabled={index >= moments.length - 1} onClick={() => select(moments[index + 1].key)}>Next</button>
           <button type="button" className="secondary" onClick={() => setSelected(null)}>Show all moments</button>
         </div>
       )}
-      {moments.filter((m) => !selected || m.key === selected).map((m) => {
+      {moments.filter((m) => !selected || (!word && m.key === selected)).map((m) => {
         const kind = m.key[0];
         const isOff = off.has(m.key);
         const effect = kind === "e" ? plan.effects[m.i] : null;
@@ -319,11 +354,19 @@ export function EditMoments({ filmId, onRendering }: { filmId: string; onRenderi
       {options.captions && lines.length > 0 && (
         <fieldset>
           <strong>Caption words</strong>
-          <p className="muted">Fix any word we heard wrong. Clear a line to hide it.</p>
-          {lines.map((l, i) => (
+          <p className="muted">Fix any word we heard wrong. Clear a line to hide it. To change when words show, zoom into the timeline.</p>
+          {lines.map((l) => (
             <label key={l.from}>
               <span className="muted">{formatTime(l.start)}</span>
-              <input value={texts[i] ?? l.text} onChange={(e) => setTexts(texts.map((x, j) => (j === i ? e.target.value : x)))} />
+              <input
+                value={editing?.from === l.from ? editing.text : l.text}
+                onChange={(e) => setEditing({ from: l.from, text: e.target.value })}
+                onBlur={() => {
+                  if (editing?.from !== l.from) return;
+                  setCapWords(editLine(capWords, l, editing.text));
+                  setEditing(null);
+                }}
+              />
             </label>
           ))}
         </fieldset>

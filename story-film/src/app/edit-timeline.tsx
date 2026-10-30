@@ -1,7 +1,19 @@
 "use client";
 
-import { type PointerEvent as ReactPointerEvent, type RefObject, useRef } from "react";
-import { type CaptionLine, type DragMode, dragSpan, formatTime, type MomentKind, type Span } from "@/lib/edit/moments";
+import { type CSSProperties, type PointerEvent as ReactPointerEvent, type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  type CaptionLine,
+  clampZoom,
+  type DragMode,
+  dragSpan,
+  fitZoom,
+  formatTime,
+  type MomentKind,
+  scrollForZoom,
+  type Span,
+  type Word,
+  WORD_ZOOM,
+} from "@/lib/edit/moments";
 import type { EditPlan } from "@/lib/edit/plan";
 
 export interface TimelineMoment {
@@ -14,7 +26,6 @@ export interface TimelineMoment {
   problem?: string;
 }
 
-const PX_PER_SEC = 64;
 const LANE_H = 34;
 const EDGE = 10;
 const LANES: { kind: MomentKind | "captions"; label: string; color: string }[] = [
@@ -25,114 +36,203 @@ const LANES: { kind: MomentKind | "captions"; label: string; color: string }[] =
 ];
 
 // Lanes of draggable blocks: drag to move, drag an edge to stretch, click the ruler to seek.
+// Zoom with −/+/Fit or Ctrl/⌘ + scroll (a trackpad pinch); zoomed in, captions show single words
+// that can be retimed the same way.
 export function EditTimeline({
   duration,
   moments,
   lines,
+  words,
   snaps,
   time,
   selected,
   onSelect,
   onSeek,
   onChange,
+  onWordDrag,
 }: {
   duration: number;
   moments: TimelineMoment[];
   lines: CaptionLine[];
+  words: Word[];
   snaps: number[];
   time: number;
   selected: string | null;
   onSelect: (key: string) => void;
   onSeek: (t: number) => void;
   onChange: (key: string, span: Span, mode: DragMode) => void;
+  onWordDrag: (index: number, origin: Span, mode: DragMode, deltaSec: number) => void;
 }) {
-  const drag = useRef<{ key: string; kind: MomentKind; mode: DragMode; origin: Span; x: number } | null>(null);
-  const width = Math.max(1, duration) * PX_PER_SEC;
+  const drag = useRef<{ key: string; kind: MomentKind | "word"; mode: DragMode; origin: Span; x: number } | null>(null);
+  const box = useRef<HTMLDivElement>(null);
+  const [pps, setPps] = useState(64);
+  const pending = useRef<number | null>(null);
+  const width = Math.max(1, duration) * pps;
+  const showWords = pps >= WORD_ZOOM && words.length > 0;
 
-  const down = (e: ReactPointerEvent<HTMLDivElement>, m: TimelineMoment) => {
+  useLayoutEffect(() => {
+    if (pending.current !== null && box.current) box.current.scrollLeft = pending.current;
+    pending.current = null;
+  }, [pps]);
+
+  const zoomTo = useCallback(
+    (next: number, focusX?: number) => {
+      const el = box.current;
+      const view = el?.clientWidth ?? 600;
+      const to = clampZoom(next, view, duration);
+      setPps((from) => {
+        if (Math.abs(to - from) < 0.01) return from;
+        pending.current = scrollForZoom(el?.scrollLeft ?? 0, focusX ?? view / 2, from, to);
+        return to;
+      });
+    },
+    [duration],
+  );
+
+  // Ctrl/⌘ + wheel (and trackpad pinches, which arrive as Ctrl + wheel) zoom around the pointer.
+  // A native listener, because React's wheel events can't prevent the page from zooming.
+  const latestPps = useRef(pps);
+  useEffect(() => {
+    latestPps.current = pps;
+  }, [pps]);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      zoomTo(latestPps.current * Math.exp(-e.deltaY / 200), e.clientX - el.getBoundingClientRect().left);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [zoomTo]);
+
+  const down = (e: ReactPointerEvent<HTMLDivElement>, key: string, kind: MomentKind | "word", span: Span) => {
     e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
-    const edges = rect.width >= EDGE * 3.5;
-    const mode: DragMode = edges && x < EDGE ? "start" : edges && x > rect.width - EDGE ? "end" : "move";
-    drag.current = { key: m.key, kind: m.kind, mode, origin: { start: m.start, end: m.end }, x: e.clientX };
+    const edge = Math.min(EDGE, rect.width / 4);
+    const edges = rect.width >= 24;
+    const mode: DragMode = edges && x < edge ? "start" : edges && x > rect.width - edge ? "end" : "move";
+    drag.current = { key, kind, mode, origin: span, x: e.clientX };
     e.currentTarget.setPointerCapture(e.pointerId);
-    onSelect(m.key);
+    onSelect(key);
   };
-  const move = (e: ReactPointerEvent<HTMLDivElement>, m: TimelineMoment) => {
+  const move = (e: ReactPointerEvent<HTMLDivElement>, key: string, locked = false) => {
     const d = drag.current;
-    if (!d || d.key !== m.key || m.off) return;
-    const span = dragSpan(d.origin, d.mode, (e.clientX - d.x) / PX_PER_SEC, d.kind, duration, snaps);
-    onChange(d.key, span, d.mode);
+    if (!d || d.key !== key || locked) return;
+    const delta = (e.clientX - d.x) / pps;
+    if (d.kind === "word") onWordDrag(Number(key.slice(1)), d.origin, d.mode, delta);
+    else onChange(d.key, dragSpan(d.origin, d.mode, delta, d.kind, duration, snaps), d.mode);
   };
   const seek = (e: ReactPointerEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    onSeek(Math.max(0, Math.min(duration, (e.clientX - rect.left) / PX_PER_SEC)));
+    onSeek(Math.max(0, Math.min(duration, (e.clientX - rect.left) / pps)));
   };
+  const blockStyle = (top: number, start: number, end: number): CSSProperties => ({
+    position: "absolute",
+    top,
+    left: start * pps,
+    width: Math.max(10, (end - start) * pps),
+    height: LANE_H - 8,
+    borderRadius: 6,
+    fontSize: 11,
+    fontWeight: 700,
+    padding: "4px 6px",
+    overflow: "hidden",
+    whiteSpace: "nowrap",
+    cursor: "grab",
+    touchAction: "none",
+    boxSizing: "border-box",
+  });
+  const tick = pps >= 120 ? 0.5 : pps >= 30 ? 1 : pps >= 12 ? 5 : 10;
 
   return (
-    <div style={{ display: "flex", gap: 8, margin: "12px 0" }}>
-      <div style={{ paddingTop: 20, width: 64, flexShrink: 0 }}>
-        {LANES.map((l) => (
-          <div key={l.kind} className="muted" style={{ height: LANE_H, display: "flex", alignItems: "center", fontSize: 12 }}>
-            {l.label}
-          </div>
-        ))}
+    <div style={{ margin: "12px 0" }}>
+      <div className="actions" style={{ alignItems: "center" }}>
+        <button type="button" className="secondary" aria-label="Zoom timeline out" onClick={() => zoomTo(pps / 1.5)}>−</button>
+        <button type="button" className="secondary" onClick={() => zoomTo(fitZoom(box.current?.clientWidth ?? 600, duration), 0)}>Fit</button>
+        <button type="button" className="secondary" aria-label="Zoom timeline in" onClick={() => zoomTo(pps * 1.5)}>+</button>
+        <span className="muted">{showWords ? "Drag a word to retime it" : "Ctrl/⌘ + scroll or + to zoom; zoom in to retime words"}</span>
       </div>
-      <div style={{ overflowX: "auto", flex: 1 }}>
-        <div style={{ position: "relative", width, height: 20 + LANE_H * LANES.length, userSelect: "none" }} onPointerDown={seek}>
-          {Array.from({ length: Math.floor(duration) + 1 }, (_, s) => (
-            <div key={s} className="muted" style={{ position: "absolute", left: s * PX_PER_SEC, top: 0, height: 20, borderLeft: "1px solid var(--border)", paddingLeft: 2, fontSize: 10, pointerEvents: "none" }}>
-              {s % 2 === 0 ? `${s}s` : ""}
+      <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ paddingTop: 20, width: 64, flexShrink: 0 }}>
+          {LANES.map((l) => (
+            <div key={l.kind} className="muted" style={{ height: LANE_H, display: "flex", alignItems: "center", fontSize: 12 }}>
+              {l.kind === "captions" && showWords ? "Words" : l.label}
             </div>
           ))}
-          {LANES.map((l, i) => (
-            <div key={l.kind} style={{ position: "absolute", left: 0, top: 20 + i * LANE_H, width, height: LANE_H, background: i % 2 ? "transparent" : "color-mix(in srgb, var(--border) 50%, transparent)" }} />
-          ))}
-          {lines.map((l) => (
-            <div
-              key={l.from}
-              style={{ position: "absolute", top: 20 + 3 * LANE_H + 5, left: l.start * PX_PER_SEC, width: Math.max(6, (l.end - l.start) * PX_PER_SEC - 2), height: LANE_H - 10, border: "1px solid var(--border)", borderRadius: 6, fontSize: 11, overflow: "hidden", whiteSpace: "nowrap", padding: "4px 6px", pointerEvents: "none" }}>
-              {l.text}
-            </div>
-          ))}
-          {moments.map((m) => {
-            const lane = LANES.findIndex((l) => l.kind === m.kind);
-            const color = LANES[lane].color;
-            return (
-              <div
-                key={m.key}
-                role="button"
-                aria-label={`${m.label}, ${formatTime(m.start)} to ${formatTime(m.end)}${m.off ? ", off" : ""}${m.problem ? `. ${m.problem}` : ""}`}
-                title={m.problem ?? `${m.label} · drag to move, drag an edge to stretch`}
-                onPointerDown={(e) => down(e, m)}
-                onPointerMove={(e) => move(e, m)}
-                onPointerUp={() => (drag.current = null)}
-                style={{
-                  position: "absolute",
-                  top: 20 + lane * LANE_H + 4,
-                  left: m.start * PX_PER_SEC,
-                  width: Math.max(10, (m.end - m.start) * PX_PER_SEC),
-                  height: LANE_H - 8,
-                  borderRadius: 6,
-                  background: m.off ? "transparent" : color,
-                  color: m.kind === "zoom" ? "#fff" : "#111",
-                  border: `${m.problem || selected === m.key ? 3 : 1}px ${m.off ? "dashed" : "solid"} ${m.problem ? "var(--danger)" : selected === m.key ? "var(--accent)" : color === "transparent" ? "var(--border)" : color}`,
-                  opacity: m.off ? 0.6 : 1,
-                  fontSize: 11,
-                  fontWeight: 700,
-                  padding: "4px 8px",
-                  overflow: "hidden",
-                  whiteSpace: "nowrap",
-                  cursor: "grab",
-                  touchAction: "none",
-                  boxSizing: "border-box",
-                }}>
-                {m.label}
+        </div>
+        <div ref={box} data-timeline style={{ overflowX: "auto", flex: 1, minWidth: 0 }}>
+          <div style={{ position: "relative", width, height: 20 + LANE_H * LANES.length, userSelect: "none" }} onPointerDown={seek}>
+            {Array.from({ length: Math.floor(duration / tick) + 1 }, (_, i) => (
+              <div key={i} className="muted" style={{ position: "absolute", left: i * tick * pps, top: 0, height: 20, borderLeft: "1px solid var(--border)", paddingLeft: 2, fontSize: 10, pointerEvents: "none" }}>
+                {i % 2 === 0 ? `${tick < 1 ? (i * tick).toFixed(1) : i * tick}s` : ""}
               </div>
-            );
-          })}
-          <div style={{ position: "absolute", top: 0, bottom: 0, left: time * PX_PER_SEC, width: 2, background: "#f27a5e", pointerEvents: "none" }} />
+            ))}
+            {LANES.map((l, i) => (
+              <div key={l.kind} style={{ position: "absolute", left: 0, top: 20 + i * LANE_H, width, height: LANE_H, background: i % 2 ? "transparent" : "color-mix(in srgb, var(--border) 50%, transparent)" }} />
+            ))}
+            {showWords
+              ? words.map((w, i) => (
+                  <div
+                    key={`w${i}`}
+                    role="button"
+                    aria-label={`Caption word ${w.word}, ${formatTime(w.start)} to ${formatTime(w.end)}`}
+                    title="Drag to retime this word"
+                    onPointerDown={(e) => down(e, `w${i}`, "word", { start: w.start, end: w.end })}
+                    onPointerMove={(e) => move(e, `w${i}`)}
+                    onPointerUp={() => (drag.current = null)}
+                    style={{
+                      ...blockStyle(20 + 3 * LANE_H + 4, w.start, w.end),
+                      background: "var(--bg)",
+                      color: "var(--fg)",
+                      border: `${selected === `w${i}` ? 3 : 1}px solid ${selected === `w${i}` ? "var(--accent)" : "var(--muted)"}`,
+                    }}>
+                    {w.word}
+                  </div>
+                ))
+              : lines.map((l) => (
+                  <div
+                    key={l.from}
+                    role="button"
+                    aria-label={`Caption line at ${formatTime(l.start)}: ${l.text}. Click to zoom in and retime its words.`}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      const to = clampZoom(Math.max(WORD_ZOOM * 1.4, pps), box.current?.clientWidth ?? 600, duration);
+                      pending.current = Math.max(0, l.start * to - 24);
+                      setPps(to);
+                      onSeek(l.start);
+                    }}
+                    style={{ ...blockStyle(20 + 3 * LANE_H + 5, l.start, l.end), height: LANE_H - 10, border: "1px solid var(--border)", fontWeight: 400, cursor: "zoom-in" }}>
+                    {l.text}
+                  </div>
+                ))}
+            {moments.map((m) => {
+              const lane = LANES.findIndex((l) => l.kind === m.kind);
+              const color = LANES[lane].color;
+              return (
+                <div
+                  key={m.key}
+                  role="button"
+                  aria-label={`${m.label}, ${formatTime(m.start)} to ${formatTime(m.end)}${m.off ? ", off" : ""}${m.problem ? `. ${m.problem}` : ""}`}
+                  title={m.problem ?? `${m.label} · drag to move, drag an edge to stretch`}
+                  onPointerDown={(e) => down(e, m.key, m.kind, { start: m.start, end: m.end })}
+                  onPointerMove={(e) => move(e, m.key, m.off)}
+                  onPointerUp={() => (drag.current = null)}
+                  style={{
+                    ...blockStyle(20 + lane * LANE_H + 4, m.start, m.end),
+                    background: m.off ? "transparent" : color,
+                    color: m.kind === "zoom" ? "#fff" : "#111",
+                    border: `${m.problem || selected === m.key ? 3 : 1}px ${m.off ? "dashed" : "solid"} ${m.problem ? "var(--danger)" : selected === m.key ? "var(--accent)" : color}`,
+                    opacity: m.off ? 0.6 : 1,
+                  }}>
+                  {m.label}
+                </div>
+              );
+            })}
+            <div style={{ position: "absolute", top: 0, bottom: 0, left: time * pps, width: 2, background: "#f27a5e", pointerEvents: "none" }} />
+          </div>
         </div>
       </div>
     </div>
