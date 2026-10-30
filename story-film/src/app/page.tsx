@@ -49,6 +49,9 @@ export default function Home() {
   const [keyword, setKeyword] = useState("");
   const [video, setVideo] = useState<File | null>(null);
   const [zooms, setZooms] = useState(true);
+  const [effects, setEffects] = useState(true);
+  const [sounds, setSounds] = useState(true);
+  const [voice, setVoice] = useState("natural");
   const [billing, setBilling] = useState<{ balance: number; premiumAvailable: boolean; premiumCreditsPerShot: number } | null>(null);
   const [needCredits, setNeedCredits] = useState(false);
 
@@ -161,6 +164,9 @@ export default function Home() {
       form.append("language", language);
       form.append("captions", String(captions));
       form.append("zooms", String(zooms));
+      form.append("effects", String(effects));
+      form.append("sounds", String(sounds));
+      form.append("voice", voice);
       form.append("ending", ending);
       if (ending === "comment" && keyword) form.append("keyword", keyword);
       const res = await fetch("/api/edits", { method: "POST", body: form });
@@ -305,12 +311,24 @@ export default function Home() {
 
         {mode === "edit" && (
           <>
-            <p className="muted">Upload a video you filmed (up to 60 seconds). We add captions in your language, zooms on key moments and cards for your main points.</p>
+            <p className="muted">Upload a video you filmed (up to 60 seconds). We add captions in your language, zooms on key moments, cards for your main points and effects that know where you are in the frame.</p>
             <label htmlFor="video">Your video</label>
             <input id="video" type="file" accept="video/mp4,video/quicktime,video/webm" onChange={(e) => setVideo(e.target.files?.[0] ?? null)} />
             <label className="check">
               <input type="checkbox" checked={zooms} onChange={(e) => setZooms(e.target.checked)} /> Zoom in on key moments
             </label>
+            <label className="check">
+              <input type="checkbox" checked={effects} onChange={(e) => setEffects(e.target.checked)} /> Effects around you: a word behind you, spotlight, sticker, stamps
+            </label>
+            <label className="check">
+              <input type="checkbox" checked={sounds} onChange={(e) => setSounds(e.target.checked)} /> Sound effects
+            </label>
+            <label htmlFor="voice">Your voice</label>
+            <select id="voice" value={voice} onChange={(e) => setVoice(e.target.value)}>
+              <option value="natural">As recorded</option>
+              <option value="clear">Clear: less noise, even volume</option>
+              <option value="deeper">Deeper and fuller</option>
+            </select>
           </>
         )}
         {(mode === "motion" || mode === "edit") && (

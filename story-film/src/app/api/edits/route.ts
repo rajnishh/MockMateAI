@@ -22,7 +22,8 @@ const VIDEO_EXT: Record<string, string> = { "video/mp4": "mp4", "video/quicktime
 
 const bad = (error: string, status = 400, extra: Record<string, unknown> = {}) => NextResponse.json({ error, ...extra }, { status });
 
-// "Edit my video": upload a clip you filmed; we add captions, zooms and cards.
+// "Edit my video": upload a clip you filmed; we add captions, zooms, cards, face-aware effects,
+// sound effects and (optionally) a cleaner or deeper voice.
 export async function POST(req: Request) {
   const userId = await getUserId();
   if (!userId) return unauthorized();
@@ -48,6 +49,9 @@ export async function POST(req: Request) {
     language: form.get("language") ?? undefined,
     captions: flag("captions"),
     zooms: flag("zooms"),
+    effects: flag("effects"),
+    sounds: flag("sounds"),
+    voice: form.get("voice") ?? undefined,
     ending: form.get("ending") ?? undefined,
     keyword: form.get("keyword") || undefined,
     brand,

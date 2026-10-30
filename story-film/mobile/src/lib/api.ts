@@ -89,12 +89,18 @@ export interface NewPost {
   scheduledAt?: string;
 }
 
+// How the creator's own voice is processed: as recorded, cleaned and levelled, or a little deeper.
+export type Voice = "natural" | "clear" | "deeper";
+
 export interface EditUpload {
   // Local file picked from the gallery.
   video: { uri: string; name: string; type: string };
   language: string;
   captions: boolean;
   zooms: boolean;
+  effects: boolean;
+  sounds: boolean;
+  voice: Voice;
   ending: "auto" | "none" | "follow" | "comment";
   keyword?: string;
   brand?: { accent?: string; background?: "light" | "dark"; handle?: string };
@@ -146,7 +152,7 @@ const real = {
   ideas: async (niche: string, language: string) =>
     (await call<{ ideas: Idea[] }>("/api/suggestions", { method: "POST", body: JSON.stringify({ niche, language }) })).ideas,
   caption: (id: string, platform: Platform) => call<PostCopy>(`/api/films/${id}/copy`, { method: "POST", body: JSON.stringify({ platform }) }),
-  // "Edit my video": multipart upload; the server adds captions, zooms and cards.
+  // "Edit my video": multipart upload; the server adds captions, zooms, cards, effects and sounds.
   uploadEdit: async (input: EditUpload) => {
     const form = new FormData();
     // React Native's FormData takes { uri, name, type } for files.
@@ -154,6 +160,9 @@ const real = {
     form.append("language", input.language);
     form.append("captions", String(input.captions));
     form.append("zooms", String(input.zooms));
+    form.append("effects", String(input.effects));
+    form.append("sounds", String(input.sounds));
+    form.append("voice", input.voice);
     form.append("ending", input.ending);
     if (input.keyword) form.append("keyword", input.keyword);
     if (input.brand) form.append("brand", JSON.stringify(input.brand));

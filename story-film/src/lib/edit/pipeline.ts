@@ -9,8 +9,10 @@ import type { Ending } from "@/lib/motion/script";
 import type { Stage } from "@/lib/pipeline/orchestrator";
 import type { LlmProvider, NarrationLanguage } from "@/lib/providers/types";
 import type { Transcript } from "@/lib/providers/whisper";
-import { buildEditPrompt, type EditPlan, editPlanSchema, sanitizePlan } from "./plan";
+import { mixAudio as defaultMixAudio, type Voice } from "./audio";
+import { buildEditPrompt, type EditPlan, editPlanSchema, sanitizePlan, soundCues, supportedEffects } from "./plan";
 import { type EditRenderInput, renderEdit } from "./render";
+import { analyzeVideo, type Vision } from "./vision";
 
 const execFileAsync = promisify(execFile);
 
@@ -21,6 +23,8 @@ export interface EditDeps {
   probeDuration?: (file: string) => Promise<number>;
   extractAudio?: (source: string, wav: string) => Promise<boolean>;
   render?: (input: EditRenderInput) => Promise<void>;
+  analyze?: (source: string, outDir: string) => Promise<Vision | null>;
+  mixAudio?: typeof defaultMixAudio;
 }
 
 export interface EditRequest {
@@ -29,6 +33,10 @@ export interface EditRequest {
   language?: NarrationLanguage;
   captions?: boolean;
   zooms?: boolean;
+  // Face-aware effects (word behind you, spotlight, sticker, stamp, focus brackets).
+  effects?: boolean;
+  sounds?: boolean;
+  voice?: Voice;
   ending?: Ending;
   keyword?: string;
   brand?: Brand;
@@ -58,20 +66,47 @@ export async function runEditVideo(
   await onStage("script");
   const wav = path.join(workDir, "speech.wav");
   const language = req.language && req.language !== "auto" ? req.language : undefined;
-  const transcript: Transcript = (await (deps.extractAudio ?? defaultExtractAudio)(req.source, wav))
-    ? await deps.transcriber.transcribe(await readFile(wav), language)
-    : { text: "", words: [] };
-  let plan: EditPlan = { title: "My video", zooms: [], cards: [] };
+  const effectsOn = req.effects !== false;
+  // Finding the face and the person runs while the voice is transcribed and the edit planned.
+  const visionP = effectsOn ? (deps.analyze ?? analyzeVideo)(req.source, path.join(workDir, "vision")) : Promise.resolve(null);
+  const hasAudio = await (deps.extractAudio ?? defaultExtractAudio)(req.source, wav);
+  const transcript: Transcript = hasAudio ? await deps.transcriber.transcribe(await readFile(wav), language) : { text: "", words: [] };
+  let plan: EditPlan = { title: "My video", zooms: [], cards: [], effects: [] };
   if (transcript.words.length >= 3) {
     const raw = await deps.llm.completeJson(
-      buildEditPrompt({ words: transcript.words, durationSec, language: transcript.language, ending: req.ending, keyword: req.keyword, handle: req.brand?.handle, zooms: req.zooms }),
+      buildEditPrompt({
+        words: transcript.words,
+        durationSec,
+        language: transcript.language,
+        ending: req.ending,
+        keyword: req.keyword,
+        handle: req.brand?.handle,
+        zooms: req.zooms,
+        effects: effectsOn,
+      }),
     );
     plan = sanitizePlan(editPlanSchema.parse(raw), durationSec, req.ending);
     if (req.zooms === false) plan = { ...plan, zooms: [] };
   }
+  const vision = await visionP;
+  plan = { ...plan, effects: effectsOn && vision ? supportedEffects(plan.effects, { faces: vision.faces.some(Boolean), mask: Boolean(vision.mask) }) : [] };
   await writeFile(path.join(workDir, "edit.json"), JSON.stringify({ transcript, plan }, null, 2));
 
   await onStage("assemble");
+  const voice = req.voice ?? "natural";
+  const cues = req.sounds === false ? [] : soundCues(plan);
+  const audio =
+    voice === "natural" && !cues.length
+      ? null
+      : await (deps.mixAudio ?? defaultMixAudio)({
+          source: req.source,
+          hasAudio,
+          voice,
+          durationSec,
+          cues,
+          soundsDir: path.join(workDir, "sounds"),
+          output: path.join(workDir, "soundtrack.m4a"),
+        });
   const output = path.join(workDir, "film.mp4");
   await (deps.render ?? renderEdit)({
     source: req.source,
@@ -84,6 +119,8 @@ export async function runEditVideo(
     watermark: req.watermark,
     language: transcript.language,
     fontsDir: path.resolve(/*turbopackIgnore: true*/ deps.fontsDir ?? "assets/fonts"),
+    vision,
+    audio,
   });
 
   await onStage("done");

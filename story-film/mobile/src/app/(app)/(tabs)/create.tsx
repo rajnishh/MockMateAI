@@ -4,7 +4,7 @@ import { useState } from "react";
 import { View } from "react-native";
 
 import { Banner, Button, Card, ChipRow, Credits, Field, Header, ListRow, Row, Screen, Txt } from "@/components/ui";
-import { api, ApiError, type Idea } from "@/lib/api";
+import { api, ApiError, type Idea, type Voice } from "@/lib/api";
 import { LANGUAGES } from "@/lib/languages";
 import { useSession } from "@/lib/session";
 import { INDIAN_ART, LOOKS, type Style } from "@/lib/styles";
@@ -33,6 +33,9 @@ export default function Create() {
   const [video, setVideo] = useState<Picked | null>(null);
   const [captions, setCaptions] = useState<"on" | "off">("on");
   const [zooms, setZooms] = useState<"on" | "off">("on");
+  const [effects, setEffects] = useState<"on" | "off">("on");
+  const [sounds, setSounds] = useState<"on" | "off">("on");
+  const [voice, setVoice] = useState<Voice>("natural");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ text: string; credits: boolean } | null>(null);
 
@@ -80,6 +83,9 @@ export default function Create() {
             language,
             captions: captions === "on",
             zooms: zooms === "on",
+            effects: effects === "on",
+            sounds: sounds === "on",
+            voice,
             ending,
             keyword: keywordValue,
             brand: prefs?.brand,
@@ -175,7 +181,7 @@ export default function Create() {
           onChange={setKind}
         />
         {motion ? <Txt variant="cap">Tips, lists, numbers and quotes animated on screen with a voice-over. Uses your free weekly reels.</Txt> : null}
-        {editing ? <Txt variant="cap">Upload a video you filmed. We add captions in your language, zooms on key moments and cards for your main points.</Txt> : null}
+        {editing ? <Txt variant="cap">Upload a video you filmed. We add captions in your language, zooms, cards for your main points, effects around you and sounds.</Txt> : null}
       </View>
 
       {editing ? (
@@ -227,7 +233,45 @@ export default function Create() {
                 onChange={setZooms}
               />
             </View>
+            <View style={{ gap: 6 }}>
+              <Txt variant="cap">Sounds</Txt>
+              <ChipRow<"on" | "off">
+                options={[
+                  { value: "on", label: "On" },
+                  { value: "off", label: "Off" },
+                ]}
+                value={sounds}
+                onChange={setSounds}
+              />
+            </View>
           </Row>
+          <View style={{ gap: 6 }}>
+            <Txt variant="cap">Effects around you</Txt>
+            <ChipRow<"on" | "off">
+              options={[
+                { value: "on", label: "On" },
+                { value: "off", label: "Off" },
+              ]}
+              value={effects}
+              onChange={setEffects}
+            />
+            <Txt variant="cap">A big word behind you, spotlight, sticker cut-out and stamps on your best moments.</Txt>
+          </View>
+          <View style={{ gap: 6 }}>
+            <Txt variant="cap">Your voice</Txt>
+            <ChipRow<Voice>
+              options={[
+                { value: "natural", label: "As recorded" },
+                { value: "clear", label: "Clear" },
+                { value: "deeper", label: "Deeper" },
+              ]}
+              value={voice}
+              onChange={setVoice}
+            />
+            <Txt variant="cap">
+              {voice === "clear" ? "Less background noise and an even volume." : voice === "deeper" ? "Still your voice, a little deeper and fuller. Lips stay in sync." : "Your voice as you recorded it."}
+            </Txt>
+          </View>
           {endingPicker}
         </>
       ) : (

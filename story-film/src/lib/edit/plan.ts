@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Ending } from "@/lib/motion/script";
 import type { TimedWord } from "@/lib/providers/whisper";
+import type { Cue } from "./audio";
 
 // What the AI decides for a creator's own video: when to punch in, which short cards to
 // show over the video, and (optionally) how it ends. Captions come straight from the transcript.
@@ -14,12 +15,32 @@ export const cardSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("cta"), text: z.string().min(1).max(50), action: z.string().max(30).optional(), ...span }),
 ]);
 
+// Effects that know where the creator is in the frame (face box and person mask).
+export const effectSchema = z.discriminatedUnion("type", [
+  // One or two big words drawn behind the creator.
+  z.object({ type: z.literal("backdrop"), text: z.string().min(1).max(16), ...span }),
+  // The background dims and the creator is lit, for a key line.
+  z.object({ type: z.literal("spotlight"), ...span }),
+  // The creator pops out as a sticker with a white outline over a brand-colour background.
+  z.object({ type: z.literal("cutout"), ...span }),
+  // A rubber stamp slammed beside the face ("MYTH", "SAVED").
+  z.object({ type: z.literal("stamp"), text: z.string().min(1).max(16), ...span }),
+  // Corner brackets lock on to the face, with an optional short label.
+  z.object({ type: z.literal("focus"), label: z.string().max(24).optional(), ...span }),
+]);
+
+export const EFFECT_TYPES = ["backdrop", "spotlight", "cutout", "stamp", "focus"] as const;
+// These need the person mask; the rest only need the face box.
+export const MASK_EFFECTS = new Set(["backdrop", "spotlight", "cutout"]);
+
 export const editPlanSchema = z.object({
   title: z.string().min(1).max(100),
   zooms: z.array(z.object(span)).max(20).default([]),
   cards: z.array(cardSchema).max(6).default([]),
+  effects: z.array(effectSchema).max(10).default([]),
 });
 
+export type Effect = z.infer<typeof effectSchema>;
 export type Card = z.infer<typeof cardSchema>;
 export type EditPlan = z.infer<typeof editPlanSchema>;
 
@@ -31,6 +52,7 @@ export interface PlanOptions {
   keyword?: string;
   handle?: string;
   zooms?: boolean;
+  effects?: boolean;
 }
 
 // Compact transcript for the prompt: "[12.4] word" every few words keeps it short but timed.
@@ -58,9 +80,20 @@ export function buildEditPrompt(o: PlanOptions): string {
     '- "list": when the creator lists things (heading, 2-4 items).',
     '- "stat": only a number the creator actually says (value, optional prefix like "₹", suffix like "%", label). Never invent numbers.',
     `- "cta": ${ending}`,
-    "Write card text in the same language and script as the transcript. Keep it shorter than what is said.",
+    ...(o.effects
+      ? [
+          "effects: 2-5 face-aware effects on the strongest moments, 1-3.5 s each, not overlapping each other or any card:",
+          '- "backdrop": one or two big words (text, max 16 characters) shown behind the creator when they say a key word.',
+          '- "spotlight": the background dims to focus on a key line or a secret.',
+          '- "cutout": the creator pops out as a sticker on a colour background, for a reveal or a big claim.',
+          '- "stamp": a short verdict stamped beside the face (text, max 16 characters, e.g. "MYTH", "TRUE", "SAVED").',
+          '- "focus": brackets lock on to the face when the creator talks about themselves (optional short label).',
+          "Never put two effects back to back; leave the video plain in between.",
+        ]
+      : ["effects: []"]),
+    "Write card and effect text in the same language and script as the transcript. Keep it shorter than what is said.",
     "title: a short title for the video in the transcript's language.",
-    'Reply with JSON only: {"title":string,"zooms":[{"start":n,"end":n}],"cards":[{"type":...,"start":n,"end":n,...}]}',
+    'Reply with JSON only: {"title":string,"zooms":[{"start":n,"end":n}],"cards":[{"type":...,"start":n,"end":n,...}],"effects":[{"type":...,"start":n,"end":n,...}]}',
     "",
     "Transcript:",
     timedTranscript(o.words),
@@ -84,5 +117,42 @@ export function sanitizePlan(plan: EditPlan, durationSec: number, ending: Ending
     .sort((a, b) => a.start - b.start)
     .reduce<Card[]>((kept, c) => (kept.length && c.start < kept[kept.length - 1].end ? kept : [...kept, c]), []);
   if (cards.length > 4) cards = cards.slice(0, 4);
-  return { ...plan, zooms, cards };
+  // Text effects never share the screen with a card; nothing overlaps another effect.
+  const effects = plan.effects
+    .map(clampSpan)
+    .filter((e) => e.end - e.start >= 0.8)
+    .map((e) => ({ ...e, end: Math.min(e.end, e.start + 4) }))
+    .filter((e) => !((e.type === "backdrop" || e.type === "stamp") && cards.some((c) => e.start < c.end && c.start < e.end)))
+    .sort((a, b) => a.start - b.start)
+    .reduce<Effect[]>((kept, e) => (kept.length && e.start < kept[kept.length - 1].end + 0.5 ? kept : [...kept, e]), [])
+    .slice(0, 6);
+  return { ...plan, zooms, cards, effects };
+}
+
+// Drops effects the analysis can't support: no mask → no mask effects; no face → none.
+export function supportedEffects(effects: Effect[], vision: { mask: boolean; faces: boolean }): Effect[] {
+  return effects.filter((e) => vision.faces && (vision.mask || !MASK_EFFECTS.has(e.type)));
+}
+
+const CUE: Record<Effect["type"] | Card["type"], Cue["sound"]> = {
+  backdrop: "boom",
+  spotlight: "shimmer",
+  cutout: "whoosh",
+  stamp: "stamp",
+  focus: "tick",
+  point: "pop",
+  list: "pop",
+  stat: "ding",
+  cta: "pop",
+};
+
+// Sound effects follow the edit: a whoosh on punch-ins, a pop when a card appears, and so on.
+export function soundCues(plan: EditPlan): Cue[] {
+  const cues: Cue[] = [
+    ...plan.zooms.map((z) => ({ sound: "whoosh" as const, at: Math.max(0, z.start - 0.15), volume: 0.3 })),
+    ...plan.cards.map((c) => ({ sound: CUE[c.type], at: c.start, volume: 0.45 })),
+    ...plan.effects.map((e) => ({ sound: CUE[e.type], at: e.type === "stamp" ? e.start + 0.15 : e.start, volume: e.type === "backdrop" || e.type === "stamp" ? 0.7 : 0.45 })),
+  ].sort((a, b) => a.at - b.at);
+  // Never two sounds within a quarter second.
+  return cues.reduce<Cue[]>((kept, c) => (kept.length && c.at - kept[kept.length - 1].at < 0.25 ? kept : [...kept, c]), []);
 }

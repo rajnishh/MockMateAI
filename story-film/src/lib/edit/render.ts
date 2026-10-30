@@ -18,7 +18,9 @@ import {
   THEMES,
 } from "@/lib/motion/render";
 import type { TimedWord } from "@/lib/providers/whisper";
-import type { Card, EditPlan } from "./plan";
+import { type Box, cardY, cropFor, dimBackground, drawBackdrop, drawFocus, drawPerson, drawStamp, effectAlpha, effectAt, faceOnScreen, maskToAlpha } from "./effects";
+import { type Card, type EditPlan, MASK_EFFECTS } from "./plan";
+import { faceAt, MASK_SIZE, MaskReader, type Vision } from "./vision";
 
 export const EDIT_SIZE = { w: 1080, h: 1920 };
 export const EDIT_FPS = 30;
@@ -37,6 +39,10 @@ export interface EditRenderInput {
   watermark: boolean;
   language?: string;
   fontsDir: string;
+  // Face boxes and person mask; without them, effects are skipped and zooms aim above centre.
+  vision?: Vision | null;
+  // The finished soundtrack (voice + sound effects); defaults to the source's own audio.
+  audio?: string | null;
 }
 
 // How far zoomed in the frame is at time t: eases in over 0.2 s, holds, eases out over 0.25 s.
@@ -102,14 +108,13 @@ function drawCaption(ctx: SKRSContext2D, w: number, h: number, p: Palette, cap: 
   });
 }
 
-// Cards sit in the lower middle (below a typical selfie face, above the captions) on a frosted panel.
-function drawCard(ctx: SKRSContext2D, w: number, h: number, p: Palette, card: Card, t: number, language: string) {
+// Cards sit in the lower middle (below the face, above the captions) on a frosted panel.
+function drawCard(ctx: SKRSContext2D, w: number, h: number, p: Palette, card: Card, t: number, language: string, cy = h * 0.6) {
   const local = t - card.start;
   const out = clamp01((card.end - t) / 0.25);
   const pop = easeOutBack(enter(local, 0, 0.4));
   if (pop <= 0 || out <= 0) return;
   const cx = w / 2;
-  const cy = h * 0.6;
   const panelW = w * 0.86;
   ctx.save();
   ctx.globalAlpha = out * clamp01(pop * 1.4);
@@ -220,12 +225,12 @@ export function decodeArgs(source: string, w: number, h: number): string[] {
   return ["-v", "error", "-i", source, "-vf", `scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h},fps=${EDIT_FPS},format=rgba`, "-f", "rawvideo", "-pix_fmt", "rgba", "pipe:1"];
 }
 
-// Encoder: edited frames from stdin, the creator's original audio from the source file.
-export function encodeArgs(source: string, output: string, w: number, h: number): string[] {
+// Encoder: edited frames from stdin, the soundtrack (or the creator's original audio) from a file.
+export function encodeArgs(audio: string, output: string, w: number, h: number): string[] {
   return [
     "-y", "-v", "error",
     "-f", "rawvideo", "-pix_fmt", "rgba", "-s", `${w}x${h}`, "-r", String(EDIT_FPS), "-i", "pipe:0",
-    "-i", source,
+    "-i", audio,
     "-map", "0:v", "-map", "1:a?",
     "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
     "-c:a", "aac", "-b:a", "160k",
@@ -244,8 +249,21 @@ export async function renderEdit(input: EditRenderInput): Promise<void> {
   const canvas = createCanvas(w, h);
   const ctx = canvas.getContext("2d");
   const imageData = srcCtx.createImageData(w, h);
+  const vision = input.vision ?? null;
+  const effects = vision ? input.plan.effects : [];
+  const needsMask = effects.some((e) => MASK_EFFECTS.has(e.type));
+  // Person layer: the mask (half size) scaled up, then the frame kept only where the mask is.
+  const mask = needsMask && vision ? new MaskReader(vision.mask) : null;
+  const maskC = createCanvas(MASK_SIZE.w, MASK_SIZE.h);
+  const maskCtx = maskC.getContext("2d");
+  const maskData = maskCtx.createImageData(MASK_SIZE.w, MASK_SIZE.h);
+  const person = createCanvas(w, h);
+  const personCtx = person.getContext("2d");
+  const white = createCanvas(w, h);
+  const whiteCtx = white.getContext("2d");
+  let lastMask: Buffer | null = null;
 
-  const enc = spawn("ffmpeg", encodeArgs(input.source, input.output, w, h), { stdio: ["pipe", "ignore", "pipe"] });
+  const enc = spawn("ffmpeg", encodeArgs(input.audio ?? input.source, input.output, w, h), { stdio: ["pipe", "ignore", "pipe"] });
   const dec = spawn("ffmpeg", decodeArgs(input.source, w, h), { stdio: ["ignore", "pipe", "pipe"] });
   let errors = "";
   for (const proc of [enc, dec]) proc.stderr!.on("data", (d) => (errors = (errors + d).slice(-4000)));
@@ -266,10 +284,50 @@ export async function renderEdit(input: EditRenderInput): Promise<void> {
     imageData.data.set(frame);
     srcCtx.putImageData(imageData, 0, 0);
     const z = zoomAt(input.plan.zooms, t);
-    const sw = w / z;
-    const sh = h / z;
-    ctx.drawImage(src, (w - sw) / 2, Math.max(0, Math.min(h - sh, h * FOCUS_Y - sh * FOCUS_Y)), sw, sh, 0, 0, w, h);
-    for (const card of input.plan.cards) if (t >= card.start && t <= card.end) drawCard(ctx, w, h, p, card, t, input.language ?? "en");
+    const faceN = vision ? faceAt(vision.faces, vision.fps, t) : null;
+    const crop = cropFor(z, faceN, w, h, FOCUS_Y);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, w, h);
+    const face: Box | null = faceOnScreen(faceN, crop, w, h);
+    // The mask is read every frame so it stays in step, even when no effect is showing.
+    if (mask) lastMask = (await mask.next()) ?? lastMask;
+    const effect = effectAt(effects, t);
+    if (effect && MASK_EFFECTS.has(effect.type) && lastMask) {
+      const a = effectAlpha(effect, t);
+      maskToAlpha(lastMask, maskData.data);
+      maskCtx.putImageData(maskData, 0, 0);
+      const k = MASK_SIZE.w / w;
+      personCtx.globalCompositeOperation = "source-over";
+      personCtx.clearRect(0, 0, w, h);
+      personCtx.drawImage(maskC, crop.sx * k, crop.sy * k, crop.sw * k, crop.sh * k, 0, 0, w, h);
+      personCtx.globalCompositeOperation = "source-in";
+      personCtx.drawImage(canvas, 0, 0);
+      if (effect.type === "backdrop") {
+        drawBackdrop(ctx, w, h, p, effect, t, face);
+        drawPerson(ctx, person, null, "plain", a, w);
+      } else if (effect.type === "spotlight") {
+        dimBackground(ctx, w, h, 0.72 * a);
+        drawPerson(ctx, person, null, "glow", a, w);
+      } else {
+        whiteCtx.globalCompositeOperation = "source-over";
+        whiteCtx.clearRect(0, 0, w, h);
+        whiteCtx.drawImage(person, 0, 0);
+        whiteCtx.globalCompositeOperation = "source-in";
+        whiteCtx.fillStyle = "#ffffff";
+        whiteCtx.fillRect(0, 0, w, h);
+        ctx.globalAlpha = 0.92 * a;
+        ctx.fillStyle = p.accent;
+        ctx.fillRect(0, 0, w, h);
+        ctx.globalAlpha = 1;
+        drawPerson(ctx, person, white, "outline", a, w);
+      }
+    } else if (effect?.type === "stamp") {
+      drawStamp(ctx, w, h, effect, t, face);
+    } else if (effect?.type === "focus" && face) {
+      drawFocus(ctx, w, p, effect, t, face);
+    }
+    const cy = cardY(face, h);
+    for (const card of input.plan.cards) if (t >= card.start && t <= card.end) drawCard(ctx, w, h, p, card, t, input.language ?? "en", cy);
     if (input.captions) {
       const cap = captionAt(input.words, t);
       if (cap) drawCaption(ctx, w, h, p, cap);
@@ -296,6 +354,7 @@ export async function renderEdit(input: EditRenderInput): Promise<void> {
     }
   }
   await decDone;
+  mask?.close();
   enc.stdin!.end();
   await encDone;
 }

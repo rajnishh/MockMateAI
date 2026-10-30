@@ -4,7 +4,10 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { runEditVideo } from "@/lib/edit/pipeline";
-import { buildEditPrompt, editPlanSchema, sanitizePlan, timedTranscript } from "@/lib/edit/plan";
+import { mixArgs, soundArgs, SOUNDS, voiceFilter } from "@/lib/edit/audio";
+import { cardY, cropFor, faceOnScreen } from "@/lib/edit/effects";
+import { buildEditPrompt, editPlanSchema, sanitizePlan, soundCues, supportedEffects, timedTranscript } from "@/lib/edit/plan";
+import { analyzeVideo, faceAt, MASK_SIZE } from "@/lib/edit/vision";
 import { captionAt, decodeArgs, encodeArgs, type EditRenderInput, renderEdit, zoomAt } from "@/lib/edit/render";
 import type { LlmProvider } from "@/lib/providers/types";
 import { CloudflareTranscriber } from "@/lib/providers/whisper";
@@ -95,29 +98,208 @@ describe("rendering helpers", () => {
   });
 });
 
+describe("face-aware effects", () => {
+  const face: [number, number, number, number] = [0.6, 0.3, 0.3, 0.15];
+
+  it("asks for effects only when they're on and keeps them apart from cards", () => {
+    expect(buildEditPrompt({ words, durationSec: 6, effects: true })).toContain('"backdrop"');
+    expect(buildEditPrompt({ words, durationSec: 6, effects: false })).toContain("effects: []");
+    const plan = sanitizePlan(
+      editPlanSchema.parse({
+        title: "t",
+        cards: [{ type: "point", text: "Card", start: 1, end: 3 }],
+        effects: [
+          { type: "backdrop", text: "MONEY", start: 2, end: 3 },
+          { type: "spotlight", start: 2, end: 3 },
+          { type: "stamp", text: "MYTH", start: 3.2, end: 3.6 },
+          { type: "focus", start: 4, end: 12 },
+          { type: "cutout", start: 4.5, end: 5.5 },
+        ],
+      }),
+      8,
+    );
+    // Backdrop overlaps the card; the stamp is too short; the cutout overlaps the focus.
+    expect(plan.effects.map((e) => e.type)).toEqual(["spotlight", "focus"]);
+    expect(plan.effects[1]).toMatchObject({ start: 4, end: 8 });
+  });
+
+  it("drops effects the video analysis can't support", () => {
+    const effects = editPlanSchema.parse({ title: "t", effects: [{ type: "spotlight", start: 1, end: 2 }, { type: "focus", start: 3, end: 4 }] }).effects;
+    expect(supportedEffects(effects, { faces: true, mask: false }).map((e) => e.type)).toEqual(["focus"]);
+    expect(supportedEffects(effects, { faces: false, mask: true })).toEqual([]);
+  });
+
+  it("punches in on the face and keeps cards off it", () => {
+    expect(cropFor(1, face, 1080, 1920, 0.42)).toEqual({ sx: 0, sy: 0, sw: 1080, sh: 1920 });
+    const crop = cropFor(1.25, face, 1080, 1920, 0.42);
+    // Face centre (0.75, 0.375) stays inside the crop, clamped to the right edge.
+    expect(crop.sx).toBeCloseTo(1080 - 1080 / 1.25);
+    const box = faceOnScreen(face, crop, 1080, 1920)!;
+    expect(box.w).toBeCloseTo(0.3 * 1080 * 1.25);
+    // A face low in the frame pushes the card to the top.
+    expect(cardY({ x: 300, y: 1000, w: 400, h: 400 }, 1920)).toBeCloseTo(0.3 * 1920);
+    expect(cardY({ x: 300, y: 400, w: 400, h: 300 }, 1920)).toBeCloseTo(0.6 * 1920);
+    expect(cardY(null, 1920)).toBeCloseTo(0.6 * 1920);
+  });
+
+  const hasMediapipe = (() => {
+    try {
+      execFileSync("python3", ["-c", "import mediapipe"], { stdio: "ignore" });
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+
+  it.skipIf(!hasMediapipe)("analyses a video into face boxes and a mask in the same 9:16 frame", async () => {
+    const src = path.join(dir, "vis.mp4");
+    execFileSync("ffmpeg", ["-y", "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=360x640:rate=30:duration=1", "-pix_fmt", "yuv420p", src]);
+    const v = await analyzeVideo(src, path.join(dir, "vis"));
+    expect(v).not.toBeNull();
+    expect(v!.faces).toHaveLength(30);
+    const size = execFileSync("ffprobe", ["-v", "error", "-select_streams", "v", "-show_entries", "stream=width,height", "-of", "csv=p=0", v!.mask]).toString().trim();
+    expect(size).toBe(`${MASK_SIZE.w},${MASK_SIZE.h}`);
+  }, 120_000);
+
+  it("works without the analyser, so edits never fail because of it", async () => {
+    expect(await analyzeVideo("missing.mp4", path.join(dir, "none"), { python: "no-such-python" })).toBeNull();
+  });
+
+  it("looks up the face for a time", () => {
+    expect(faceAt([face, null], 30, 0)).toEqual(face);
+    expect(faceAt([face, null], 30, 5)).toBeNull();
+    expect(faceAt([], 30, 1)).toBeNull();
+  });
+});
+
+describe("voice and sound effects", () => {
+  it("keeps the creator's own voice: cleaned, or deeper with formants kept", () => {
+    expect(voiceFilter("natural")).not.toContain("rubberband");
+    expect(voiceFilter("clear")).toContain("afftdn");
+    expect(voiceFilter("clear")).toContain("loudnorm");
+    expect(voiceFilter("deeper")).toContain("rubberband=pitch=0.89:formant=preserved");
+  });
+
+  it("puts a sound on each moment, never two at once", () => {
+    const plan = editPlanSchema.parse({
+      title: "t",
+      zooms: [{ start: 2, end: 3 }],
+      cards: [{ type: "stat", value: 3, label: "ways", start: 1.9, end: 4 }],
+      effects: [{ type: "stamp", text: "MYTH", start: 5, end: 6 }],
+    });
+    expect(soundCues(plan).map((c) => [c.sound, c.at])).toEqual([
+      ["whoosh", 1.85],
+      ["stamp", 5.15],
+    ]);
+  });
+
+  it("mixes the voice and every cue in one FFmpeg command", () => {
+    const args = mixArgs({
+      source: "in.mp4",
+      voice: "clear",
+      durationSec: 6,
+      cues: [{ sound: "pop", at: 1 }, { sound: "pop", at: 2.5 }, { sound: "boom", at: 4, volume: 0.7 }],
+      files: { pop: "pop.wav", boom: "boom.wav" },
+      output: "out.m4a",
+    });
+    const graph = args[args.indexOf("-filter_complex") + 1];
+    expect(graph).toContain("asplit=2");
+    expect(graph).toContain("adelay=2500|2500");
+    expect(graph).toContain("amix=inputs=4");
+    expect(graph).toContain("afftdn");
+    // A silent video gets a silent bed so the sounds still play.
+    expect(mixArgs({ source: null, voice: "deeper", durationSec: 2, cues: [{ sound: "pop", at: 0 }], files: { pop: "p.wav" }, output: "o.m4a" }).join(" ")).toContain("anullsrc");
+  });
+
+  it("synthesises every sound effect", () => {
+    for (const s of Object.keys(SOUNDS) as (keyof typeof SOUNDS)[]) {
+      const file = path.join(dir, `${s}.wav`);
+      execFileSync("ffmpeg", soundArgs(s, file));
+      const d = Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file]).toString());
+      expect(d).toBeCloseTo(SOUNDS[s].d, 1);
+    }
+  }, 30_000);
+});
+
 describe("edit pipeline", () => {
   it("transcribes, plans and renders; skips the AI plan when nothing is said", async () => {
     const llm = { modelId: "llama-3.3-70b", writeScript: async () => ({}) as never, completeJson: async () => ({ title: "Save money", zooms: [{ start: 1, end: 2 }], cards: [] }) } as unknown as LlmProvider;
     const transcriber = { modelId: "whisper", transcribe: async () => ({ text: "x", language: "en", words }) };
     let rendered: EditRenderInput | undefined;
     const stages: string[] = [];
-    const deps = { llm, transcriber, probeDuration: async () => 6, extractAudio: async (_src: string, wav: string) => (writeFileSync(wav, "wav"), true), render: async (i: EditRenderInput) => void (rendered = i) };
+    const mixes: unknown[] = [];
+    const deps = {
+      llm,
+      transcriber,
+      probeDuration: async () => 6,
+      extractAudio: async (_src: string, wav: string) => (writeFileSync(wav, "wav"), true),
+      render: async (i: EditRenderInput) => void (rendered = i),
+      analyze: async () => null,
+      mixAudio: async (o: { output: string }) => (mixes.push(o), o.output),
+    };
     const res = await runEditVideo(deps, { source: "in.mp4", watermark: true, ending: "none" }, path.join(dir, "a"), (s) => void stages.push(s));
     expect(stages).toEqual(["script", "assemble", "done"]);
     expect(res.title).toBe("Save money");
-    expect(rendered).toMatchObject({ captions: true, words, plan: { zooms: [{ start: 1, end: 2 }] } });
+    expect(rendered).toMatchObject({ captions: true, words, plan: { zooms: [{ start: 1, end: 2 }], effects: [] }, vision: null });
+    // The zoom gets a whoosh, so a soundtrack is mixed.
+    expect(mixes).toHaveLength(1);
+    expect(rendered!.audio).toMatch(/soundtrack\.m4a$/);
 
     const silent = await runEditVideo({ ...deps, extractAudio: async () => false }, { source: "in.mp4", watermark: false }, path.join(dir, "b"));
     expect(silent.title).toBe("My video");
     expect(rendered!.words).toEqual([]);
   });
 
-  it("renders a real edit: 1080x1920, same length, audio kept", async () => {
+  it("keeps effects when the person is found, and leaves the audio alone when nothing changes it", async () => {
+    const llm = {
+      modelId: "llama-3.3-70b",
+      completeJson: async () => ({ title: "t", effects: [{ type: "spotlight", start: 1, end: 2 }, { type: "focus", start: 3, end: 4 }] }),
+    } as unknown as LlmProvider;
+    const transcriber = { modelId: "whisper", transcribe: async () => ({ text: "x", language: "en", words }) };
+    let rendered: EditRenderInput | undefined;
+    let mixed = false;
+    const vision = { fps: 30, faces: [[0.3, 0.3, 0.3, 0.15] as [number, number, number, number]], mask: "mask.mkv" };
+    const deps = {
+      llm,
+      transcriber,
+      probeDuration: async () => 6,
+      extractAudio: async (_src: string, wav: string) => (writeFileSync(wav, "wav"), true),
+      render: async (i: EditRenderInput) => void (rendered = i),
+      analyze: async () => vision,
+      mixAudio: async () => ((mixed = true), "x"),
+    };
+    await runEditVideo(deps, { source: "in.mp4", watermark: false, sounds: false }, path.join(dir, "c"));
+    expect(rendered!.plan.effects.map((e) => e.type)).toEqual(["spotlight", "focus"]);
+    expect(rendered!.vision).toBe(vision);
+    expect(mixed).toBe(false);
+    expect(rendered!.audio).toBeNull();
+
+    await runEditVideo(deps, { source: "in.mp4", watermark: false, sounds: false, effects: false, voice: "deeper" }, path.join(dir, "d"));
+    expect(rendered!.plan.effects).toEqual([]);
+    expect(mixed).toBe(true);
+  });
+
+  it("renders a real edit with every effect: 1080x1920, same length, audio kept", async () => {
     const src = path.join(dir, "src.mp4");
     execFileSync("ffmpeg", ["-y", "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=360x640:rate=30:duration=2", "-f", "lavfi", "-i", "sine=duration=2", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-shortest", src]);
     const output = path.join(dir, "out.mp4");
-    const plan = { title: "t", zooms: [{ start: 0.5, end: 1.2 }], cards: [{ type: "point" as const, text: "Big idea", start: 0.2, end: 1.8 }] };
-    await renderEdit({ source: src, output, durationSec: 2, plan, words: words.slice(0, 3), captions: true, watermark: true, fontsDir: path.resolve("assets/fonts") });
+    // A fake analysis: a face in the upper middle and a person mask in the centre.
+    const mask = path.join(dir, "mask.mkv");
+    execFileSync("ffmpeg", ["-y", "-v", "error", "-f", "lavfi", "-i", `color=black:size=${MASK_SIZE.w}x${MASK_SIZE.h}:rate=30:duration=2,drawbox=x=135:y=200:w=270:h=760:color=white:t=fill,format=gray`, "-c:v", "ffv1", mask]);
+    const vision = { fps: 30, faces: Array(60).fill([0.35, 0.25, 0.3, 0.15]), mask };
+    const plan = editPlanSchema.parse({
+      title: "t",
+      zooms: [{ start: 0.5, end: 1.2 }],
+      cards: [{ type: "point", text: "Big idea", start: 0.2, end: 0.9 }],
+      effects: [
+        { type: "backdrop", text: "WOW", start: 0, end: 0.5 },
+        { type: "spotlight", start: 0.9, end: 1.3 },
+        { type: "cutout", start: 1.3, end: 1.6 },
+        { type: "stamp", text: "MYTH", start: 1.6, end: 1.8 },
+        { type: "focus", label: "Me", start: 1.8, end: 2 },
+      ],
+    });
+    await renderEdit({ source: src, output, durationSec: 2, plan, words: words.slice(0, 3), captions: true, watermark: true, fontsDir: path.resolve("assets/fonts"), vision });
     const info = JSON.parse(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration:stream=codec_type,width,height", "-of", "json", output]).toString());
     expect(Number(info.format.duration)).toBeCloseTo(2, 0);
     expect(info.streams.find((s: { codec_type: string }) => s.codec_type === "video")).toMatchObject({ width: 1080, height: 1920 });

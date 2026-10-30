@@ -287,8 +287,29 @@ Prices move monthly; waoowaoo and several other licenses unverified; EvoLink is 
     - **Rendering:** FFmpeg decodes to 1080×1920 RGBA (crop to fill); Skia draws the zoom (aimed slightly above centre), the cards, word-timed captions on a dark pill, the handle and the free-plan label; FFmpeg encodes with the original audio. An 8-second clip renders in about 10 seconds.
     - **No Content Credentials:** the creator's own footage is not marked as AI-generated.
     - **Open items:**
-      - Face tracking and person cut-out (step 2: OpenCV YuNet + MediaPipe, both permissively licensed).
+      - ~~Face tracking and person cut-out~~ (done in step 2, decision 29).
       - Editing captions before rendering.
       - Landscape videos are cropped, not padded.
       - Uploaded originals stay on disk and need clean-up when an account is deleted.
       - Test Whisper's Hindi and Hinglish accuracy on real creator clips.
+29. **Edit my video, step 2: effects around the creator, sounds and voice (2026-10-30).** Built from the "24 effects in one take" reel: one plain take, effects placed where the creator is in the frame.
+    - **Vision:** `vision/analyze.py` runs MediaPipe's BlazeFace (short range) and Selfie Segmenter on CPU. Both models are Apache-2.0, about 0.5 MB, and kept in `vision/models`. It analyses the same 9:16 crop at 540×960 and writes `faces.json` (smoothed face box per frame) and `mask.mkv` (grayscale FFV1). A 6-second clip takes about 5 seconds. The worker spawns it; if Python or the models are missing, edits still render without effects. The image adds `python3`, a venv with `mediapipe==1.2.0`, and `libegl1`/`libgles2`, which MediaPipe loads even on CPU.
+    - **Effects (AI-planned, 2–5 per video, 0.8–4 s each, never overlapping each other):**
+      - `backdrop`: a big word behind the creator. Their mask is drawn over the word.
+      - `spotlight`: the background dims, with a warm glow around the person.
+      - `cutout`: the creator becomes a sticker with a white outline over the brand colour.
+      - `stamp`: a slammed verdict beside the face.
+      - `focus`: corner brackets lock on to the face, with a label.
+      Backdrop and stamp never share the screen with a card. Effects the analysis can't support are dropped.
+    - **Face-aware layout:** punch-in zooms centre on the face, and cards move above or below it.
+    - **Sound effects:** pop, ding, boom, tick, shimmer, whoosh and stamp are synthesised with FFmpeg, so we own them outright (no licences, no attribution). They are placed automatically: a whoosh before a zoom, a pop or ding on a card, a boom on a backdrop, and so on. Never two within 0.25 s.
+    - **Your voice:** three options.
+      - As recorded: unchanged.
+      - Clear: noise reduction, EQ, compression and loudness normalised to −14 LUFS.
+      - Deeper: Clear plus a pitch drop of about 2 semitones with formants preserved (Rubber Band), and a low-end lift.
+      It stays the creator's own voice and in sync with their lips. We don't offer voice conversion into someone else's voice.
+    - **Open items:**
+      - Let creators toggle or swap single effects before rendering.
+      - More effects: giant captions behind the person, countdown, checklist beside the head.
+      - Check the Deeper voice on women's and children's voices; maybe offer two strengths.
+      - Run the vision step in a separate worker if CPU becomes the bottleneck.

@@ -1,3 +1,4 @@
+import { VOICES } from "@/lib/edit/audio";
 import { ENDINGS } from "@/lib/motion/script";
 import { STYLE_IDS } from "@/lib/styles";
 import { Queue } from "bullmq";
@@ -71,6 +72,9 @@ export const editRequestSchema = z.object({
   language: z.enum(["auto", ...LANGUAGE_CODES]).default("auto"),
   captions: z.boolean().default(true),
   zooms: z.boolean().default(true),
+  effects: z.boolean().default(true),
+  sounds: z.boolean().default(true),
+  voice: z.enum(VOICES).default("natural"),
   ending: z.enum(ENDINGS).default("auto"),
   keyword: z.string().trim().max(20).regex(/^[\p{L}\p{N}_-]*$/u, "One word, no spaces").optional(),
   brand: z
