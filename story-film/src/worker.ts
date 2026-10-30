@@ -14,6 +14,8 @@ import { type MyVoiceJob, SONG_QUEUE, type SongJob, type SongQueueJob } from "@/
 import { singInMyVoice } from "@/lib/voice/sing";
 import { updateSong } from "@/lib/songs/songs";
 import { type EditJob, type EditRenderJob, FILM_QUEUE, type FilmJob, type FilmQueueJob, getRedis, type MusicVideoJob } from "@/lib/queue/films";
+import { onReelFinished } from "@/lib/agent/agent";
+import { agentDeps } from "@/lib/agent/deps";
 import { loadEditState, planEdit, renderPlannedEdit } from "@/lib/edit/pipeline";
 import { runMotionReel } from "@/lib/motion/pipeline";
 import { runMusicVideo } from "@/lib/music-video/pipeline";
@@ -97,6 +99,8 @@ const filmWorker = new Worker<FilmQueueJob>(
       contentCredentials,
       completedAt: new Date(),
     });
+    // Posts Ask Reelkar promised for this reel go out now.
+    await onReelFinished(agentDeps(), filmId).catch((err) => console.error(`agent posts for ${filmId} failed:`, err));
     return result;
   },
   // Each film fans out its own parallel API calls; keep films per worker low.
@@ -113,6 +117,7 @@ filmWorker.on("failed", async (job, err) => {
       return;
     }
     await updateFilm(db, filmIdOf(job), { status: "failed", error: err.message.slice(0, 500) });
+    await onReelFinished(agentDeps(), filmIdOf(job)).catch(() => undefined);
     if ("quotaKey" in job.data && job.data.quotaKey) await new RedisQuotaStore(getRedis()).decrement(job.data.quotaKey);
     if (job.data.credits > 0) await grantCredits(db, job.data.userId, job.data.credits, "refund", job.id!);
   }

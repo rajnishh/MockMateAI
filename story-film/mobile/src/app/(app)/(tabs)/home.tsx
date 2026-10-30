@@ -72,6 +72,16 @@ export default function Home() {
             </Txt>
           </Hero>
           {ready.length >= 3 ? <Win text={`You've made ${ready.length} reels. Keep going!`} /> : null}
+          <Card onPress={() => router.push("/ask")}>
+            <Row style={{ alignItems: "center" }}>
+              <Icon name="sparkle" color={colors.tealText} />
+              <View style={{ flex: 1, gap: 2 }}>
+                <Txt variant="label">Ask Reelkar</Txt>
+                <Txt variant="cap">Tell me what to make and when to post. I&apos;ll do the rest.</Txt>
+              </View>
+              <Icon name="right" color={colors.inkMuted} size={18} />
+            </Row>
+          </Card>
           {toCheck ? (
             <Banner kind="info" title="Your video is ready to check" text="Look over its effects, then render it." action={<Button label="Check" small onPress={() => router.push(`/edit/${toCheck.id}`)} />} />
           ) : null}

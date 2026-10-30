@@ -94,6 +94,34 @@ export interface NewPost {
 // How the creator's own voice is processed: as recorded, cleaned and levelled, or a little deeper.
 export type Voice = "natural" | "clear" | "deeper";
 
+// Ask Reelkar, the built-in agent (mirrors story-film/src/lib/agent/cards.ts).
+export type PostingMode = "ask" | "auto_schedule" | "auto_now";
+export type AgentCard =
+  | { type: "ideas"; ideas: { title: string; idea: string }[]; format: "story" | "motion"; language?: string }
+  | { type: "reel"; reelId: string; title: string; status: string; note?: string }
+  | { type: "reels"; reels: { reelId: string; title: string; status: string; format: string }[] }
+  | { type: "proposal"; actionId: string; text: string; status: "proposed" | "waiting" | "done" | "cancelled" | "failed" }
+  | { type: "post"; text: string; status: "scheduled" | "waiting"; at: string | null; reelId: string }
+  | { type: "caption"; reelId: string; platform: string; text: string }
+  | { type: "connect"; text: string }
+  | { type: "settings"; postingMode: PostingMode }
+  | { type: "credits"; text: string }
+  | { type: "error"; text: string };
+export interface AgentMessage {
+  id: string;
+  role: "user" | "assistant";
+  text: string;
+  cards: AgentCard[];
+  createdAt: string;
+}
+// Sent with each agent request: the device's time zone and the creator's saved preferences.
+export interface AgentTurn {
+  timeZone?: string;
+  language?: string;
+  topic?: string;
+  brand?: { accent?: string; background?: "light" | "dark"; handle?: string };
+}
+
 // The edit plan for "Edit my video" (mirrors story-film/src/lib/edit/plan.ts).
 export type Span = { start: number; end: number };
 export type EditCard = (
@@ -229,6 +257,14 @@ const real = {
   // Saves the creator's changes and renders the video (again).
   saveEdit: (id: string, changes: EditChanges) =>
     call<{ id: string; rendersLeft: number }>(`/api/edits/${id}`, { method: "PUT", body: JSON.stringify(changes) }),
+  agent: () => call<{ messages: AgentMessage[]; postingMode: PostingMode; freeLeft: number | null }>("/api/agent"),
+  agentSend: async (text: string, turn: AgentTurn) => (await call<{ messages: AgentMessage[] }>("/api/agent", { method: "POST", body: JSON.stringify({ ...turn, text }) })).messages,
+  // A card button: runs one action without the AI.
+  agentAction: async (name: string, input: unknown, label: string, turn: AgentTurn) =>
+    (await call<{ messages: AgentMessage[] }>("/api/agent/actions", { method: "POST", body: JSON.stringify({ ...turn, name, input, label }) })).messages,
+  agentDecide: async (actionId: string, approve: boolean, turn: AgentTurn) =>
+    (await call<{ messages: AgentMessage[] }>(`/api/agent/actions/${actionId}`, { method: "POST", body: JSON.stringify({ ...turn, approve }) })).messages,
+  setPostingMode: (postingMode: PostingMode) => call<{ postingMode: PostingMode }>("/api/agent/settings", { method: "PUT", body: JSON.stringify({ postingMode }) }),
   accounts: () => call<Accounts>("/api/accounts"),
   // Returns the provider's sign-in page; the app opens it in the in-app browser.
   connectUrl: async (platform: SocialPlatform) => (await call<{ url: string }>(`/api/connect/${platform}`, { method: "POST" })).url,
@@ -306,6 +342,34 @@ function demoDraft(): EditDraft {
   };
 }
 const demoDrafts = new Map<string, EditDraft>();
+
+// Demo agent: a few scripted answers so the screen can be tried without a server.
+const demoChat: AgentMessage[] = [];
+let demoMode: PostingMode = "ask";
+const demoProposals = new Map<string, { reelId: string; text: string; status: "proposed" | "waiting" | "done" | "cancelled" | "failed" }>();
+function demoSay(role: "user" | "assistant", text: string, cards: AgentCard[] = []) {
+  demoChat.push({ id: `m${demoChat.length}`, role, text, cards, createdAt: new Date().toISOString() });
+}
+function demoReel(title: string): AgentCard {
+  const f: Film = { ...sample(`d${Date.now()}${demoFilms.length}`, title, "queued", 0), format: "motion" };
+  demoFilms.push(f);
+  return { type: "reel", reelId: f.id, title, status: "queued" };
+}
+function demoPost(reelId: string, title: string): AgentCard {
+  const text = `Post “${title}” to Instagram tomorrow, 7:30 pm`;
+  if (demoMode !== "ask") return { type: "post", reelId, status: "waiting", at: null, text: `Will post “${title}” when it's ready` };
+  const actionId = `a${demoProposals.size + 1}`;
+  demoProposals.set(actionId, { reelId, text, status: "proposed" });
+  return { type: "proposal", actionId, text, status: "proposed" };
+}
+function demoHistory(): AgentMessage[] {
+  return demoChat.map((m) => ({
+    ...m,
+    cards: m.cards.map((c) =>
+      c.type === "reel" ? { ...c, status: demoFilms.find((f) => f.id === c.reelId)?.status ?? c.status } : c.type === "proposal" ? { ...c, status: demoProposals.get(c.actionId)?.status ?? c.status } : c,
+    ),
+  }));
+}
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -394,6 +458,61 @@ const demo: typeof real = {
     demoDrafts.set(id, { ...d, plan, options, words: words ?? d.words, rendersLeft: rerender ? (d.rendersLeft ?? 5) - 1 : 5 });
     Object.assign(f, { status: "queued", stage: "assemble", title: plan.title });
     return { id, rendersLeft: rerender ? (d.rendersLeft ?? 5) - 1 : 5 };
+  },
+  agent: async () => (await wait(200), { messages: demoHistory(), postingMode: demoMode, freeLeft: 3 }),
+  agentSend: async (text) => {
+    await wait(700);
+    demoSay("user", text);
+    const t = text.toLowerCase();
+    if (/idea|vichar|सुझाव/.test(t)) {
+      demoSay("assistant", "Ye rahe kuch ideas, jo pasand aaye us par “Make this” dabao.", [
+        {
+          type: "ideas",
+          format: "motion",
+          ideas: [
+            { title: "3 chai hacks", idea: "Three quick tricks for dhaba-style chai at home." },
+            { title: "Chai vs coffee", idea: "Which one is better for your mornings, with three simple facts." },
+            { title: "Masala chai in 5 min", idea: "A five-minute masala chai with a countdown on screen." },
+          ],
+        },
+      ]);
+    } else if (/week|hafte|हफ्ते/.test(t)) {
+      const cards: AgentCard[] = [];
+      for (const title of ["Chai hack 1", "Chai hack 2", "Chai hack 3"]) {
+        const reel = demoReel(title) as Extract<AgentCard, { type: "reel" }>;
+        cards.push(reel, demoPost(reel.reelId, title));
+      }
+      demoSay("assistant", "Is hafte ke 3 reels bana rahi hoon, roz shaam 7:30 baje ke liye.", cards);
+    } else if (/reel|banao|make|बनाओ/.test(t)) {
+      const reel = demoReel("3 chai hacks") as Extract<AgentCard, { type: "reel" }>;
+      demoSay("assistant", "Reel bana rahi hoon. Post karne se pehle aapse puchungi.", [reel, demoPost(reel.reelId, "3 chai hacks")]);
+    } else {
+      demoSay("assistant", "Main reels bana sakti hoon, ideas de sakti hoon aur post schedule kar sakti hoon. Kya banana hai?");
+    }
+    return demoHistory();
+  },
+  agentAction: async (name, input, label) => {
+    await wait(500);
+    demoSay("user", label);
+    if (name === "make_reel") {
+      const title = (input as { title?: string }).title ?? "New reel";
+      demoSay("assistant", "", [demoReel(title)]);
+    }
+    return demoHistory();
+  },
+  agentDecide: async (actionId, approve) => {
+    await wait(300);
+    const p = demoProposals.get(actionId);
+    if (p && p.status === "proposed") {
+      p.status = approve ? "done" : "cancelled";
+      demoSay("assistant", approve ? "" : "Okay, I won't post it.", approve ? [{ type: "post", reelId: p.reelId, status: "scheduled", at: null, text: p.text.replace(/^Post/, "Scheduled") }] : []);
+    }
+    return demoHistory();
+  },
+  setPostingMode: async (postingMode) => {
+    await wait(200);
+    demoMode = postingMode;
+    return { postingMode };
   },
   accounts: async () => (await wait(200), { instagramAvailable: true, youtubeAvailable: true, accounts: [...demoAccounts] }),
   connectUrl: async (platform) => {

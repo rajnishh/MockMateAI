@@ -364,3 +364,28 @@ Prices move monthly; waoowaoo and several other licenses unverified; EvoLink is 
       - **Caption words are now the source of truth.** Typing in a caption line is applied when the field loses focus (or at render), so the line doesn't regroup while you type. Retimed words are sent with the render like fixed text.
       - **Fixed:** the wide timeline widened the whole screen on web (a flex child's default `min-width: auto`). It now scrolls inside its own box.
       - On a very short clip, "Fit" is already past the word threshold, so the lane shows words straight away.
+
+31. **Ask Reelkar, the built-in agent (2026-10-30).** Creators type (in any language) what to make and when to post; the agent does it and shows each step as a card. This is the first of three ways in: built-in agent (free, our models), then a Reelkar connector inside Claude, ChatGPT, Grok, Cursor and others (their subscription does the thinking), then bring-your-own API key. Subscriptions themselves can't be plugged into another app; the connector direction is the allowed one.
+    - **Actions** (`src/lib/agent/actions.ts`, one zod schema each, written to double as connector tools):
+      - `suggest_ideas`, `make_reel`, `make_week`, `post_reel`, `write_caption`, `list_reels`, `change_edit`, `set_posting_mode`.
+      - Film creation and edit re-renders moved into shared services (`startFilm`, `rerenderEdit`), so the app and the agent follow the same quota, credit and validation rules.
+    - **Planning:** one AI call per message returns a short reply plus up to 5 actions. Reels are referred to as R1… (newest existing) and N1… (made in this reply).
+      - The context includes local time and time zone, language, topic, free reels left, posting mode, connected accounts and recent turns.
+      - Unknown actions are ignored, and bad input becomes a readable error card. If the AI's answer can't be used, the agent replies with a friendly fallback.
+    - **Posting mode** (per creator, migration 0014):
+      - Ask me first (default): each post is a proposal card with Approve or Cancel.
+      - Auto-schedule: the next 7:30 pm slot in the creator's time zone unless a time is given.
+      - Auto-post: as soon as the reel is ready.
+      - Approvals are claimed atomically (no double posts).
+      - A post for a reel still being made waits; the worker sends it out when the reel finishes, with an AI caption per platform. A time that passed meanwhile becomes "now".
+    - **Free plan:**
+      - One weekly reel allowance whether reels are made in the app, by the agent or (later) from Claude/ChatGPT.
+      - The agent answers 40 messages a day.
+      - "Make my week" stops when free reels and credits run out.
+    - **Apps:** mobile "Ask Reelkar" screen, opened from Home. It has a chat, starter prompts, a posting-mode switch, and cards with Make this, Approve/Cancel, Open/Progress, Copy caption, Connect and Get credits. The demo mode has a scripted agent. Web chat is next.
+    - **API:**
+      - `GET/POST /api/agent`: history, posting mode, free reels left; send a message.
+      - `POST /api/agent/actions`: one action without the AI.
+      - `POST /api/agent/actions/[id]`: approve or cancel.
+      - `PUT /api/agent/settings`.
+

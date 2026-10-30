@@ -1,6 +1,6 @@
 import { STYLE_IDS } from "@/lib/styles";
 import { relations } from "drizzle-orm";
-import { type AnyPgColumn, boolean, index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { type AnyPgColumn, boolean, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { user } from "./auth-schema";
 
 export const filmStyle = pgEnum("film_style", STYLE_IDS);
@@ -240,6 +240,55 @@ export const song = pgTable(
     completedAt: timestamp("completed_at"),
   },
   (t) => [index("song_user_created_idx").on(t.userId, t.createdAt)],
+);
+
+// "Ask Reelkar", the built-in agent. How it may post: always ask first, schedule on its own, or post at once.
+export const postingMode = pgEnum("posting_mode", ["ask", "auto_schedule", "auto_now"]);
+export const agentRole = pgEnum("agent_role", ["user", "assistant"]);
+// proposed: waits for the creator's approval; waiting: approved, waits for its reel to finish.
+export const agentActionStatus = pgEnum("agent_action_status", ["proposed", "waiting", "done", "cancelled", "failed"]);
+
+export const agentSettings = pgTable("agent_settings", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  postingMode: postingMode("posting_mode").notNull().default("ask"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const agentMessage = pgTable(
+  "agent_message",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    role: agentRole("role").notNull(),
+    text: text("text").notNull().default(""),
+    // What the agent did, shown as cards (reels, posts, approvals...).
+    cards: jsonb("cards").notNull().default([]),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("agent_message_user_created_idx").on(t.userId, t.createdAt)],
+);
+
+export const agentAction = pgTable(
+  "agent_action",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    // Fully resolved input (film, accounts, time), so approving later does exactly what was shown.
+    input: jsonb("input").notNull(),
+    status: agentActionStatus("status").notNull(),
+    filmId: uuid("film_id").references(() => film.id, { onDelete: "cascade" }),
+    error: text("error"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [index("agent_action_user_idx").on(t.userId, t.createdAt), index("agent_action_film_idx").on(t.filmId, t.status)],
 );
 
 export const characterRelations = relations(character, ({ one, many }) => ({
