@@ -12,7 +12,7 @@ export default function Reels() {
   const films = useData(() => api.films());
   const [filter, setFilter] = useState<Filter>("all");
   const list = (films.data ?? []).filter((f) =>
-    filter === "all" ? true : filter === "ready" ? f.status === "completed" : filter === "failed" ? f.status === "failed" : f.status === "queued" || f.status === "running",
+    filter === "all" ? true : filter === "ready" ? f.status === "completed" : filter === "failed" ? f.status === "failed" : f.status === "queued" || f.status === "running" || f.status === "review",
   );
   return (
     <Screen>

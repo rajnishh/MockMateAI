@@ -14,6 +14,12 @@ export async function updateFilm(db: Db, id: string, values: Partial<NewFilm>): 
   await db.update(film).set(values).where(eq(film.id, id));
 }
 
+// Changes the film only if it is still in the expected status; false when something else changed it first.
+export async function updateFilmIf(db: Db, id: string, status: Film["status"], values: Partial<NewFilm>): Promise<boolean> {
+  const rows = await db.update(film).set(values).where(and(eq(film.id, id), eq(film.status, status))).returning({ id: film.id });
+  return rows.length > 0;
+}
+
 // Always scoped by user so one user can never read another's film.
 export async function getFilm(db: Db, userId: string, id: string): Promise<Film | undefined> {
   const [row] = await db.select().from(film).where(and(eq(film.id, id), eq(film.userId, userId)));

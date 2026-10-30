@@ -8,6 +8,7 @@ import { Status, Txt } from "./ui";
 export function filmStatus(f: Film) {
   if (f.status === "completed") return <Status kind="ok" text="Ready" />;
   if (f.status === "failed") return <Status kind="error" text="Failed" />;
+  if (f.status === "review") return <Status kind="warn" text="Check effects" />;
   return <Status kind="making" text="Making" />;
 }
 
@@ -19,7 +20,7 @@ export function ReelGrid({ films, columns = 2 }: { films: Film[]; columns?: numb
           key={f.id}
           accessibilityRole="link"
           accessibilityLabel={f.title ?? "Untitled reel"}
-          onPress={() => router.push(f.status === "completed" ? `/reel/${f.id}` : `/making/${f.id}`)}
+          onPress={() => router.push(f.status === "completed" ? `/reel/${f.id}` : f.status === "review" ? `/edit/${f.id}` : `/making/${f.id}`)}
           style={[styles.cell, { width: `${100 / columns - 3}%` }]}>
           <ReelThumb seed={i} playable={f.status === "completed"} />
           <Txt variant="label" numberOfLines={2}>

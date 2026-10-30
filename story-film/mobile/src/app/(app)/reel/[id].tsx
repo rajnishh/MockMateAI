@@ -114,6 +114,10 @@ export default function Reel() {
         {url && headers ? <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="cover" nativeControls /> : film ? <ReelThumb seed={0} playable /> : <Skeleton height={420} />}
       </View>
       {error ? <Banner kind="error" text={error} /> : null}
+      {film?.error ? <Banner kind="warn" text={film.error} /> : null}
+      {film?.format === "edit" ? (
+        <Button label="Fine-tune effects" icon="edit" kind="secondary" block onPress={() => router.push(`/edit/${id}`)} />
+      ) : null}
       {note ? <Banner kind="info" text={note} action={<Button label="Calendar" small kind="secondary" onPress={() => router.push("/calendar")} />} /> : null}
 
       <Card>

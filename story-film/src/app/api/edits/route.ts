@@ -52,6 +52,7 @@ export async function POST(req: Request) {
     effects: flag("effects"),
     sounds: flag("sounds"),
     voice: form.get("voice") ?? undefined,
+    review: form.get("review") === "true",
     ending: form.get("ending") ?? undefined,
     keyword: form.get("keyword") || undefined,
     brand,

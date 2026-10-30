@@ -309,7 +309,29 @@ Prices move monthly; waoowaoo and several other licenses unverified; EvoLink is 
       - Deeper: Clear plus a pitch drop of about 2 semitones with formants preserved (Rubber Band), and a low-end lift.
       It stays the creator's own voice and in sync with their lips. We don't offer voice conversion into someone else's voice.
     - **Open items:**
-      - Let creators toggle or swap single effects before rendering.
+      - ~~Let creators toggle or swap single effects before rendering~~ (decision 30).
       - More effects: giant captions behind the person, countdown, checklist beside the head.
       - Check the Deeper voice on women's and children's voices; maybe offer two strengths.
       - Run the vision step in a separate worker if CPU becomes the bottleneck.
+30. **Edit my video: review and fine-tune each effect (2026-10-30).** Creators can check the effects before rendering, after it, or both.
+    - **Plan and render are separate steps:**
+      - `planEdit` transcribes, analyses and plans, then saves `edit.json`: request, transcript, plan, what the analysis found, and the re-render count.
+      - `renderPlannedEdit` mixes the soundtrack and draws the edit from that file.
+      - A re-render never transcribes, analyses or calls the AI again, so it costs only CPU time.
+    - **Review before rendering:** opt-in with "Let me check the effects first".
+      - The `edit` job stops after planning with the new film status `review` (migration 0013).
+      - The app opens the moments screen.
+      - `PUT /api/edits/[id]` saves the changes and queues an `edit-render` job. Its job id is not the film id, so the job names the film.
+      - The upload's charge travels with that first render, so it is refunded if the render fails.
+    - **Fine-tune after:** the finished video shows "Fine-tune effects".
+      - Up to 5 free re-renders per video; the count is kept in `edit.json`.
+      - The old video stays until the new one is ready. If a re-render fails, the film goes back to completed with a note.
+      - A conditional status update stops a double tap from starting two renders.
+    - **The moments screen** (mobile `edit/[id]`, web `EditMoments`):
+      - Every effect, card and zoom is listed in time order with the words said at that moment.
+      - Each can be turned on or off.
+      - Effects can be swapped to another type. Only types the analysis supports are offered: without an outline, there's no backdrop, spotlight or cut-out.
+      - Text can be fixed: the backdrop word, stamp and label, and card text and list items. Switching to a text effect starts from the longest word said then.
+      - Captions, sound effects and voice can be changed too.
+      - The server sanitises the changes the same way it sanitises the AI's plan. The app warns when a backdrop or stamp would be hidden by a card at the same time.
+    - **Not yet:** moving or stretching moments in time, adding new moments, editing caption words.

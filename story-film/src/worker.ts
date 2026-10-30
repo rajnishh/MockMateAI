@@ -13,8 +13,8 @@ import { buildPipelineDeps, buildSingDeps, buildSongProvider, buildTranscriber, 
 import { type MyVoiceJob, SONG_QUEUE, type SongJob, type SongQueueJob } from "@/lib/queue/songs";
 import { singInMyVoice } from "@/lib/voice/sing";
 import { updateSong } from "@/lib/songs/songs";
-import { type EditJob, FILM_QUEUE, type FilmJob, type FilmQueueJob, getRedis, type MusicVideoJob } from "@/lib/queue/films";
-import { runEditVideo } from "@/lib/edit/pipeline";
+import { type EditJob, type EditRenderJob, FILM_QUEUE, type FilmJob, type FilmQueueJob, getRedis, type MusicVideoJob } from "@/lib/queue/films";
+import { loadEditState, planEdit, renderPlannedEdit } from "@/lib/edit/pipeline";
 import { runMotionReel } from "@/lib/motion/pipeline";
 import { runMusicVideo } from "@/lib/music-video/pipeline";
 import { CloudflareWhisper } from "@/lib/providers/whisper";
@@ -40,23 +40,37 @@ function isEdit(job: Job<FilmQueueJob>): job is Job<EditJob> {
   return job.name === "edit";
 }
 
+function isEditRender(job: Job<FilmQueueJob>): job is Job<EditRenderJob> {
+  return job.name === "edit-render";
+}
+
 function isMusicVideo(job: Job<FilmQueueJob>): job is Job<MusicVideoJob> {
   return job.name === "music-video";
 }
 
-// Job ids are film row ids, so progress is written straight to the film.
+// Job ids are film row ids (except edit re-renders, which name their film), so progress is written straight to the film.
+const filmIdOf = (job: Job<FilmQueueJob>) => (isEditRender(job) ? job.data.filmId : job.id!);
+
 const filmWorker = new Worker<FilmQueueJob>(
   FILM_QUEUE,
   async (job) => {
-    const filmId = job.id!;
+    const filmId = filmIdOf(job);
     const workDir = path.resolve(env.OUTPUT_DIR, filmId);
     const onStage = (stage: string) => updateFilm(db, filmId, { stage });
     await updateFilm(db, filmId, { status: "running", error: null });
     let result;
     let description: string | undefined;
+    // The creator's own footage: no Content Credentials claiming it was AI-generated.
     if (isEdit(job)) {
-      // The creator's own footage: no Content Credentials claiming it was AI-generated.
-      result = await runEditVideo({ llm: depsFor("standard").llm, transcriber: buildTranscriber(env), fontsDir: env.FONTS_DIR }, job.data, workDir, onStage);
+      const state = await planEdit({ llm: depsFor("standard").llm, transcriber: buildTranscriber(env) }, job.data, workDir, onStage);
+      if (job.data.review) {
+        // Waits for the creator to check the effects; PUT /api/edits/[id] queues the render.
+        await updateFilm(db, filmId, { status: "review", stage: null, title: state.plan.title });
+        return { output: null, title: state.plan.title };
+      }
+      result = await renderPlannedEdit({ fontsDir: env.FONTS_DIR }, state, workDir, onStage);
+    } else if (isEditRender(job)) {
+      result = await renderPlannedEdit({ fontsDir: env.FONTS_DIR }, await loadEditState(workDir), workDir, onStage);
     } else if (isMusicVideo(job)) {
       const d = job.data;
       result = await runMusicVideo(
@@ -93,7 +107,12 @@ filmWorker.on("completed", (job) => console.log(`film ${job.id} done`));
 filmWorker.on("failed", async (job, err) => {
   console.error(`film ${job?.id} failed:`, err.message);
   if (job && job.attemptsMade >= (job.opts.attempts ?? 1)) {
-    await updateFilm(db, job.id!, { status: "failed", error: err.message.slice(0, 500) });
+    // A failed re-render keeps the video the creator already has.
+    if (isEditRender(job) && job.data.rerender) {
+      await updateFilm(db, job.data.filmId, { status: "completed", stage: "done", error: `Re-render failed: ${err.message}`.slice(0, 500) });
+      return;
+    }
+    await updateFilm(db, filmIdOf(job), { status: "failed", error: err.message.slice(0, 500) });
     if ("quotaKey" in job.data && job.data.quotaKey) await new RedisQuotaStore(getRedis()).decrement(job.data.quotaKey);
     if (job.data.credits > 0) await grantCredits(db, job.data.userId, job.data.credits, "refund", job.id!);
   }

@@ -1,9 +1,9 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { runEditVideo } from "@/lib/edit/pipeline";
+import { applyEditChanges, loadEditState, renderPlannedEdit, runEditVideo } from "@/lib/edit/pipeline";
 import { mixArgs, soundArgs, SOUNDS, voiceFilter } from "@/lib/edit/audio";
 import { cardY, cropFor, faceOnScreen } from "@/lib/edit/effects";
 import { buildEditPrompt, editPlanSchema, sanitizePlan, soundCues, supportedEffects, timedTranscript } from "@/lib/edit/plan";
@@ -11,7 +11,7 @@ import { analyzeVideo, faceAt, MASK_SIZE } from "@/lib/edit/vision";
 import { captionAt, decodeArgs, encodeArgs, type EditRenderInput, renderEdit, zoomAt } from "@/lib/edit/render";
 import type { LlmProvider } from "@/lib/providers/types";
 import { CloudflareTranscriber } from "@/lib/providers/whisper";
-import { editRequestSchema } from "@/lib/queue/films";
+import { editChangesSchema, editRequestSchema } from "@/lib/queue/films";
 
 const dir = mkdtempSync(path.join(tmpdir(), "edit-"));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
@@ -258,25 +258,79 @@ describe("edit pipeline", () => {
     const transcriber = { modelId: "whisper", transcribe: async () => ({ text: "x", language: "en", words }) };
     let rendered: EditRenderInput | undefined;
     let mixed = false;
-    const vision = { fps: 30, faces: [[0.3, 0.3, 0.3, 0.15] as [number, number, number, number]], mask: "mask.mkv" };
+    const faces = [[0.3, 0.3, 0.3, 0.15] as [number, number, number, number]];
+    // Like the real analyser: writes faces.json next to the mask.
+    const analyze = async (_src: string, outDir: string) => {
+      mkdirSync(outDir, { recursive: true });
+      writeFileSync(path.join(outDir, "faces.json"), JSON.stringify({ fps: 30, faces }));
+      return { fps: 30, faces, mask: path.join(outDir, "mask.mkv") };
+    };
     const deps = {
       llm,
       transcriber,
       probeDuration: async () => 6,
       extractAudio: async (_src: string, wav: string) => (writeFileSync(wav, "wav"), true),
       render: async (i: EditRenderInput) => void (rendered = i),
-      analyze: async () => vision,
+      analyze,
       mixAudio: async () => ((mixed = true), "x"),
     };
     await runEditVideo(deps, { source: "in.mp4", watermark: false, sounds: false }, path.join(dir, "c"));
     expect(rendered!.plan.effects.map((e) => e.type)).toEqual(["spotlight", "focus"]);
-    expect(rendered!.vision).toBe(vision);
+    expect(rendered!.vision).toEqual({ fps: 30, faces, mask: path.join(dir, "c", "vision", "mask.mkv") });
     expect(mixed).toBe(false);
     expect(rendered!.audio).toBeNull();
 
     await runEditVideo(deps, { source: "in.mp4", watermark: false, sounds: false, effects: false, voice: "deeper" }, path.join(dir, "d"));
     expect(rendered!.plan.effects).toEqual([]);
     expect(mixed).toBe(true);
+  });
+
+  it("stops for review, then renders the creator's changes from the saved plan", async () => {
+    const llm = {
+      modelId: "llama-3.3-70b",
+      completeJson: async () => ({
+        title: "Save money",
+        zooms: [{ start: 1, end: 2 }],
+        cards: [{ type: "point", text: "3 ways", start: 3, end: 5.5 }],
+        effects: [{ type: "backdrop", text: "MONEY", start: 0.5, end: 1.5 }],
+      }),
+    } as unknown as LlmProvider;
+    const transcriber = { modelId: "whisper", transcribe: async () => ({ text: "x", language: "en", words }) };
+    const workDir = path.join(dir, "review");
+    let analysed = 0;
+    let rendered: EditRenderInput | undefined;
+    const deps = {
+      llm,
+      transcriber,
+      probeDuration: async () => 6,
+      extractAudio: async (_src: string, wav: string) => (writeFileSync(wav, "wav"), true),
+      // Faces but no outline: mask effects are dropped.
+      analyze: async () => (analysed++, { fps: 30, faces: [[0.3, 0.3, 0.3, 0.15] as [number, number, number, number]], mask: "" }),
+      render: async (i: EditRenderInput) => void (rendered = i),
+      mixAudio: async (o: { output: string }) => o.output,
+    };
+    const res = await runEditVideo(deps, { source: "in.mp4", watermark: true, review: true, voice: "clear" }, workDir);
+    expect(res.output).toBeNull();
+    expect(rendered).toBeUndefined();
+    const state = await loadEditState(workDir);
+    expect(state.available).toEqual({ faces: true, mask: false });
+    expect(state.plan.effects).toEqual([]);
+
+    // The creator turns the card into a stamp moment, removes the zoom and switches voice.
+    const changes = editChangesSchema.parse({
+      plan: { ...state.plan, zooms: [], cards: [], effects: [{ type: "stamp", text: "SAVED", start: 3, end: 4 }, { type: "spotlight", start: 4.5, end: 5.5 }] },
+      voice: "deeper",
+      sounds: false,
+    });
+    const next = applyEditChanges(state, changes);
+    expect(next.plan.effects.map((e) => e.type)).toEqual(["stamp"]);
+    expect(next.request).toMatchObject({ voice: "deeper", sounds: false, watermark: true, source: "in.mp4" });
+
+    await renderPlannedEdit(deps, next, workDir);
+    expect(analysed).toBe(1);
+    expect(rendered!.plan.zooms).toEqual([]);
+    expect(rendered!.audio).toMatch(/soundtrack\.m4a$/);
+    expect(() => editChangesSchema.parse({ plan: { title: "t", effects: [{ type: "stamp", text: "", start: 1, end: 2 }] } })).toThrow();
   });
 
   it("renders a real edit with every effect: 1080x1920, same length, audio kept", async () => {

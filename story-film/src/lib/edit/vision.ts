@@ -32,10 +32,19 @@ export async function analyzeVideo(source: string, outDir: string, opts: { pytho
       ["-I", path.join(dir, "analyze.py"), source, outDir, "--models", path.join(dir, "models"), "--width", String(MASK_SIZE.w), "--height", String(MASK_SIZE.h), "--fps", String(opts.fps ?? 30)],
       { maxBuffer: 8 << 20, timeout: 10 * 60_000 },
     );
-    const data = JSON.parse(await readFile(path.join(outDir, "faces.json"), "utf8")) as { fps: number; faces: FaceBox[] };
-    return { fps: data.fps, faces: data.faces, mask: path.join(outDir, "mask.mkv") };
+    return await loadVision(outDir);
   } catch (err) {
     console.warn("[edit] vision unavailable, effects that need it are skipped:", (err as Error).message.slice(0, 300));
+    return null;
+  }
+}
+
+// The saved analysis of an earlier run, for re-rendering; null if there is none.
+export async function loadVision(outDir: string): Promise<Vision | null> {
+  try {
+    const data = JSON.parse(await readFile(path.join(outDir, "faces.json"), "utf8")) as { fps: number; faces: FaceBox[] };
+    return { fps: data.fps, faces: data.faces, mask: path.join(outDir, "mask.mkv") };
+  } catch {
     return null;
   }
 }

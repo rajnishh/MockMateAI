@@ -31,6 +31,7 @@ export default function Making() {
         if (!alive) return;
         setFilm(f);
         if (f.status === "completed") return router.replace(`/reel/${f.id}`);
+        if (f.status === "review") return router.replace(`/edit/${f.id}`);
         if (f.status === "failed") return;
       } catch (err) {
         if (alive) setError((err as Error).message);

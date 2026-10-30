@@ -27,6 +27,7 @@ export default function Home() {
   const thisWeek = list.filter((f) => now - new Date(f.createdAt).getTime() < WEEK);
   const ready = list.filter((f) => f.status === "completed");
   const making = list.find((f) => f.status === "queued" || f.status === "running");
+  const toCheck = list.find((f) => f.status === "review");
   const goal = 5;
 
   return (
@@ -71,6 +72,9 @@ export default function Home() {
             </Txt>
           </Hero>
           {ready.length >= 3 ? <Win text={`You've made ${ready.length} reels. Keep going!`} /> : null}
+          {toCheck ? (
+            <Banner kind="info" title="Your video is ready to check" text="Look over its effects, then render it." action={<Button label="Check" small onPress={() => router.push(`/edit/${toCheck.id}`)} />} />
+          ) : null}
           {making ? (
             <Button label="See the reel being made" block onPress={() => router.push(`/making/${making.id}`)} />
           ) : (

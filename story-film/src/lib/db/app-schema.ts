@@ -8,7 +8,8 @@ export const filmStyle = pgEnum("film_style", STYLE_IDS);
 // "edit": the creator's own uploaded video with captions, zooms and cards.
 export const filmFormat = pgEnum("film_format", ["story", "motion", "edit"]);
 export const filmQuality = pgEnum("film_quality", ["standard", "premium"]);
-export const filmStatus = pgEnum("film_status", ["queued", "running", "completed", "failed"]);
+// "review": an edit is planned and waits for the creator to check its effects before rendering.
+export const filmStatus = pgEnum("film_status", ["queued", "running", "review", "completed", "failed"]);
 
 export const character = pgTable(
   "character",

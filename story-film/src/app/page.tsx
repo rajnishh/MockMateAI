@@ -2,6 +2,7 @@
 
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import { EditMoments } from "./edit-moments";
 import { findLanguage, LANGUAGES } from "@/lib/languages";
 import { FILM_STYLES } from "@/lib/styles";
 
@@ -14,6 +15,7 @@ type Status = {
   error: string | null;
   videoUrl: string | null;
   contentCredentials?: boolean;
+  format?: string;
 };
 type Character = { id: string; name: string; description: string; imageUrl: string };
 type Idea = { title: string; idea: string };
@@ -52,6 +54,10 @@ export default function Home() {
   const [effects, setEffects] = useState(true);
   const [sounds, setSounds] = useState(true);
   const [voice, setVoice] = useState("natural");
+  const [review, setReview] = useState(false);
+  const [fineTune, setFineTune] = useState(false);
+  // Bumped to restart polling after an edit is sent to render again.
+  const [pollKey, setPollKey] = useState(0);
   const [billing, setBilling] = useState<{ balance: number; premiumAvailable: boolean; premiumCreditsPerShot: number } | null>(null);
   const [needCredits, setNeedCredits] = useState(false);
 
@@ -105,13 +111,19 @@ export default function Home() {
       if (!res.ok) return;
       const next: Status = await res.json();
       setStatus(next);
-      if (next.status === "completed" || next.status === "failed") {
+      if (next.status === "completed" || next.status === "failed" || next.status === "review") {
         clearInterval(timer);
         loadLibrary();
       }
     }, 4000);
     return () => clearInterval(timer);
-  }, [jobId, loadLibrary]);
+  }, [jobId, loadLibrary, pollKey]);
+
+  const rendering = () => {
+    setFineTune(false);
+    setStatus((s) => (s ? { ...s, status: "queued", stage: null } : s));
+    setPollKey((k) => k + 1);
+  };
 
   async function saveCharacter(e: FormEvent) {
     e.preventDefault();
@@ -167,6 +179,7 @@ export default function Home() {
       form.append("effects", String(effects));
       form.append("sounds", String(sounds));
       form.append("voice", voice);
+      form.append("review", String(review));
       form.append("ending", ending);
       if (ending === "comment" && keyword) form.append("keyword", keyword);
       const res = await fetch("/api/edits", { method: "POST", body: form });
@@ -226,7 +239,7 @@ export default function Home() {
     }
   }
 
-  const busy = submitting || (status !== null && status.status !== "completed" && status.status !== "failed");
+  const busy = submitting || (status !== null && status.status !== "completed" && status.status !== "failed" && status.status !== "review");
 
   async function signOut() {
     await authClient.signOut();
@@ -329,6 +342,9 @@ export default function Home() {
               <option value="clear">Clear: less noise, even volume</option>
               <option value="deeper">Deeper and fuller</option>
             </select>
+            <label className="check">
+              <input type="checkbox" checked={review} onChange={(e) => setReview(e.target.checked)} /> Let me check the effects before rendering
+            </label>
           </>
         )}
         {(mode === "motion" || mode === "edit") && (
@@ -428,6 +444,8 @@ export default function Home() {
             <p>Queued…</p>
           ) : status.status === "failed" ? (
             <p>Something went wrong: {status.error}</p>
+          ) : status.status === "review" ? (
+            <EditMoments filmId={jobId} onRendering={rendering} />
           ) : status.status === "completed" ? (
             <>
               <strong>{status.title}</strong>
@@ -437,7 +455,16 @@ export default function Home() {
                   <a href="https://contentcredentials.org/verify" target="_blank" rel="noreferrer">verify</a>
                 </p>
               )}
-              <video src={`/api/films/${jobId}/video`} controls playsInline />
+              {status.error && <p className="muted">{status.error}</p>}
+              <video key={pollKey} src={`/api/films/${jobId}/video?v=${pollKey}`} controls playsInline />
+              {status.format === "edit" &&
+                (fineTune ? (
+                  <EditMoments filmId={jobId} onRendering={rendering} />
+                ) : (
+                  <div className="actions">
+                    <button type="button" className="secondary" onClick={() => setFineTune(true)}>Fine-tune effects</button>
+                  </div>
+                ))}
               <div className="actions">
                 {canShareFiles && <button type="button" onClick={share}>Share</button>}
                 <a href={`/api/films/${jobId}/video`} download>

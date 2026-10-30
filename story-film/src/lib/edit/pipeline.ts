@@ -1,18 +1,19 @@
 import { execFile } from "node:child_process";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { probeDuration } from "@/lib/ffmpeg";
 import { assertCommercialSafe } from "@/lib/models/licenses";
-import type { Brand } from "@/lib/motion/render";
-import type { Ending } from "@/lib/motion/script";
 import type { Stage } from "@/lib/pipeline/orchestrator";
-import type { LlmProvider, NarrationLanguage } from "@/lib/providers/types";
+import type { LlmProvider } from "@/lib/providers/types";
 import type { Transcript } from "@/lib/providers/whisper";
-import { mixAudio as defaultMixAudio, type Voice } from "./audio";
+import { mixAudio as defaultMixAudio } from "./audio";
 import { buildEditPrompt, type EditPlan, editPlanSchema, sanitizePlan, soundCues, supportedEffects } from "./plan";
 import { type EditRenderInput, renderEdit } from "./render";
-import { analyzeVideo, type Vision } from "./vision";
+import { type EditRequest, type EditState, saveEditState } from "./state";
+import { analyzeVideo, loadVision, type Vision } from "./vision";
+
+export { applyEditChanges, type EditChanges, type EditRequest, type EditState, FREE_RERENDERS, loadEditState, saveEditState } from "./state";
 
 const execFileAsync = promisify(execFile);
 
@@ -27,20 +28,6 @@ export interface EditDeps {
   mixAudio?: typeof defaultMixAudio;
 }
 
-export interface EditRequest {
-  source: string;
-  watermark: boolean;
-  language?: NarrationLanguage;
-  captions?: boolean;
-  zooms?: boolean;
-  // Face-aware effects (word behind you, spotlight, sticker, stamp, focus brackets).
-  effects?: boolean;
-  sounds?: boolean;
-  voice?: Voice;
-  ending?: Ending;
-  keyword?: string;
-  brand?: Brand;
-}
 
 // 16 kHz mono WAV for transcription; false when the video has no sound.
 async function defaultExtractAudio(source: string, wav: string): Promise<boolean> {
@@ -52,13 +39,8 @@ async function defaultExtractAudio(source: string, wav: string): Promise<boolean
   }
 }
 
-// A creator's own video: transcribe it, let the AI plan zooms and cards, then render the edit.
-export async function runEditVideo(
-  deps: EditDeps,
-  req: EditRequest,
-  workDir: string,
-  onStage: (stage: Stage) => Promise<void> | void = () => {},
-): Promise<{ output: string; title: string }> {
+// Step 1: transcribe, find the creator in the frame and let the AI plan the edit.
+export async function planEdit(deps: EditDeps, req: EditRequest, workDir: string, onStage: (stage: Stage) => Promise<void> | void = () => {}): Promise<EditState> {
   for (const p of [deps.llm, deps.transcriber]) assertCommercialSafe(p.modelId);
   await mkdir(workDir, { recursive: true });
   const durationSec = await (deps.probeDuration ?? probeDuration)(req.source);
@@ -89,9 +71,21 @@ export async function runEditVideo(
     if (req.zooms === false) plan = { ...plan, zooms: [] };
   }
   const vision = await visionP;
-  plan = { ...plan, effects: effectsOn && vision ? supportedEffects(plan.effects, { faces: vision.faces.some(Boolean), mask: Boolean(vision.mask) }) : [] };
-  await writeFile(path.join(workDir, "edit.json"), JSON.stringify({ transcript, plan }, null, 2));
+  const available = { faces: Boolean(vision?.faces.some(Boolean)), mask: Boolean(vision?.mask) };
+  plan = { ...plan, effects: supportedEffects(plan.effects, available) };
+  const state: EditState = { request: req, durationSec, hasAudio, transcript, plan, available, renders: 0 };
+  await saveEditState(workDir, state);
+  return state;
+}
 
+// Step 2: mix the soundtrack and draw the edit. Uses only what planEdit saved.
+export async function renderPlannedEdit(
+  deps: Pick<EditDeps, "fontsDir" | "render" | "mixAudio">,
+  state: EditState,
+  workDir: string,
+  onStage: (stage: Stage) => Promise<void> | void = () => {},
+): Promise<{ output: string; title: string }> {
+  const { request: req, plan, durationSec, transcript } = state;
   await onStage("assemble");
   const voice = req.voice ?? "natural";
   const cues = req.sounds === false ? [] : soundCues(plan);
@@ -100,7 +94,7 @@ export async function runEditVideo(
       ? null
       : await (deps.mixAudio ?? defaultMixAudio)({
           source: req.source,
-          hasAudio,
+          hasAudio: state.hasAudio,
           voice,
           durationSec,
           cues,
@@ -119,10 +113,22 @@ export async function runEditVideo(
     watermark: req.watermark,
     language: transcript.language,
     fontsDir: path.resolve(/*turbopackIgnore: true*/ deps.fontsDir ?? "assets/fonts"),
-    vision,
+    vision: plan.effects.length ? await loadVision(path.join(workDir, "vision")) : null,
     audio,
   });
 
   await onStage("done");
   return { output, title: plan.title };
+}
+
+// A creator's own video, start to finish; with review, it stops after planning so they can check it.
+export async function runEditVideo(
+  deps: EditDeps,
+  req: EditRequest,
+  workDir: string,
+  onStage: (stage: Stage) => Promise<void> | void = () => {},
+): Promise<{ output: string | null; title: string }> {
+  const state = await planEdit(deps, req, workDir, onStage);
+  if (req.review) return { output: null, title: state.plan.title };
+  return renderPlannedEdit(deps, state, workDir, onStage);
 }

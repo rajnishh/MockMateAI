@@ -2,7 +2,8 @@ import { authClient } from "./auth-client";
 import type { Style } from "./styles";
 import { API_URL, DEMO } from "./config";
 
-export type FilmStatus = "queued" | "running" | "completed" | "failed";
+// "review": an edit is planned and waits for the creator to check its effects.
+export type FilmStatus = "queued" | "running" | "review" | "completed" | "failed";
 export type Stage = "script" | "keyframes" | "clips" | "audio" | "assemble" | "done";
 
 export interface Film {
@@ -16,6 +17,7 @@ export interface Film {
   error: string | null;
   createdAt: string;
   videoUrl: string | null;
+  format?: "story" | "motion" | "edit" | "music";
 }
 
 export type Currency = "INR" | "USD" | "AED";
@@ -92,6 +94,47 @@ export interface NewPost {
 // How the creator's own voice is processed: as recorded, cleaned and levelled, or a little deeper.
 export type Voice = "natural" | "clear" | "deeper";
 
+// The edit plan for "Edit my video" (mirrors story-film/src/lib/edit/plan.ts).
+export type Span = { start: number; end: number };
+export type EditCard = (
+  | { type: "point"; text: string; highlight?: string }
+  | { type: "list"; heading: string; items: string[] }
+  | { type: "stat"; value: number; prefix?: string; suffix?: string; label: string }
+  | { type: "cta"; text: string; action?: string }
+) &
+  Span;
+export type EffectType = "backdrop" | "spotlight" | "cutout" | "stamp" | "focus";
+export type EditEffect = (
+  | { type: "backdrop"; text: string }
+  | { type: "spotlight" }
+  | { type: "cutout" }
+  | { type: "stamp"; text: string }
+  | { type: "focus"; label?: string }
+) &
+  Span;
+export interface EditPlan {
+  title: string;
+  zooms: Span[];
+  cards: EditCard[];
+  effects: EditEffect[];
+}
+export interface EditOptions {
+  captions: boolean;
+  sounds: boolean;
+  voice: Voice;
+}
+export interface EditDraft {
+  status: FilmStatus;
+  durationSec: number;
+  plan: EditPlan;
+  words: { word: string; start: number; end: number }[];
+  options: EditOptions;
+  // What the video analysis found: effects need a face, some also the person outline.
+  available: { faces: boolean; mask: boolean };
+  // null before the first render.
+  rendersLeft: number | null;
+}
+
 export interface EditUpload {
   // Local file picked from the gallery.
   video: { uri: string; name: string; type: string };
@@ -101,6 +144,8 @@ export interface EditUpload {
   effects: boolean;
   sounds: boolean;
   voice: Voice;
+  // Stop after planning so the creator can check each effect first.
+  review: boolean;
   ending: "auto" | "none" | "follow" | "comment";
   keyword?: string;
   brand?: { accent?: string; background?: "light" | "dark"; handle?: string };
@@ -163,6 +208,7 @@ const real = {
     form.append("effects", String(input.effects));
     form.append("sounds", String(input.sounds));
     form.append("voice", input.voice);
+    form.append("review", String(input.review));
     form.append("ending", input.ending);
     if (input.keyword) form.append("keyword", input.keyword);
     if (input.brand) form.append("brand", JSON.stringify(input.brand));
@@ -172,6 +218,10 @@ const real = {
     if (!res.ok) throw new ApiError(body.error ?? `Upload failed (${res.status})`, res.status, Boolean(body.needCredits));
     return body as { id: string; credits: number };
   },
+  editDraft: (id: string) => call<EditDraft>(`/api/edits/${id}`),
+  // Saves the creator's changes and renders the video (again).
+  saveEdit: (id: string, changes: { plan: EditPlan } & EditOptions) =>
+    call<{ id: string; rendersLeft: number }>(`/api/edits/${id}`, { method: "PUT", body: JSON.stringify(changes) }),
   accounts: () => call<Accounts>("/api/accounts"),
   // Returns the provider's sign-in page; the app opens it in the in-app browser.
   connectUrl: async (platform: SocialPlatform) => (await call<{ url: string }>(`/api/connect/${platform}`, { method: "POST" })).url,
@@ -224,6 +274,29 @@ function sample(id: string, title: string, status: FilmStatus, daysAgo: number):
     videoUrl: null,
   };
 }
+
+const demoWords = "today I will show you three money mistakes everyone makes and the one habit that fixed mine".split(" ");
+function demoDraft(): EditDraft {
+  return {
+    status: "review",
+    durationSec: 12,
+    plan: {
+      title: "3 money mistakes",
+      zooms: [{ start: 1.4, end: 2.4 }, { start: 8, end: 9.2 }],
+      cards: [{ type: "list", heading: "Money mistakes", items: ["No budget", "Late bills", "No savings"], start: 3, end: 6.5 }],
+      effects: [
+        { type: "backdrop", text: "MONEY", start: 0.4, end: 2 },
+        { type: "stamp", text: "MYTH", start: 7, end: 8 },
+        { type: "spotlight", start: 9.6, end: 11.4 },
+      ],
+    },
+    words: demoWords.map((word, i) => ({ word, start: 0.3 + i * 0.6, end: 0.3 + i * 0.6 + 0.5 })),
+    options: { captions: true, sounds: true, voice: "natural" },
+    available: { faces: true, mask: true },
+    rendersLeft: 5,
+  };
+}
+const demoDrafts = new Map<string, EditDraft>();
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -287,9 +360,31 @@ const demo: typeof real = {
   },
   uploadEdit: async (input) => {
     await wait(800);
-    const f: Film = { ...sample(`d${Date.now()}`, input.video.name.replace(/\.[a-z0-9]+$/i, ""), "queued", 0), story: `Edit of ${input.video.name}` };
+    const status = input.review ? "review" : "queued";
+    const f: Film = { ...sample(`d${Date.now()}`, input.video.name.replace(/\.[a-z0-9]+$/i, ""), status, 0), story: `Edit of ${input.video.name}`, format: "edit" };
     demoFilms.push(f);
+    demoDrafts.set(f.id, { ...demoDraft(), options: { captions: input.captions, sounds: input.sounds, voice: input.voice } });
     return { id: f.id, credits: 0 };
+  },
+  editDraft: async (id) => {
+    await wait(300);
+    const f = demoFilms.find((x) => x.id === id);
+    if (!f) throw new ApiError("Reel not found", 404);
+    if (!demoDrafts.has(id)) demoDrafts.set(id, demoDraft());
+    const d = demoDrafts.get(id)!;
+    return { ...d, status: f.status, rendersLeft: f.status === "review" ? null : d.rendersLeft };
+  },
+  saveEdit: async (id, changes) => {
+    await wait(400);
+    const f = demoFilms.find((x) => x.id === id);
+    const d = demoDrafts.get(id);
+    if (!f || !d) throw new ApiError("Reel not found", 404);
+    const rerender = f.status === "completed";
+    if (rerender && d.rendersLeft === 0) throw new ApiError("You've re-rendered this video 5 times.", 402);
+    const { plan, ...options } = changes;
+    demoDrafts.set(id, { ...d, plan, options, rendersLeft: rerender ? (d.rendersLeft ?? 5) - 1 : 5 });
+    Object.assign(f, { status: "queued", stage: "assemble", title: plan.title });
+    return { id, rendersLeft: rerender ? (d.rendersLeft ?? 5) - 1 : 5 };
   },
   accounts: async () => (await wait(200), { instagramAvailable: true, youtubeAvailable: true, accounts: [...demoAccounts] }),
   connectUrl: async (platform) => {

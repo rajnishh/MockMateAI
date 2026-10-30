@@ -36,6 +36,7 @@ export default function Create() {
   const [effects, setEffects] = useState<"on" | "off">("on");
   const [sounds, setSounds] = useState<"on" | "off">("on");
   const [voice, setVoice] = useState<Voice>("natural");
+  const [review, setReview] = useState<"on" | "off">("off");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ text: string; credits: boolean } | null>(null);
 
@@ -86,6 +87,7 @@ export default function Create() {
             effects: effects === "on",
             sounds: sounds === "on",
             voice,
+            review: review === "on",
             ending,
             keyword: keywordValue,
             brand: prefs?.brand,
@@ -273,6 +275,18 @@ export default function Create() {
             </Txt>
           </View>
           {endingPicker}
+          <View style={{ gap: 6 }}>
+            <Txt variant="cap">Check effects before rendering</Txt>
+            <ChipRow<"on" | "off">
+              options={[
+                { value: "off", label: "No, render it" },
+                { value: "on", label: "Yes, let me check" },
+              ]}
+              value={review}
+              onChange={setReview}
+            />
+            <Txt variant="cap">Either way, you can fine-tune each effect after it&apos;s made.</Txt>
+          </View>
         </>
       ) : (
         <>

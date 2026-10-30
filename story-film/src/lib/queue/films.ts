@@ -1,4 +1,5 @@
 import { VOICES } from "@/lib/edit/audio";
+import { editPlanSchema } from "@/lib/edit/plan";
 import { ENDINGS } from "@/lib/motion/script";
 import { STYLE_IDS } from "@/lib/styles";
 import { Queue } from "bullmq";
@@ -75,6 +76,7 @@ export const editRequestSchema = z.object({
   effects: z.boolean().default(true),
   sounds: z.boolean().default(true),
   voice: z.enum(VOICES).default("natural"),
+  review: z.boolean().default(false),
   ending: z.enum(ENDINGS).default("auto"),
   keyword: z.string().trim().max(20).regex(/^[\p{L}\p{N}_-]*$/u, "One word, no spaces").optional(),
   brand: z
@@ -95,7 +97,26 @@ export type EditJob = z.infer<typeof editRequestSchema> & {
   credits: number;
 };
 
-export type FilmQueueJob = FilmJob | MusicVideoJob | EditJob;
+// The creator's changes to a planned or finished edit.
+export const editChangesSchema = z.object({
+  plan: editPlanSchema,
+  captions: z.boolean().optional(),
+  sounds: z.boolean().optional(),
+  voice: z.enum(VOICES).optional(),
+});
+
+// Renders a saved edit plan (job name "edit-render"). Its job id is not the film id, so the film is named.
+export interface EditRenderJob {
+  filmId: string;
+  userId: string;
+  // After review the first render still carries the upload's charge (refunded if it fails);
+  // re-renders of a finished video are free and keep the old video if they fail.
+  rerender: boolean;
+  credits: number;
+  quotaKey?: string;
+}
+
+export type FilmQueueJob = FilmJob | MusicVideoJob | EditJob | EditRenderJob;
 
 let redis: Redis | undefined;
 let queue: Queue<FilmQueueJob> | undefined;
