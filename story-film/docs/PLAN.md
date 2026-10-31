@@ -382,7 +382,7 @@ Prices move monthly; waoowaoo and several other licenses unverified; EvoLink is 
       - One weekly reel allowance whether reels are made in the app, by the agent or (later) from Claude/ChatGPT.
       - The agent answers 40 messages a day.
       - "Make my week" stops when free reels and credits run out.
-    - **Apps:** mobile "Ask Reelkar" screen, opened from Home. It has a chat, starter prompts, a posting-mode switch, and cards with Make this, Approve/Cancel, Open/Progress, Copy caption, Connect and Get credits. The demo mode has a scripted agent. Web chat is next.
+    - **Apps:** mobile "Ask Reelkar" screen, opened from Home. It has a chat, starter prompts, a posting-mode switch, and cards with Make this, Approve/Cancel, Open/Progress, Copy caption, Connect and Get credits. The demo mode has a scripted agent. The web app has the same chat at `/ask` (linked from the studio header): starter prompts, posting-mode switch, the same cards, the device's time zone on every request, and the reel logo as its loader.
     - **API:**
       - `GET/POST /api/agent`: history, posting mode, free reels left; send a message.
       - `POST /api/agent/actions`: one action without the AI.

@@ -257,6 +257,7 @@ export default function Home() {
         <div className="post-actions">
           <a href="/billing"><button type="button" className="secondary">{billing ? `${billing.balance} credits` : "Credits"}</button></a>
           <a href="/songs"><button type="button" className="secondary">Songs</button></a>
+          <a href="/ask"><button type="button" className="secondary">Ask Reelkar</button></a>
           <a href="/calendar"><button type="button" className="secondary">Calendar</button></a>
           <button type="button" className="secondary" onClick={signOut}>Sign out</button>
         </div>

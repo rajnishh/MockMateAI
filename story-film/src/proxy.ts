@@ -7,4 +7,4 @@ export function proxy(request: NextRequest) {
   return NextResponse.next();
 }
 
-export const config = { matcher: ["/", "/calendar", "/billing", "/songs"] };
+export const config = { matcher: ["/", "/ask", "/calendar", "/billing", "/songs"] };

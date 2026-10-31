@@ -129,3 +129,35 @@ input[type="file"] { font: inherit; width: 100%; }
   .lg .lg-reel, .lg .lg-tail, .lg .lg-hub, .halo > i, .celebrate .burst, .celebrate .bit { animation: none; }
   .celebrate .bit, .celebrate .burst { display: none; }
 }
+
+/* Ask Reelkar (web chat). */
+.ask { padding-bottom: 0; }
+.ask .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ask a { color: var(--link); font-weight: 700; }
+.modes { border: 1px solid var(--border); border-radius: 12px; padding: 8px 12px 12px; margin: 12px 0; }
+.modes legend { font-weight: 700; padding: 0 4px; }
+.modes .tabs { margin: 8px 0; flex-wrap: wrap; }
+.modes .tabs button { width: auto; flex: 1 1 140px; }
+.chat { display: flex; flex-direction: column; gap: 12px; min-height: 40vh; padding-bottom: 12px; }
+.turn { display: flex; flex-direction: column; gap: 8px; }
+.turn.user { align-items: flex-end; }
+.bubble { max-width: 85%; padding: 10px 14px; border-radius: 18px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.bubble.user { background: var(--brand); color: #ffffff; border-bottom-right-radius: 6px; }
+.bubble.assistant { border: 1px solid var(--border); border-bottom-left-radius: 6px; }
+.agent-card { display: flex; flex-direction: column; gap: 8px; padding: 14px; border: 1px solid var(--border); border-radius: 16px; background: color-mix(in srgb, var(--bg) 60%, #ffffff); }
+@media (prefers-color-scheme: dark) { .agent-card { background: #14141f; } }
+.agent-card.flat { background: transparent; }
+.agent-card.warn { border-color: var(--danger); }
+.agent-card .idea { display: flex; flex-direction: column; gap: 4px; padding-top: 8px; border-top: 1px solid var(--border); }
+.agent-card button { width: auto; align-self: flex-start; padding: 8px 14px; border-radius: 999px; }
+.agent-card .actions { display: flex; gap: 8px; }
+.row-card { display: flex; align-items: center; gap: 12px; flex-direction: row; }
+.grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.pill { align-self: flex-start; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: color-mix(in srgb, var(--teal) 22%, transparent); }
+.pill-failed { background: color-mix(in srgb, var(--danger) 22%, transparent); }
+.pill-completed { background: color-mix(in srgb, var(--teal) 40%, transparent); }
+.caption-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.composer { position: sticky; bottom: 0; display: flex; gap: 8px; align-items: flex-end; padding: 12px 0 max(16px, env(safe-area-inset-bottom, 0px)); background: var(--bg); border-top: 1px solid var(--border); }
+.composer textarea { min-height: 48px; max-height: 160px; flex: 1; }
+.composer button { width: auto; padding: 12px 20px; border-radius: 999px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
