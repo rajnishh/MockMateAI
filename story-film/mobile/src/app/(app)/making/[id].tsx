@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
 import { Icon } from "@/components/icon";
+import { LogoLoader } from "@/components/logo";
 import { Banner, Button, Card, Header, ProgressBar, Screen, Txt } from "@/components/ui";
 import { api, type Film, type Stage } from "@/lib/api";
 import { fonts, useTheme } from "@/theme";
@@ -30,7 +31,7 @@ export default function Making() {
         const f = await api.film(id);
         if (!alive) return;
         setFilm(f);
-        if (f.status === "completed") return router.replace(`/reel/${f.id}`);
+        if (f.status === "completed") return router.replace(`/reel/${f.id}?new=1`);
         if (f.status === "review") return router.replace(`/edit/${f.id}`);
         if (f.status === "failed") return;
       } catch (err) {
@@ -61,6 +62,7 @@ export default function Making() {
       }>
       <Header title="Making your reel" back="/home" right={<Txt variant="mono">{`${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`}</Txt>} />
       {error ? <Banner kind="error" text={`${error}. We'll keep trying.`} /> : null}
+      {!failed ? <LogoLoader long label={film?.status === "completed" ? "Ready!" : `${STEPS[Math.max(current, 0)]?.label ?? "Getting started"}…`} /> : null}
       {failed ? (
         <Banner kind="error" title="This reel couldn't be made" text={`${film?.error ?? "Something went wrong."} ${film?.credits ? "Your credits are back." : "It didn't use your free reels."}`} />
       ) : (

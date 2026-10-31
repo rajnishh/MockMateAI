@@ -6,7 +6,7 @@
     "@better-auth/expo": "^1.7.14",
     "@expo-google-fonts/hind": "^0.4.1",
     "@expo-google-fonts/jetbrains-mono": "^0.4.1",
-    "@expo-google-fonts/manrope": "^0.4.3",
+    "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
     "@expo/ui": "~58.0.25",
     "better-auth": "^1.7.14",
     "expo": "~58.0.21",

@@ -222,7 +222,7 @@ export function EditTimeline({
                   </Pressable>
                 ))}
             {moments.map((m) => {
-              const fill = m.kind === "effect" ? colors.teal : m.kind === "card" ? colors.coral : colors.action;
+              const fill = m.kind === "effect" ? colors.teal : m.kind === "card" ? colors.coral : colors.brand;
               return (
                 <Block
                   key={m.key}
@@ -234,7 +234,7 @@ export function EditTimeline({
                   top={RULER_H + LANES.findIndex((l) => l.kind === m.kind) * LANE_H + 4}
                   pps={pps}
                   fill={m.off ? "transparent" : fill}
-                  ink={m.off ? colors.inkMuted : m.kind === "effect" ? colors.onTeal : m.kind === "card" ? colors.onCoral : colors.onAction}
+                  ink={m.off ? colors.inkMuted : m.kind === "effect" ? colors.onTeal : m.kind === "card" ? colors.onCoral : colors.onBrand}
                   border={m.problem ? colors.danger : m.off ? colors.lineStrong : fill}
                   dashed={m.off}
                   heavy={Boolean(m.problem)}

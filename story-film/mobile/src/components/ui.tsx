@@ -17,8 +17,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { fonts, radius, size, space, useTheme, type Colors } from "@/theme";
 import { Icon, type IconName } from "./icon";
+import { ReelLogo } from "./logo";
 
-// Indian and Arabic scripts aren't in Manrope; text containing them uses Hind (or the system Arabic font).
+// Indian and Arabic scripts aren't in Plus Jakarta Sans; text containing them uses Hind (or the system Arabic font).
 const INDIC = /[ऀ-෿]/;
 const ARABIC = /[؀-ۿ]/;
 
@@ -133,8 +134,10 @@ export function Button({
   loading?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
-  const { colors } = useTheme();
+  const { mode, colors } = useTheme();
   const off = disabled || loading;
+  // Primary buttons sit on a darker edge, so they look pressable and sink when tapped.
+  const edge = kind === "primary" && !off ? (mode === "dark" ? "#b0125a" : colors.coralText) : null;
   const look: Record<ButtonKind, { bg: string; fg: string; border: string }> = {
     primary: { bg: colors.action, fg: colors.onAction, border: "transparent" },
     secondary: { bg: "transparent", fg: colors.ink, border: colors.lineStrong },
@@ -157,8 +160,9 @@ export function Button({
           minHeight: small ? 40 : size.buttonHeight,
           paddingHorizontal: kind === "ghost" ? space[2] : small ? space[4] : 22,
           alignSelf: block ? "stretch" : "flex-start",
-          transform: [{ scale: pressed ? 0.98 : 1 }],
+          transform: edge ? [{ translateY: pressed ? 2 : 0 }] : [{ scale: pressed ? 0.98 : 1 }],
         },
+        edge ? { borderBottomWidth: pressed ? 2 : 4, borderBottomColor: edge } : null,
         style,
       ]}>
       {loading ? <ActivityIndicator color={l.fg} /> : icon ? <Icon name={icon} size={18} color={l.fg} /> : null}
@@ -223,17 +227,24 @@ export function Card({ children, onPress, flat, style }: { children: ReactNode; 
 
 export function Hero({ children }: { children: ReactNode }) {
   const { colors } = useTheme();
-  return <View style={[styles.hero, { backgroundColor: colors.brand }]}>{children}</View>;
+  // Two soft circles in the corner give the card some play; they sit behind the content.
+  return (
+    <View style={[styles.hero, { backgroundColor: colors.brand, overflow: "hidden" }]}>
+      <View pointerEvents="none" style={[styles.heroRing, { borderColor: colors.coral }]} />
+      <View pointerEvents="none" style={[styles.heroDot, { backgroundColor: colors.teal }]} />
+      {children}
+    </View>
+  );
 }
 
 export function Win({ text, icon = "check" }: { text: string; icon?: IconName }) {
   const { colors } = useTheme();
   return (
-    <View style={[styles.win, { backgroundColor: colors.coralTint }]}>
-      <View style={[styles.winDot, { backgroundColor: colors.coral }]}>
-        <Icon name={icon} size={16} color={colors.onCoral} />
+    <View style={[styles.win, { backgroundColor: colors.pop }]}>
+      <View style={[styles.winDot, { backgroundColor: colors.onPop }]}>
+        <Icon name={icon} size={16} color={colors.pop} />
       </View>
-      <Txt variant="label" style={{ flex: 1, fontSize: 14 }}>
+      <Txt variant="label" style={{ flex: 1, fontSize: 14, color: colors.onPop }}>
         {text}
       </Txt>
     </View>
@@ -375,9 +386,14 @@ export function Empty({ title, text, action }: { title: string; text: string; ac
   );
 }
 
+// A loading placeholder the size of what's coming, with the Reelkar reel spinning in it.
 export function Skeleton({ height = 64 }: { height?: number }) {
   const { colors } = useTheme();
-  return <View style={{ height, borderRadius: radius.md, backgroundColor: colors.surfaceSunken }} />;
+  return (
+    <View accessibilityRole="progressbar" accessibilityLabel="Loading" style={{ height, borderRadius: radius.md, backgroundColor: colors.surfaceSunken, alignItems: "center", justifyContent: "center" }}>
+      {height >= 48 ? <ReelLogo size={Math.min(48, Math.round(height * 0.45))} loop /> : null}
+    </View>
+  );
 }
 
 export function Row({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
@@ -398,6 +414,8 @@ const styles = StyleSheet.create({
   shadowLight: { shadowColor: "#111827", shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
   shadowDark: { shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 3 },
   hero: { borderRadius: radius.lg, padding: 18, gap: 10 },
+  heroRing: { position: "absolute", right: -46, top: -46, width: 150, height: 150, borderRadius: 75, borderWidth: 20, opacity: 0.4 },
+  heroDot: { position: "absolute", right: 54, bottom: -30, width: 60, height: 60, borderRadius: 30, opacity: 0.35 },
   win: { flexDirection: "row", alignItems: "center", gap: space[3], borderRadius: 14, paddingVertical: space[3], paddingHorizontal: 14 },
   winDot: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
   banner: { flexDirection: "row", alignItems: "flex-start", gap: 10, borderRadius: radius.md, padding: 14 },

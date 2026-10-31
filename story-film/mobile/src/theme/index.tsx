@@ -9,12 +9,12 @@ export type Mode = "light" | "dark";
 export type Colors = { [K in keyof typeof palette.light]: string };
 
 export const fonts = {
-  regular: "Manrope_400Regular",
-  medium: "Manrope_500Medium",
-  semibold: "Manrope_600SemiBold",
-  bold: "Manrope_700Bold",
-  extrabold: "Manrope_800ExtraBold",
-  // Indian scripts: Manrope has no Devanagari, so text typed by people uses Hind.
+  regular: "PlusJakartaSans_400Regular",
+  medium: "PlusJakartaSans_500Medium",
+  semibold: "PlusJakartaSans_600SemiBold",
+  bold: "PlusJakartaSans_700Bold",
+  extrabold: "PlusJakartaSans_800ExtraBold",
+  // Indian scripts: Plus Jakarta Sans has no Devanagari, so text typed by people uses Hind.
   indic: "Hind_400Regular",
   indicBold: "Hind_600SemiBold",
   mono: "JetBrainsMono_500Medium",

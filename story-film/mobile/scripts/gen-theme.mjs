@@ -1,8 +1,8 @@
 // Generates src/theme/tokens.ts from the design system tokens
-// (../design/v1.0/tokens.json). Run: npm run theme
+// (../design/v2.0/tokens.json). Run: npm run theme
 import { readFileSync, writeFileSync } from "node:fs";
 
-const src = new URL("../../design/v1.0/tokens.json", import.meta.url);
+const src = new URL("../../design/v2.0/tokens.json", import.meta.url);
 const out = new URL("../src/theme/tokens.ts", import.meta.url);
 const t = JSON.parse(readFileSync(src, "utf8"));
 
@@ -19,7 +19,7 @@ for (const tok of t.color.tokens) {
   colors.dark[key] = tok.value.dark ?? tok.value.light;
 }
 
-const body = `// Generated from design/v1.0/tokens.json by scripts/gen-theme.mjs. Do not edit by hand.
+const body = `// Generated from design/v2.0/tokens.json by scripts/gen-theme.mjs. Do not edit by hand.
 export const palette = ${JSON.stringify(colors, null, 2)} as const;
 
 export type ColorName = keyof typeof palette.light;

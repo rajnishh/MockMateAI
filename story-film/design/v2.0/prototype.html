@@ -280,20 +280,26 @@ textarea.inp { resize: none; }
 @keyframes lgHub { 0%, 45% { transform: scale(1); } 53% { transform: scale(1.9); } 62%, 100% { transform: scale(1); } }
 .ldr { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px 0 6px; }
 .ldr .t-cap { font-weight: 700; }
-.app .splash { position: absolute; inset: 0; background: var(--brand); color: var(--on-brand); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; cursor: pointer; border: 0; width: 100%; font: inherit; }
+.app .splash { position: absolute; inset: 0; background: var(--surface); color: var(--brand-text); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; cursor: pointer; border: 0; width: 100%; font: inherit; }
 .app[data-t="dark"] .splash { background: var(--surface); }
-/* On the navy splash the logo flips to a white tile so it stands out. */
-.app:not([data-t="dark"]) .splash { --logo-tile: #ffffff; --logo-reel: #18264a; }
+/* Option 1+: rings pulse around the reel on the splash and during long waits; one burst when something is done. */
+.halo { position: relative; display: inline-grid; place-items: center; width: calc(var(--s) * 1.7); height: calc(var(--s) * 1.7); }
+.halo > i { position: absolute; width: var(--s); height: var(--s); border-radius: 50%; border: 3px solid var(--coral); animation: halo 2.4s ease-out infinite; }
+.halo > i + i { border-color: var(--teal); animation-delay: 1.2s; }
+.halo .lg { position: relative; }
+@keyframes halo { 0% { transform: scale(.9); opacity: .8; } 100% { transform: scale(1.75); opacity: 0; } }
+.burst { position: absolute; left: 50%; top: 50%; width: 80px; height: 80px; margin: -40px 0 0 -40px; border-radius: 50%; border: 4px solid var(--coral); z-index: 1; pointer-events: none; animation: burst 1s .2s ease-out both; }
+@keyframes burst { 0% { transform: scale(.4); opacity: 1; } 100% { transform: scale(3.2); opacity: 0; } }
 .splash .word { font-family: var(--font-display); font-weight: 800; font-size: 44px; letter-spacing: -0.03em; animation: rise .6s .9s cubic-bezier(.2, .8, .2, 1) both; }
-.splash .word b { color: var(--coral); }
+.splash .word b { color: var(--coral-text); }
 .app[data-t="dark"] .splash .word { text-shadow: 0 0 18px rgba(255, 46, 136, 0.65); }
-.splash .tag { color: var(--on-brand-muted); font-weight: 600; animation: rise .6s 1.2s cubic-bezier(.2, .8, .2, 1) both; }
-.splash .hint { position: absolute; bottom: 40px; font-size: 13px; color: var(--on-brand-muted); }
+.splash .tag { color: var(--ink-muted); font-weight: 600; animation: rise .6s 1.2s cubic-bezier(.2, .8, .2, 1) both; }
+.splash .hint { position: absolute; bottom: 40px; font-size: 13px; color: var(--ink-muted); }
 .confetti { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
 .confetti i { position: absolute; top: -12px; width: 8px; height: 14px; border-radius: 2px; animation: fall 1.8s cubic-bezier(.3, .6, .6, 1) forwards; }
 @keyframes fall { 0% { transform: translateY(0) rotate(0); opacity: 1; } 100% { transform: translateY(440px) rotate(540deg); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
-  .body > *, .chip[aria-pressed="true"], .win, .win-dot, .tb .pill, .bar > i, .splash .word, .splash .tag, .confetti i, .lg .lg-reel, .lg .lg-tail, .lg .lg-hub { animation: none !important; }
+  .body > *, .chip[aria-pressed="true"], .win, .win-dot, .tb .pill, .bar > i, .splash .word, .splash .tag, .confetti i, .halo > i, .burst, .lg .lg-reel, .lg .lg-tail, .lg .lg-hub { animation: none !important; }
   .confetti { display: none; }
 }
 </style>
@@ -363,7 +369,10 @@ textarea.inp { resize: none; }
   // The v1.0 reel logo, now animated: pass 'loop' for loaders and the splash; headers play it once.
   var LOGO = function (s, loop) { return '<svg class="lg' + (loop ? ' loop' : '') + '" width="' + s + '" height="' + s + '" viewBox="0 0 112 112" aria-hidden="true"><rect width="112" height="112" rx="30" style="fill:var(--logo-tile,#18264a)"/><rect class="lg-tail" x="56" y="80" width="36" height="8" rx="4" style="fill:var(--logo-tail,#2bc4b4)"/><g class="lg-reel"><circle cx="54" cy="54" r="32" style="fill:var(--logo-reel,#ffffff)"/><circle cx="54" cy="36" r="6" style="fill:var(--logo-tile,#18264a)"/><circle cx="71" cy="48" r="6" style="fill:var(--logo-tile,#18264a)"/><circle cx="65" cy="68" r="6" style="fill:var(--logo-tile,#18264a)"/><circle cx="43" cy="68" r="6" style="fill:var(--logo-tile,#18264a)"/><circle cx="37" cy="48" r="6" style="fill:var(--logo-tile,#18264a)"/></g><circle class="lg-hub" cx="54" cy="54" r="5" style="fill:var(--logo-hub,#f27a5e)"/></svg>'; };
   // Loading anywhere in the app: the logo loops instead of a spinner.
-  function loader(label) { return '<div class="ldr" role="status">' + LOGO(64, 1) + '<p class="t-cap">' + (label || 'Loading…') + '</p></div>'; }
+  // The reel with pulsing rings: the splash and long waits (making a reel).
+  function halo(s) { return '<span class="halo" style="--s:' + s + 'px"><i></i><i></i>' + LOGO(s, 1) + '</span>'; }
+  // Loading anywhere: the reel spins; long waits add the rings.
+  function loader(label, long) { return '<div class="ldr" role="status">' + (long ? halo(64) : LOGO(64, 1)) + '<p class="t-cap">' + (label || 'Loading…') + '</p></div>'; }
   function confetti() { var c = ['var(--coral)', 'var(--teal)', 'var(--pop)', '#ffffff']; var o = ''; for (var i = 0; i < 14; i++) o += '<i style="left:' + (4 + i * 7) + '%;background:' + c[i % 4] + ';animation-delay:' + (i % 5) * 0.12 + 's"></i>'; return '<div class="confetti" aria-hidden="true">' + o + '</div>'; }
   function art(k) {
     var p = [['var(--teal-tint)', 'var(--coral)', 'var(--teal)'], ['var(--coral-tint)', 'var(--teal)', 'var(--brand)'], ['var(--surface-sunken)', 'var(--coral)', 'var(--brand)'], ['var(--teal-tint)', 'var(--brand)', 'var(--coral)']][k % 4];
@@ -402,8 +411,8 @@ textarea.inp { resize: none; }
   function S(id, o) { R[id] = o; ORDER.push(id); }
 
   /* ---------------- 1 · Onboarding ---------------- */
-  S('splash', { f: '1', t: 'Opening the app', chrome: 'splash', notes: 'v2.0: first launch and every cold start show the animated logo (reel turns, film tail feeds out, hub clicks) while the app loads, instead of a spinner. The same logo loops wherever something loads. Tap to continue in this prototype.', r: function () {
-    return '<button class="splash" data-go="welcome" aria-label="Reelkar. Tap to continue">' + LOGO(132, 1) + '<span class="word">Reel<b>kar</b></span><span class="tag">Your reel studio, in your pocket</span><span class="hint">Tap to continue</span></button>';
+  S('splash', { f: '1', t: 'Opening the app', chrome: 'splash', notes: 'v2.0 (Option 1+): the original reel on the light splash, with coral and teal rings pulsing out while the app loads. Short loads show the reel spinning; long waits (making a reel) add the rings; a finished reel gets one ring burst and confetti. Tap to continue in this prototype.', r: function () {
+    return '<button class="splash" data-go="welcome" aria-label="Reelkar. Tap to continue">' + halo(120) + '<span class="word">Reelkar<b>.</b></span><span class="tag">Your reel studio, in your pocket</span><span class="hint">Tap to continue</span></button>';
   } });
   S('welcome', { f: '1', t: 'Welcome', chrome: 'onb', notes: 'First screen after install. One promise, the app language, two ways in. Language picked here sets the whole app and the default content language.', r: function () {
     return '<div class="col" style="gap:20px;padding-top:24px"><div>' + LOGO(72) + '</div><h1 class="t-xl">Become a creator.<br>We do the hard parts.</h1><p class="t-body" style="color:var(--ink-muted)">Ideas, reels, posting and DMs in one place. Start free, no editing skills needed.</p>' +
@@ -514,11 +523,11 @@ textarea.inp { resize: none; }
   } });
   S('making', { f: '2', t: 'Making your reel', back: 'create', nav: 'Create', states: ['error'], notes: 'Progress with the creator\'s own steps marked (dashed). Notification when ready. Failed = credits refunded automatically.', r: function (c) {
     if (c.state === 'error') return hdr('Making your reel', 'create') + '<div class="banner err" role="alert">' + ic('alert', 1) + '<div><p class="lbl">This reel couldn\'t be made</p><p class="t-cap" style="color:inherit">The animation service timed out. Your 2 credits are back.</p></div></div>' + btn('Try again', { blk: 1, state: 'default', i: 'refresh' }) + btn('Edit the idea', { k: 's', blk: 1, go: 'create' });
-    return hdr('Making your reel', 'create', '<span class="mono t-cap">01:12</span>') + loader('Animating scene 3 of 5') + '<div class="card"><div class="bar"><i style="width:58%"></i></div><ol class="steps"><li class="step done"><span class="sd">' + ic('check', 1) + '</span>Hook and script</li><li class="step done"><span class="sd">' + ic('check', 1) + '</span>Scenes</li><li class="step now"><span class="sd">3</span>Animation</li><li class="step you"><span class="sd">4</span>Your voice (optional)</li><li class="step"><span class="sd">5</span>Music, captions, thumbnail</li><li class="step you"><span class="sd">6</span>You approve</li></ol></div>' +
+    return hdr('Making your reel', 'create', '<span class="mono t-cap">01:12</span>') + loader('Animating scene 3 of 5', 1) + '<div class="card"><div class="bar"><i style="width:58%"></i></div><ol class="steps"><li class="step done"><span class="sd">' + ic('check', 1) + '</span>Hook and script</li><li class="step done"><span class="sd">' + ic('check', 1) + '</span>Scenes</li><li class="step now"><span class="sd">3</span>Animation</li><li class="step you"><span class="sd">4</span>Your voice (optional)</li><li class="step"><span class="sd">5</span>Music, captions, thumbnail</li><li class="step you"><span class="sd">6</span>You approve</li></ol></div>' +
       '<div class="banner info">' + ic('bell', 1) + '<p>We\'ll send a notification when it\'s ready. You can leave this screen.</p></div>' + btn('Open the finished reel (demo)', { go: 'ready', blk: 1, k: 's' }) + btn('Make another', { k: 'g', go: 'create' });
   } });
   S('ready', { f: '2', t: 'Your reel is ready', back: 'reels', nav: 'My reels', notes: 'Preview, per-platform captions, quick fixes, then Post now or Schedule. "Made with AI" and Content Credentials are always on.', r: function (c) {
-    var player = '<div class="player">' + confetti() + art(0) + '<span class="play">' + ic('play', 1) + '</span><p class="cap-burn">बारिश के बाद… रंग!</p></div>';
+    var player = '<div class="player"><span class="burst" aria-hidden="true"></span>' + confetti() + art(0) + '<span class="play">' + ic('play', 1) + '</span><p class="cap-burn">बारिश के बाद… रंग!</p></div>';
     var side = '<div class="tabs" role="tablist"><button role="tab" aria-selected="true" data-group="captab" data-cap="Mia finds colours after the rain 🌧️🎨 Save this for a rainy day! #kidsstories #hindistory #reels · Made with AI">Instagram</button><button role="tab" aria-selected="false" data-group="captab" data-cap="Mia and the Rain | Hindi Kids Story #Shorts · A 30-second cartoon about finding colours after the rain. Made with AI. #kidsstory #hindikahani">YouTube</button><button role="tab" aria-selected="false" data-group="captab" data-cap="I made a 30-second Hindi kids story with AI in 2 minutes. Here is what I learned about short stories that keep children watching. #creators #AI">LinkedIn</button></div>' +
       '<div class="field"><label for="cap">Caption</label><textarea id="cap" class="inp" rows="4">Mia finds colours after the rain 🌧️🎨 Save this for a rainy day! #kidsstories #hindistory #reels · Made with AI</textarea></div>' +
       '<div class="row">' + btn('Change music', { k: 's', sm: 1, i: 'music', toast: 'Music changed' }) + btn('Use my voice', { k: 's', sm: 1, i: 'mic', go: 'voice' }) + btn('Edit scenes', { k: 's', sm: 1, i: 'edit', go: 'editor' }) + '</div>' +

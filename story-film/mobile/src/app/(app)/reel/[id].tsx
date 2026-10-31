@@ -4,6 +4,7 @@ import { useVideoPlayer, VideoView } from "expo-video";
 import { useEffect, useState } from "react";
 import { Share, StyleSheet, View } from "react-native";
 
+import { Celebrate } from "@/components/celebrate";
 import { ReelThumb } from "@/components/reel-thumb";
 import { Banner, Button, Card, Chip, ChipRow, Header, Row, Screen, Skeleton, Txt } from "@/components/ui";
 import { api, type Account, type Film, type Platform, type PostCopy } from "@/lib/api";
@@ -31,7 +32,7 @@ function whenOptions(now: Date): { value: When; label: string; at: Date | null }
 }
 
 export default function Reel() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, new: fresh } = useLocalSearchParams<{ id: string; new?: string }>();
   const [film, setFilm] = useState<Film | null>(null);
   const [platform, setPlatform] = useState<Platform>("instagram");
   const [copy, setCopy] = useState<Record<string, PostCopy>>({});
@@ -112,6 +113,8 @@ export default function Reel() {
       <Header title={film?.title ?? "Your reel"} sub="Ready · Made with AI" back />
       <View style={styles.player}>
         {url && headers ? <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="cover" nativeControls /> : film ? <ReelThumb seed={0} playable /> : <Skeleton height={420} />}
+        {/* Straight from "Making your reel": celebrate once. */}
+        {fresh && film ? <Celebrate /> : null}
       </View>
       {error ? <Banner kind="error" text={error} /> : null}
       {film?.error ? <Banner kind="warn" text={film.error} /> : null}
