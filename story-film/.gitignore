@@ -1,0 +1,7 @@
+node_modules/
+.next/
+output/
+.env
+next-env.d.ts
+*.tsbuildinfo
+.c2pa-dev/

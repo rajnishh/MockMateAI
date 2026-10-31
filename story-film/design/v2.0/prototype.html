@@ -1,0 +1,800 @@
+<title>Reelkar Prototype v2.0</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&family=Hind:wght@400;500;600;700&family=Hind+Madurai:wght@500;600&family=Noto+Sans+Arabic:wght@500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: page chrome (screen index · device stage · notes) around a scaled phone or desktop frame that runs the Reelkar v2.0 tokens: light = Creator studio, dark = Neon night. */
+:root {
+  --pg-bg: #eef1f6; --pg-panel: #ffffff; --pg-ink: #111827; --pg-muted: #4b5563; --pg-line: #d6dbe5; --pg-accent: #0a756b; --pg-accent-tint: #ddf5f2; --pg-navy: #18264a; --pg-stage: #e3e8f2;
+  --pg-font: Manrope, Hind, system-ui, sans-serif; --pg-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --pg-bg: #090e19; --pg-panel: #121a2c; --pg-ink: #eef2f8; --pg-muted: #a3aeca; --pg-line: #26324d; --pg-accent: #4fd8c8; --pg-accent-tint: #0f3a3a; --pg-navy: #c9d2e6; --pg-stage: #0d1424; color-scheme: dark } }
+:root[data-theme="dark"] { --pg-bg: #090e19; --pg-panel: #121a2c; --pg-ink: #eef2f8; --pg-muted: #a3aeca; --pg-line: #26324d; --pg-accent: #4fd8c8; --pg-accent-tint: #0f3a3a; --pg-navy: #c9d2e6; --pg-stage: #0d1424; color-scheme: dark }
+html, body { height: 100%; }
+body { background: var(--pg-bg); color: var(--pg-ink); font-family: var(--pg-font); font-size: 14px; }
+.pg { min-height: 100%; display: flex; flex-direction: column; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 12px 24px; gap: 12px; box-sizing: border-box; }
+.pg-head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+.pg-brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 18px; letter-spacing: -0.02em; color: var(--pg-navy); margin: 0; }
+.pg-brand small { font-weight: 600; font-size: 13px; color: var(--pg-muted); letter-spacing: 0; }
+.pg-ctrls { display: flex; flex-wrap: wrap; gap: 10px; margin-left: auto; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--pg-line); border-radius: 999px; padding: 3px; background: var(--pg-panel); }
+.seg button { border: 0; background: none; color: var(--pg-muted); font: 600 13px var(--pg-font); padding: 6px 12px; border-radius: 999px; cursor: pointer; min-height: 32px; }
+.seg button[aria-pressed="true"] { background: var(--pg-accent-tint); color: var(--pg-ink); }
+.pg-btn { border: 1px solid var(--pg-line); background: var(--pg-panel); color: var(--pg-ink); font: 600 13px var(--pg-font); padding: 0 14px; min-height: 38px; border-radius: 999px; cursor: pointer; }
+.seg button:focus-visible, .pg-btn:focus-visible, .ix a:focus-visible, .nt a:focus-visible, .nt button:focus-visible { outline: 2px solid var(--pg-accent); outline-offset: 2px; }
+.pg-main { display: grid; grid-template-columns: 250px minmax(0, 1fr) 290px; gap: 16px; align-items: start; flex: 1; }
+.ix, .nt { background: var(--pg-panel); border: 1px solid var(--pg-line); border-radius: 14px; padding: 14px; min-width: 0; }
+.ix { position: sticky; top: max(12px, env(safe-area-inset-top, 0px)); max-height: calc(100vh - 100px); overflow: auto; }
+.ix h2, .nt h2 { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--pg-muted); margin: 14px 0 6px; font-weight: 700; }
+.ix h2:first-child { margin-top: 0; }
+.ix a { display: flex; gap: 8px; align-items: baseline; padding: 6px 8px; border-radius: 8px; color: var(--pg-ink); text-decoration: none; font-size: 13.5px; font-weight: 600; }
+.ix a span { font-family: var(--pg-mono); font-size: 11px; color: var(--pg-muted); font-weight: 500; min-width: 22px; }
+.ix a:hover { background: var(--pg-stage); }
+.ix a[aria-current="page"] { background: var(--pg-accent-tint); }
+.ix-select { display: none; width: 100%; min-height: 40px; border-radius: 10px; border: 1px solid var(--pg-line); background: var(--pg-panel); color: var(--pg-ink); font: 600 14px var(--pg-font); padding: 0 10px; }
+.stage { background: var(--pg-stage); border-radius: 16px; padding: 20px; display: flex; justify-content: center; align-items: flex-start; min-width: 0; overflow: hidden; }
+.scaler { transform-origin: top left; }
+.nt h1 { font-size: 20px; margin: 0 0 4px; letter-spacing: -0.02em; text-wrap: balance; }
+.nt p, .nt li { font-size: 13.5px; line-height: 1.6; color: var(--pg-muted); margin: 0; }
+.nt ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.nt a { color: var(--pg-accent); font-weight: 600; }
+.nt .states { display: flex; flex-wrap: wrap; gap: 6px; }
+.nt .states button { border: 1px solid var(--pg-line); background: var(--pg-panel); color: var(--pg-ink); font: 600 12.5px var(--pg-font); border-radius: 999px; padding: 4px 10px; min-height: 32px; cursor: pointer; }
+.nt .states button[aria-pressed="true"] { background: var(--pg-accent-tint); border-color: var(--pg-accent); }
+.ix a.dep { color: var(--pg-muted); }
+.ix a.dep em { font-style: normal; font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; border: 1px solid var(--pg-line); border-radius: 6px; padding: 0 5px; margin-left: auto; }
+.nt .dep-note { border: 1px dashed var(--pg-muted); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; color: var(--pg-ink); }
+.app[data-cur="INR"] .c-AED, .app[data-cur="INR"] .c-USD, .app[data-cur="AED"] .c-INR, .app[data-cur="AED"] .c-USD, .app[data-cur="USD"] .c-INR, .app[data-cur="USD"] .c-AED { display: none; }
+.nt .flow { font-family: var(--pg-mono); font-size: 11.5px; color: var(--pg-accent); margin-bottom: 6px; }
+.nt .nav-row { display: flex; gap: 8px; margin-top: 14px; }
+.pg-main.wide { grid-template-columns: 230px minmax(0, 1fr); } .pg-main.wide .nt { grid-column: 1 / -1; }
+@media (max-width: 1180px) { .pg-main { grid-template-columns: 230px minmax(0, 1fr); } .nt { grid-column: 1 / -1; } }
+@media (max-width: 760px) { .pg-main, .pg-main.wide { grid-template-columns: minmax(0, 1fr); } .ix { position: static; max-height: none; padding: 10px; } .ix nav { display: none; } .ix-select { display: block; } .stage { padding: 10px; } .pg-ctrls { margin-left: 0; } }
+
+/* ---------- The app frame: Reelkar v1.0 tokens ---------- */
+.app {
+  --surface: #f6f7fb; --surface-raised: #ffffff; --surface-sunken: #e8ecf5; --surface-overlay: #ffffff; --line: #d6dbe5; --line-strong: #7b869c;
+  --ink: #0f1733; --ink-muted: #4b5563; --brand: #18264a; --on-brand: #ffffff; --on-brand-muted: #c9d2e6; --brand-text: #18264a;
+  --action: #ff5a36; --on-action: #18264a; --action-edge: #c2410c; --teal: #2bc4b4; --on-teal: #062a26; --teal-text: #0a756b; --teal-tint: #ddf5f2;
+  --coral: #ff5a36; --on-coral: #2a0c05; --coral-text: #c2410c; --coral-tint: #ffe6de; --pop: #ffd23f; --on-pop: #2a1f00;
+  --success: #1e7a4c; --warning: #8a5a00; --danger: #b42318;
+  --focus-ring: #0a756b; --scrim: rgba(15, 23, 51, 0.55); --shadow: 0 1px 0 rgba(15, 23, 51, 0.04), 0 10px 24px rgba(15, 23, 51, 0.08);
+  --logo-tile: #18264a; --logo-reel: #ffffff; --logo-tail: #2bc4b4; --logo-hub: #ff5a36;
+  --font-display: "Plus Jakarta Sans", Hind, "Noto Sans Arabic", system-ui, sans-serif; --font-body: "Plus Jakarta Sans", Hind, "Hind Madurai", "Noto Sans Arabic", system-ui, sans-serif; --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  font-family: var(--font-body); color: var(--ink); background: var(--surface); position: relative; overflow: hidden; color-scheme: light;
+}
+.app[data-t="dark"] {
+  --surface: #0a0a12; --surface-raised: #14141f; --surface-sunken: #07070d; --surface-overlay: #1c1c2b; --line: #2a2a3d; --line-strong: #5a5a78;
+  --ink: #f2f2f7; --ink-muted: #a0a0b8; --brand: #1a0f2e; --on-brand: #ffffff; --on-brand-muted: #c9c1e6; --brand-text: #f2f2f7;
+  --action: #ff2e88; --on-action: #0a0a12; --action-edge: #b0125a; --teal: #2de2e6; --on-teal: #04262a; --teal-text: #2de2e6; --teal-tint: #0c2a30;
+  --coral: #ff2e88; --on-coral: #0a0a12; --coral-text: #ff6fae; --coral-tint: #2a0f1e; --pop: #c8ff3d; --on-pop: #0a0a12;
+  --success: #5fd39a; --warning: #f6c454; --danger: #ff8b7e; --focus-ring: #2de2e6; --scrim: rgba(0, 0, 0, 0.65);
+  --shadow: 0 0 0 1px rgba(255, 255, 255, 0.03), 0 10px 28px rgba(0, 0, 0, 0.5);
+  --logo-tile: #14141f; --logo-reel: #2de2e6; --logo-tail: #c8ff3d; --logo-hub: #ff2e88;
+  --font-display: "Space Grotesk", Hind, "Noto Sans Arabic", system-ui, sans-serif; color-scheme: dark;
+}
+.app * { box-sizing: border-box; }
+.app button, .app input, .app textarea, .app select { font-family: var(--font-body); color: inherit; }
+.app :focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.app p, .app h1, .app h2, .app h3 { margin: 0; }
+.phone { width: 375px; height: 780px; border-radius: 44px; border: 9px solid #111827; display: flex; flex-direction: column; }
+.desk { width: 1280px; height: 780px; border-radius: 12px; border: 1px solid var(--line); display: flex; }
+.sb-status { height: 30px; flex: none; display: flex; justify-content: space-between; align-items: center; padding: 0 26px; font-size: 12px; font-weight: 700; }
+.body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 6px 16px 20px; display: flex; flex-direction: column; gap: 16px; scrollbar-width: thin; }
+.desk .body { padding: 28px 32px 32px; gap: 20px; }
+.desk-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.desk .content { max-width: 1040px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+.ic { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.ic.s { width: 18px; height: 18px; }
+.t-xl { font-family: var(--font-display); font-weight: 800; font-size: 34px; line-height: 40px; letter-spacing: -0.02em; text-wrap: balance; }
+.t-lg { font-family: var(--font-display); font-weight: 800; font-size: 26px; line-height: 32px; letter-spacing: -0.02em; text-wrap: balance; }
+.t-md { font-family: var(--font-display); font-weight: 700; font-size: 18px; line-height: 24px; }
+.t-body { font-size: 15px; line-height: 24px; }
+.t-cap { font-size: 13px; line-height: 18px; font-weight: 500; color: var(--ink-muted); }
+.t-over { font-size: 11.5px; line-height: 16px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 13px; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.row.nw { flex-wrap: nowrap; }
+.sp { justify-content: space-between; }
+.col { display: flex; flex-direction: column; gap: 12px; }
+.grow { flex: 1; min-width: 0; }
+.g2, .g3, .g4 { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+.g4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.desk .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.desk .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.desk .g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.desk .split { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.split { display: flex; flex-direction: column; gap: 16px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 0 22px; border-radius: 999px; border: 2px solid transparent; font-size: 16px; font-weight: 700; cursor: pointer; background: none; text-decoration: none; }
+.desk .btn { min-height: 42px; font-size: 15px; padding: 0 18px; }
+.btn:active { transform: scale(0.98); }
+.btn.p { background: var(--action); color: var(--on-action); }
+.btn.s { border-color: var(--line-strong); color: var(--ink); }
+.btn.t { background: var(--teal); color: var(--on-teal); }
+.btn.g { color: var(--teal-text); padding: 0 8px; min-height: 40px; }
+.btn.d { color: var(--danger); border-color: var(--line-strong); }
+.btn.sm { min-height: 38px; padding: 0 14px; font-size: 14px; }
+.btn.blk { width: 100%; }
+.btn[disabled] { background: var(--surface-sunken); color: var(--ink-muted); cursor: not-allowed; }
+.chip { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface-raised); font-size: 14px; font-weight: 600; cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--teal-tint); border-color: var(--teal-text); }
+.chip[aria-pressed="true"]::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--teal-text); }
+.card { background: var(--surface-raised); border: 1px solid var(--line); border-radius: 14px; padding: 16px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.card.flat { box-shadow: none; }
+.tap { cursor: pointer; }
+.tap:hover { border-color: var(--line-strong); }
+.hero { background: var(--brand); color: var(--on-brand); border-radius: 20px; padding: 18px; display: flex; flex-direction: column; gap: 10px; }
+.hero .t-cap, .hero .t-over { color: var(--on-brand-muted); }
+.hero .bar { background: rgba(255, 255, 255, 0.18); }
+.hero .bar > i { background: var(--teal); }
+.big { font-family: var(--font-display); font-weight: 800; font-size: 34px; line-height: 38px; letter-spacing: -0.02em; }
+.win { display: flex; align-items: center; gap: 12px; background: var(--coral-tint); border-radius: 14px; padding: 12px 14px; font-weight: 700; font-size: 14px; }
+.win-dot { width: 30px; height: 30px; border-radius: 50%; background: var(--coral); color: var(--on-coral); display: flex; align-items: center; justify-content: center; flex: none; }
+.bar { height: 8px; border-radius: 99px; background: var(--surface-sunken); overflow: hidden; }
+.bar > i { display: block; height: 100%; background: var(--teal-text); border-radius: 99px; }
+.st { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; }
+.st.ok { color: var(--success); } .st.wa { color: var(--warning); } .st.er { color: var(--danger); } .st.mk { color: var(--teal-text); } .st.lv { color: var(--coral-text); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--coral); }
+.credits { display: inline-flex; align-items: center; gap: 4px; color: var(--teal-text); font-weight: 800; font-size: 14px; font-variant-numeric: tabular-nums; cursor: pointer; background: none; border: 0; }
+.pf { width: 24px; height: 24px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; background: var(--surface-sunken); border: 1px solid var(--line-strong); flex: none; }
+.pfs { display: inline-flex; gap: 4px; }
+.badge { display: inline-flex; align-items: center; gap: 4px; border-radius: 8px; padding: 3px 8px; font-size: 12px; font-weight: 700; background: var(--surface-sunken); border: 1px solid var(--line); }
+.badge.new { background: var(--coral); color: var(--on-coral); border-color: transparent; }
+.thumb { aspect-ratio: 9 / 16; width: 100%; max-width: 100%; border-radius: 12px; overflow: hidden; position: relative; background: var(--surface-sunken); display: flex; align-items: center; justify-content: center; }
+.thumb svg.art { position: absolute; inset: 0; width: 100%; height: 100%; }
+.thumb .tm { position: absolute; right: 6px; bottom: 6px; background: var(--scrim); color: #ffffff; border-radius: 6px; padding: 1px 6px; font-family: var(--font-mono); font-size: 11.5px; }
+.play { width: 46px; height: 46px; border-radius: 50%; background: var(--scrim); color: #ffffff; display: flex; align-items: center; justify-content: center; position: relative; }
+.reel { display: flex; flex-direction: column; gap: 6px; cursor: pointer; min-width: 0; }
+.reel .ttl { font-size: 14.5px; font-weight: 700; line-height: 20px; overflow-wrap: anywhere; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 13px; font-weight: 700; color: var(--ink-muted); }
+.inp { min-height: 50px; border-radius: 12px; border: 1px solid var(--line-strong); background: var(--surface-sunken); padding: 12px 14px; font-size: 16px; line-height: 26px; width: 100%; }
+textarea.inp { resize: none; }
+.inp:focus { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.lrow { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); min-width: 0; }
+.lrow:first-child { border-top: 0; }
+.lrow.tap:hover { background: none; }
+.chk { width: 24px; height: 24px; border-radius: 7px; border: 2px solid var(--line-strong); flex: none; display: flex; align-items: center; justify-content: center; cursor: pointer; background: none; padding: 0; }
+.chk[aria-checked="true"] { background: var(--success); border-color: var(--success); color: var(--surface-raised); }
+.done .lbl { color: var(--ink-muted); text-decoration: line-through; }
+.lbl { font-size: 15px; line-height: 21px; font-weight: 700; }
+.sw { width: 46px; height: 28px; border-radius: 99px; background: var(--line-strong); position: relative; border: 0; flex: none; cursor: pointer; }
+.sw::after { content: ""; position: absolute; top: 4px; left: 4px; width: 20px; height: 20px; border-radius: 50%; background: var(--surface-raised); transition: transform 150ms ease-out; }
+.sw[aria-checked="true"] { background: var(--teal-text); }
+.sw[aria-checked="true"]::after { transform: translateX(18px); }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
+.tabs button { border: 0; background: none; padding: 10px 12px; font-size: 14px; font-weight: 700; color: var(--ink-muted); border-bottom: 3px solid transparent; cursor: pointer; min-height: 44px; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--teal-text); }
+.banner { border-radius: 12px; padding: 12px 14px; display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 20px; }
+.banner.info { background: var(--teal-tint); }
+.banner.warn { background: var(--surface-sunken); border: 1px dashed var(--warning); }
+.banner.err { background: var(--coral-tint); }
+.banner .ic { margin-top: 1px; }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.step { display: flex; align-items: center; gap: 12px; font-size: 15px; color: var(--ink-muted); }
+.sd { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--line-strong); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 12px; flex: none; }
+.step.done { color: var(--ink); } .step.done .sd { background: var(--teal-text); border-color: var(--teal-text); color: var(--surface-raised); }
+.step.now { color: var(--ink); font-weight: 700; } .step.now .sd { border: 3px solid var(--teal-text); color: var(--teal-text); }
+.step.you .sd { border-style: dashed; border-color: var(--warning); color: var(--warning); }
+.skel { background: var(--surface-sunken); border-radius: 10px; animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.55; } }
+@media (prefers-reduced-motion: reduce) { .skel { animation: none; } .sw::after { transition: none; } }
+.empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; padding: 36px 12px; }
+.empty .ill { width: 96px; height: 96px; }
+.hdr { display: flex; align-items: center; gap: 8px; min-height: 48px; }
+.back { width: 44px; height: 44px; border-radius: 50%; border: 0; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer; margin-left: -10px; }
+.tabbar { display: grid; grid-template-columns: repeat(5, 1fr); height: 72px; flex: none; background: var(--surface-raised); border-top: 1px solid var(--line); padding: 4px 4px 12px; }
+.tb { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11.5px; font-weight: 700; color: var(--ink-muted); background: none; border: 0; cursor: pointer; }
+.tb .pill { width: 52px; height: 30px; border-radius: 99px; display: flex; align-items: center; justify-content: center; }
+.tb[aria-selected="true"] { color: var(--teal-text); } .tb[aria-selected="true"] .pill { background: var(--teal-tint); }
+.tb.cr .pill { background: var(--action); color: var(--on-action); }
+.side { width: 240px; flex: none; background: var(--surface-raised); border-right: 1px solid var(--line); padding: 16px 12px; display: flex; flex-direction: column; gap: 2px; }
+.side .brand { display: flex; align-items: center; gap: 10px; padding: 2px 8px 18px; font-family: var(--font-display); font-weight: 800; font-size: 21px; letter-spacing: -0.03em; color: var(--brand-text); cursor: pointer; }
+.nv { display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 0 12px; border-radius: 12px; font-size: 14.5px; font-weight: 700; color: var(--ink-muted); background: none; border: 0; cursor: pointer; text-align: left; width: 100%; }
+.nv:hover { background: var(--surface-sunken); color: var(--ink); }
+.nv[aria-current="page"] { background: var(--teal-tint); color: var(--ink); } .nv[aria-current="page"] .ic { color: var(--teal-text); }
+.nv .cnt { margin-left: auto; color: var(--coral-text); font-size: 12px; }
+.side .grp { padding: 14px 12px 4px; }
+.topbar { height: 60px; flex: none; display: flex; align-items: center; gap: 16px; padding: 0 32px; border-bottom: 1px solid var(--line); }
+.search { flex: 1; max-width: 440px; height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-radius: 12px; background: var(--surface-sunken); border: 1px solid var(--line); color: var(--ink-muted); font-size: 14px; cursor: pointer; }
+.kbd { margin-left: auto; font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--line-strong); border-radius: 6px; padding: 0 6px; }
+.iconbtn { width: 40px; height: 40px; border-radius: 50%; border: 0; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; }
+.iconbtn .n { position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--coral); }
+.av { width: 36px; height: 36px; border-radius: 50%; background: var(--teal-tint); color: var(--teal-text); font-weight: 800; display: flex; align-items: center; justify-content: center; border: 0; cursor: pointer; flex: none; }
+.week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; }
+.day { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.dh { display: flex; flex-direction: column; align-items: center; padding: 6px 0; border-radius: 10px; }
+.dh.today { background: var(--teal-tint); }
+.dn { font-family: var(--font-display); font-size: 18px; font-weight: 800; }
+.slot { background: var(--surface-raised); border: 1px solid var(--line); border-radius: 10px; padding: 8px; display: flex; flex-direction: column; gap: 4px; cursor: pointer; text-align: left; min-width: 0; }
+.slot.ap { border: 1.5px dashed var(--warning); }
+.slot.sug { border: 1.5px dashed var(--line-strong); background: none; color: var(--ink-muted); align-items: center; justify-content: center; min-height: 64px; font-size: 12.5px; font-weight: 700; }
+.slot .ttl { font-size: 13px; font-weight: 700; line-height: 17px; overflow-wrap: anywhere; }
+.kw { font-family: var(--font-mono); font-size: 13.5px; background: var(--teal-tint); border-radius: 8px; padding: 4px 8px; font-weight: 500; }
+.otp { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.otp span { height: 54px; border-radius: 12px; border: 1px solid var(--line-strong); background: var(--surface-sunken); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 22px; }
+.otp.bad span { border-color: var(--danger); }
+.swatch { height: 56px; border-radius: 12px; border: 1px solid var(--line); }
+.onb-desk { flex: 1; display: flex; flex-direction: column; }
+.onb-desk .top { height: 64px; display: flex; align-items: center; padding: 0 32px; gap: 10px; font-family: var(--font-display); font-weight: 800; font-size: 20px; letter-spacing: -0.03em; color: var(--brand-text); }
+.onb-desk .mid { flex: 1; overflow-y: auto; display: flex; justify-content: center; padding: 16px 32px 40px; }
+.onb-desk .panel { width: 520px; display: flex; flex-direction: column; gap: 18px; }
+.progress-dots { display: flex; gap: 6px; }
+.progress-dots i { height: 6px; flex: 1; border-radius: 99px; background: var(--surface-sunken); }
+.progress-dots i.on { background: var(--teal-text); }
+.toast { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); background: var(--ink); color: var(--surface); padding: 10px 16px; border-radius: 12px; font-size: 14px; font-weight: 700; box-shadow: var(--shadow); white-space: nowrap; z-index: 5; }
+.desk .toast { bottom: 28px; }
+.desk .player { width: 340px; }
+.player { background: #0b1220; border-radius: 16px; aspect-ratio: 9 / 16; width: 236px; max-width: 100%; margin: 0 auto; flex: none; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.player svg.art { position: absolute; inset: 0; width: 100%; height: 100%; }
+.cap-burn { position: absolute; left: 10%; right: 10%; bottom: 14%; text-align: center; color: #ffffff; font-weight: 800; font-size: 17px; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7); }
+.wave { display: flex; align-items: center; gap: 3px; height: 48px; }
+.wave i { width: 4px; border-radius: 4px; background: var(--teal-text); }
+.rec { width: 76px; height: 76px; border-radius: 50%; background: var(--coral); color: var(--on-coral); border: 6px solid var(--coral-tint); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.price { font-family: var(--font-display); font-weight: 800; font-size: 28px; letter-spacing: -0.02em; }
+.plan.sel { border: 2px solid var(--teal-text); }
+.qr { width: 120px; height: 120px; display: grid; grid-template-columns: repeat(9, 1fr); gap: 2px; padding: 8px; background: #ffffff; border-radius: 10px; flex: none; }
+.qr i { background: #111827; border-radius: 1px; }
+.qr i.o { background: transparent; }
+.dm { background: var(--surface-sunken); border-radius: 16px 16px 16px 4px; padding: 10px 12px; font-size: 14px; line-height: 20px; max-width: 85%; }
+.dm.me { background: var(--teal-tint); border-radius: 16px 16px 4px 16px; align-self: flex-end; }
+.lesson-vid { aspect-ratio: 16 / 9; width: 100%; border-radius: 14px; background: var(--brand); color: var(--on-brand); display: flex; align-items: center; justify-content: center; }
+
+/* ---------- v2.0: energy, logo motion, loaders ---------- */
+.t-xl, .t-lg { letter-spacing: -0.03em; }
+.app[data-t="dark"] .t-xl, .app[data-t="dark"] .t-lg { letter-spacing: -0.01em; }
+.card { border-radius: 18px; }
+.btn { font-weight: 800; transition: transform .12s ease, box-shadow .12s ease; }
+.btn.p { box-shadow: 0 4px 0 var(--action-edge); }
+.btn.p:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--action-edge); }
+.app[data-t="dark"] .btn.p { box-shadow: 0 0 18px rgba(255, 46, 136, 0.55); }
+.app[data-t="dark"] .btn.p:active { transform: scale(0.97); box-shadow: 0 0 8px rgba(255, 46, 136, 0.5); }
+.chip[aria-pressed="true"] { animation: pop .28s cubic-bezier(.3, 1.6, .5, 1); }
+.hero { position: relative; overflow: hidden; border-radius: 24px; }
+.hero::after { content: ""; position: absolute; right: -46px; top: -46px; width: 150px; height: 150px; border-radius: 50%; border: 20px solid rgba(255, 90, 54, 0.4); pointer-events: none; }
+.hero::before { content: ""; position: absolute; right: 54px; bottom: -30px; width: 60px; height: 60px; border-radius: 50%; background: rgba(43, 196, 180, 0.35); pointer-events: none; }
+.app[data-t="dark"] .hero { border: 1px solid rgba(255, 46, 136, 0.45); box-shadow: 0 0 24px rgba(255, 46, 136, 0.18); }
+.app[data-t="dark"] .hero::after { border-color: rgba(45, 226, 230, 0.35); }
+.app[data-t="dark"] .hero::before { background: rgba(200, 255, 61, 0.25); }
+.hero .bar > i, .bar > i { background-image: linear-gradient(90deg, transparent 0, rgba(255, 255, 255, 0.45) 50%, transparent 100%); background-size: 60px 100%; background-repeat: no-repeat; animation: shimmer 1.6s linear infinite; }
+.hero .bar > i { background-color: var(--coral); }
+.app[data-t="dark"] .bar > i { box-shadow: 0 0 10px var(--teal); }
+.win { background: var(--pop); color: var(--on-pop); animation: pop .4s cubic-bezier(.3, 1.6, .5, 1); }
+.win-dot { background: var(--brand); color: var(--on-brand); animation: bounce 1.2s ease-in-out 2; }
+.app[data-t="dark"] .win-dot { background: var(--surface); color: var(--pop); }
+.tb[aria-selected="true"] .pill { animation: pop .3s cubic-bezier(.3, 1.6, .5, 1); }
+.body > * { flex-shrink: 0; animation: rise .45s cubic-bezier(.2, .8, .2, 1) both; }
+.body > *:nth-child(2) { animation-delay: .04s; } .body > *:nth-child(3) { animation-delay: .08s; } .body > *:nth-child(4) { animation-delay: .12s; }
+.body > *:nth-child(5) { animation-delay: .16s; } .body > *:nth-child(6) { animation-delay: .2s; } .body > *:nth-child(n+7) { animation-delay: .24s; }
+@keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes pop { 0% { transform: scale(.85); } 70% { transform: scale(1.06); } 100% { transform: scale(1); } }
+@keyframes bounce { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-5px); } }
+@keyframes shimmer { from { background-position: -60px 0; } to { background-position: calc(100% + 60px) 0; } }
+/* The Reelkar logo: the reel turns once, the film tail feeds out, the hub clicks. Headers play it once; loaders loop. */
+.lg .lg-reel { transform-box: fill-box; transform-origin: center; animation: lgSpin 2.4s cubic-bezier(.6, 0, .3, 1) 1; }
+.lg .lg-tail { transform-box: fill-box; transform-origin: left center; animation: lgTail 2.4s ease-out 1; }
+.lg .lg-hub { transform-box: fill-box; transform-origin: center; animation: lgHub 2.4s ease-out 1; }
+.lg.loop .lg-reel, .lg.loop .lg-tail, .lg.loop .lg-hub { animation-iteration-count: infinite; }
+.app[data-t="dark"] .lg { filter: drop-shadow(0 0 6px rgba(45, 226, 230, 0.5)); }
+@keyframes lgSpin { 0% { transform: rotate(0); } 45%, 100% { transform: rotate(360deg); } }
+@keyframes lgTail { 0%, 35% { transform: scaleX(.15); } 58% { transform: scaleX(1.15); } 68%, 100% { transform: scaleX(1); } }
+@keyframes lgHub { 0%, 45% { transform: scale(1); } 53% { transform: scale(1.9); } 62%, 100% { transform: scale(1); } }
+.ldr { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px 0 6px; }
+.ldr .t-cap { font-weight: 700; }
+.app .splash { position: absolute; inset: 0; background: var(--surface); color: var(--brand-text); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; cursor: pointer; border: 0; width: 100%; font: inherit; }
+.app[data-t="dark"] .splash { background: var(--surface); }
+/* Option 1+: rings pulse around the reel on the splash and during long waits; one burst when something is done. */
+.halo { position: relative; display: inline-grid; place-items: center; width: calc(var(--s) * 1.7); height: calc(var(--s) * 1.7); }
+.halo > i { position: absolute; width: var(--s); height: var(--s); border-radius: 50%; border: 3px solid var(--coral); animation: halo 2.4s ease-out infinite; }
+.halo > i + i { border-color: var(--teal); animation-delay: 1.2s; }
+.halo .lg { position: relative; }
+@keyframes halo { 0% { transform: scale(.9); opacity: .8; } 100% { transform: scale(1.75); opacity: 0; } }
+.burst { position: absolute; left: 50%; top: 50%; width: 80px; height: 80px; margin: -40px 0 0 -40px; border-radius: 50%; border: 4px solid var(--coral); z-index: 1; pointer-events: none; animation: burst 1s .2s ease-out both; }
+@keyframes burst { 0% { transform: scale(.4); opacity: 1; } 100% { transform: scale(3.2); opacity: 0; } }
+.splash .word { font-family: var(--font-display); font-weight: 800; font-size: 44px; letter-spacing: -0.03em; animation: rise .6s .9s cubic-bezier(.2, .8, .2, 1) both; }
+.splash .word b { color: var(--coral-text); }
+.app[data-t="dark"] .splash .word { text-shadow: 0 0 18px rgba(255, 46, 136, 0.65); }
+.splash .tag { color: var(--ink-muted); font-weight: 600; animation: rise .6s 1.2s cubic-bezier(.2, .8, .2, 1) both; }
+.splash .hint { position: absolute; bottom: 40px; font-size: 13px; color: var(--ink-muted); }
+.confetti { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+.confetti i { position: absolute; top: -12px; width: 8px; height: 14px; border-radius: 2px; animation: fall 1.8s cubic-bezier(.3, .6, .6, 1) forwards; }
+@keyframes fall { 0% { transform: translateY(0) rotate(0); opacity: 1; } 100% { transform: translateY(440px) rotate(540deg); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .body > *, .chip[aria-pressed="true"], .win, .win-dot, .tb .pill, .bar > i, .splash .word, .splash .tag, .confetti i, .halo > i, .burst, .lg .lg-reel, .lg .lg-tail, .lg .lg-hub { animation: none !important; }
+  .confetti { display: none; }
+}
+</style>
+
+<div class="pg">
+  <header class="pg-head">
+    <p class="pg-brand"><svg width="30" height="30" viewBox="0 0 112 112" aria-hidden="true"><rect width="112" height="112" rx="30" fill="#18264a"/><rect x="56" y="80" width="36" height="8" rx="4" fill="#2bc4b4"/><circle cx="54" cy="54" r="32" fill="#ffffff"/><circle cx="54" cy="36" r="6" fill="#18264a"/><circle cx="71" cy="48" r="6" fill="#18264a"/><circle cx="65" cy="68" r="6" fill="#18264a"/><circle cx="43" cy="68" r="6" fill="#18264a"/><circle cx="37" cy="48" r="6" fill="#18264a"/><circle cx="54" cy="54" r="5" fill="#f27a5e"/></svg>reelkar <small>Clickable prototype · v2.0 · light: Creator studio · dark: Neon night</small></p>
+    <div class="pg-ctrls">
+      <div class="seg" role="group" aria-label="Device"><button id="dev-phone" aria-pressed="true">Phone</button><button id="dev-desk" aria-pressed="false">Desktop &amp; web</button></div>
+      <div class="seg" role="group" aria-label="App theme"><button id="th-light" aria-pressed="true">Light</button><button id="th-dark" aria-pressed="false">Dark</button></div>
+      <button class="pg-btn" id="restart">Start from sign-up</button>
+    </div>
+  </header>
+  <div class="pg-main">
+    <aside class="ix" aria-label="All screens">
+      <select class="ix-select" id="ix-select" aria-label="Jump to screen"></select>
+      <nav id="ix-nav"></nav>
+    </aside>
+    <section class="stage" id="stage" aria-label="Prototype"><div class="scaler" id="scaler"></div></section>
+    <aside class="nt" id="notes" aria-live="polite"></aside>
+  </div>
+</div>
+
+<script>
+(function () {
+  var I = {
+    home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    cal: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+    inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+    earn: '<path d="M6 3h12M6 8h12M6 13l8.5 8M6 13h3a5 5 0 0 0 0-10"/>',
+    spark: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>',
+    mic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/>',
+    chart: '<path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/>',
+    book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/>',
+    palette: '<circle cx="12" cy="12" r="9"/><circle cx="8" cy="10" r="1.2"/><circle cx="12" cy="7.5" r="1.2"/><circle cx="16" cy="10" r="1.2"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+    send: '<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/>',
+    alert: '<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
+    film: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 3v18M17 3v18M3 7.5h4M3 12h18M3 16.5h4M17 7.5h4M17 16.5h4"/>',
+    back: '<path d="m15 18-6-6 6-6"/>',
+    right: '<path d="m9 18 6-6-6-6"/>',
+    bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+    user: '<circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
+    link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+    down: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/>',
+    music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+    refresh: '<path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M8 16H3v5"/>',
+    msg: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+    eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    mail: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/>',
+    lock: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+    globe: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/>',
+    play: '<path d="M8 5v14l11-7z" fill="currentColor" stroke="none"/>',
+    edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+    x: '<path d="M18 6 6 18M6 6l12 12"/>',
+    star: '<path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8-6.2-3.2-6.2 3.2L7 14.2 2 9.3l6.9-1z"/>',
+    gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8s1-5 4.5-5a2.5 2.5 0 0 1 0 5"/>',
+    phone: '<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/>',
+    clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+    upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5M12 3v12"/>',
+    trash: '<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>',
+    out: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>'
+  };
+  function ic(n, s) { return '<svg class="ic' + (s ? ' s' : '') + '" viewBox="0 0 24 24" aria-hidden="true">' + I[n] + '</svg>'; }
+  // The v1.0 reel logo, now animated: pass 'loop' for loaders and the splash; headers play it once.
+  var LOGO = function (s, loop) { return '<svg class="lg' + (loop ? ' loop' : '') + '" width="' + s + '" height="' + s + '" viewBox="0 0 112 112" aria-hidden="true"><rect width="112" height="112" rx="30" style="fill:var(--logo-tile,#18264a)"/><rect class="lg-tail" x="56" y="80" width="36" height="8" rx="4" style="fill:var(--logo-tail,#2bc4b4)"/><g class="lg-reel"><circle cx="54" cy="54" r="32" style="fill:var(--logo-reel,#ffffff)"/><circle cx="54" cy="36" r="6" style="fill:var(--logo-tile,#18264a)"/><circle cx="71" cy="48" r="6" style="fill:var(--logo-tile,#18264a)"/><circle cx="65" cy="68" r="6" style="fill:var(--logo-tile,#18264a)"/><circle cx="43" cy="68" r="6" style="fill:var(--logo-tile,#18264a)"/><circle cx="37" cy="48" r="6" style="fill:var(--logo-tile,#18264a)"/></g><circle class="lg-hub" cx="54" cy="54" r="5" style="fill:var(--logo-hub,#f27a5e)"/></svg>'; };
+  // Loading anywhere in the app: the logo loops instead of a spinner.
+  // The reel with pulsing rings: the splash and long waits (making a reel).
+  function halo(s) { return '<span class="halo" style="--s:' + s + 'px"><i></i><i></i>' + LOGO(s, 1) + '</span>'; }
+  // Loading anywhere: the reel spins; long waits add the rings.
+  function loader(label, long) { return '<div class="ldr" role="status">' + (long ? halo(64) : LOGO(64, 1)) + '<p class="t-cap">' + (label || 'Loading…') + '</p></div>'; }
+  function confetti() { var c = ['var(--coral)', 'var(--teal)', 'var(--pop)', '#ffffff']; var o = ''; for (var i = 0; i < 14; i++) o += '<i style="left:' + (4 + i * 7) + '%;background:' + c[i % 4] + ';animation-delay:' + (i % 5) * 0.12 + 's"></i>'; return '<div class="confetti" aria-hidden="true">' + o + '</div>'; }
+  function art(k) {
+    var p = [['var(--teal-tint)', 'var(--coral)', 'var(--teal)'], ['var(--coral-tint)', 'var(--teal)', 'var(--brand)'], ['var(--surface-sunken)', 'var(--coral)', 'var(--brand)'], ['var(--teal-tint)', 'var(--brand)', 'var(--coral)']][k % 4];
+    return '<svg class="art" viewBox="0 0 90 160" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="90" height="160" fill="' + p[0] + '"/><circle cx="' + (62 - (k % 4) * 9) + '" cy="46" r="15" fill="' + p[1] + '"/><path d="M0 122 30 94l22 18 18-14 20 16v46H0z" fill="' + p[2] + '"/></svg>';
+  }
+  function btn(label, o) {
+    o = o || {};
+    var a = ' class="btn ' + (o.k || 'p') + (o.blk ? ' blk' : '') + (o.sm ? ' sm' : '') + '"';
+    if (o.go) a += ' data-go="' + o.go + '"';
+    if (o.toast) a += ' data-toast="' + o.toast + '"';
+    if (o.state) a += ' data-set-state="' + o.state + '"';
+    if (o.dis) a += ' disabled';
+    return '<button' + a + (o.style ? ' style="' + o.style + '"' : '') + '>' + (o.i ? ic(o.i, 1) : '') + label + '</button>';
+  }
+  function chip(label, on, g, multi) { return '<button class="chip" aria-pressed="' + (on ? 'true' : 'false') + '" data-group="' + g + '"' + (multi ? ' data-multi="1"' : '') + '>' + label + '</button>'; }
+  function chips(g, list, on, multi) { return '<div class="row" role="group">' + list.map(function (l, i) { return chip(l, (on || []).indexOf(i) > -1, g, multi); }).join('') + '</div>'; }
+  function st(k, t) { var m = { ok: 'check', wa: 'alert', er: 'alert', mk: 'spark' }; return '<span class="st ' + k + '">' + (k === 'lv' ? '<span class="dot"></span>' : ic(m[k], 1)) + t + '</span>'; }
+  function pfs(l) { return '<span class="pfs">' + l.map(function (p) { return '<span class="pf" title="' + ({ IG: 'Instagram', YT: 'YouTube', FB: 'Facebook', 'in': 'LinkedIn', TT: 'TikTok', X: 'X' }[p]) + '">' + p + '</span>'; }).join('') + '</span>'; }
+  function thumb(k, t, play) { return '<div class="thumb">' + art(k) + (play ? '<span class="play">' + ic('play', 1) + '</span>' : '') + (t ? '<span class="tm">' + t + '</span>' : '') + '</div>'; }
+  function reel(k, title, meta, go) { return '<div class="reel" data-go="' + (go || 'ready') + '" role="link" tabindex="0">' + thumb(k, '0:' + (30 + k * 5), meta.indexOf('Posted') > -1) + '<p class="ttl">' + title + '</p>' + meta + '</div>'; }
+  function hdr(title, back, right, sub) {
+    return '<div class="hdr">' + (back ? '<button class="back" data-go="' + back + '" aria-label="Back">' + ic('back') + '</button>' : '') + '<div class="grow">' + (sub ? '<p class="t-cap">' + sub + '</p>' : '') + '<h1 class="t-lg">' + title + '</h1></div>' + (right || '') + '</div>';
+  }
+  var CREDITS = '<button class="credits" data-go="credits" aria-label="26 credits">' + ic('spark', 1) + '26</button>';
+  function chk(label, done, sub, act) { return '<div class="lrow' + (done ? ' done' : '') + '"><button class="chk" role="checkbox" aria-checked="' + (done ? 'true' : 'false') + '" aria-label="' + label.replace(/<[^>]+>/g, '') + '">' + (done ? ic('check', 1) : '') + '</button><div class="grow"><p class="lbl">' + label + '</p>' + (sub ? '<p class="t-cap">' + sub + '</p>' : '') + '</div>' + (act || '') + '</div>'; }
+  function lrow(icon, title, sub, right, go) { return '<div class="lrow' + (go ? ' tap' : '') + '"' + (go ? ' data-go="' + go + '" role="link" tabindex="0"' : '') + '>' + (icon ? '<span style="color:var(--teal-text)">' + ic(icon) + '</span>' : '') + '<div class="grow"><p class="lbl">' + title + '</p>' + (sub ? '<p class="t-cap">' + sub + '</p>' : '') + '</div>' + (right !== undefined ? right : (go ? ic('right', 1) : '')) + '</div>'; }
+  function empty(svgKind, title, text, action) {
+    return '<div class="empty"><svg class="ill" viewBox="0 0 96 96" aria-hidden="true"><rect x="8" y="8" width="80" height="80" rx="24" fill="var(--teal-tint)"/><circle cx="48" cy="46" r="20" fill="var(--surface-raised)"/><circle cx="48" cy="46" r="5" fill="var(--coral)"/><rect x="50" y="66" width="26" height="6" rx="3" fill="var(--teal-text)"/></svg><p class="t-md">' + title + '</p><p class="t-cap" style="max-width:300px">' + text + '</p>' + (action || '') + '</div>';
+  }
+  function skel(n) { var o = ''; for (var i = 1; i < n; i++) o += '<div class="skel" style="height:64px"></div>'; return '<div class="col">' + loader() + o + '</div>'; }
+  function errBox(what) { return '<div class="banner err" role="alert">' + ic('alert', 1) + '<div class="grow"><p class="lbl">Couldn\'t load ' + what + '</p><p class="t-cap" style="color:inherit">Check your internet connection, then try again.</p></div></div>' + btn('Try again', { k: 's', state: 'default', i: 'refresh' }); }
+  function dots(n, of) { var o = '<div class="progress-dots" aria-label="Step ' + n + ' of ' + of + '">'; for (var i = 1; i <= of; i++) o += '<i class="' + (i <= n ? 'on' : '') + '"></i>'; return o + '</div>'; }
+
+  var R = {}, ORDER = [];
+  var FLOWS = [['1', 'Sign-up and onboarding'], ['2', 'Home and making reels'], ['3', 'Posting and engaging'], ['4', 'Earning'], ['5', 'Growing and learning'], ['6', 'Account and credits']];
+  function S(id, o) { R[id] = o; ORDER.push(id); }
+
+  /* ---------------- 1 · Onboarding ---------------- */
+  S('splash', { f: '1', t: 'Opening the app', chrome: 'splash', notes: 'v2.0 (Option 1+): the original reel on the light splash, with coral and teal rings pulsing out while the app loads. Short loads show the reel spinning; long waits (making a reel) add the rings; a finished reel gets one ring burst and confetti. Tap to continue in this prototype.', r: function () {
+    return '<button class="splash" data-go="welcome" aria-label="Reelkar. Tap to continue">' + halo(120) + '<span class="word">Reelkar<b>.</b></span><span class="tag">Your reel studio, in your pocket</span><span class="hint">Tap to continue</span></button>';
+  } });
+  S('welcome', { f: '1', t: 'Welcome', chrome: 'onb', notes: 'First screen after install. One promise, the app language, two ways in. Language picked here sets the whole app and the default content language.', r: function () {
+    return '<div class="col" style="gap:20px;padding-top:24px"><div>' + LOGO(72) + '</div><h1 class="t-xl">Become a creator.<br>We do the hard parts.</h1><p class="t-body" style="color:var(--ink-muted)">Ideas, reels, posting and DMs in one place. Start free, no editing skills needed.</p>' +
+      '<div class="field"><label>App language</label>' + chips('lang', ['English', 'हिन्दी', 'मराठी', 'தமிழ்', 'العربية'], [0]) + '</div>' +
+      '<div class="col" style="margin-top:12px">' + btn('Get started free', { go: 'signin', blk: 1 }) + btn('I already have an account', { k: 's', go: 'signin', blk: 1 }) + '</div><p class="t-cap" style="text-align:center">By continuing you agree to the Terms and Privacy Policy.</p></div>';
+  } });
+  S('signin', { f: '1', t: 'Sign in', chrome: 'onb', back: 'welcome', notes: 'Google or Indian mobile number. Phone OTP is rate-limited (3 per 10 minutes). Gulf numbers use Google or email until UAE SMS is set up.', r: function () {
+    return hdr('Sign in or create your account', 'welcome') + '<button class="btn s blk" data-go="quickstart"><span style="font-weight:800;color:var(--teal-text)">G</span>Continue with Google</button>' +
+      '<div class="row nw" style="gap:12px"><span style="flex:1;height:1px;background:var(--line)"></span><span class="t-cap">or</span><span style="flex:1;height:1px;background:var(--line)"></span></div>' +
+      '<div class="field"><label for="ph">Mobile number</label><div class="row nw"><span class="inp" style="width:84px;flex:none">+91</span><input id="ph" class="inp" inputmode="numeric" value="98765 43210"></div></div>' + btn('Send code', { go: 'otp', blk: 1 }) +
+      '<p class="t-cap">We\'ll send a 6-digit code by SMS. Standard SMS rates may apply.</p>';
+  } });
+  S('otp', { f: '1', t: 'Enter code', chrome: 'onb', back: 'signin', states: ['error'], notes: 'Six-digit code with auto-read on Android. Error state keeps the digits so people can fix one.', r: function (c) {
+    var bad = c.state === 'error';
+    return hdr('Enter the code', 'signin', '', 'Sent to +91 98765 43210') + '<div class="otp' + (bad ? ' bad' : '') + '"><span>4</span><span>8</span><span>2</span><span>1</span><span>' + (bad ? '9' : '0') + '</span><span>' + (bad ? '3' : '7') + '</span></div>' +
+      (bad ? '<div class="banner err" role="alert">' + ic('alert', 1) + '<p>That code didn\'t match. Check the SMS and try again. 2 tries left.</p></div>' : '') +
+      btn('Verify', { go: 'quickstart', blk: 1 }) + '<div class="row sp"><span class="t-cap">Resend code in <span class="mono">0:24</span></span>' + btn('Change number', { k: 'g', go: 'signin' }) + '</div>';
+  } });
+  S('quickstart', { f: '1', t: 'Quick start', chrome: 'onb', back: 'otp', notes: 'v1.1 onboarding: one screen replaces Goals, Niche and Languages. Only what\'s needed to make a good first reel; brand kit, platforms and the 30-day plan move to the Home checklist.', r: function () {
+    return dots(1, 2) + hdr('What will you make videos about?') + '<div class="field"><label for="qn">Your topic, in your words</label><input id="qn" class="inp" value="Quick Indian recipes for working people"></div>' +
+      chips('qniche', ['Cooking', 'Kids stories', 'Tech and AI', 'Fitness', 'Devotional', 'Comedy', 'Money tips', 'Small business'], [0]) +
+      '<div class="field"><label>Language of your reels</label>' + chips('qlang', ['हिन्दी', 'English', 'मराठी', 'தமிழ்', 'العربية'], [0]) + '</div>' +
+      '<div class="field"><label>I am</label>' + chips('qwho', ['New to creating', 'Already posting'], [0]) + '</div>' + btn('Continue', { go: 'firstreel', blk: 1 });
+  } });
+  S('firstreel', { f: '1', t: 'Your first reel', chrome: 'onb', back: 'quickstart', notes: 'The "aha" moment within a minute of signing up: pick one of three ideas made for their topic and get a reel free. After the reel is ready, Post now asks them to connect Instagram.', r: function () {
+    var ideas = [['3 chai hacks nobody told you', 'Hook: "Stop making chai like this"'], ['5-minute poha for office mornings', 'Hook: "Breakfast in 5, no excuses"'], ['Mom vs me: making dal', 'Hook: "Who wins? Comment below"']];
+    return dots(2, 2) + hdr('Let\'s make your first reel') + '<p class="t-body" style="color:var(--ink-muted)">Pick an idea. It\'s free, and takes about 2 minutes.</p><div class="col" role="radiogroup" aria-label="Ideas">' + ideas.map(function (d, i) { return '<button class="card flat tap" role="radio" aria-checked="' + (i === 0) + '" data-pick="idea" style="text-align:left' + (i === 0 ? ';border:2px solid var(--teal-text)' : '') + '"><span class="lbl">' + d[0] + '</span><span class="t-cap">' + d[1] + '</span></button>'; }).join('') + '</div>' +
+      btn('Write my own idea', { k: 'g', go: 'create', i: 'edit', style: 'align-self:flex-start;padding:0' }) + '<div class="win"><span class="win-dot">' + ic('gift', 1) + '</span>Welcome gift: 20 free credits</div>' + btn('Make my first reel · free', { go: 'making', blk: 1, i: 'spark' }) + btn('Skip, take me to Home', { k: 'g', go: 'home' });
+  } });
+  S('goals', { f: '1', dep: 'Replaced in v1.1 by Quick start. Kept for reference; not in the main flow.', t: 'Where are you starting?', chrome: 'onb', back: 'otp', notes: 'Splits new and existing creators. Existing creators skip the starter steps their connected accounts already cover.', r: function () {
+    return dots(1, 6) + hdr('Where are you starting?') +
+      '<div class="col" role="radiogroup" aria-label="Where are you starting"><button class="card flat tap" role="radio" aria-checked="true" data-pick="start" style="text-align:left;border:2px solid var(--teal-text)"><span class="lbl">I\'m new. Help me start.</span><span class="t-cap">We\'ll pick a niche, make your brand and plan your first 30 days.</span></button><button class="card flat tap" role="radio" aria-checked="false" data-pick="start" style="text-align:left"><span class="lbl">I already post. Help me grow.</span><span class="t-cap">Connect your accounts and we\'ll learn what works for you.</span></button></div>' +
+      '<div class="field"><label>What do you want most? (pick any)</label>' + chips('goal', ['More followers', 'Earn money', 'Grow my business', 'Teach what I know', 'Just for fun'], [0, 1], 1) + '</div>' + btn('Continue', { go: 'niche', blk: 1 });
+  } });
+  S('niche', { f: '1', dep: 'Replaced in v1.1 by Quick start. Kept for reference; not in the main flow.', t: 'Pick your niche', chrome: 'onb', back: 'goals', notes: 'Niche drives ideas, hooks, brand kit and the plan. Free text is matched to a niche by the AI.', r: function () {
+    return dots(2, 6) + hdr('What will you make videos about?') + '<div class="field"><label for="nq">Search or describe</label><input id="nq" class="inp" value="Quick Indian recipes for working people"></div>' +
+      chips('niche', ['Cooking', 'Kids stories', 'Tech and AI', 'Fitness', 'Devotional', 'Comedy', 'Education', 'Money tips', 'Beauty', 'Travel', 'Music', 'Small business'], [0]) + btn('Continue', { go: 'languages', blk: 1 });
+  } });
+  S('languages', { f: '1', dep: 'Replaced in v1.1 by Quick start. Kept for reference; not in the main flow.', t: 'Languages', chrome: 'onb', back: 'niche', notes: 'Content languages can differ from the app language. Each language shows in its own script.', r: function () {
+    return dots(3, 6) + hdr('Which languages will you post in?') + chips('cl', ['हिन्दी', 'English', 'मराठी', 'বাংলা', 'தமிழ்', 'తెలుగు', 'العربية'], [0, 1], 1) +
+      '<div class="banner info">' + ic('spark', 1) + '<p>Reels can have Hindi voice with English captions, or any mix. You can change this for every reel.</p></div>' + btn('Continue', { go: 'platforms', blk: 1 });
+  } });
+  S('platforms', { f: '1', t: 'Connect platforms', chrome: 'onb', back: 'home', states: ['error'], notes: 'Order: Instagram, YouTube, Facebook, LinkedIn, TikTok, X. Limits are explained in plain words. Skipping is allowed; Home then shows "Connect Instagram to start". v1.1: opened from Home, Post now or Account instead of during sign-up.', r: function (c) {
+    function p(code, name, sub, state) { return '<div class="lrow">' + pfs([code]) + '<div class="grow"><p class="lbl">' + name + '</p><p class="t-cap">' + sub + '</p></div>' + state + '</div>'; }
+    return hdr('Where do you want to post?', 'home') + (c.state === 'error' ? '<div class="banner err" role="alert">' + ic('alert', 1) + '<p>Instagram didn\'t connect. Your account needs to be a Creator or Business account. <button class="btn g" data-go="lesson" style="min-height:auto;padding:0">See how (2 min)</button></p></div>' : '') +
+      '<div class="card flat" style="gap:0">' + p('IG', 'Instagram', 'Creator or Business account', btn('Connect', { k: 's', sm: 1, toast: 'Instagram connected' })) + p('YT', 'YouTube', '@priyacooks', st('ok', 'Connected')) + p('FB', 'Facebook Page', 'Optional', btn('Connect', { k: 's', sm: 1, toast: 'Facebook connected' })) + p('in', 'LinkedIn', 'Your profile', btn('Connect', { k: 's', sm: 1, toast: 'LinkedIn connected' })) + p('TT', 'TikTok', 'Posts stay private until TikTok approves us', '<span class="badge">Soon</span>') + p('X', 'X', 'Paid add-on', '<span class="badge">Soon</span>') + '</div>' +
+      btn('Done', { go: 'home', blk: 1 }) + btn('Skip for now', { k: 'g', go: 'home' });
+  } });
+  S('brandgen', { f: '1', t: 'Making your brand', chrome: 'onb', back: 'home', notes: 'Takes about 20 seconds. Shows real steps so the wait feels earned. Leaving is safe. v1.1: started from the Home checklist ("Create your brand kit").', r: function () {
+    return '<div class="col" style="align-items:center;text-align:center;padding:16px 0">' + LOGO(84, 1) + '<h1 class="t-lg">Making your brand kit</h1><p class="t-cap">About 20 seconds</p></div>' +
+      '<ol class="steps"><li class="step done"><span class="sd">' + ic('check', 1) + '</span>Reading your niche and goals</li><li class="step done"><span class="sd">' + ic('check', 1) + '</span>Finding names and handles</li><li class="step now"><span class="sd">3</span>Picking colours and fonts</li><li class="step"><span class="sd">4</span>Writing your bio</li><li class="step"><span class="sd">5</span>Making your intro and outro</li></ol>' +
+      '<div class="bar"><i style="width:55%"></i></div>' + btn('See my brand kit (demo)', { go: 'brandkit-new', blk: 1, k: 's' });
+  } });
+  S('brandkit-new', { f: '1', t: 'Your brand kit', chrome: 'onb', back: 'brandgen', notes: 'Everything is editable later in Brand kit. Handles are checked for availability on Instagram and YouTube when connected.', r: function () {
+    return hdr('Your brand kit is ready', 'home') + '<div class="card flat"><p class="t-over">Name ideas</p>' + chips('handle', ['@priyacooks', '@chaiwithpriya', '@10minutekitchen'], [0]) + '</div>' +
+      '<div class="card flat"><p class="t-over">Bio</p><p class="t-body">Quick Indian recipes for busy days 🍲 New reel every evening · Free recipe guide below</p></div>' +
+      '<div class="card flat"><p class="t-over">Colours and fonts</p><div class="g3" style="grid-template-columns:repeat(4,minmax(0,1fr))"><div class="swatch" style="background:#b8432f"></div><div class="swatch" style="background:#f3b33d"></div><div class="swatch" style="background:#2f5d50"></div><div class="swatch" style="background:#fff6e8"></div></div><p class="t-cap">Headings: Poppins · Captions: Hind</p></div>' +
+      '<div class="card flat"><p class="t-over">Logo and intro</p><div class="row">' + [0, 1, 2].map(function (k) { return '<button class="chip" data-group="logo" aria-pressed="' + (k === 0) + '" style="height:56px;padding:0 18px;font-family:var(--font-display);font-weight:800">' + ['Priya Cooks', 'PC', 'priya.'][k] + '</button>'; }).join('') + '</div><p class="t-cap">2-second intro with your logo, outro with "Follow for more".</p></div>' +
+      btn('Use this kit', { go: 'home', blk: 1 }) + '<div class="row">' + btn('Make another', { k: 's', i: 'refresh', toast: 'New ideas ready' }) + btn('Edit', { k: 'g', go: 'brandkit', i: 'edit' }) + '</div>';
+  } });
+  S('plan', { f: '1', dep: 'Replaced in v1.1 by the Home checklist. Kept for reference; not in the main flow.', t: 'Your 30-day plan', chrome: 'onb', back: 'brandkit-new', notes: 'The plan becomes Home\'s checklist. "Make week 1" batches the first 5 reels so the creator approves instead of creating from scratch.', r: function () {
+    return hdr('Your first 30 days') + '<div class="hero"><p class="t-over">Week 1 plan</p><p class="big">5 reels · 1 free guide</p><p class="t-cap">Posting at 7:30 pm, when cooking reels in Hindi do best</p></div>' +
+      '<div class="card flat" style="gap:0">' + chk('Week 1: post 5 reels, turn on auto-DM', false, 'We make the reels, you approve') + chk('Week 2: make your free recipe guide', false, 'Lead magnet for followers') + chk('Week 3: try a song reel and a series', false) + chk('Week 4: check what worked, plan month 2', false) + '</div>' +
+      '<div class="win"><span class="win-dot">' + ic('gift', 1) + '</span>Welcome gift: 20 free credits</div>' + btn('Make week 1 reels · 10 credits', { go: 'batch', blk: 1, i: 'spark' }) + '<p class="t-cap" style="text-align:center">Uses 10 of your 20 free credits</p>' + btn('Go to Home', { k: 'g', go: 'home' });
+  } });
+
+  /* ---------------- 2 · Home and making ---------------- */
+  S('home', { f: '2', t: 'Home', tab: 'Home', states: ['empty', 'loading'], notes: 'Answers "what do I do today?": progress hero, a win, one primary action, then the plan. Empty = new creator with nothing connected.', r: function (c) {
+    var greet = '<div class="row sp nw"><div><p class="t-cap">Namaste, Priya</p><h1 class="t-lg">Today</h1></div>' + (c.desk ? '' : '<div class="row nw">' + CREDITS + '<button class="iconbtn" data-go="notifications" aria-label="Notifications">' + ic('bell') + '<span class="n"></span></button></div>') + '</div>';
+    if (c.state === 'loading') return greet + skel(4);
+    if (c.state === 'empty') return greet + '<div class="hero"><p class="t-over">Start here</p><p class="big" style="font-size:26px;line-height:32px">Connect Instagram to start posting</p><p class="t-cap">We\'ll learn what works in your niche and plan your week.</p>' + btn('Connect Instagram', { k: 't', go: 'platforms' }) + '</div>' +
+      '<div class="card"><div class="row sp"><h2 class="t-md">Your first week</h2><span class="t-cap">1 of 6</span></div><div class="bar"><i style="width:17%"></i></div>' + chk('Make your first reel', true) + chk('Connect Instagram', false, '2 min', btn('Start', { sm: 1, go: 'platforms' })) + chk('Create your brand kit', false, '20 seconds', btn('Start', { sm: 1, k: 's', go: 'brandgen' })) + chk('Get your 30-day plan', false, 'From your topic and first reel') + '</div>';
+    var reels = '<div class="g4">' + reel(0, 'Mia and the rain', st('ok', 'Posted') + pfs(['IG', 'YT'])) + reel(1, '3 chai hacks', st('wa', 'Needs your OK')) + (c.desk ? reel(2, 'Q&amp;A: my tools', '<p class="t-cap">Thu · 7:30 pm</p>') + reel(3, 'Diwali song', '<p class="t-cap">Fri · 6:00 pm</p>') : '') + '</div>';
+    var hero = '<div class="hero"><p class="t-over">This week</p><p class="big">4 of 5 <span style="font-size:15px;font-weight:600;color:var(--on-brand-muted)">reels posted</span></p><div class="bar"><i style="width:80%"></i></div><p class="t-cap">Next: "3 chai hacks" at 7:30 pm · needs your OK</p></div>';
+    var win = '<div class="win"><span class="win-dot">' + ic('check', 1) + '</span>You posted 7 days in a row</div>';
+    var plan = '<div class="card"><div class="row sp"><h2 class="t-md">Your first week</h2><span class="t-cap">3 of 6</span></div><div class="bar"><i style="width:50%"></i></div>' + chk('Make your first reel', true) + chk('Connect Instagram', true) + chk('Create your brand kit', false, 'AI makes it in 20 seconds', btn('Start', { sm: 1, k: 's', go: 'brandgen' })) + chk('Turn on "comment GUIDE, get a DM"', false, 'Lesson · 2 min', btn('Set up', { sm: 1, k: 's', go: 'autodm-new' })) + chk('Make your free guide', false, 'AI writes the first draft', btn('Start', { sm: 1, k: 's', go: 'magnet-new' })) + '</div>';
+    var stats = '<div class="g2" style="grid-template-columns:repeat(2,minmax(0,1fr))"><div class="card tap" data-go="insights"><p class="t-cap">Followers</p><p class="t-md">1,284 <span class="st ok">+92</span></p></div><div class="card tap" data-go="autodm"><p class="t-cap">DMs sent</p><p class="t-md">128</p></div></div>';
+    if (c.desk) return '<div class="row sp"><div><p class="t-cap">Wednesday, 28 October</p><h1 class="t-lg">Good evening, Priya</h1></div><span class="t-cap">Week 1 · Day 3 of your plan</span></div><div class="split"><div class="col" style="gap:16px">' + hero + '<div class="row sp"><h2 class="t-md">This week\'s reels</h2>' + btn('Open calendar', { k: 'g', go: 'calendar' }) + '</div>' + reels + '</div><div class="col" style="gap:16px">' + win + btn('Review and approve', { go: 'batch', blk: 1 }) + plan + stats + '</div></div>';
+    return greet + hero + win + btn('Review and approve', { go: 'batch', blk: 1 }) + plan + stats + '<div class="row sp"><h2 class="t-md">This week\'s reels</h2>' + btn('See all', { k: 'g', go: 'reels' }) + '</div>' + reels;
+  } });
+  S('create', { f: '2', t: 'Make a reel', tab: 'Create', nav: 'Create', states: ['error'], notes: 'One screen from idea to reel; everything has a default. Cost and time shown on the button. Error = out of credits.', r: function (c) {
+    var form = (c.state === 'error' ? '<div class="banner err" role="alert">' + ic('alert', 1) + '<div class="grow"><p class="lbl">You\'re out of credits</p><p class="t-cap" style="color:inherit">Free reels refill on Monday, or get more now.</p></div>' + btn('Get credits', { sm: 1, go: 'credits' }) + '</div>' : '') +
+      '<div class="field"><label>Format</label>' + chips('fmt', ['Cartoon', 'Short film', 'Talking photo'], [0]) + '</div>' + btn('Make a song instead', { k: 'g', go: 'song', i: 'music', style: 'align-self:flex-start;padding:0' }) +
+      '<div class="field"><label for="story">Your idea or story</label><textarea id="story" class="inp" rows="4">मिया बारिश के बाद पानी के गड्ढों में रंग ढूँढती है…</textarea></div>' + btn('Give me 5 ideas for my niche', { k: 'g', go: 'ideas', i: 'spark', style: 'align-self:flex-start;padding:0' }) +
+      '<div class="field"><label>Voice and captions</label>' + chips('vl', ['हिन्दी', 'English', 'मराठी', 'العربية'], [0]) + '</div><div class="field"><label>Length</label>' + chips('len', ['<span class="mono">15 s</span>', '<span class="mono">30 s</span>', '<span class="mono">60 s</span>'], [1]) + '</div>' +
+      '<div class="field"><label>Quality</label>' + chips('q', ['Standard · free (2 of 3 left this week)', 'Premium AI animation · 72 credits'], [0]) + '</div><div class="row"><span class="badge">' + ic('palette', 1) + 'Brand kit: Priya Cooks</span>' + btn('My voice', { k: 't', sm: 1, i: 'mic', go: 'voice' }) + '</div>';
+    var cta = btn('Make my reel', { go: c.state === 'error' ? 'credits' : 'making', blk: 1, i: 'spark' }) + '<p class="t-cap" style="text-align:center">About 2 minutes · you can leave this screen</p>';
+    if (c.desk) return hdr('Make a reel', '', CREDITS) + '<div class="split"><div class="card col" style="gap:16px">' + form + cta + '</div><div class="col"><div class="card"><p class="t-over">What you\'ll get</p><div style="width:200px;align-self:center">' + thumb(0, '0:30') + '</div>' + '<p class="t-cap">9:16 reel with captions, music, your intro and outro, and an AI label. Ready for Instagram, YouTube Shorts and Facebook.</p></div><div class="card">' + lrow('cal', 'Make a whole week instead', '5-7 reels from your plan', undefined, 'batch') + '</div></div></div>';
+    return hdr('Make a reel', '', CREDITS) + form + cta;
+  } });
+  S('song', { f: '2', t: 'Song studio', back: 'create', nav: 'Create', notes: 'Songs from a topic: style, mood, language and AI lyrics the creator can edit. Real artists are blocked. A song can become a music video or be sung in my voice.', r: function (c) {
+    var f = '<div class="field"><label for="sgt">What is the song about?</label><input id="sgt" class="inp" value="Diwali at home with family"></div><div class="field"><label>Style</label>' + chips('sg', ['Bollywood pop', 'Bhajan', 'Lo-fi', 'Kids rhyme', 'Folk'], [0]) + '</div><div class="field"><label>Mood</label>' + chips('smd', ['Happy', 'Calm', 'Festive', 'Emotional'], [2]) + '</div>' +
+      '<div class="field"><label for="lyr">Lyrics (AI draft, edit freely)</label><textarea id="lyr" class="inp" rows="6">[Verse]\nदीयों से रोशन आँगन सारा\nमाँ की मिठाई, सबसे प्यारा\n[Chorus]\nआई दिवाली, आई दिवाली…</textarea></div>';
+    var go = btn('Make my song · 4 credits', { go: 'making', blk: 1, i: 'music' }) + '<p class="t-cap" style="text-align:center">About 1 minute · then turn it into a music video</p>';
+    if (c.desk) return hdr('Song studio', 'create') + '<div class="split"><div class="card col">' + f + go + '</div><div class="card"><p class="t-over">After it\'s made</p>' + lrow('film', 'Make a music video', 'Lyrics on screen · 2 credits', '') + lrow('mic', 'Sing it in my voice', '4 credits', '') + '</div></div>';
+    return hdr('Song studio', 'create') + f + go;
+  } });
+  S('ideas', { f: '2', t: 'Ideas', back: 'create', nav: 'Create', notes: 'Ideas come from the creator\'s own top posts and trends in their niche. Each shows why it should work.', r: function () {
+    var ideas = [['3 chai hacks nobody told you', 'Your "hacks" reels get 2.4× more saves'], ['5-minute poha for office mornings', 'Morning recipes trend Mon-Wed in Hindi'], ['Mom vs me: making dal', 'Duets and "vs" formats are rising'], ['Rate my tiffin: Monday edition', 'Starts a weekly series'], ['Diwali sweets with 3 ingredients', 'Festival searches peak next week']];
+    return hdr('Ideas for you', 'create', '<button class="iconbtn" data-toast="New ideas ready" aria-label="More ideas">' + ic('refresh') + '</button>') + '<div class="card" style="gap:0">' + ideas.map(function (d) { return '<div class="lrow"><div class="grow"><p class="lbl">' + d[0] + '</p><p class="t-cap">' + ic('chart', 1).replace('class="ic s"', 'class="ic s" style="vertical-align:-4px;color:var(--teal-text)"') + ' ' + d[1] + '</p></div>' + btn('Use', { sm: 1, k: 's', go: 'create' }) + '</div>'; }).join('') + '</div>';
+  } });
+  S('voice', { f: '2', t: 'Add my voice', back: 'create', nav: 'Create', states: ['recording'], notes: 'Consent recording: the person reads a statement with a one-time code; the AI checks the code was spoken. Max 3 voices, deletable any time. Default = ready to record; Recording = in progress.', r: function (c) {
+    var rec = c.state === 'recording';
+    return hdr('Add your voice', 'create') + '<p class="t-body" style="color:var(--ink-muted)">Read this out loud in a quiet place. It takes about 30 seconds.</p>' +
+      '<div class="card"><p class="t-body" style="font-size:17px;line-height:28px">"I am Priya, and I agree that Reelkar can use my voice for my own videos. My code is <b class="mono" style="font-size:17px">4 8 2 1</b>."</p></div>' +
+      '<div class="col" style="align-items:center;gap:16px;padding:12px 0">' + (rec ? '<div class="wave" aria-hidden="true">' + [14, 28, 40, 22, 34, 46, 18, 30, 42, 24, 12, 36, 20, 44, 26, 16].map(function (h) { return '<i style="height:' + h + 'px"></i>'; }).join('') + '</div>' + st('lv', 'Recording · <span class="mono">0:12</span>') + '<button class="rec" data-toast="Voice saved. Checking your code…" data-go="create" aria-label="Stop and save">' + ic('check') + '</button><p class="t-cap">Tap to stop and save</p>' : '<p class="t-cap">We\'ll ask for microphone access the first time.</p><button class="rec" data-set-state="recording" aria-label="Start recording">' + ic('mic') + '</button><p class="t-cap">Tap to start</p>') + '</div>' +
+      '<div class="banner info">' + ic('lock', 1) + '<p>Only you can use your voice. Delete it any time in Account.</p></div>';
+  } });
+  S('making', { f: '2', t: 'Making your reel', back: 'create', nav: 'Create', states: ['error'], notes: 'Progress with the creator\'s own steps marked (dashed). Notification when ready. Failed = credits refunded automatically.', r: function (c) {
+    if (c.state === 'error') return hdr('Making your reel', 'create') + '<div class="banner err" role="alert">' + ic('alert', 1) + '<div><p class="lbl">This reel couldn\'t be made</p><p class="t-cap" style="color:inherit">The animation service timed out. Your 2 credits are back.</p></div></div>' + btn('Try again', { blk: 1, state: 'default', i: 'refresh' }) + btn('Edit the idea', { k: 's', blk: 1, go: 'create' });
+    return hdr('Making your reel', 'create', '<span class="mono t-cap">01:12</span>') + loader('Animating scene 3 of 5', 1) + '<div class="card"><div class="bar"><i style="width:58%"></i></div><ol class="steps"><li class="step done"><span class="sd">' + ic('check', 1) + '</span>Hook and script</li><li class="step done"><span class="sd">' + ic('check', 1) + '</span>Scenes</li><li class="step now"><span class="sd">3</span>Animation</li><li class="step you"><span class="sd">4</span>Your voice (optional)</li><li class="step"><span class="sd">5</span>Music, captions, thumbnail</li><li class="step you"><span class="sd">6</span>You approve</li></ol></div>' +
+      '<div class="banner info">' + ic('bell', 1) + '<p>We\'ll send a notification when it\'s ready. You can leave this screen.</p></div>' + btn('Open the finished reel (demo)', { go: 'ready', blk: 1, k: 's' }) + btn('Make another', { k: 'g', go: 'create' });
+  } });
+  S('ready', { f: '2', t: 'Your reel is ready', back: 'reels', nav: 'My reels', notes: 'Preview, per-platform captions, quick fixes, then Post now or Schedule. "Made with AI" and Content Credentials are always on.', r: function (c) {
+    var player = '<div class="player"><span class="burst" aria-hidden="true"></span>' + confetti() + art(0) + '<span class="play">' + ic('play', 1) + '</span><p class="cap-burn">बारिश के बाद… रंग!</p></div>';
+    var side = '<div class="tabs" role="tablist"><button role="tab" aria-selected="true" data-group="captab" data-cap="Mia finds colours after the rain 🌧️🎨 Save this for a rainy day! #kidsstories #hindistory #reels · Made with AI">Instagram</button><button role="tab" aria-selected="false" data-group="captab" data-cap="Mia and the Rain | Hindi Kids Story #Shorts · A 30-second cartoon about finding colours after the rain. Made with AI. #kidsstory #hindikahani">YouTube</button><button role="tab" aria-selected="false" data-group="captab" data-cap="I made a 30-second Hindi kids story with AI in 2 minutes. Here is what I learned about short stories that keep children watching. #creators #AI">LinkedIn</button></div>' +
+      '<div class="field"><label for="cap">Caption</label><textarea id="cap" class="inp" rows="4">Mia finds colours after the rain 🌧️🎨 Save this for a rainy day! #kidsstories #hindistory #reels · Made with AI</textarea></div>' +
+      '<div class="row">' + btn('Change music', { k: 's', sm: 1, i: 'music', toast: 'Music changed' }) + btn('Use my voice', { k: 's', sm: 1, i: 'mic', go: 'voice' }) + btn('Edit scenes', { k: 's', sm: 1, i: 'edit', go: 'editor' }) + '</div>' +
+      '<div class="field"><label>Post to</label>' + chips('to', ['Instagram', 'YouTube Shorts', 'Facebook', 'LinkedIn'], [0, 1], 1) + '</div><div class="row"><span class="badge">AI · Content Credentials</span></div>' +
+      btn('Post now', { blk: 1, i: 'send', toast: 'Posted to Instagram and YouTube' }) + '<div class="row nw">' + btn('Schedule', { k: 's', go: 'schedule', i: 'cal', style: 'flex:1' }) + btn('Download', { k: 's', i: 'down', toast: 'Saved to your phone', style: 'flex:1' }) + '</div>';
+    if (c.desk) return hdr('Mia and the rain', 'reels', '', 'Ready · 0:30 · Hindi') + '<div class="split" style="grid-template-columns:minmax(0,1fr) minmax(0,1.3fr)"><div>' + player + '</div><div class="card col">' + side + '</div></div>';
+    return hdr('Mia and the rain', 'reels', '', 'Ready · 0:30 · Hindi') + player + side;
+  } });
+  S('editor', { f: '2', t: 'Edit scenes', back: 'ready', nav: 'My reels', notes: 'Scene-by-scene fixes without a timeline: change a line, redo one scene (1 credit). Desktop adds a live preview beside the list.', r: function (c) {
+    var sc = [['Hook', 'बारिश रुक गई… पर रंग कहाँ गए?', 0], ['Scene 2', 'मिया पानी के गड्ढे में झाँकती है', 1], ['Scene 3', 'गड्ढे में इंद्रधनुष दिखता है!', 3], ['Ending', 'रंग हमेशा पास होते हैं। Follow for more', 2]];
+    var list = '<div class="card" style="gap:0">' + sc.map(function (d, i) { return '<div class="lrow" style="align-items:flex-start"><div style="width:56px;flex:none">' + thumb(d[2], '0:' + String(i * 2 + 5).padStart(2, '0')) + '</div><div class="grow col" style="gap:6px"><p class="t-over">' + d[0] + '</p><p class="t-body">' + d[1] + '</p><div class="row">' + btn('Change line', { k: 's', sm: 1, toast: 'Line updated' }) + btn('Redo · 1 credit', { k: 'g', sm: 1, toast: 'Remaking scene ' + (i + 1) }) + '</div></div></div>'; }).join('') + '</div>';
+    var save = btn('Save and preview', { go: 'ready', blk: 1 });
+    if (c.desk) return hdr('Edit scenes', 'ready', '', 'Mia and the rain · 4 scenes') + '<div class="split"><div class="col">' + list + save + '</div><div class="player">' + art(1) + '<span class="play">' + ic('play', 1) + '</span><p class="cap-burn">गड्ढे में इंद्रधनुष!</p></div></div>';
+    return hdr('Edit scenes', 'ready', '', 'Mia and the rain · 4 scenes') + list + save;
+  } });
+  S('schedule', { f: '3', t: 'Schedule', back: 'ready', nav: 'Calendar', notes: 'Best times come from the creator\'s own insights (or niche defaults when new). "Ask me first" holds the post for approval.', r: function () {
+    return hdr('Schedule', 'ready') + '<div class="field"><label>Best times for you</label>' + chips('bt', ['Today 7:30 pm', 'Thu 1:00 pm', 'Fri 7:30 pm'], [0]) + '</div>' +
+      '<div class="g2" style="grid-template-columns:repeat(2,minmax(0,1fr))"><div class="field"><label for="sd">Date</label><input id="sd" class="inp" value="Wed, 28 Oct"></div><div class="field"><label for="stm">Time</label><input id="stm" class="inp mono" value="19:30"></div></div>' +
+      '<div class="field"><label>Post to</label>' + chips('sto', ['Instagram', 'YouTube Shorts', 'Facebook'], [0, 1], 1) + '</div>' +
+      '<div class="card flat"><div class="row nw"><div class="grow"><p class="lbl">Ask me before posting</p><p class="t-cap">We\'ll send a reminder 1 hour before</p></div><button class="sw" role="switch" aria-checked="false" aria-label="Ask me before posting"></button></div></div>' + btn('Schedule for 7:30 pm', { go: 'calendar', blk: 1, i: 'cal' });
+  } });
+  S('batch', { f: '2', t: 'Approve this week', nav: 'Calendar', back: 'home', states: ['loading'], notes: 'The autopilot week: AI made 5 reels from the plan; the creator approves, remakes or edits each. Approve all schedules them at the best times.', r: function (c) {
+    if (c.state === 'loading') return hdr('Making week 1', 'home', '', '5 reels · about 8 minutes') + '<div class="card"><div class="bar"><i style="width:35%"></i></div><p class="t-cap">2 of 5 ready. We\'ll notify you when all are done.</p></div>' + skel(3);
+    var items = [['3 chai hacks', 'Wed 7:30 pm', 1], ['5-minute poha', 'Thu 7:30 pm', 3], ['Mom vs me: dal', 'Fri 7:30 pm', 2], ['Rate my tiffin', 'Sat 1:00 pm', 0], ['Diwali sweets', 'Sun 11:00 am', 1]];
+    return hdr('Approve this week', 'home', '', 'Week 1 · 5 reels') + '<div class="' + (c.desk ? 'g3' : 'col') + '">' + items.map(function (d, i) {
+      return '<div class="card"><div class="row nw" style="gap:12px;align-items:flex-start"><div style="width:' + (c.desk ? 90 : 72) + 'px;flex:none" data-go="ready" class="tap">' + thumb(d[2], '0:30') + '</div><div class="grow col" style="gap:6px"><p class="lbl">' + d[0] + '</p><p class="t-cap">' + d[1] + '</p>' + (i === 0 ? st('wa', 'Needs your OK') : st('ok', 'Approved')) + '<div class="row">' + (i === 0 ? btn('Approve', { sm: 1, toast: 'Approved' }) : btn('Undo', { sm: 1, k: 's', toast: 'Moved back to drafts' })) + btn('Remake', { sm: 1, k: 'g', toast: 'Remaking · 2 credits' }) + '</div></div></div></div>';
+    }).join('') + '</div>' + btn('Approve all and schedule', { go: 'calendar', blk: !c.desk, i: 'check' });
+  } });
+
+  /* ---------------- 3 · Posting and engaging ---------------- */
+  S('reels', { f: '3', t: 'My reels', nav: 'My reels', tab: 'Home', back: 'home', states: ['empty', 'loading'], notes: 'All reels with filters. Tap a reel to open it; long-press for Duplicate, Share, Delete.', r: function (c) {
+    var top = hdr('My reels', c.desk ? '' : 'home', btn('New', { sm: 1, go: 'create', i: 'plus' })) + chips('rf', ['All', 'Posted', 'Scheduled', 'Drafts', 'Failed'], [0]);
+    if (c.state === 'loading') return top + '<div class="g4">' + '<div class="skel" style="aspect-ratio:9/16"></div>'.repeat(4) + '</div>';
+    if (c.state === 'empty') return top + empty(1, 'No reels yet', 'Your reels will show up here. Make your first one in about 2 minutes.', btn('Make my first reel', { go: 'create', i: 'spark' }));
+    var g = '<div class="g4">' + reel(0, 'Mia and the rain', st('ok', 'Posted') + pfs(['IG', 'YT'])) + reel(1, '3 chai hacks', st('wa', 'Needs your OK')) + reel(2, 'Q&amp;A: my tools', '<p class="t-cap">Thu · 7:30 pm</p>') + reel(3, 'Diwali song', st('mk', 'Making 62%'), 'making') + reel(2, 'Monsoon recipe', st('ok', 'Posted') + pfs(['IG'])) + reel(0, 'Office lunch box', st('er', 'Failed'), 'making') + (c.desk ? reel(1, 'Poha in 5 min', '<p class="t-cap">Draft</p>') + reel(3, 'Rate my tiffin', '<p class="t-cap">Draft</p>') : '') + '</div>';
+    return top + g;
+  } });
+  S('calendar', { f: '3', t: 'Calendar', tab: 'Calendar', nav: 'Calendar', states: ['empty'], notes: 'Week view on desktop (drag to move), day list on phones. Dashed amber = needs approval; dashed grey = suggested time.', r: function (c) {
+    var days = [['Mon', '26', [['19:30', 'Mia and the rain', 'ok']]], ['Tue', '27', [['13:00', 'Monsoon recipe', 'ok']]], ['Wed', '28', [['19:30', '3 chai hacks', 'ap']]], ['Thu', '29', [['19:30', 'Q&amp;A: my tools', 'sch']]], ['Fri', '30', [['18:00', 'Diwali song', 'sch']]], ['Sat', '31', [['sug', '', '']]], ['Sun', '1', [['11:00', 'Week recap', 'sch']]]];
+    if (c.state === 'empty') days.forEach(function (d) { d[2] = [['sug', '', '']]; });
+    var head = hdr('Calendar', '', btn('Plan a post', { sm: 1, k: 's', go: 'create', i: 'plus' }), 'Oct 26 - Nov 1') + (c.state === 'empty' ? '<div class="banner info">' + ic('spark', 1) + '<div class="grow"><p class="lbl">Nothing planned this week</p><p class="t-cap">Let us make 5 reels from your plan and put them at your best times.</p></div></div>' + btn('Make this week', { go: 'batch', i: 'spark', blk: !c.desk }) : '<div class="banner warn">' + ic('alert', 1) + '<div class="grow"><p class="lbl">1 post needs your OK</p><p class="t-cap">"3 chai hacks" goes out today at 7:30 pm</p></div>' + btn('Review', { sm: 1, go: 'ready' }) + '</div>');
+    function slot(s) {
+      if (s[0] === 'sug') return '<button class="slot sug" data-go="schedule">+ 7:30 pm</button>';
+      return '<button class="slot' + (s[2] === 'ap' ? ' ap' : '') + '" data-go="ready"><span class="mono t-cap">' + s[0] + '</span><span class="ttl">' + s[1] + '</span>' + (s[2] === 'ok' ? st('ok', 'Posted') : s[2] === 'ap' ? st('wa', 'Approve') : pfs(['IG', 'YT'])) + '</button>';
+    }
+    if (c.desk) return head + '<div class="week">' + days.map(function (d) { return '<div class="day"><div class="dh' + (d[0] === 'Wed' ? ' today' : '') + '"><span class="t-cap">' + d[0] + '</span><span class="dn">' + d[1] + '</span></div>' + d[2].map(slot).join('') + '</div>'; }).join('') + '</div>';
+    return head + '<div class="row nw" style="gap:6px">' + days.map(function (d) { return '<button class="dh' + (d[0] === 'Wed' ? ' today' : '') + '" style="flex:1;border:0;background:' + (d[0] === 'Wed' ? 'var(--teal-tint)' : 'none') + ';cursor:pointer"><span class="t-cap">' + d[0].charAt(0) + '</span><span class="dn" style="font-size:16px">' + d[1] + '</span></button>'; }).join('') + '</div><div class="col">' + days.slice(2).map(function (d) { return '<p class="t-over">' + d[0] + ' ' + d[1] + '</p>' + d[2].map(slot).join(''); }).join('') + '</div>';
+  } });
+  S('inbox', { f: '3', t: 'Inbox', tab: 'Inbox', nav: 'Inbox', states: ['empty', 'loading'], notes: 'Comments and DMs from every platform in one list, with AI reply suggestions. Auto-replies tab shows keyword rules.', r: function (c) {
+    var t = '<div class="tabs" role="tablist"><button role="tab" aria-selected="true" data-group="ibt">Comments <span class="badge new">3</span></button><button role="tab" aria-selected="false" data-group="ibt">DMs</button><button role="tab" aria-selected="false" data-go="autodm">Auto-replies</button></div>';
+    if (c.state === 'loading') return hdr('Inbox') + t + skel(4);
+    if (c.state === 'empty') return hdr('Inbox') + t + empty(2, 'No new comments', 'When people comment on your reels, you can reply to all of them from here.', btn('Set up an auto-reply', { k: 's', go: 'autodm-new' }));
+    function cm(n, plat, txt, reelT, sugg, unread) { return '<div class="lrow" style="align-items:flex-start"><span class="av" style="width:36px;height:36px">' + n.charAt(0) + '</span><div class="grow col" style="gap:6px"><p class="t-cap"><b style="color:var(--ink)">' + n + '</b> on "' + reelT + '" · ' + pfs([plat]) + (unread ? ' <span class="dot" style="display:inline-block"></span>' : '') + '</p><p class="t-body">' + txt + '</p><div class="row">' + sugg.map(function (s) { return '<button class="chip" data-toast="Reply sent">' + ic('spark', 1) + s + '</button>'; }).join('') + '</div></div></div>'; }
+    return hdr('Inbox') + t + '<div class="card" style="gap:0">' + cm('Ananya', 'IG', 'GUIDE', '3 chai hacks', ['Sent the guide by DM ✓'], false) + cm('Rahul', 'YT', 'Which masala do you use? 😍', 'Monsoon recipe', ['Everest garam masala!', 'Recipe in my guide 👇'], true) + cm('Sneha', 'IG', 'Please make a Jain version', 'Mia and the rain', ['Great idea, coming soon!', 'Thank you ❤️'], true) + cm('Aman', 'FB', 'Can I order this?', 'Diwali sweets', ['I don\'t sell yet, but here\'s the recipe!'], true) + '</div>';
+  } });
+  S('autodm', { f: '3', t: 'Auto-replies', back: 'inbox', nav: 'Inbox', states: ['empty'], notes: 'The "comment GUIDE, get a DM" engine. Instagram only allows private replies within Meta\'s limits; the screen says so when a limit is hit.', r: function (c) {
+    var top = hdr('Auto-replies', 'inbox', btn('New', { sm: 1, go: 'autodm-new', i: 'plus' }));
+    if (c.state === 'empty') return top + empty(3, 'Turn comments into followers', 'When someone comments a word like GUIDE, we send them your free guide by DM.', btn('Create my first auto-reply', { go: 'autodm-new' }) + btn('Watch how (2 min)', { k: 'g', go: 'lesson' }));
+    function rule(k, what, sub, on) { return '<div class="lrow"><span class="kw">' + k + '</span><div class="grow tap" data-go="autodm-new"><p class="lbl">' + what + '</p><p class="t-cap">' + sub + '</p></div><button class="sw" role="switch" aria-checked="' + on + '" aria-label="' + k + ' auto-reply"></button></div>'; }
+    return top + '<div class="hero"><p class="t-over">This week</p><p class="big">128 <span style="font-size:15px;font-weight:600;color:var(--on-brand-muted)">DMs sent · 41 new emails</span></p></div><div class="card" style="gap:0">' + rule('GUIDE', 'Send "Free 10-minute recipes guide"', 'On 3 reels · 128 sent', true) + rule('RECIPE', 'Send the recipe as text', 'On all reels · paused', false) + rule('LINK', 'Send my course page', 'On "Q&amp;A: my tools"', true) + '</div><div class="banner info">' + ic('lock', 1) + '<p>Every auto-DM says it was sent automatically. Instagram allows one private reply per comment.</p></div>';
+  } });
+  S('autodm-new', { f: '3', t: 'New auto-reply', back: 'autodm', nav: 'Inbox', notes: 'Four simple fields and a live DM preview. The lead magnet picker links Earn to Engage.', r: function (c) {
+    var f = '<div class="field"><label for="kw">When someone comments</label><input id="kw" class="inp mono" value="GUIDE"></div><div class="field"><label>On these reels</label>' + chips('on', ['All reels', '3 chai hacks', 'Monsoon recipe', 'Choose…'], [1, 2], 1) + '</div>' +
+      '<div class="field"><label for="dmt">Send this DM</label><textarea id="dmt" class="inp" rows="3">Hi! Here\'s my free 10-minute recipes guide 🍲 (sent automatically)</textarea></div><div class="field"><label>Attach</label>' + chips('att', ['Free recipes guide (PDF)', 'Course page', 'Nothing'], [0]) + '</div>' +
+      '<div class="card flat"><div class="row nw"><div class="grow"><p class="lbl">Also reply to the comment</p><p class="t-cap">"Sent! Check your DMs 📩"</p></div><button class="sw" role="switch" aria-checked="true" aria-label="Reply to comment"></button></div></div>';
+    var prev = '<div class="card"><p class="t-over">Preview</p><div class="col" style="gap:8px"><p class="dm me">GUIDE</p><p class="dm">Hi! Here\'s my free 10-minute recipes guide 🍲 (sent automatically)</p><p class="dm"><b>' + ic('link', 1) + ' reelkar.app/priya/guide</b></p></div></div>';
+    var save = btn('Turn on auto-reply', { go: 'autodm', blk: 1 });
+    if (c.desk) return hdr('New auto-reply', 'autodm') + '<div class="split"><div class="card col">' + f + save + '</div>' + prev + '</div>';
+    return hdr('New auto-reply', 'autodm') + f + prev + save;
+  } });
+  S('notifications', { f: '3', t: 'Notifications', back: 'home', nav: 'Home', states: ['empty'], notes: 'Grouped by what needs action first.', r: function (c) {
+    if (c.state === 'empty') return hdr('Notifications', 'home') + empty(0, 'You\'re all caught up', 'We\'ll tell you when a reel is ready, needs your OK, or does well.');
+    return hdr('Notifications', 'home') + '<p class="t-over">Needs you</p><div class="card" style="gap:0">' + lrow('alert', '"3 chai hacks" needs your OK', 'Goes out today at 7:30 pm', undefined, 'ready') + lrow('link', 'Instagram needs reconnecting', 'Posting is paused until you reconnect', undefined, 'platforms') + '</div><p class="t-over">Earlier</p><div class="card" style="gap:0">' + lrow('check', 'Your reel "Mia and the rain" is ready', '2 h ago', undefined, 'ready') + lrow('star', '"Monsoon recipe" got 3× your usual views', 'Yesterday', undefined, 'insights') + lrow('mail', '41 new emails from your guide', 'This week', undefined, 'magnet') + '</div>';
+  } });
+
+  /* ---------------- 4 · Earning ---------------- */
+  S('earn', { f: '4', t: 'Earn', tab: 'Earn', nav: 'Earn', states: ['empty'], notes: 'Hub for lead magnets (MVP), courses (beta) and brand deals (later). Earnings in ₹ with Razorpay payouts.', r: function (c) {
+    var top = hdr('Earn');
+    if (c.state === 'empty') return top + empty(1, 'Start with a free guide', 'A free guide turns viewers into followers and emails. It\'s the first step to selling.', btn('Make my free guide', { go: 'magnet-new', i: 'spark' }));
+    return top + '<div class="hero"><p class="t-over">This month</p><p class="big">₹4,970 <span style="font-size:15px;font-weight:600;color:var(--on-brand-muted)">from 10 course sales</span></p><p class="t-cap">Next payout 5 Nov · UPI</p>' + btn('Payout details', { k: 't', sm: 1, go: 'payout', style: 'align-self:flex-start' }) + '</div>' +
+      '<div class="g3"><div class="card tap" data-go="magnet"><span style="color:var(--teal-text)">' + ic('gift') + '</span><p class="lbl">Free guides</p><p class="t-cap">1 guide · 312 emails</p></div><div class="card tap" data-go="course"><span style="color:var(--teal-text)">' + ic('book') + '</span><p class="lbl">Courses <span class="badge">Beta</span></p><p class="t-cap">1 course · ₹499</p></div><div class="card tap" data-go="deals"><span style="color:var(--teal-text)">' + ic('star') + '</span><p class="lbl">Brand deals <span class="badge">Soon</span></p><p class="t-cap">Media kit ready</p></div></div>' +
+      btn('Make a new free guide', { go: 'magnet-new', k: 's', blk: !c.desk, i: 'plus' });
+  } });
+  S('payout', { f: '4', t: 'Get paid', back: 'earn', nav: 'Earn', notes: 'Needed before the first payout: UPI or bank account, and PAN (for TDS). GSTIN only if registered. Payouts via Razorpay Route.', r: function () {
+    return hdr('Get paid', 'earn') + '<div class="banner info">' + ic('lock', 1) + '<p>We need these once, to send your earnings and file tax correctly. Stored securely and never shown to buyers.</p></div>' +
+      '<div class="field"><label>Pay me by</label>' + chips('pm', ['UPI', 'Bank account'], [0]) + '</div><div class="field"><label for="upi">UPI ID</label><input id="upi" class="inp mono" value="priya@okaxis"></div>' +
+      '<div class="field"><label for="pan">PAN</label><input id="pan" class="inp mono" value="ABCDE1234F"></div><div class="field"><label for="gst">GSTIN (optional)</label><input id="gst" class="inp mono" placeholder="Only if you are GST registered"></div>' +
+      btn('Save and verify', { go: 'earn', blk: 1 }) + '<p class="t-cap">We send ₹1 to check your UPI ID. Payouts arrive every Tuesday.</p>';
+  } });
+  S('magnet-new', { f: '4', t: 'Make a free guide', back: 'earn', nav: 'Earn', notes: 'AI drafts an outline from the creator\'s best reels; they edit chapters, pick a cover, then AI writes a PDF and a landing page.', r: function (c) {
+    var f = '<div class="field"><label for="gt">What is it about?</label><input id="gt" class="inp" value="10 recipes in 10 minutes"></div><div class="field"><label>Type</label>' + chips('gtyp', ['Guide (PDF)', 'Checklist', 'Recipe cards', 'Mini e-book'], [0]) + '</div>' +
+      '<div class="card flat"><p class="t-over">Outline (AI draft)</p>' + ['Your 10-minute kitchen setup', '3 breakfasts: poha, upma, chilla', '4 tiffin lunches', '3 one-pot dinners', 'Shopping list'].map(function (x, i) { return '<div class="lrow"><span class="mono t-cap">0' + (i + 1) + '</span><p class="grow lbl">' + x + '</p><button class="iconbtn" aria-label="Edit chapter" data-toast="Editing">' + ic('edit', 1) + '</button></div>'; }).join('') + '</div>' +
+      '<div class="field"><label>Cover</label>' + chips('cov', ['Brand colours', 'Photo', 'Simple'], [0]) + '</div>';
+    var go = btn('Write my guide · 3 credits', { go: 'magnet', blk: 1, i: 'spark' });
+    if (c.desk) return hdr('Make a free guide', 'earn') + '<div class="split"><div class="card col">' + f + go + '</div><div class="card"><p class="t-over">Cover preview</p><div style="aspect-ratio:3/4;border-radius:12px;background:#b8432f;color:#fff6e8;padding:24px;display:flex;flex-direction:column;justify-content:flex-end;gap:6px"><p style="font-weight:800;font-size:28px;line-height:32px">10 recipes in 10 minutes</p><p>Priya Cooks</p></div></div></div>';
+    return hdr('Make a free guide', 'earn') + f + go;
+  } });
+  S('magnet', { f: '4', t: 'Free guide', back: 'earn', nav: 'Earn', notes: 'The guide, its landing page with email capture, a QR code for reels and stories, and the link to auto-DM.', r: function (c) {
+    var qr = '<div class="qr" aria-label="QR code">' + '1111111010100110101111111100010100111000111001011101010'.split('').concat('1011001101110100101001101001011101100011001110101101011'.split('')).concat('11010010110100101'.split('')).slice(0, 81).map(function (b) { return '<i class="' + (b === '1' ? '' : 'o') + '"></i>'; }).join('') + '</div>';
+    var a = '<div class="card"><div class="row nw" style="gap:14px;align-items:flex-start"><div style="width:96px;flex:none;aspect-ratio:3/4;border-radius:10px;background:#b8432f;color:#fff6e8;padding:10px;font-weight:800;font-size:13px;line-height:16px;display:flex;align-items:flex-end">10 recipes in 10 minutes</div><div class="grow col" style="gap:6px"><p class="lbl">10 recipes in 10 minutes</p><p class="t-cap">12 pages · PDF</p>' + st('ok', 'Live') + '<div class="row">' + btn('Download PDF', { k: 's', sm: 1, i: 'down', toast: 'PDF saved' }) + btn('Edit', { k: 'g', sm: 1, go: 'magnet-new' }) + '</div></div></div></div>';
+    var b = '<div class="card"><p class="t-over">Landing page</p><div class="row nw" style="gap:14px">' + qr + '<div class="grow col" style="gap:8px"><p class="mono" style="overflow-wrap:anywhere">reelkar.app/priya/guide</p><div class="row">' + btn('Copy link', { k: 's', sm: 1, i: 'link', toast: 'Link copied' }) + btn('Share QR', { k: 's', sm: 1, toast: 'QR saved to photos' }) + '</div></div></div><div class="g2" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div><p class="t-cap">Views</p><p class="t-md">1,940</p></div><div><p class="t-cap">Emails</p><p class="t-md">312</p></div><div><p class="t-cap">Rate</p><p class="t-md">16%</p></div></div></div>';
+    var d = '<div class="card">' + lrow('msg', 'Send it by auto-DM', 'Comment GUIDE → get this guide', undefined, 'autodm-new') + '</div>';
+    if (c.desk) return hdr('Free guide', 'earn') + '<div class="g2"><div class="col">' + a + d + '</div>' + b + '</div>';
+    return hdr('Free guide', 'earn') + a + b + d;
+  } });
+  S('course', { f: '4', t: 'Course', back: 'earn', nav: 'Earn', notes: 'Beta. Lessons are reels or longer videos plus notes. Checkout with Razorpay (UPI, cards); GST invoice sent automatically.', r: function () {
+    return hdr('Tiffin Masterclass', 'earn', '<span class="badge">Beta</span>') + '<div class="g2"><div class="card"><p class="t-cap">Price</p><p class="price">₹499</p><p class="t-cap">10 students · ₹4,970 earned</p></div><div class="card"><p class="t-cap">Status</p>' + st('ok', 'Published') + '<p class="mono t-cap" style="overflow-wrap:anywhere">reelkar.app/priya/tiffin</p></div></div>' +
+      '<div class="card" style="gap:0"><div class="row sp"><h2 class="t-md">Lessons</h2>' + btn('Add', { sm: 1, k: 's', i: 'plus', toast: 'Lesson added' }) + '</div>' + ['Plan a week of tiffins', 'Prep on Sunday in 1 hour', '5 dry sabzis that travel well', 'Kids\' tiffin ideas'].map(function (x, i) { return '<div class="lrow"><span class="mono t-cap">' + (i + 1) + '</span><p class="grow lbl">' + x + '</p><span class="t-cap mono">' + (6 + i * 2) + ':00</span></div>'; }).join('') + '</div>' + btn('Share course page', { blk: 1, i: 'link', toast: 'Link copied' });
+  } });
+  S('deals', { f: '4', t: 'Brand deals', back: 'earn', nav: 'Earn', notes: 'Marketplace comes after the MVP. Today: an auto-built media kit and a waitlist.', r: function () {
+    return hdr('Brand deals', 'earn', '<span class="badge">Soon</span>') + '<div class="hero"><p class="t-over">Your media kit</p><p class="big" style="font-size:26px;line-height:32px">Priya Cooks</p><p class="t-cap">Quick Indian recipes · Hindi + English</p><div class="g2" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div><p class="t-cap">Followers</p><p class="t-md">1,284</p></div><div><p class="t-cap">Avg views</p><p class="t-md">3.1K</p></div><div><p class="t-cap">Saves</p><p class="t-md">8%</p></div></div></div>' +
+      '<div class="row">' + btn('Share media kit', { k: 's', i: 'link', toast: 'Link copied' }) + btn('Download PDF', { k: 's', i: 'down', toast: 'PDF saved' }) + '</div><div class="card"><p class="lbl">Brand deals are coming</p><p class="t-cap">Brands will find you by niche, language and city. We\'ll tell you first.</p>' + btn('Notify me', { toast: 'You\'re on the list' }) + '</div>';
+  } });
+
+  /* ---------------- 5 · Growing and learning ---------------- */
+  S('insights', { f: '5', t: 'Insights', nav: 'Insights', back: 'home', states: ['empty', 'loading'], notes: 'Weekly report from the creator\'s own analytics. "What worked" feeds next week\'s plan.', r: function (c) {
+    var top = hdr('This week', c.desk ? '' : 'home', '', 'Oct 19 - 25');
+    if (c.state === 'loading') return top + skel(4);
+    if (c.state === 'empty') return top + empty(2, 'Not enough data yet', 'Post 3 reels and come back. We\'ll show what works for you.', btn('Make a reel', { go: 'create' }));
+    var bars = [28, 34, 30, 52, 44, 70, 64];
+    var chart = '<div class="card"><div class="row sp"><p class="lbl">Views per day</p><p class="t-cap">Total 21.6K</p></div><svg viewBox="0 0 280 120" width="100%" style="max-width:560px;height:auto;align-self:center" role="img" aria-label="Views rose from 2.8K on Monday to 6.4K on Sunday"><g stroke="var(--line)" stroke-width="1"><line x1="0" y1="20" x2="280" y2="20"/><line x1="0" y1="60" x2="280" y2="60"/><line x1="0" y1="100" x2="280" y2="100"/></g>' + bars.map(function (v, i) { return '<rect x="' + (8 + i * 39) + '" y="' + (100 - v) + '" width="26" height="' + v + '" rx="5" fill="' + (i === 5 ? 'var(--teal-text)' : 'var(--teal-tint)') + '"/><text x="' + (21 + i * 39) + '" y="116" text-anchor="middle" font-size="10" fill="var(--ink-muted)">' + 'MTWTFSS'.charAt(i) + '</text>'; }).join('') + '</svg></div>';
+    return top + '<div class="g3" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div class="card"><p class="t-cap">Followers</p><p class="t-md">1,284 <span class="st ok">+92</span></p></div><div class="card"><p class="t-cap">Views</p><p class="t-md">21.6K <span class="st ok">+38%</span></p></div><div class="card"><p class="t-cap">Saves</p><p class="t-md">1,720</p></div></div>' + chart +
+      '<div class="card"><p class="t-over">What worked</p>' + lrow('star', '"Hacks" hooks got 2.4× more saves', 'Make 2 more next week', '') + lrow('clock', '7:30 pm beat 1 pm by 41%', 'Your best time is now 7:30 pm', '') + lrow('globe', 'Hindi reels reached 3× more people', 'Keep Hindi voice, English captions', '') + '</div>' + btn('Use this in next week\'s plan', { go: 'batch', blk: !c.desk, i: 'spark' });
+  } });
+  S('learn', { f: '5', t: 'Creator school', nav: 'Creator school', back: 'home', notes: 'Short lessons tied to the checklist. Each lesson ends with "Try it now" that opens the matching screen.', r: function () {
+    function L(t, m, d) { return '<div class="lrow tap" data-go="lesson" role="link" tabindex="0"><span class="chk" aria-hidden="true" style="' + (d ? 'background:var(--success);border-color:var(--success);color:var(--surface-raised)' : '') + '">' + (d ? ic('check', 1) : '') + '</span><div class="grow"><p class="lbl">' + t + '</p><p class="t-cap">' + m + '</p></div>' + ic('right', 1) + '</div>'; }
+    return hdr('Creator school', '', '', '4 of 12 done') + '<div class="bar"><i style="width:33%"></i></div><p class="t-over">Start</p><div class="card" style="gap:0">' + L('Pick a niche that can grow', '3 min', 1) + L('Make your Instagram a Creator account', '2 min', 1) + L('Hooks: the first 2 seconds', '4 min', 1) + '</div><p class="t-over">Grow</p><div class="card" style="gap:0">' + L('Comment-to-DM: turn comments into followers', '2 min', 0) + L('Posting times that work for you', '3 min', 1) + L('Series: why viewers come back', '4 min', 0) + '</div><p class="t-over">Earn</p><div class="card" style="gap:0">' + L('Your first free guide', '5 min', 0) + L('Pricing a course in India', '6 min', 0) + '</div>';
+  } });
+  S('lesson', { f: '5', t: 'Lesson', back: 'learn', nav: 'Creator school', notes: 'A 2-minute video, 3 steps, and a button that opens the feature the lesson teaches.', r: function () {
+    return hdr('Comment-to-DM', 'learn', '', 'Lesson · 2 min') + '<div class="lesson-vid"><span class="play" style="background:rgba(255,255,255,0.18)">' + ic('play', 1) + '</span></div>' +
+      '<ol class="steps"><li class="step"><span class="sd">1</span>Pick a word people comment, like GUIDE</li><li class="step"><span class="sd">2</span>Say it in your reel: "Comment GUIDE for the recipes"</li><li class="step"><span class="sd">3</span>We send the DM and reply to the comment</li></ol>' +
+      btn('Try it now', { go: 'autodm-new', blk: 1 }) + btn('Mark as done', { k: 's', blk: 1, go: 'learn', i: 'check' });
+  } });
+  S('brandkit', { f: '5', t: 'Brand kit', nav: 'Brand kit', back: 'account', notes: 'Applied to every reel, guide and landing page. Multiple kits allowed on paid plans.', r: function () {
+    return hdr('Brand kit', 'account', btn('Save', { sm: 1, toast: 'Brand kit saved' })) + '<div class="card"><p class="t-over">Name and handle</p><div class="field"><label for="bn">Name</label><input id="bn" class="inp" value="Priya Cooks"></div><div class="field"><label for="bh">Handle</label><input id="bh" class="inp mono" value="@priyacooks"></div></div>' +
+      '<div class="card"><p class="t-over">Colours</p><div class="g3" style="grid-template-columns:repeat(4,minmax(0,1fr))"><div class="swatch" style="background:#b8432f"></div><div class="swatch" style="background:#f3b33d"></div><div class="swatch" style="background:#2f5d50"></div><div class="swatch" style="background:#fff6e8"></div></div></div>' +
+      '<div class="card">' + lrow('palette', 'Fonts', 'Poppins · Hind', '<button class="btn g sm" data-toast="Font picker opens here">Change</button>') + lrow('film', 'Intro and outro', '2 s intro · "Follow for more" outro', '<button class="btn g sm" data-toast="Intro editor opens here">Change</button>') + lrow('music', 'Signature music', 'Upbeat tabla loop', '<button class="btn g sm" data-toast="Music picker opens here">Change</button>') + lrow('mic', 'Voice', 'My voice (Hindi)', undefined, 'voice') + '</div>';
+  } });
+
+  /* ---------------- 6 · Account ---------------- */
+  S('credits', { f: '6', t: 'Credits and plans', back: 'account', nav: 'Account', notes: 'Prices set 2026-10-28 (decision 20), tax included (GST in India, VAT in the UAE). Currency follows location, with a switch. Web and desktop pay through Razorpay (India) and, for AED and USD, Razorpay International now and Stripe UAE later. Inside the iOS and Android apps, purchases go through Apple and Google billing.', r: function (c) {
+    function m(inr, aed, usd) { return '<span class="c-INR">' + inr + '</span><span class="c-AED">' + aed + '</span><span class="c-USD">' + usd + '</span>'; }
+    function P(n, price, items, sel) { return '<div class="card plan' + (sel ? ' sel' : '') + ' tap" data-toast="' + n + ' selected"><div class="row sp"><p class="lbl">' + n + '</p>' + (sel ? '<span class="badge" style="background:var(--teal-tint);border-color:var(--teal-text)">Most picked</span>' : '') + '</div><p class="price">' + price + '</p>' + items.map(function (x) { return '<p class="t-cap">' + ic('check', 1).replace('class="ic s"', 'class="ic s" style="vertical-align:-4px;color:var(--teal-text)"') + ' ' + x + '</p>'; }).join('') + '</div>'; }
+    var per = '<span class="t-cap"> / month</span>';
+    return hdr('Credits and plans', 'account', '', 'You have 26 credits') +
+      '<div class="row" role="group" aria-label="Currency">' + ['INR', 'AED', 'USD'].map(function (k, i) { return '<button class="chip" data-group="cur" data-cur="' + k + '" aria-pressed="' + (i === 0) + '">' + { INR: '₹ INR', AED: 'AED', USD: '$ USD' }[k] + '</button>'; }).join('') + '</div>' +
+      '<div class="g3">' + P('Free', m('₹0', 'AED 0', '$0'), ['3 standard reels a week', '20 credits welcome gift', 'Instagram + YouTube', '1 free guide · watermark'], 0) +
+      P('Creator', m('₹499', 'AED 29', '$7.99') + per, ['120 credits every month', 'Unlimited standard reels, no watermark', 'All platforms, auto-DM', 'Sell courses (5% fee)'], 1) +
+      P('Pro', m('₹1,299', 'AED 75', '$19.99') + per, ['350 credits every month', '3 brand kits, my voice, songs', 'Priority making', 'Sell courses (0% fee)'], 0) + '</div>' +
+      '<p class="t-over">Or buy a credit pack (never expires)</p><div class="row" role="group">' +
+      [['50', '₹249', 'AED 15', '$3.99'], ['150', '₹649', 'AED 37', '$9.99'], ['400', '₹1,499', 'AED 92', '$24.99']].map(function (k, i) { return '<button class="chip" data-group="pack" aria-pressed="' + (i === 1) + '">' + k[0] + ' credits · ' + m(k[1], k[2], k[3]) + '</button>'; }).join('') + '</div>' +
+      '<div class="card flat"><p class="t-over">What things cost</p><div class="g2" style="grid-template-columns:repeat(2,minmax(0,1fr))"><p class="t-cap">Standard reel · 1 credit</p><p class="t-cap">Premium AI reel · 12 per 5 s</p><p class="t-cap">Song · 4 credits</p><p class="t-cap">Free guide · 3 credits</p></div></div>' +
+      '<span class="c-INR">' + btn('Pay with UPI', { blk: !c.desk, toast: 'Opening Razorpay: UPI, cards, netbanking' }) + '</span><span class="c-AED">' + btn('Pay with Apple Pay or card', { blk: !c.desk, toast: 'Opening checkout: Apple Pay, Google Pay, cards' }) + '</span><span class="c-USD">' + btn('Pay with Apple Pay or card', { blk: !c.desk, toast: 'Opening checkout: Apple Pay, Google Pay, cards' }) + '</span>' +
+      '<p class="t-cap"><span class="c-INR">UPI (Google Pay, PhonePe, Paytm), cards, netbanking. Monthly plans use UPI AutoPay. Prices include GST.</span><span class="c-AED">Apple Pay, Google Pay, Visa, Mastercard. Aani and Samsung Pay coming later. Prices include 5% VAT.</span><span class="c-USD">Apple Pay, Google Pay, Visa, Mastercard. Local taxes may apply.</span></p>';
+  } });
+  S('account', { f: '6', t: 'Account', nav: 'Account', back: 'home', notes: 'Everything personal in one list. Delete account is a real, two-step flow (store requirement).', r: function (c) {
+    return hdr('Account', c.desk ? '' : 'home') + '<div class="card"><div class="row nw" style="gap:14px"><span class="av" style="width:56px;height:56px;font-size:22px">P</span><div class="grow"><p class="t-md">Priya Sharma</p><p class="t-cap">+91 98765 43210 · Free plan</p></div>' + btn('Edit', { k: 's', sm: 1, toast: 'Editing profile' }) + '</div></div>' +
+      '<div class="card" style="gap:0">' + lrow('spark', 'Credits and plans', '26 credits', undefined, 'credits') + lrow('palette', 'Brand kit', 'Priya Cooks', undefined, 'brandkit') + lrow('link', 'Connected accounts', 'Instagram, YouTube', undefined, 'platforms') + lrow('mic', 'My voices', '1 voice', undefined, 'voice') + lrow('bell', 'Notifications', '', undefined, 'notifications') + lrow('globe', 'Language', 'English (app) · हिन्दी (reels)', undefined, 'languages') + lrow('book', 'Creator school', '4 of 12 lessons', undefined, 'learn') + '</div>' +
+      '<div class="card" style="gap:0">' + lrow('lock', 'Privacy and data', 'Download a copy of my data', '<button class="btn g sm" data-toast="We will email you a download link">Request</button>') + '<div class="lrow"><span style="color:var(--danger)">' + ic('trash') + '</span><div class="grow"><p class="lbl" style="color:var(--danger)">Delete my account</p><p class="t-cap">Removes reels, voices and connected accounts</p></div>' + btn('Delete', { k: 'd', sm: 1, toast: 'We\'ll ask you to confirm by OTP' }) + '</div></div>' + btn('Sign out', { k: 's', go: 'welcome', i: 'out' });
+  } });
+
+  /* ---------------- Shell ---------------- */
+  var dev = 'phone', theme = 'light', cur = 'splash', state = 'default', toastT;
+  try { dev = localStorage.getItem('rk-dev') || 'phone'; theme = localStorage.getItem('rk-theme') || 'light'; } catch (e) {}
+  var stageEl = document.getElementById('stage'), scaler = document.getElementById('scaler'), notesEl = document.getElementById('notes');
+
+  function tabbar(sel) {
+    var t = [['home', 'Home', 'home'], ['plus', 'Create', 'create'], ['cal', 'Calendar', 'calendar'], ['inbox', 'Inbox', 'inbox'], ['earn', 'Earn', 'earn']];
+    return '<nav class="tabbar" role="tablist" aria-label="Main">' + t.map(function (x) { return '<button class="tb' + (x[1] === 'Create' ? ' cr' : '') + '" role="tab" aria-selected="' + (sel === x[1]) + '" data-go="' + x[2] + '"><span class="pill">' + ic(x[0]) + '</span>' + x[1] + '</button>'; }).join('') + '</nav>';
+  }
+  function side(sel) {
+    var a = [['home', 'Home', 'home'], ['plus', 'Create', 'create'], ['film', 'My reels', 'reels'], ['cal', 'Calendar', 'calendar'], ['inbox', 'Inbox', 'inbox', '3'], ['earn', 'Earn', 'earn'], ['chart', 'Insights', 'insights']];
+    var b = [['palette', 'Brand kit', 'brandkit'], ['book', 'Creator school', 'learn'], ['user', 'Account', 'account']];
+    function n(x) { return '<button class="nv" data-go="' + x[2] + '"' + (sel === x[1] ? ' aria-current="page"' : '') + '>' + ic(x[0]) + x[1] + (x[3] ? '<span class="cnt">' + x[3] + '</span>' : '') + '</button>'; }
+    return '<aside class="side"><div class="brand" data-go="home">' + LOGO(30) + 'reelkar</div>' + a.map(n).join('') + '<p class="t-over grp">Grow</p>' + b.map(n).join('') +
+      '<div class="card flat" style="margin-top:auto;gap:8px"><span class="credits">' + ic('spark', 1) + '26 credits</span><p class="t-cap">Free plan · 3 reels left this week</p>' + btn('Get more', { k: 's', sm: 1, go: 'credits' }) + '</div></aside>';
+  }
+  function frame() {
+    var s = R[cur], c = { desk: dev === 'desk', state: state };
+    var inner = s.r(c);
+    var html;
+    if (dev === 'phone') {
+      var showTabs = s.chrome !== 'onb' && s.chrome !== 'splash' && !s.back;
+      html = '<div class="app phone" data-cur="INR" data-t="' + theme + '"><div class="sb-status"><span class="mono" style="font-size:12px">9:41</span><span>5G ▮▮▮</span></div><div class="body" id="appbody">' + inner + '</div>' + (showTabs ? tabbar(s.tab) : '') + '</div>';
+    } else if (s.chrome === 'splash') {
+      html = '<div class="app desk" data-cur="INR" data-t="' + theme + '">' + inner + '</div>';
+    } else if (s.chrome === 'onb') {
+      html = '<div class="app desk" data-cur="INR" data-t="' + theme + '"><div class="onb-desk"><div class="top">' + LOGO(30) + 'reelkar</div><div class="mid" id="appbody"><div class="panel">' + inner + '</div></div></div></div>';
+    } else {
+      var nav = s.nav || s.tab || 'Home';
+      html = '<div class="app desk" data-cur="INR" data-t="' + theme + '">' + side(nav) + '<div class="desk-main"><header class="topbar"><button class="search" data-toast="Search opens here (Ctrl+K)">' + ic('search', 1) + 'Search reels, ideas, lessons<span class="kbd">Ctrl K</span></button><span style="margin-left:auto"></span>' + CREDITS + '<button class="iconbtn" data-go="notifications" aria-label="Notifications">' + ic('bell') + '<span class="n"></span></button>' + btn('New reel', { sm: 1, go: 'create', i: 'plus' }) + '<button class="av" data-go="account" aria-label="Account">P</button></header><div class="body" id="appbody"><div class="content">' + inner + '</div></div></div></div>';
+    }
+    scaler.innerHTML = html;
+    fit();
+    var b = document.getElementById('appbody'); if (b) b.scrollTop = 0;
+  }
+  function fit() {
+    var w = dev === 'phone' ? 375 : 1280, h = 780;
+    var avail = stageEl.clientWidth - (window.innerWidth < 760 ? 20 : 40);
+    var k = Math.min(1, avail / w);
+    scaler.style.transform = 'scale(' + k + ')';
+    scaler.style.width = w + 'px';
+    scaler.style.height = h + 'px';
+    scaler.style.marginRight = (w * k - w) + 'px';
+    scaler.style.marginBottom = (h * k - h) + 'px';
+  }
+  function notes() {
+    var s = R[cur], f = FLOWS.filter(function (x) { return x[0] === s.f; })[0];
+    var targets = []; scaler.querySelectorAll('.body [data-go]').forEach(function (el) { var g = el.getAttribute('data-go'); if (R[g] && g !== cur && targets.indexOf(g) < 0) targets.push(g); });
+    var st = ['default'].concat(s.states || []);
+    var live = ORDER.filter(function (id) { return !R[id].dep || id === cur; }), idx = live.indexOf(cur), prev = live[idx - 1], next = live[idx + 1];
+    notesEl.innerHTML = '<p class="flow">' + f[0] + ' · ' + f[1] + '</p><h1>' + s.t + '</h1>' + (s.dep ? '<p class="dep-note">' + s.dep + '</p>' : '') + '<p>' + s.notes + '</p>' +
+      '<h2>States</h2><div class="states">' + st.map(function (x) { return '<button data-pstate="' + x + '" aria-pressed="' + (state === x) + '">' + x.charAt(0).toUpperCase() + x.slice(1) + '</button>'; }).join('') + '</div>' +
+      '<h2>Buttons here lead to</h2><ul>' + (targets.length ? targets.map(function (t) { return '<li><a href="#' + t + '">' + R[t].t + '</a></li>'; }).join('') : '<li>Actions on this screen show a confirmation instead of moving on.</li>') + '</ul>' +
+      '<div class="nav-row">' + (prev ? '<a class="pg-btn" style="display:inline-flex;align-items:center;text-decoration:none" href="#' + prev + '">← ' + R[prev].t + '</a>' : '') + (next ? '<a class="pg-btn" style="display:inline-flex;align-items:center;text-decoration:none" href="#' + next + '">' + R[next].t + ' →</a>' : '') + '</div>';
+  }
+  function index() {
+    var nav = '', sel = '';
+    FLOWS.forEach(function (f) {
+      nav += '<h2>' + f[0] + ' · ' + f[1] + '</h2>'; sel += '<optgroup label="' + f[0] + ' · ' + f[1] + '">';
+      ORDER.forEach(function (id, i) { if (R[id].f !== f[0]) return; nav += '<a href="#' + id + '"' + (id === cur ? ' aria-current="page"' : '') + (R[id].dep ? ' class="dep"' : '') + '><span>' + String(i + 1).padStart(2, '0') + '</span>' + R[id].t + (R[id].dep ? ' <em>Replaced</em>' : '') + '</a>'; sel += '<option value="' + id + '"' + (id === cur ? ' selected' : '') + '>' + String(i + 1).padStart(2, '0') + ' ' + R[id].t + (R[id].dep ? ' (replaced)' : '') + '</option>'; });
+      sel += '</optgroup>';
+    });
+    document.getElementById('ix-nav').innerHTML = nav; document.getElementById('ix-select').innerHTML = sel;
+  }
+  function render() { document.querySelector('.pg-main').classList.toggle('wide', dev === 'desk'); frame(); notes(); index(); syncCtrls(); }
+  function go(id) { if (!R[id]) return; if (id === cur) { state = 'default'; render(); return; } location.hash = id; }
+  function route() { var h = location.hash.replace('#', ''); cur = R[h] ? h : 'splash'; state = 'default'; render(); }
+  function toast(t) {
+    var app = scaler.querySelector('.app'); if (!app) return;
+    var old = app.querySelector('.toast'); if (old) old.remove();
+    var d = document.createElement('div'); d.className = 'toast'; d.setAttribute('role', 'status'); d.textContent = t; app.appendChild(d);
+    clearTimeout(toastT); toastT = setTimeout(function () { d.remove(); }, 1800);
+  }
+  function syncCtrls() {
+    document.getElementById('dev-phone').setAttribute('aria-pressed', dev === 'phone'); document.getElementById('dev-desk').setAttribute('aria-pressed', dev === 'desk');
+    document.getElementById('th-light').setAttribute('aria-pressed', theme === 'light'); document.getElementById('th-dark').setAttribute('aria-pressed', theme === 'dark');
+  }
+  function save() { try { localStorage.setItem('rk-dev', dev); localStorage.setItem('rk-theme', theme); } catch (e) {} }
+
+  scaler.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-go],[data-toast],[data-set-state],.chip,.sw,.chk,[role="tab"],[data-pick]');
+    if (!el || !scaler.contains(el)) return;
+    if (el.matches('.chip[data-group]')) {
+      var g = el.getAttribute('data-group');
+      if (el.hasAttribute('data-multi')) el.setAttribute('aria-pressed', el.getAttribute('aria-pressed') !== 'true');
+      else el.parentNode.querySelectorAll('.chip[data-group="' + g + '"]').forEach(function (x) { x.setAttribute('aria-pressed', x === el); });
+    }
+    if (el.matches('[role="tab"][data-group]')) { el.parentNode.querySelectorAll('[role="tab"]').forEach(function (x) { x.setAttribute('aria-selected', x === el); }); var ca = document.getElementById('cap'); if (ca && el.dataset.cap) ca.value = el.dataset.cap; }
+    if (el.matches('.sw')) el.setAttribute('aria-checked', el.getAttribute('aria-checked') !== 'true');
+    if (el.matches('.chk')) { var on = el.getAttribute('aria-checked') !== 'true'; el.setAttribute('aria-checked', on); el.innerHTML = on ? ic('check', 1) : ''; el.closest('.lrow').classList.toggle('done', on); }
+    if (el.matches('[data-pick]')) { el.parentNode.querySelectorAll('[data-pick]').forEach(function (x) { x.style.border = x === el ? '2px solid var(--teal-text)' : ''; x.setAttribute('aria-checked', x === el); }); }
+    if (el.hasAttribute('data-cur')) el.closest('.app').setAttribute('data-cur', el.getAttribute('data-cur'));
+    if (el.hasAttribute('data-toast')) toast(el.getAttribute('data-toast'));
+    if (el.hasAttribute('data-set-state')) { state = el.getAttribute('data-set-state'); frame(); notes(); }
+    if (el.hasAttribute('data-go')) go(el.getAttribute('data-go'));
+  });
+  scaler.addEventListener('keydown', function (e) { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[role="link"][data-go]')) { e.preventDefault(); go(e.target.getAttribute('data-go')); } });
+  notesEl.addEventListener('click', function (e) { var b = e.target.closest('[data-pstate]'); if (!b) return; state = b.getAttribute('data-pstate'); frame(); notes(); });
+  document.getElementById('ix-select').addEventListener('change', function (e) { go(e.target.value); });
+  document.getElementById('dev-phone').onclick = function () { dev = 'phone'; save(); render(); };
+  document.getElementById('dev-desk').onclick = function () { dev = 'desk'; save(); render(); };
+  document.getElementById('th-light').onclick = function () { theme = 'light'; save(); render(); };
+  document.getElementById('th-dark').onclick = function () { theme = 'dark'; save(); render(); };
+  document.getElementById('restart').onclick = function () { go('welcome'); };
+  window.addEventListener('hashchange', route);
+  window.addEventListener('resize', fit);
+  route();
+})();
+</script>

@@ -1,0 +1,163 @@
+/* Reelkar v2.0: light = Creator studio, dark = Neon night (design/v2.0/tokens.json). */
+:root {
+  --bg: #f6f7fb;
+  --fg: #0f1733;
+  --muted: #4b5563;
+  --accent: #ff5a36;
+  --on-accent: #18264a;
+  --link: #c2410c;
+  --border: #d6dbe5;
+  --danger: #b42318;
+  --brand: #18264a;
+  --teal: #2bc4b4;
+  --logo-tile: #18264a;
+  --logo-reel: #ffffff;
+  --logo-tail: #2bc4b4;
+  --logo-hub: #ff5a36;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0a0a12;
+    --fg: #f2f2f7;
+    --muted: #a0a0b8;
+    --accent: #ff2e88;
+    --on-accent: #0a0a12;
+    --link: #ff6fae;
+    --border: #2a2a3d;
+    --danger: #ff8b7e;
+    --brand: #1a0f2e;
+    --teal: #2de2e6;
+    --logo-tile: #14141f;
+    --logo-reel: #2de2e6;
+    --logo-tail: #c8ff3d;
+    --logo-hub: #ff2e88;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 "Plus Jakarta Sans", Hind, system-ui, sans-serif; }
+main { max-width: 640px; margin: 0 auto; padding: 32px 16px; }
+textarea, select, button { font: inherit; width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: inherit; }
+textarea { min-height: 180px; resize: vertical; }
+button { background: var(--accent); color: var(--on-accent); border: none; cursor: pointer; font-weight: 700; }
+button:disabled { opacity: 0.6; cursor: wait; }
+label { display: block; margin: 16px 0 6px; font-weight: 600; }
+.muted { color: var(--muted); font-size: 14px; }
+.error { color: var(--danger); font-size: 14px; }
+.row { display: flex; gap: 12px; }
+.row > * { flex: 1; min-width: 0; }
+.status { margin-top: 24px; padding: 16px; border: 1px solid var(--border); border-radius: 8px; }
+video { width: 100%; max-width: 360px; border-radius: 8px; display: block; margin-top: 12px; }
+.tabs { display: flex; gap: 8px; margin: 16px 0; }
+.tabs button { background: transparent; color: inherit; border: 1px solid var(--border); }
+.tabs button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.characters { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+.character { padding: 6px; border: 2px solid var(--border); border-radius: 10px; background: transparent; color: inherit; text-align: center; font-size: 14px; }
+.character[aria-pressed="true"] { border-color: var(--accent); }
+.character img { width: 100%; aspect-ratio: 9 / 16; object-fit: cover; border-radius: 6px; display: block; margin-bottom: 4px; }
+.character.add { display: flex; align-items: center; justify-content: center; min-height: 120px; color: var(--muted); }
+.panel { margin-top: 12px; padding: 12px; border: 1px dashed var(--border); border-radius: 8px; }
+input[type="text"], input[type="tel"] { font: inherit; width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: inherit; }
+.check { display: flex; align-items: center; gap: 8px; font-weight: 400; }
+.check input { width: auto; }
+.ideas { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.ideas button { width: auto; background: transparent; color: inherit; border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; font-size: 14px; }
+.secondary { background: transparent; color: var(--link); border: 1px solid var(--link); }
+.actions { display: flex; gap: 8px; margin-top: 12px; }
+.prefix { flex: 0 0 auto; display: flex; align-items: center; padding: 0 12px; border: 1px solid var(--border); border-radius: 8px; color: var(--muted); }
+header.top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 4px 12px; }
+header.top button { width: auto; padding: 6px 12px; font-size: 14px; }
+.library { display: grid; gap: 10px; margin-top: 12px; }
+.library a { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; color: inherit; text-decoration: none; }
+h2 { font-size: 18px; margin: 28px 0 8px; }
+input[type="datetime-local"] { font: inherit; width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: inherit; }
+.month-nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 24px; }
+.month-nav button { width: 44px; }
+.month { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 10px; }
+.weekday { text-align: center; font-size: 12px; color: var(--muted); }
+.day { position: relative; aspect-ratio: 1; padding: 0; background: transparent; color: inherit; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
+.day[data-other="true"] { color: var(--muted); opacity: 0.6; }
+.day[data-today="true"] { font-weight: 700; }
+.day[aria-pressed="true"] { border-color: var(--accent); border-width: 2px; }
+.dot { position: absolute; right: 3px; bottom: 3px; min-width: 16px; height: 16px; border-radius: 8px; background: var(--accent); color: #fff; font-size: 10px; line-height: 16px; }
+.account, .post { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; }
+.account img { width: 28px; height: 28px; border-radius: 50%; }
+.account span { flex: 1; }
+.account button, .post-actions button { width: auto; padding: 6px 10px; font-size: 14px; }
+.post-actions { display: flex; gap: 6px; flex: 0 0 auto; }
+.balance { display: flex; justify-content: space-between; align-items: baseline; margin-top: 16px; padding: 16px; border: 1px solid var(--border); border-radius: 10px; }
+.balance strong { font-size: 24px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.card { display: flex; flex-direction: column; gap: 6px; padding: 14px; border: 1px solid var(--border); border-radius: 10px; }
+.card .big { font-size: 20px; font-weight: 700; }
+.card button { margin-top: 6px; }
+.ideas button.chip[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.song { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; }
+.song-head { display: flex; justify-content: space-between; gap: 8px; }
+.song audio { width: 100%; }
+header.top .post-actions { flex-wrap: wrap; justify-content: flex-start; }
+header.top h1 { margin: 16px 0 8px; }
+.cc { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.cc-badge { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid currentColor; font-size: 10px; font-weight: 700; }
+.consent { margin: 8px 0; padding: 12px 14px; border-left: 4px solid var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); border-radius: 6px; font-size: 18px; line-height: 1.5; }
+input[type="file"] { font: inherit; width: 100%; }
+
+/* The Reelkar reel: the reel turns, the film tail feeds out, the hub clicks. .loop keeps it
+   going (loaders); .rings adds pulsing rings for long waits; .burst plays once when a reel is ready. */
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand h1 { margin: 0; letter-spacing: -0.03em; }
+.lg .lg-reel { transform-box: fill-box; transform-origin: center; animation: lgSpin 2.4s cubic-bezier(.6, 0, .3, 1) 1; }
+.lg .lg-tail { transform-box: fill-box; transform-origin: left center; animation: lgTail 2.4s ease-out 1; }
+.lg .lg-hub { transform-box: fill-box; transform-origin: center; animation: lgHub 2.4s ease-out 1; }
+.lg.loop .lg-reel, .lg.loop .lg-tail, .lg.loop .lg-hub { animation-iteration-count: infinite; }
+@keyframes lgSpin { 0% { transform: rotate(0); } 45%, 100% { transform: rotate(360deg); } }
+@keyframes lgTail { 0%, 35% { transform: scaleX(.15); } 58% { transform: scaleX(1.15); } 68%, 100% { transform: scaleX(1); } }
+@keyframes lgHub { 0%, 45% { transform: scale(1); } 53% { transform: scale(1.9); } 62%, 100% { transform: scale(1); } }
+.loader { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px 0; font-weight: 700; color: var(--muted); }
+.halo { position: relative; display: inline-grid; place-items: center; width: 108px; height: 108px; }
+.halo > i { position: absolute; width: 64px; height: 64px; border-radius: 50%; border: 3px solid var(--accent); animation: halo 2.4s ease-out infinite; }
+.halo > i + i { border-color: var(--teal); animation-delay: 1.2s; }
+.halo svg { position: relative; }
+@keyframes halo { 0% { transform: scale(.9); opacity: .8; } 100% { transform: scale(1.75); opacity: 0; } }
+.celebrate { position: relative; max-width: 360px; overflow: hidden; border-radius: 8px; }
+.celebrate video { margin-top: 0; }
+.celebrate .burst { position: absolute; left: 50%; top: 40%; width: 80px; height: 80px; margin: -40px 0 0 -40px; border-radius: 50%; border: 4px solid var(--accent); pointer-events: none; animation: burst 1s .2s ease-out both; }
+.celebrate .bit { position: absolute; top: -14px; width: 8px; height: 14px; border-radius: 2px; pointer-events: none; animation: fall 1.8s cubic-bezier(.3, .6, .6, 1) forwards; }
+@keyframes burst { 0% { transform: scale(.4); opacity: 1; } 100% { transform: scale(3.2); opacity: 0; } }
+@keyframes fall { 0% { transform: translateY(0) rotate(0); opacity: 1; } 100% { transform: translateY(560px) rotate(540deg); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .lg .lg-reel, .lg .lg-tail, .lg .lg-hub, .halo > i, .celebrate .burst, .celebrate .bit { animation: none; }
+  .celebrate .bit, .celebrate .burst { display: none; }
+}
+
+/* Ask Reelkar (web chat). */
+.ask { padding-bottom: 0; }
+.ask .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ask a { color: var(--link); font-weight: 700; }
+.modes { border: 1px solid var(--border); border-radius: 12px; padding: 8px 12px 12px; margin: 12px 0; }
+.modes legend { font-weight: 700; padding: 0 4px; }
+.modes .tabs { margin: 8px 0; flex-wrap: wrap; }
+.modes .tabs button { width: auto; flex: 1 1 140px; }
+.chat { display: flex; flex-direction: column; gap: 12px; min-height: 40vh; padding-bottom: 12px; }
+.turn { display: flex; flex-direction: column; gap: 8px; }
+.turn.user { align-items: flex-end; }
+.bubble { max-width: 85%; padding: 10px 14px; border-radius: 18px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.bubble.user { background: var(--brand); color: #ffffff; border-bottom-right-radius: 6px; }
+.bubble.assistant { border: 1px solid var(--border); border-bottom-left-radius: 6px; }
+.agent-card { display: flex; flex-direction: column; gap: 8px; padding: 14px; border: 1px solid var(--border); border-radius: 16px; background: color-mix(in srgb, var(--bg) 60%, #ffffff); }
+@media (prefers-color-scheme: dark) { .agent-card { background: #14141f; } }
+.agent-card.flat { background: transparent; }
+.agent-card.warn { border-color: var(--danger); }
+.agent-card .idea { display: flex; flex-direction: column; gap: 4px; padding-top: 8px; border-top: 1px solid var(--border); }
+.agent-card button { width: auto; align-self: flex-start; padding: 8px 14px; border-radius: 999px; }
+.agent-card .actions { display: flex; gap: 8px; }
+.row-card { display: flex; align-items: center; gap: 12px; flex-direction: row; }
+.grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.pill { align-self: flex-start; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: color-mix(in srgb, var(--teal) 22%, transparent); }
+.pill-failed { background: color-mix(in srgb, var(--danger) 22%, transparent); }
+.pill-completed { background: color-mix(in srgb, var(--teal) 40%, transparent); }
+.caption-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.composer { position: sticky; bottom: 0; display: flex; gap: 8px; align-items: flex-end; padding: 12px 0 max(16px, env(safe-area-inset-bottom, 0px)); background: var(--bg); border-top: 1px solid var(--border); }
+.composer textarea { min-height: 48px; max-height: 160px; flex: 1; }
+.composer button { width: auto; padding: 12px 20px; border-radius: 999px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
