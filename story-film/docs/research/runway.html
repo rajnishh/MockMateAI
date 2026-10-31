@@ -68,7 +68,19 @@ code { font-family: var(--mono); font-size: 0.88em; background: var(--teal-fill)
     <p>Don't build Reelkar's premium tier on Runway. Keep fal.ai Kling 3.0 Standard or Wan 3.0 as the default for animating a few hero shots (about ₹95–160 per reel). Put every video provider behind one swappable interface, blind-test Runway against them on 50 Indian prompts, and add it as an optional "Cinematic" engine only if it clearly wins. Its one unique tool, Aleph 2.0 (restyling a creator's own footage), is worth a later paid add-on.</p>
   </div>
 
-  <p class="note"><strong>How sure these figures are.</strong> The research session couldn't open Runway's own pages directly (its network blocked page fetches), so everything comes from search results that index Runway's docs, changelog, help center and terms, plus press and pricing trackers. Figures marked <span class="u">unverified</span> came only from secondary sources or conflicted. Check prices on <a href="https://runwayml.com/pricing">Runway's pricing page</a> and <a href="https://docs.dev.runwayml.com/guides/pricing/">API pricing</a> before committing money.</p>
+  <p class="note"><strong>How sure these figures are.</strong> Plan prices, credit costs and API per-second prices were checked against <a href="https://runwayml.com/pricing">Runway's pricing page</a>, its <a href="https://docs.dev.runwayml.com/guides/pricing/">API pricing</a> and its <a href="https://docs.dev.runwayml.com/guides/models/">model list</a> on 31 October 2026. The rest comes from search results that index Runway's docs, changelog, help center and terms, plus press. Figures still marked <span class="u">unverified</span> came only from secondary sources.</p>
+
+  <section>
+    <h2>New from Runway's own pages (31 October)</h2>
+    <ul>
+      <li><strong>Much cheaper engines inside Runway's API.</strong> Grok Imagine 1.5 Lite costs 3 credits/s at 720p ($0.03/s, about ₹86 for 30 seconds) and 2 credits/s at 480p. Wan 3.0 480p is 5 credits/s, the same as on fal. Kling 3.0 Standard without audio is 9 credits/s ($0.09/s). These make Runway's API a real alternative to fal for cheap hero shots, not only premium ones.</li>
+      <li><strong>Kling 4.0</strong> includes audio. It's 20% off until 30 November 2026: 12.56 credits/s at 720p, then 15.7.</li>
+      <li><strong>Seedance 2.5 draft mode</strong> previews at the 480p rate, then renders the same shot at 1080p only if you keep it. This is the "cheap preview first" idea in the API.</li>
+      <li><strong>Recipes</strong> are ready-made pipelines: Product Ad, Product Swap, Product UGC, Multi-Shot Video, Ad Localization, Product Campaign. They map closely to what Indian sellers and creators want.</li>
+      <li><strong>App plans</strong> now include Runway Ads (make, test and publish ads), App Studio, Brand Kits, custom voice clones, music and sound generation, and Runway MCP. Runway says it has 60M+ creators.</li>
+      <li><strong>Buying more credits in the app</strong> starts at 1,000 credits. Bought credits never expire; plan credits reset monthly except on Max.</li>
+    </ul>
+  </section>
 
   <section>
     <h2>Runway at a glance</h2>
@@ -164,7 +176,9 @@ code { font-family: var(--mono); font-size: 0.88em; background: var(--teal-fill)
         <tr><td>Google Veo 3.1</td><td class="num">$0.40</td><td class="num">₹1,140</td><td>Yes</td><td>Best native audio and dialogue</td></tr>
         <tr class="hl"><td>Kling 3.0 Standard (fal)</td><td class="num">$0.084</td><td class="num">₹239</td><td>–</td><td>Strong motion for the price</td></tr>
         <tr class="hl"><td>Wan 3.0 480p (fal)</td><td class="num">$0.05</td><td class="num">₹143</td><td>–</td><td>Open weights, can be self-hosted later</td></tr>
-        <tr><td>MiniMax H3</td><td class="num">$0.08</td><td class="num">₹228</td><td>–</td><td>Hailuo's successor</td></tr>
+        <tr><td>MiniMax H3 Max 768p (Runway API)</td><td class="num">$0.08</td><td class="num">₹228</td><td>–</td><td>Hailuo's successor</td></tr>
+        <tr class="hl"><td>Grok Imagine 1.5 Lite 720p (Runway API)</td><td class="num">$0.03</td><td class="num">₹86</td><td>–</td><td>Cheapest per second found; quality untested</td></tr>
+        <tr><td>Kling 3.0 Standard (Runway API, no audio)</td><td class="num">$0.09</td><td class="num">₹257</td><td>Optional (+$0.04/s)</td><td>Same model as fal, similar price</td></tr>
         <tr><td>Seedance 2.x</td><td class="num">$0.14–0.30</td><td class="num">₹399–855</td><td>Yes</td><td>Cheap 480p draft mode</td></tr>
         <tr><td>OpenAI Sora 2</td><td>–</td><td>–</td><td>–</td><td>Shut down: app April 2026, API Sept 2026</td></tr>
       </tbody>
@@ -198,6 +212,7 @@ code { font-family: var(--mono); font-size: 0.88em; background: var(--teal-fill)
         <li><strong>Draft mode:</strong> a cheap preview first, the final render only after approval.</li>
         <li><strong>Camera presets</strong> (dolly, orbit, zoom) as buttons, not prompt syntax.</li>
         <li><strong>Per-shot routing</strong> between Kling, Wan or Runway by cost and quality, with cost caps per user.</li>
+        <li><strong>Recipes for sellers:</strong> product ad, product swap, UGC-style ad and ad localization, which suit Indian shops and Gulf retail.</li>
       </ul></div>
       <div class="box"><h3>Where Reelkar wins</h3><ul>
         <li>Indian and Gulf languages end to end: scripts, captions and voices. Runway only offers ElevenLabs dubbing.</li>
@@ -218,7 +233,7 @@ code { font-family: var(--mono); font-size: 0.88em; background: var(--teal-fill)
     <h3>Recommended plan</h3>
     <ol class="steps">
       <li><span><strong>Now:</strong> standard reels stay on Workers AI, FLUX and Kokoro. Premium stays on fal with Kling 3.0 Standard or Wan 3.0 for hero shots, about ₹95–160 per reel. Price premium reels at ₹299–499 each, or 3–5 a month in a ₹999 plan, to keep a 50%+ margin.</span></li>
-      <li><span><strong>Next 2–4 weeks:</strong> one provider interface (submit, poll, cost estimate, moderation), then a blind test of Runway Gen-4 Turbo and Gen-4.5 on 50 Indian prompts. Add a "Cinematic" option only if Runway clearly wins on faces, motion and Indian settings.</span></li>
+      <li><span><strong>Next 2–4 weeks:</strong> one provider interface (submit, poll, cost estimate, moderation), then a blind test on 50 Indian prompts of Runway Gen-4 Turbo and Gen-4.5, plus the cheap engines Runway also sells (Grok Imagine Lite, Wan 3.0). Add a "Cinematic" option only if Runway clearly wins on faces, motion and Indian settings.</span></li>
       <li><span><strong>Later:</strong> pilot Aleph 2.0 as a paid "restyle my clip" add-on (about ₹400 cost per 15 s, priced ₹699 or more), for Gulf creators and agencies first.</span></li>
       <li><span><strong>Don't:</strong> sell fully generated Gen-4.5 reels in an Indian consumer plan, rely on Runway for audio, or make it a single point of failure.</span></li>
     </ol>
