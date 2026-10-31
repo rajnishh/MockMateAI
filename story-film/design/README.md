@@ -1,6 +1,6 @@
 # Design system
 
-## v2.0: Creator energy (proposed, 2026-10-30)
+## v2.0: Creator energy (current, 2026-10-31)
 
 More energy for creators, keeping the v1.0 reel logo:
 - **Light theme, "Creator studio":** navy with a stronger coral for main buttons (navy text on coral), a sunny yellow for wins, bigger radii, pressable buttons, and Plus Jakarta Sans.
@@ -14,9 +14,11 @@ Files and links:
 - `v2.0/prototype.html`: the v1.0 prototype with the v2.0 tokens, splash, loaders and motion. Published: https://claude.ai/artifact/3WniUxZ8zBAVrhc5jJR8tK
 - Style directions and the five animated logo marks: https://claude.ai/artifact/6aCNu5hnuvBaqN2aEMkyBo
 
-Once approved, `tokens.json` and the apps' themes move to v2.0.
+Chosen logo treatment, "Option 1+": the original reel stays the one mark (app icon, splash, header). Short loads show the reel spinning, long waits add coral and teal rings, and a finished reel gets one ring burst and confetti.
 
-## v1.0: Reelkar (current)
+- `v2.0/tokens.json`: the v2.0 tokens (adds `pop` / `on-pop`). The mobile theme is generated from it (`npm run theme`); the web app mirrors the colours in `src/app/globals.css`.
+
+## v1.0: Reelkar (Trust Navy)
 
 Brand book, tokens, components and phone, web and desktop screens, as a Claude Design System artifact:
 https://claude.ai/artifact/UBYyBwMR62t7oBhgWNQsy5

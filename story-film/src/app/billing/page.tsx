@@ -93,10 +93,10 @@ export default function BillingPage() {
       if (!res.ok) throw new Error(checkout.error);
       const rzp = new window.Razorpay!({
         key: checkout.keyId,
-        name: "Story to Film",
+        name: "Reelkar",
         description: checkout.name,
         ...(kind === "pack" ? { order_id: checkout.orderId } : { subscription_id: checkout.subscriptionId }),
-        theme: { color: "#b45309" },
+        theme: { color: "#18264a" },
         handler: async (response: RazorpayResponse) => {
           const verify = await fetch("/api/billing/verify", {
             method: "POST",

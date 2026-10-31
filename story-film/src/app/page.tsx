@@ -3,6 +3,7 @@
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { EditMoments } from "./edit-moments";
+import { Celebrate, Loader, ReelLogo } from "./reel-logo";
 import { findLanguage, LANGUAGES } from "@/lib/languages";
 import { FILM_STYLES } from "@/lib/styles";
 
@@ -249,7 +250,10 @@ export default function Home() {
   return (
     <main>
       <header className="top">
-        <h1>Story to Film</h1>
+        <div className="brand">
+          <ReelLogo size={40} label="Reelkar" />
+          <h1>Reelkar</h1>
+        </div>
         <div className="post-actions">
           <a href="/billing"><button type="button" className="secondary">{billing ? `${billing.balance} credits` : "Credits"}</button></a>
           <a href="/songs"><button type="button" className="secondary">Songs</button></a>
@@ -441,7 +445,7 @@ export default function Home() {
       {jobId && (
         <div className="status">
           {!status || status.status === "queued" ? (
-            <p>Queued…</p>
+            <Loader label="Queued…" />
           ) : status.status === "failed" ? (
             <p>Something went wrong: {status.error}</p>
           ) : status.status === "review" ? (
@@ -456,7 +460,9 @@ export default function Home() {
                 </p>
               )}
               {status.error && <p className="muted">{status.error}</p>}
-              <video key={pollKey} src={`/api/films/${jobId}/video?v=${pollKey}`} controls playsInline />
+              <Celebrate key={pollKey}>
+                <video src={`/api/films/${jobId}/video?v=${pollKey}`} controls playsInline />
+              </Celebrate>
               {status.format === "edit" &&
                 (fineTune ? (
                   <EditMoments filmId={jobId} onRendering={rendering} />
@@ -493,7 +499,7 @@ export default function Home() {
               )}
             </>
           ) : (
-            <p>{STAGE_LABELS[status.stage ?? ""] ?? "Working"}…</p>
+            <Loader long label={`${STAGE_LABELS[status.stage ?? ""] ?? "Working"}…`} />
           )}
         </div>
       )}
