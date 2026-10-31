@@ -291,6 +291,27 @@ export const agentAction = pgTable(
   (t) => [index("agent_action_user_idx").on(t.userId, t.createdAt), index("agent_action_film_idx").on(t.filmId, t.status)],
 );
 
+// Personal access keys that let an AI assistant (Claude, Cursor...) use Reelkar for a creator
+// through the connector at /api/mcp. Only a SHA-256 hash of the key is stored.
+export const apiToken = pgTable(
+  "api_token",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    // The last four characters, so creators can tell keys apart.
+    hint: text("hint").notNull(),
+    // The creator's time zone when the key was made: "tomorrow evening" from an assistant means theirs.
+    timeZone: text("time_zone").notNull().default("Asia/Kolkata"),
+    lastUsedAt: timestamp("last_used_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("api_token_hash_idx").on(t.tokenHash), index("api_token_user_idx").on(t.userId)],
+);
+
 export const characterRelations = relations(character, ({ one, many }) => ({
   user: one(user, { fields: [character.userId], references: [user.id] }),
   films: many(film),

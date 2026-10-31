@@ -389,3 +389,9 @@ Prices move monthly; waoowaoo and several other licenses unverified; EvoLink is 
       - `POST /api/agent/actions/[id]`: approve or cancel.
       - `PUT /api/agent/settings`.
 
+
+32. **Reelkar connector for AI assistants, step 1 (2026-10-31).** Creators can drive Reelkar from Claude Code, Claude Desktop or Cursor, using a subscription they already pay for.
+    - **Endpoint:** `POST /api/mcp`, Model Context Protocol, stateless, plain JSON replies. It is hand-written rather than built on the SDK, and checked against the official MCP client.
+    - **Tools:** the 8 Ask Reelkar actions plus `answer_proposal`. They are generated from the same zod schemas, so the app, the agent and the connector can't drift apart. Posting mode, free reels and credits apply as in the app, and connector activity appears in Ask Reelkar history.
+    - **Sign-in:** personal keys from `/connect`: hashed, removable, last-used shown, at most 10 per creator, 300 calls an hour.
+    - **Next:** OAuth 2.1 so ChatGPT and claude.ai web connectors can sign in, then directory listings after launch. Local setup is in `docs/CONNECTORS.md`.
