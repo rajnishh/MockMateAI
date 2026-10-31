@@ -1,0 +1,244 @@
+<title>Runway for Reelkar</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: one reading column with wide tables in their own scroll boxes; a verdict band up top. */
+:root {
+  --bg: #f6f7fb; --panel: #ffffff; --ink: #0f1733; --muted: #4b5563; --line: #d6dbe5;
+  --navy: #18264a; --coral: #c2410c; --coral-fill: #ffe6de; --teal: #0a756b; --teal-fill: #ddf5f2; --warn: #8a5a00; --warn-fill: #fff4d6;
+  --display: "Plus Jakarta Sans", system-ui, sans-serif; --body: "Plus Jakarta Sans", system-ui, sans-serif; --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0a0a12; --panel: #14141f; --ink: #f2f2f7; --muted: #a0a0b8; --line: #2a2a3d;
+  --navy: #c9d2e6; --coral: #ff6fae; --coral-fill: #2a0f1e; --teal: #2de2e6; --teal-fill: #0c2a30; --warn: #f6c454; --warn-fill: #2a2410; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0a0a12; --panel: #14141f; --ink: #f2f2f7; --muted: #a0a0b8; --line: #2a2a3d;
+  --navy: #c9d2e6; --coral: #ff6fae; --coral-fill: #2a0f1e; --teal: #2de2e6; --teal-fill: #0c2a30; --warn: #f6c454; --warn-fill: #2a2410; color-scheme: dark; }
+body { background: var(--bg); color: var(--ink); font: 16px/1.65 var(--body); }
+.page { max-width: 860px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 40px 64px; display: flex; flex-direction: column; gap: 28px; }
+h1, h2, h3 { font-family: var(--display); color: var(--navy); text-wrap: balance; margin: 0; letter-spacing: -0.02em; }
+h1 { font-size: clamp(30px, 6vw, 44px); line-height: 1.1; font-weight: 800; }
+h2 { font-size: 24px; font-weight: 800; padding-top: 8px; border-top: 1px solid var(--line); }
+h3 { font-size: 18px; font-weight: 700; }
+p, ul, ol { margin: 0; max-width: 68ch; }
+ul, ol { padding-left: 22px; display: flex; flex-direction: column; gap: 6px; }
+section { display: flex; flex-direction: column; gap: 14px; }
+a { color: var(--coral); font-weight: 600; text-underline-offset: 2px; }
+a:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.eyebrow { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.lede { color: var(--muted); font-size: 17px; }
+.verdict { background: var(--navy); color: var(--bg); border-radius: 20px; padding: 22px 24px; display: flex; flex-direction: column; gap: 10px; }
+.verdict h2 { color: inherit; border: 0; padding: 0; font-size: 22px; }
+.verdict p { max-width: none; }
+.note { background: var(--warn-fill); color: var(--ink); border-radius: 14px; padding: 14px 16px; font-size: 15px; }
+.note strong { color: var(--warn); }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.fact { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 2px; }
+.fact b { font-family: var(--display); font-size: 22px; font-weight: 800; color: var(--navy); font-variant-numeric: tabular-nums; }
+.fact span { font-size: 14px; color: var(--muted); }
+.table { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr.hl td { background: var(--teal-fill); }
+.tag { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--coral-fill); color: var(--coral); white-space: nowrap; }
+.tag.ok { background: var(--teal-fill); color: var(--teal); }
+.u { color: var(--muted); font-style: italic; font-size: 0.92em; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.box { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.steps { counter-reset: s; list-style: none; padding: 0; }
+.steps li { counter-increment: s; display: grid; grid-template-columns: 34px 1fr; gap: 10px; }
+.steps li::before { content: counter(s); width: 28px; height: 28px; border-radius: 50%; background: var(--teal-fill); color: var(--teal); font-weight: 800; display: grid; place-items: center; font-size: 14px; }
+code { font-family: var(--mono); font-size: 0.88em; background: var(--teal-fill); padding: 1px 5px; border-radius: 6px; overflow-wrap: anywhere; }
+.sources { font-size: 14px; color: var(--muted); }
+.sources ul { gap: 2px; }
+</style>
+
+<main class="page">
+  <header style="display:flex;flex-direction:column;gap:10px">
+    <span class="eyebrow">Research report · 31 October 2026</span>
+    <h1>Runway, and what it means for Reelkar</h1>
+    <p class="lede">What the AI video company behind Gen-4.5 sells, how it works, what it costs per reel, and whether Reelkar should use it. Prices are from October 2026, converted at about ₹95 per US dollar.</p>
+  </header>
+
+  <div class="verdict">
+    <h2>The short answer</h2>
+    <p>Don't build Reelkar's premium tier on Runway. Keep fal.ai Kling 3.0 Standard or Wan 3.0 as the default for animating a few hero shots (about ₹95–160 per reel). Put every video provider behind one swappable interface, blind-test Runway against them on 50 Indian prompts, and add it as an optional "Cinematic" engine only if it clearly wins. Its one unique tool, Aleph 2.0 (restyling a creator's own footage), is worth a later paid add-on.</p>
+  </div>
+
+  <p class="note"><strong>How sure these figures are.</strong> The research session couldn't open Runway's own pages directly (its network blocked page fetches), so everything comes from search results that index Runway's docs, changelog, help center and terms, plus press and pricing trackers. Figures marked <span class="u">unverified</span> came only from secondary sources or conflicted. Check prices on <a href="https://runwayml.com/pricing">Runway's pricing page</a> and <a href="https://docs.dev.runwayml.com/guides/pricing/">API pricing</a> before committing money.</p>
+
+  <section>
+    <h2>Runway at a glance</h2>
+    <div class="facts">
+      <div class="fact"><b>$5.3B</b><span>valuation after a $315M raise, Feb 2026</span></div>
+      <div class="fact"><b>~140</b><span>staff, New York, founded 2018</span></div>
+      <div class="fact"><b>Gen-4.5</b><span>current flagship video model</span></div>
+      <div class="fact"><b>$0.12/s</b><span>Gen-4.5 on the API, about ₹11.4 per second</span></div>
+    </div>
+    <p>Runway started in 2018 as an "AI magic tools" video editor, co-developed the original Stable Diffusion in 2022, and became a frontier video-model lab (Gen-1 to Gen-4.5). Since late 2025 it calls itself a <strong>world-model</strong> company (GWM-1). The Feb 2026 round was led by General Atlantic with Nvidia, Fidelity, Adobe Ventures and Premji Invest, an Indian investor, though there's no sign of an India-focused product. Its site now lives at runway.com as well as runwayml.com, so "runway.com" was right.</p>
+    <p><strong>Who uses it:</strong> studios (Lionsgate trained a custom model on its library and took an equity stake; AMC Networks; Netflix reportedly), agencies running campaigns with its agent, creators on web and iOS, and robotics teams using world models for training data.</p>
+  </section>
+
+  <section>
+    <h2>What it sells today</h2>
+    <div class="table"><table>
+      <thead><tr><th>Model</th><th>Status</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr class="hl"><td><strong>Gen-4.5</strong></td><td><span class="tag ok">Flagship</span></td><td>Text- and image-to-video, 2–10 s clips, 720p, 9:16 supported, multi-shot. No audio option on the API (in-app audio claimed, <span class="u">unverified</span>).</td></tr>
+        <tr><td><strong>Gen-4 Turbo</strong></td><td><span class="tag ok">Budget</span></td><td>Image-to-video, 5 or 10 s, 720p. Good for animating still images.</td></tr>
+        <tr class="hl"><td><strong>Aleph 2.0</strong></td><td><span class="tag ok">Current</span></td><td>Edits existing footage: restyle, add or remove objects, relight, change the camera angle. Input clips of 2–30 s.</td></tr>
+        <tr><td><strong>Act-Two</strong></td><td><span class="tag ok">Current</span></td><td>A video of a person drives a character's face, body and hands.</td></tr>
+        <tr><td><strong>GWM-1 and Characters</strong></td><td><span class="tag">Early</span></td><td>Explorable worlds, talking avatars, real-time video characters from one image.</td></tr>
+        <tr><td>Gen-3, first Aleph</td><td><span class="tag">Removed</span></td><td>Taken off the API on 30 July 2026.</td></tr>
+      </tbody>
+    </table></div>
+    <p><strong>It's also a marketplace now.</strong> The Runway API resells Google Veo 3.1, Kling 4.0, Seedance, Seedream, Ideogram, Wan 3.0 and ElevenLabs voice, sound effects and dubbing (29 languages, including Hindi, Tamil and Arabic). A Model Router picks a model by cost, speed or quality. That makes it a direct rival to fal.ai.</p>
+    <p><strong>Agent and workflows.</strong> Runway Agent (May 2026) and Agent 2.0 (June) plan and generate whole campaigns from chat. Agent Skills are slash commands. Workflows are reusable node pipelines that the agent can build from a sentence, and outside agents can run them through MCP.</p>
+  </section>
+
+  <section>
+    <h2>How it works for a creator</h2>
+    <ol class="steps">
+      <li><span>Pick a mode: chat with the Agent, use one tool directly, or run a saved Workflow.</span></li>
+      <li><span>Set the model, aspect ratio, length and any references: first and last frames, a character image, or a performance video.</span></li>
+      <li><span>Generate. Credits are taken when the job starts, and failed or disappointing clips still cost credits. A Gen-4.5 clip takes about 30–60 s <span class="u">(unverified)</span>.</span></li>
+      <li><span>Iterate: extend, re-roll, edit with Aleph, upscale to 4K, smooth the frame rate.</span></li>
+      <li><span>Assemble on the timeline and export. The free plan adds a watermark and doesn't allow commercial use.</span></li>
+    </ol>
+    <p>Characters and products stay consistent through reference images. Reviewers still find text inside the video and hands weak.</p>
+  </section>
+
+  <section>
+    <h2>Prices</h2>
+    <h3>App plans</h3>
+    <div class="table"><table>
+      <thead><tr><th>Plan</th><th>Monthly</th><th>Credits</th><th>Gen-4.5 seconds</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Free</td><td class="num">$0</td><td class="num">125 once</td><td class="num">~10 s</td><td>Watermark, no commercial use</td></tr>
+        <tr><td>Standard</td><td class="num">$15 (₹1,425)</td><td class="num">625</td><td class="num">~52 s</td><td>Credits expire monthly</td></tr>
+        <tr><td>Pro</td><td class="num">$35 (₹3,325)</td><td class="num">2,250</td><td class="num">~187 s</td><td>Credits expire monthly</td></tr>
+        <tr><td>Max</td><td class="num">$95 (₹9,025)</td><td class="num">9,500</td><td class="num">~13 min</td><td>Replaced "Unlimited" in June 2026; one month rollover</td></tr>
+        <tr><td>Enterprise</td><td>Custom</td><td>Custom</td><td>–</td><td>SSO, output ownership, training opt-out</td></tr>
+      </tbody>
+    </table></div>
+    <p class="u">Some sources list Standard and Pro at $12 and $28, which may be annual pricing.</p>
+    <h3>API, per second (1 credit = $0.01, prepaid, separate from app plans)</h3>
+    <div class="table"><table>
+      <thead><tr><th>Model</th><th>Credits/s</th><th>$/s</th><th>₹/s</th></tr></thead>
+      <tbody>
+        <tr class="hl"><td>Gen-4.5 (cut from 25 in June 2026)</td><td class="num">12</td><td class="num">$0.12</td><td class="num">₹11.4</td></tr>
+        <tr class="hl"><td>Gen-4 Turbo</td><td class="num">5</td><td class="num">$0.05</td><td class="num">₹4.75</td></tr>
+        <tr><td>Aleph 2.0 (minimum $0.56)</td><td class="num">28</td><td class="num">$0.28</td><td class="num">₹26.6</td></tr>
+        <tr><td>Act-Two</td><td class="num">5</td><td class="num">$0.05</td><td class="num">₹4.75</td></tr>
+        <tr><td>Veo 3.1 with audio / without</td><td class="num">40 / 20</td><td class="num">$0.40 / $0.20</td><td class="num">₹38 / ₹19</td></tr>
+        <tr><td>Kling 2.5 Turbo Pro</td><td class="num">12</td><td class="num">$0.12</td><td class="num">₹11.4</td></tr>
+        <tr><td>4K upscale</td><td class="num">2</td><td class="num">$0.02</td><td class="num">₹1.9</td></tr>
+      </tbody>
+    </table></div>
+    <p>A $10 minimum top-up is reported. Rate limits rise with spend but aren't published.</p>
+  </section>
+
+  <section>
+    <h2>The developer API</h2>
+    <ul>
+      <li><strong>Calls:</strong> REST at <code>api.dev.runwayml.com</code> with a Bearer key and an <code>X-Runway-Version</code> header. Endpoints for text-, image- and video-to-video, character performance, images, upscaling, speech, sound effects and dubbing <span class="u">(exact paths partly unverified)</span>.</li>
+      <li><strong>Async:</strong> a request returns a task id; poll until it succeeds or fails. Results are temporary signed links, so download and re-host them straight away. Official Node and Python SDKs wait for you.</li>
+      <li><strong>Also sold through</strong> Replicate, Runware, Krea and Cloudflare Workers AI. Gen-4.5 appears in Cloudflare's catalogue, which Reelkar already uses (price there <span class="u">unverified</span>).</li>
+      <li><strong>Moderation:</strong> inputs and outputs are checked, and too many blocked requests suspend the account. Runway tells developers to screen prompts first.</li>
+      <li><strong>Ownership:</strong> Runway claims no ownership of outputs, and paid use is commercially unrestricted. Enterprise contracts assign ownership explicitly. Training on non-Enterprise inputs and outputs and C2PA labels on every output are both reported but <span class="u">unverified</span>.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Against the alternatives</h2>
+    <p>Cost of 30 seconds of fully generated video (3×10 s or 6×5 s clips at 720p, no retries), at September–October 2026 API prices.</p>
+    <div class="table"><table>
+      <thead><tr><th>Engine</th><th>$/s</th><th>30 s reel</th><th>Audio</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Runway Gen-4 Turbo</td><td class="num">$0.05</td><td class="num">₹143</td><td>No</td><td>Image-to-video only; good for animating FLUX stills</td></tr>
+        <tr><td>Runway Gen-4.5</td><td class="num">$0.12</td><td class="num">₹342</td><td>No (API)</td><td>Top motion quality, 720p</td></tr>
+        <tr><td>Runway Aleph 2.0 (restyle your own clip)</td><td class="num">$0.28</td><td class="num">₹798</td><td>Keeps yours</td><td>Unique "edit my footage" ability</td></tr>
+        <tr><td>Google Veo 3.1</td><td class="num">$0.40</td><td class="num">₹1,140</td><td>Yes</td><td>Best native audio and dialogue</td></tr>
+        <tr class="hl"><td>Kling 3.0 Standard (fal)</td><td class="num">$0.084</td><td class="num">₹239</td><td>–</td><td>Strong motion for the price</td></tr>
+        <tr class="hl"><td>Wan 3.0 480p (fal)</td><td class="num">$0.05</td><td class="num">₹143</td><td>–</td><td>Open weights, can be self-hosted later</td></tr>
+        <tr><td>MiniMax H3</td><td class="num">$0.08</td><td class="num">₹228</td><td>–</td><td>Hailuo's successor</td></tr>
+        <tr><td>Seedance 2.x</td><td class="num">$0.14–0.30</td><td class="num">₹399–855</td><td>Yes</td><td>Cheap 480p draft mode</td></tr>
+        <tr><td>OpenAI Sora 2</td><td>–</td><td>–</td><td>–</td><td>Shut down: app April 2026, API Sept 2026</td></tr>
+      </tbody>
+    </table></div>
+    <p><strong>Real costs are higher:</strong> about a third to a half of shots get re-rolled, so a Gen-4.5 reel lands near ₹450–515. Reelkar's hybrid story reel (stills with movement plus narration, animating only four 5-second hero shots) costs far less: about ₹95 with Gen-4 Turbo or Wan 3.0, ₹160 with Kling 3.0 Standard, ₹228 with Gen-4.5.</p>
+    <div class="cols">
+      <div class="box"><h3>Runway's strengths</h3><ul>
+        <li>Polished, controllable cinematic shots.</li>
+        <li>Aleph 2.0 edits real footage, which is rare.</li>
+        <li>The best creator workflow layer: agent, workflows, skills, MCP.</li>
+        <li>Many vendors' models behind one API.</li>
+        <li>Clear commercial-use terms and studio credibility.</li>
+      </ul></div>
+      <div class="box"><h3>Its weaknesses</h3><ul>
+        <li>720p native; 4K costs extra.</li>
+        <li>No audio on Gen-4.5 through the API.</li>
+        <li>Clips of 10 s at most.</li>
+        <li>Failed generations still cost credits.</li>
+        <li>Plans of ₹1,425–9,025 a month are out of reach for most Indian creators.</li>
+        <li>Prices and plans change often.</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What it means for Reelkar</h2>
+    <div class="cols">
+      <div class="box"><h3>Worth copying</h3><ul>
+        <li><strong>Agent plus reusable recipes:</strong> "make my weekly Diwali offer reel in the same style".</li>
+        <li><strong>Character and product lock</strong> across shots, cheaply with image references before animating.</li>
+        <li><strong>Draft mode:</strong> a cheap preview first, the final render only after approval.</li>
+        <li><strong>Camera presets</strong> (dolly, orbit, zoom) as buttons, not prompt syntax.</li>
+        <li><strong>Per-shot routing</strong> between Kling, Wan or Runway by cost and quality, with cost caps per user.</li>
+      </ul></div>
+      <div class="box"><h3>Where Reelkar wins</h3><ul>
+        <li>Indian and Gulf languages end to end: scripts, captions and voices. Runway only offers ElevenLabs dubbing.</li>
+        <li>Posting and scheduling to Instagram and YouTube. Runway's agent doesn't publish.</li>
+        <li>Rupee pricing, UPI, and free standard reels.</li>
+        <li>Mobile-first local templates: festivals, cricket, devotional, local shops, Gulf retail.</li>
+        <li>One tap from idea to a scheduled post.</li>
+      </ul></div>
+    </div>
+    <h3>Risks to plan for</h3>
+    <ul>
+      <li><strong>One key for all users:</strong> Reelkar's users share one API key, so screen prompts and images (for example with Llama Guard on Workers AI) before calling any video provider, or one bad actor can get the account suspended.</li>
+      <li><strong>Training on creators' footage</strong> may happen below Enterprise <span class="u">(unverified)</span>: disclose it, or negotiate terms before using Aleph on creators' own clips.</li>
+      <li><strong>AI labels:</strong> outputs likely carry C2PA, so Instagram and YouTube may label posts. Label AI content the same way across every engine, and check the final status of India's proposed IT Rules on synthetic content.</li>
+      <li><strong>Public figures:</strong> never relax moderation for real people. Deepfake risk is high in India and the Gulf.</li>
+      <li><strong>Vendor churn:</strong> Sora shut down and Runway retired models mid-year. Keep every provider swappable.</li>
+    </ul>
+    <h3>Recommended plan</h3>
+    <ol class="steps">
+      <li><span><strong>Now:</strong> standard reels stay on Workers AI, FLUX and Kokoro. Premium stays on fal with Kling 3.0 Standard or Wan 3.0 for hero shots, about ₹95–160 per reel. Price premium reels at ₹299–499 each, or 3–5 a month in a ₹999 plan, to keep a 50%+ margin.</span></li>
+      <li><span><strong>Next 2–4 weeks:</strong> one provider interface (submit, poll, cost estimate, moderation), then a blind test of Runway Gen-4 Turbo and Gen-4.5 on 50 Indian prompts. Add a "Cinematic" option only if Runway clearly wins on faces, motion and Indian settings.</span></li>
+      <li><span><strong>Later:</strong> pilot Aleph 2.0 as a paid "restyle my clip" add-on (about ₹400 cost per 15 s, priced ₹699 or more), for Gulf creators and agencies first.</span></li>
+      <li><span><strong>Don't:</strong> sell fully generated Gen-4.5 reels in an Indian consumer plan, rely on Runway for audio, or make it a single point of failure.</span></li>
+    </ol>
+  </section>
+
+  <section class="sources">
+    <h2>Sources</h2>
+    <p>Runway's own pages, seen through search indexing:</p>
+    <ul>
+      <li><a href="https://runwayml.com/pricing">Pricing</a> · <a href="https://docs.dev.runwayml.com/guides/pricing/">API pricing</a> · <a href="https://docs.dev.runwayml.com/guides/models/">API models</a> · <a href="https://docs.dev.runwayml.com/api-details/api_changelog/">API changelog</a> · <a href="https://docs.dev.runwayml.com/api-details/moderation">Moderation</a> · <a href="https://dev.runwayml.com/learn/commercial-use">Commercial use</a></li>
+      <li><a href="https://runway.com/changelog">Product changelog</a> · <a href="https://runway.com/research/introducing-runway-gwm-1">GWM-1</a> · <a href="https://runway.com/terms-of-use">Terms of Use</a> · <a href="https://runway.com/en/news/runway-partners-with-lionsgate">Lionsgate partnership</a> · <a href="https://help.runwayml.com/hc/en-us/articles/37327109429011-Creating-with-Gen-4">Help: Gen-4</a></li>
+    </ul>
+    <p>Press:</p>
+    <ul>
+      <li><a href="https://techcrunch.com/2026/02/10/ai-video-startup-runway-raises-315m-at-5-3b-valuation-eyes-more-capable-world-models/">TechCrunch on the $315M raise</a> · <a href="https://www.bloomberg.com/news/articles/2026-02-10/ai-video-startup-runway-valued-at-5-3-billion-with-new-funding">Bloomberg</a> · <a href="https://the-decoder.com/runway-unveils-first-general-world-model-alongside-major-gen-4-5-upgrades/">The Decoder on GWM-1</a> · <a href="https://3dvf.com/en/generative-ai-one-year-later-the-runway-lionsgate-alliance-faces-reality/">3DVF on Lionsgate a year later</a> · <a href="https://help.openai.com/en/articles/20001152-what-to-know-about-the-sora-app-discontinuation">OpenAI on the Sora shutdown</a></li>
+    </ul>
+    <p>Pricing and comparisons (secondary):</p>
+    <ul>
+      <li><a href="https://creatify.ai/blog/runway-pricing-(2026)-plans-credits-and-what-you-ll-actually-pay">creatify</a> · <a href="https://flexprice.io/pricing-index/runway">flexprice</a> · <a href="https://www.teamday.ai/blog/ai-api-pricing-comparison-2026">teamday</a> · <a href="https://invideo.io/blog/ai-video-model-pricing">invideo</a> · <a href="https://devtk.ai/en/blog/ai-video-generation-pricing-2026/">devtk</a> · <a href="https://developers.cloudflare.com/ai/models/runwayml/gen-4.5/index.md">Cloudflare Gen-4.5 page</a> · <a href="https://terms.law/ai-output-rights/runway/">terms.law on output rights</a></li>
+    </ul>
+    <p>The full Markdown version with every source is in the repository at <code>docs/research/runway.md</code>.</p>
+  </section>
+</main>
