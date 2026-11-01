@@ -46,6 +46,8 @@ claude mcp add --transport http reelkar http://localhost:3000/api/mcp --header "
 }
 ```
 
+Add `mcpServers` next to what's already in the file. If Reelkar doesn't appear after a restart, Desktop couldn't find `npx` (apps opened from the Dock don't get your shell's PATH, and `mcp-remote` needs Node 18 or newer). Use the full path from `which npx`, and add `"env": { "PATH": "<that folder>:/usr/bin:/bin" }` so `npx` finds the matching `node`. Desktop's connector log is `~/Library/Logs/Claude/mcp.log`.
+
 **Cursor** (Settings → MCP → Add new server):
 
 ```json

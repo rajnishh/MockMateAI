@@ -67,6 +67,7 @@ export default function ConnectPage() {
       id: "claude-desktop",
       title: "Claude Desktop (Settings → Developer → Edit config)",
       text: JSON.stringify({ mcpServers: { reelkar: { command: "npx", args: ["-y", "mcp-remote", url, "--header", `Authorization: Bearer ${key}`] } } }, null, 2),
+      note: "Add \"mcpServers\" next to what's already in the file, then quit Claude Desktop (Cmd+Q) and open it again. If Reelkar doesn't show up, Desktop can't find npx: run `which npx` in Terminal and put that full path in place of \"npx\". It needs Node 18 or newer.",
     },
     { id: "cursor", title: "Cursor (Settings → MCP → Add new server)", text: JSON.stringify({ mcpServers: { reelkar: { url, headers: { Authorization: `Bearer ${key}` } } } }, null, 2) },
   ];
@@ -115,6 +116,7 @@ export default function ConnectPage() {
             <button type="button" className="secondary" onClick={() => copy(s.id, s.text)}>
               {copied === s.id ? "Copied" : "Copy"}
             </button>
+            {"note" in s && <span className="muted fine">{s.note}</span>}
           </div>
         ))}
         <span className="muted">Then ask, for example: &ldquo;Use Reelkar to make a Hindi reel about monsoon recipes and post it tomorrow at 7:30 pm.&rdquo;</span>
