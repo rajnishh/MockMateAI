@@ -20,8 +20,8 @@ export async function POST(req: Request) {
   if (!(await allow(getRedis(), `ratelimit:lyrics:${userId}`, 40, 24 * 3600))) {
     return NextResponse.json({ error: "Daily limit for AI lyrics reached. Try again tomorrow." }, { status: 429 });
   }
-  const llm = buildLlm(loadEnv());
   try {
+    const llm = buildLlm(loadEnv());
     await assertNoRealArtists(llm, [parsed.data.topic]);
     const out = await writeLyrics(llm, { ...parsed.data, genre });
     // The model is told not to name artists; check its output too.
