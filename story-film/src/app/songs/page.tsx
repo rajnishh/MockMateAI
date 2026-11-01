@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { LANGUAGES } from "@/lib/languages";
 import { MusicVideoPanel } from "./music-video-panel";
@@ -126,10 +125,11 @@ export default function SongsPage() {
   return (
     <main>
       <header className="top">
-        <h1>Song Studio</h1>
-        <Link href="/">← Create</Link>
+        <div>
+          <h1>Song Studio</h1>
+          <p className="sub">Write a song about anything and hear it sung, in Hindi, Marathi, Bengali, Tamil, Telugu, Arabic, English or Hinglish.</p>
+        </div>
       </header>
-      <p className="muted">Write a song about anything and hear it sung, in Hindi, Marathi, Bengali, Tamil, Telugu, Arabic, English or Hinglish.</p>
       {!available && <div className="status">Song Studio isn&apos;t set up on this server yet.</div>}
 
       <form onSubmit={makeSong}>

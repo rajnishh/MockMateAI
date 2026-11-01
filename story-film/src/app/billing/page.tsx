@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { currencyForTimeZone } from "@/lib/billing/catalog";
 
@@ -134,11 +133,13 @@ export default function BillingPage() {
   return (
     <main>
       <header className="top">
-        <h1>Credits</h1>
-        <Link href="/">← Create</Link>
+        <div>
+          <h1>Credits</h1>
+          <p className="sub">Your free reels and AI animation credits.</p>
+        </div>
       </header>
       {notice && <div className="status">{notice}</div>}
-      {error && <div className="status">{error}</div>}
+      {error && <div className="status error-box" role="alert">{error}</div>}
 
       <div className="balance">
         <span className="muted">Balance</span>

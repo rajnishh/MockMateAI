@@ -25,7 +25,7 @@ export function ReelLogo({ size = 40, loop = false, label }: { size?: number; lo
   );
 }
 
-// Loading: the reel spins; long waits (a reel being made) add pulsing rings.
+// Loading: the reel spins; long waits (a reel being made) add pulsing rings and a shimmering bar.
 export function Loader({ label, long }: { label: string; long?: boolean }) {
   return (
     <div className="loader" role="status">
@@ -39,13 +39,18 @@ export function Loader({ label, long }: { label: string; long?: boolean }) {
         <ReelLogo size={48} loop />
       )}
       <span>{label}</span>
+      {long && (
+        <span className="progress" aria-hidden="true">
+          <i />
+        </span>
+      )}
     </div>
   );
 }
 
 // The finished video with one ring burst and a little confetti.
 export function Celebrate({ children }: { children: ReactNode }) {
-  const colours = ["var(--accent)", "var(--teal)", "#ffd23f", "#ffffff"];
+  const colours = ["var(--coral)", "var(--teal)", "var(--pop)", "#ffffff"];
   return (
     <div className="celebrate">
       {children}

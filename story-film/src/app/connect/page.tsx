@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
-import { ReelLogo } from "../reel-logo";
 
 type Key = { id: string; name: string; hint: string; createdAt: string; lastUsedAt: string | null };
 
@@ -75,11 +74,9 @@ export default function ConnectPage() {
   return (
     <main className="ask">
       <header className="top">
-        <div className="brand">
-          <ReelLogo size={36} label="Reelkar" />
+        <div>
           <h1>Connect an AI assistant</h1>
         </div>
-        <Link href="/">Back to studio</Link>
       </header>
       <p className="muted">
         Use Reelkar from Claude, Cursor or another assistant you already pay for. It can suggest ideas, make reels, write captions and post them. Your posting setting

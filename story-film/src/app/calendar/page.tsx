@@ -166,11 +166,13 @@ export default function CalendarPage() {
   return (
     <main>
       <header className="top">
-        <h1>Calendar</h1>
-        <Link href="/">← Create</Link>
+        <div>
+          <h1>Calendar</h1>
+          <p className="sub">Plan and schedule posts to your accounts.</p>
+        </div>
       </header>
       {notice && <div className="status">{notice}</div>}
-      {error && <div className="status">{error}</div>}
+      {error && <div className="status error-box" role="alert">{error}</div>}
 
       <section>
         <h2>Channels</h2>
