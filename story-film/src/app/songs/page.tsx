@@ -35,7 +35,7 @@ const MOODS = ["happy", "romantic", "sad", "energetic", "peaceful", "funny", "mo
 
 async function postJson<T>(url: string, body: unknown): Promise<{ ok: boolean; data: T & { error?: string; needCredits?: boolean } }> {
   const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  return { ok: res.ok, data: await res.json() };
+  return { ok: res.ok, data: await res.json().catch(() => ({})) };
 }
 
 export default function SongsPage() {

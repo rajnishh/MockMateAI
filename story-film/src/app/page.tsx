@@ -31,7 +31,7 @@ const STAGE_LABELS: Record<string, string> = {
 
 async function postJson<T>(url: string, body: unknown): Promise<{ ok: boolean; data: T & { error?: string } }> {
   const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  return { ok: res.ok, data: await res.json() };
+  return { ok: res.ok, data: await res.json().catch(() => ({})) };
 }
 
 export default function Home() {
