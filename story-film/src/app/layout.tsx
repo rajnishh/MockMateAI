@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
+import { AppShell } from "./app-shell";
 
 export const metadata: Metadata = {
   title: "Reelkar",
@@ -19,10 +20,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
-        {/* eslint-disable-next-line @next/next/no-page-custom-font -- one font for the whole app, loaded at runtime so builds work offline */}
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Hind:wght@400;600&display=swap" />
+        {/* eslint-disable-next-line @next/next/no-page-custom-font -- the app fonts, loaded at runtime so builds work offline */}
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=Hind:wght@400;600&family=JetBrains+Mono:wght@500&display=swap" />
       </head>
-      <body>{children}</body>
+      <body>
+        <AppShell>{children}</AppShell>
+      </body>
     </html>
   );
 }

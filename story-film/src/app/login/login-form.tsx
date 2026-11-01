@@ -35,16 +35,18 @@ export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
     <>
       {googleEnabled && (
         <>
-          <button type="button" onClick={() => authClient.signIn.social({ provider: "google", callbackURL: "/" })}>
-            Continue with Google
-          </button>
+          <div className="actions">
+            <button type="button" className="secondary" onClick={() => authClient.signIn.social({ provider: "google", callbackURL: "/" })}>
+              Continue with Google
+            </button>
+          </div>
           <p className="muted" style={{ textAlign: "center" }}>or</p>
         </>
       )}
       {!sent ? (
         <form onSubmit={sendCode}>
           <label htmlFor="mobile">Mobile number</label>
-          <div className="row">
+          <div className="row keep">
             <span className="prefix">+91</span>
             <input
               id="mobile"
@@ -70,6 +72,7 @@ export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
             type="text"
             inputMode="numeric"
             autoComplete="one-time-code"
+            className="otp-input"
             pattern="[0-9]{6}"
             maxLength={6}
             value={code}

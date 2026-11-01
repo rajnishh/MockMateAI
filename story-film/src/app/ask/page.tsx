@@ -223,11 +223,10 @@ export default function AskPage() {
   return (
     <main className="ask">
       <header className="top">
-        <div className="brand">
-          <ReelLogo size={36} label="Reelkar" />
+        <div>
           <h1>Ask Reelkar</h1>
+          <p className="sub">Plan, make and schedule reels by chatting.</p>
         </div>
-        <Link href="/">Back to studio</Link>
       </header>
       <p className="muted">{freeLeft === null ? "Tell me what to make or post, in any language." : `${freeLeft} free reels left this week. Tell me what to make or post, in any language.`}</p>
 
