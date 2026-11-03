@@ -5,8 +5,9 @@ import { user } from "./auth-schema";
 
 export const filmStyle = pgEnum("film_style", STYLE_IDS);
 // "story": AI pictures and motion; "motion": animated text and graphics (no image or video models);
-// "edit": the creator's own uploaded video with captions, zooms and cards.
-export const filmFormat = pgEnum("film_format", ["story", "motion", "edit"]);
+// "edit": the creator's own uploaded video with captions, zooms and cards;
+// "dance": cartoon kids dancing to a dhol beat with a chant, all drawn by Reelkar.
+export const filmFormat = pgEnum("film_format", ["story", "motion", "edit", "dance"]);
 export const filmQuality = pgEnum("film_quality", ["standard", "premium"]);
 // "review": an edit is planned and waits for the creator to check its effects before rendering.
 export const filmStatus = pgEnum("film_status", ["queued", "running", "review", "completed", "failed"]);

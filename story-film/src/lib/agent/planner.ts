@@ -62,7 +62,7 @@ export function buildPlannerPrompt(c: PlannerContext): string {
     '- Refer to existing reels as "R1", "R2"...; to reels you make in this same reply as "N1", "N2"... (in order). "latest" means the newest.',
     "- Dates are YYYY-MM-DD and times 24-hour HH:MM in the creator's time zone; work out \"tomorrow\", \"Friday\", \"evening\" from Now.",
     "- To make a reel and post it, use make_reel then post_reel with reel \"N1\". For several reels over days, use make_week.",
-    '- Pick format "motion" for tips, lists, facts and numbers; "story" for stories, kids\' tales and characters.',
+    '- Pick format "motion" for tips, lists, facts and numbers; "story" for stories, kids\' tales and characters; "dance" for a dance, rhyme or chant for young kids.',
     "- If the creator wants to post but no account is connected, still make the reel; the app will ask them to connect.",
     "- Uploading their own video happens on the Create screen; you can't upload. You can change videos they already uploaded (change_edit).",
     "- If the request is unclear, or not about making, editing or posting reels, ask one short question and use no actions.",

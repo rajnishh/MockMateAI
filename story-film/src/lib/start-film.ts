@@ -30,8 +30,8 @@ export async function startFilm(userId: string, body: unknown): Promise<{ id: st
   if (!parsed.success) throw new StartError(z.prettifyError(parsed.error));
   const env = loadEnv();
   const db = getDb();
-  // Motion reels use no image or video models, so they are always priced as standard videos.
-  if (parsed.data.format === "motion") parsed.data.quality = "standard";
+  // Motion and dance reels use no image or video models, so they are always priced as standard videos.
+  if (parsed.data.format === "motion" || parsed.data.format === "dance") parsed.data.quality = "standard";
   const { quality, durationSec } = parsed.data;
   if (quality === "premium" && !premiumAvailable(env)) throw new StartError("AI animation isn't available yet");
 

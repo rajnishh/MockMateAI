@@ -17,6 +17,7 @@ import { type EditJob, type EditRenderJob, FILM_QUEUE, type FilmJob, type FilmQu
 import { onReelFinished } from "@/lib/agent/agent";
 import { agentDeps } from "@/lib/agent/deps";
 import { loadEditState, planEdit, renderPlannedEdit } from "@/lib/edit/pipeline";
+import { runDanceReel } from "@/lib/dance/pipeline";
 import { runMotionReel } from "@/lib/motion/pipeline";
 import { runMusicVideo } from "@/lib/music-video/pipeline";
 import { CloudflareWhisper } from "@/lib/providers/whisper";
@@ -82,6 +83,11 @@ const filmWorker = new Worker<FilmQueueJob>(
         onStage,
       );
       description = "AI-generated music video: song, scenes and motion made with generative AI models";
+    } else if ((job.data as FilmJob).format === "dance") {
+      const d = job.data as FilmJob;
+      const { llm, tts } = depsFor("standard");
+      result = await runDanceReel({ llm, tts, fontsDir: env.FONTS_DIR }, { ...d, handle: d.brand?.handle }, workDir, onStage);
+      description = "Dance reel: chant and voice made with AI; dancers, beat and animation drawn by Reelkar";
     } else if ((job.data as FilmJob).format === "motion") {
       const d = job.data as FilmJob;
       const { llm, tts, music, fontsDir } = depsFor("standard");
