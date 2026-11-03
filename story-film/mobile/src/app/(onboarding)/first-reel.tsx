@@ -4,6 +4,7 @@ import { Pressable, View } from "react-native";
 
 import { Banner, Button, Header, ProgressBar, Screen, Skeleton, Txt, Win } from "@/components/ui";
 import { api, type Idea } from "@/lib/api";
+import { ideaBrief } from "@/lib/formats";
 import { useSession } from "@/lib/session";
 import { useTheme } from "@/theme";
 
@@ -28,7 +29,9 @@ export default function FirstReel() {
     setError(null);
     try {
       const { id } = await api.createFilm({
-        story: `${ideas[picked].title}. ${ideas[picked].idea}`,
+        story: ideaBrief(ideas[picked]),
+        // Tips and lists come out best as a motion reel; everything else stays a story.
+        format: ideas[picked].format === "motion" ? "motion" : undefined,
         language: prefs?.language ?? "hi",
         durationSec: 30,
         quality: "standard",
@@ -72,6 +75,7 @@ export default function FirstReel() {
                   backgroundColor: colors.surfaceRaised,
                 }}>
                 <Txt variant="label">{idea.title}</Txt>
+                {idea.hook ? <Txt variant="body" color="tealText">{`“${idea.hook}”`}</Txt> : null}
                 <Txt variant="cap">{idea.idea}</Txt>
               </Pressable>
             ))

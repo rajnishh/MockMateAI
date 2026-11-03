@@ -2,18 +2,22 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCharacter } from "@/lib/characters";
 import { getDb } from "@/lib/db";
+import { seriesEpisodes } from "@/lib/films";
 import { loadEnv } from "@/lib/env";
 import { creatorMessage } from "@/lib/creator-errors";
 import { isGarbledScript } from "@/lib/pipeline/script";
 import { buildLlm } from "@/lib/providers";
 import { getUserId, unauthorized } from "@/lib/session";
-import { suggestIdeas } from "@/lib/suggestions";
+import { IDEA_FORMATS, suggestIdeas } from "@/lib/suggestions";
 
 const requestSchema = z.object({
   niche: z.string().trim().max(100).optional(),
   language: z.string().trim().max(30).optional(),
   characterId: z.uuid().optional(),
   kidSafe: z.boolean().default(false),
+  format: z.enum(IDEA_FORMATS).optional(),
+  count: z.number().int().min(1).max(8).optional(),
+  avoid: z.array(z.string().trim().max(80)).max(16).optional(),
 });
 
 export async function POST(req: Request) {
@@ -23,9 +27,12 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: z.prettifyError(parsed.error) }, { status: 400 });
   }
-  const character = parsed.data.characterId ? await getCharacter(getDb(), userId, parsed.data.characterId) : undefined;
+  const { characterId, ...ask } = parsed.data;
+  const character = characterId ? await getCharacter(getDb(), userId, characterId) : undefined;
+  // A character's earlier reels are its series, so the ideas become next episodes.
+  const episodes = character && characterId ? await seriesEpisodes(getDb(), userId, characterId) : undefined;
   try {
-    const ideas = await suggestIdeas(buildLlm(loadEnv()), { ...parsed.data, character });
+    const ideas = await suggestIdeas(buildLlm(loadEnv()), { ...ask, character, episodes });
     return NextResponse.json({ ideas });
   } catch (err) {
     console.error("[suggestions]", err);

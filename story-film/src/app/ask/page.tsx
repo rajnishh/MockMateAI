@@ -4,6 +4,7 @@ import Link from "next/link";
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import type { AgentCard, PostingMode } from "@/lib/agent/cards";
 import { loadBrand } from "@/lib/brand-prefs";
+import { ideaBrief } from "@/lib/suggestions";
 import { Loader, ReelLogo } from "../reel-logo";
 
 type Message = { id: string; role: "user" | "assistant"; text: string; cards: AgentCard[]; createdAt: string };
@@ -118,13 +119,14 @@ export default function AskPage() {
             {c.ideas.map((idea) => (
               <div key={idea.title} className="idea">
                 <strong>{idea.title}</strong>
+                {idea.hook && <span className="hook">“{idea.hook}”</span>}
                 <span className="muted">{idea.idea}</span>
                 <button
                   type="button"
                   className="secondary"
                   disabled={sending}
                   onClick={() =>
-                    act(() => send("/api/agent/actions", { ...turn(), name: "make_reel", input: { idea: `${idea.title}. ${idea.idea}`, title: idea.title, format: c.format, language: c.language }, label: `Make this: ${idea.title}` }))
+                    act(() => send("/api/agent/actions", { ...turn(), name: "make_reel", input: { idea: ideaBrief(idea), title: idea.title, format: c.format, language: c.language }, label: `Make this: ${idea.title}` }))
                   }>
                   Make this
                 </button>

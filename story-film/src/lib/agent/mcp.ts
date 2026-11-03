@@ -57,7 +57,7 @@ export function tools() {
 export function cardText(c: AgentCard): string {
   switch (c.type) {
     case "ideas":
-      return `Ideas (${c.format}):\n${c.ideas.map((i, n) => `${n + 1}. ${i.title}: ${i.idea}`).join("\n")}`;
+      return `Ideas (${c.format}):\n${c.ideas.map((i, n) => `${n + 1}. ${i.title}: ${i.hook ? `"${i.hook}" ` : ""}${i.idea}`).join("\n")}`;
     case "reel":
       return [
         `Reel "${c.title}" (id ${c.reelId}): ${c.status}${c.note ? `. ${c.note}` : ""}`,

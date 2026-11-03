@@ -30,6 +30,17 @@ export async function listFilms(db: Db, userId: string, limit = 50): Promise<Fil
   return db.select().from(film).where(eq(film.userId, userId)).orderBy(desc(film.createdAt)).limit(limit);
 }
 
+// A cartoon series is every film made with one character; newest first, for "suggest the next episode".
+export async function seriesEpisodes(db: Db, userId: string, characterId: string, limit = 5): Promise<string[]> {
+  const rows = await db
+    .select({ title: film.title, story: film.story })
+    .from(film)
+    .where(and(eq(film.userId, userId), eq(film.characterId, characterId)))
+    .orderBy(desc(film.createdAt))
+    .limit(limit);
+  return rows.map((r) => (r.title ? `${r.title}: ${r.story}` : r.story).slice(0, 240));
+}
+
 // What the browser sees; internal paths stay server-side.
 export function filmView(f: Film) {
   return {

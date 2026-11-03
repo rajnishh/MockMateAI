@@ -61,7 +61,7 @@ describe("Ask Reelkar", { timeout: 30_000 }, () => {
     modelId: "llama-3.3-70b",
     completeJson: async (prompt: string) => {
       if (prompt.startsWith("You are Ask Reelkar")) return plans.shift() ?? { reply: "?", actions: [] };
-      if (prompt.includes("Suggest 6 ideas")) {
+      if (prompt.includes("reel ideas for vertical videos")) {
         return { ideas: [1, 2, 3, 4].map((n) => ({ title: `Chai hack ${n}`, idea: `A quick chai trick number ${n} that saves time every morning.` })) };
       }
       return { title: "Chai hack", caption: "Try this tonight!", hashtags: ["#chai", "#hack"] };

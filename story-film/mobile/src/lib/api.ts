@@ -40,7 +40,10 @@ export interface Billing {
 
 export interface Idea {
   title: string;
+  // The first spoken line; missing when the AI's hook was weak.
+  hook?: string;
   idea: string;
+  format?: "story" | "motion" | "dance";
 }
 
 export interface PostCopy {
@@ -229,8 +232,8 @@ const real = {
   film: (id: string) => call<Film>(`/api/films/${id}`),
   createFilm: (input: NewFilm) => call<{ id: string; credits: number }>("/api/films", { method: "POST", body: JSON.stringify(input) }),
   billing: () => call<Billing>("/api/billing"),
-  ideas: async (niche: string, language: string) =>
-    (await call<{ ideas: Idea[] }>("/api/suggestions", { method: "POST", body: JSON.stringify({ niche, language }) })).ideas,
+  ideas: async (niche: string, language: string, more: { format?: Idea["format"]; avoid?: string[] } = {}) =>
+    (await call<{ ideas: Idea[] }>("/api/suggestions", { method: "POST", body: JSON.stringify({ niche, language, ...more }) })).ideas,
   caption: (id: string, platform: Platform) => call<PostCopy>(`/api/films/${id}/copy`, { method: "POST", body: JSON.stringify({ platform }) }),
   // "Edit my video": multipart upload; the server adds captions, zooms, cards, effects and sounds.
   uploadEdit: async (input: EditUpload) => {
