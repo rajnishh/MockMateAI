@@ -182,6 +182,17 @@ describe("Ask Reelkar", { timeout: 30_000 }, () => {
     expect(cards[1]).toMatchObject({ type: "error", text: expect.stringMatching(/couldn't find/) });
   });
 
+  it("always sends a style and a language code, whatever the model or app sends", async () => {
+    await runAction(deps, { ...turn, language: "hi-IN" }, "make_reel", { idea: "A short story about a lost kite in Jaipur.", format: "story" });
+    await runAction(deps, turn, "make_reel", { idea: "A short story about a lost kite in Jaipur.", format: "story", language: "Tamil" });
+    await runAction(deps, { ...turn, language: "" }, "make_reel", { idea: "A short story about a lost kite in Jaipur.", format: "story" });
+    expect(started.map((b) => (b as { style: string; language: string }))).toMatchObject([
+      { style: "animated", language: "hi" },
+      { style: "animated", language: "ta" },
+      { style: "animated", language: "auto" },
+    ]);
+  });
+
   it("runs card buttons without the AI and ignores made-up actions", async () => {
     const msg = await runAction(deps, turn, "make_reel", { idea: "Chai hack 1. A quick chai trick that saves time.", title: "Chai hack 1", format: "story" }, "Make this: Chai hack 1");
     expect(cardsOf(msg)[0]).toMatchObject({ type: "reel", title: "Chai hack 1" });
