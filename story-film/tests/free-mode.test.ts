@@ -67,6 +67,15 @@ describe("AI suggestions", () => {
     expect(ideas[0].title).toBe("Rainy day colours");
     expect(body.model).toBe("@cf/model");
     expect(body).not.toHaveProperty("response_format");
+    expect(body.max_tokens).toBe(4096);
+  });
+
+  it("says so when the reply was cut off instead of failing on broken JSON", async () => {
+    const fetchFn = (async () =>
+      new Response(JSON.stringify({ choices: [{ message: { content: '{"ideas":[{"title":"Rain' }, finish_reason: "length" }] }))) as unknown as typeof fetch;
+    const llm = new OpenAiCompatibleLlm("https://x/v1", "k", "@cf/model", { licenseId: "llama-3.3-70b", jsonMode: false }, fetchFn);
+
+    await expect(llm.completeJson("ideas")).rejects.toThrow("cut off");
   });
 });
 

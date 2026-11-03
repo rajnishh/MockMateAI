@@ -1,6 +1,9 @@
 import { buildScriptPrompt, parseJson, parseScript } from "@/lib/pipeline/script";
 import type { FilmScript, LlmProvider, ScriptRequest } from "./types";
 
+// Enough for a 60-second script or a week of reel plans.
+const MAX_TOKENS = 4096;
+
 // Any OpenAI-compatible chat endpoint: OpenRouter (paid mode) or
 // Cloudflare Workers AI (free mode).
 export class OpenAiCompatibleLlm implements LlmProvider {
@@ -31,12 +34,16 @@ export class OpenAiCompatibleLlm implements LlmProvider {
       headers: { Authorization: `Bearer ${this.apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: this.model,
+        // Workers AI stops at 256 tokens unless asked, which cuts a script's JSON in half.
+        max_tokens: MAX_TOKENS,
         ...(this.opts.jsonMode ? { response_format: { type: "json_object" } } : {}),
         messages: [{ role: "user", content: prompt }],
       }),
     });
     if (!res.ok) throw new Error(`LLM ${res.status}: ${await res.text()}`);
-    const data = (await res.json()) as { choices: { message: { content: string } }[] };
-    return data.choices[0].message.content;
+    const data = (await res.json()) as { choices: { message: { content: string }; finish_reason?: string }[] };
+    const choice = data.choices[0];
+    if (choice.finish_reason === "length") throw new Error(`LLM reply was cut off at ${MAX_TOKENS} tokens`);
+    return choice.message.content;
   }
 }
