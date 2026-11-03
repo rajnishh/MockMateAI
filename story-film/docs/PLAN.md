@@ -395,3 +395,21 @@ Prices move monthly; waoowaoo and several other licenses unverified; EvoLink is 
     - **Tools:** the 8 Ask Reelkar actions plus `answer_proposal`. They are generated from the same zod schemas, so the app, the agent and the connector can't drift apart. Posting mode, free reels and credits apply as in the app, and connector activity appears in Ask Reelkar history.
     - **Sign-in:** personal keys from `/connect`: hashed, removable, last-used shown, at most 10 per creator, 300 calls an hour.
     - **Next:** OAuth 2.1 so ChatGPT and claude.ai web connectors can sign in, then directory listings after launch. Local setup is in `docs/CONNECTORS.md`.
+
+33. **Build with Claude: the creator's own Claude writes, Reelkar makes the video (decided 2026-11-04).**
+    - **Why:** creators already pay for Claude (or another assistant). Reelkar can't run on that subscription in the background (subscriptions cover the assistant's own apps; any other app needs paid API keys), but the creator can drive Reelkar from Claude through the connector. Claude then does the writing on their subscription, and Reelkar only makes the video with free parts: Cloudflare Workers AI pictures, the Kokoro voice, FFmpeg and code animation. No AI cost on Reelkar's side.
+    - **The flow on a phone:**
+      1. In the Reelkar app: idea (typed or suggested), length, then **Build with Claude**.
+      2. Reelkar opens the Claude app with the full prompt filled in (idea, length, language, brand look, job id). The creator taps Send; apps can't send for each other.
+      3. Claude writes the script and calls `make_reel_from_script`.
+      4. When the reel is ready, Reelkar sends a notification, and Claude's reply has an "Open in Reelkar" link (`reelkar://reel/<id>`). Claude can't switch apps by itself.
+      5. Preview, adjust, post or schedule in Reelkar.
+    - **Grok Imagine, Gemini and similar apps** have no connector: Reelkar opens them with the prompt copied, the creator makes the clip there, then **Share → Reelkar**, and Edit my video finishes it (captions, brand look, sounds).
+    - **Steps:**
+      1. Done: connector tools `make_reel_from_script` (Claude's title, shots, narration, picture and motion prompts and music prompt; 3, 6 or 12 shots for 15, 30 or 60 seconds; connector-only, so Ask Reelkar's own planner doesn't use it) and `get_reel` (progress, then a 2-hour video link, the app link and the web link).
+      2. A free code-animated format (for example a kids' dance: cartoon kids, a dhol beat, a chanted hook, lyric captions), so movement doesn't need paid video models.
+      3. Reelkar reachable from the Claude app: a Cloudflare Tunnel from the creator's machine (keeps making videos free) or a hosted server, plus OAuth 2.1 sign-in for claude.ai custom connectors (paid Claude plans).
+      4. In the app: Build with Claude / Build with Grok buttons, a "reel ready" notification and the `reelkar://reel/<id>` link back.
+      5. Share to Reelkar (share extension) for clips made in other apps.
+    - **To check before step 4:** whether a `claude.ai/new?q=…` link opens the Claude phone app with the prompt filled in.
+    - **Free API options** (limits change often; check before relying on one): text from the Gemini API free tier, Groq, Mistral or OpenRouter ":free" models (Reelkar already supports OpenRouter); pictures from Cloudflare Workers AI. Singing, music and AI dance video have no ongoing free API, only trial credits.

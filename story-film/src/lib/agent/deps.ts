@@ -3,19 +3,28 @@ import { getDb } from "@/lib/db";
 import { rerenderEdit } from "@/lib/edit/rerender";
 import { loadEnv } from "@/lib/env";
 import { buildLlm } from "@/lib/providers";
+import { publicVideoUrl } from "@/lib/public-video";
 import { enqueuePost, getPublishQueue } from "@/lib/queue/publish";
 import { freeReelsLeft, startFilm } from "@/lib/start-film";
 import type { AgentDeps, Turn } from "./agent";
 import { validTimeZone } from "./time";
 
 export function agentDeps(): AgentDeps {
+  const env = loadEnv();
   return {
     db: getDb(),
-    llm: buildLlm(loadEnv()),
+    llm: buildLlm(env),
     startFilm,
     rerenderEdit,
     enqueuePost: (post) => enqueuePost(getPublishQueue(), post),
     freeReelsLeft: (userId) => freeReelsLeft(userId),
+    reelLinks: env.TOKEN_ENCRYPTION_KEY
+      ? (id) => ({
+          video: publicVideoUrl(env.BETTER_AUTH_URL, env.TOKEN_ENCRYPTION_KEY!, id),
+          app: `reelkar://reel/${id}`,
+          web: `${env.BETTER_AUTH_URL}/create?film=${id}`,
+        })
+      : undefined,
   };
 }
 

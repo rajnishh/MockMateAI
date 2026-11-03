@@ -32,6 +32,35 @@ export const ACTIONS = {
       ending: z.enum(ENDINGS).optional(),
     }),
   },
+  make_reel_from_script: {
+    description:
+      "Make a story reel from a script you wrote: Reelkar makes the pictures, motion, voice, music and captions exactly from it. " +
+      "3 shots = 15s, 6 = 30s, 12 = 60s; each shot is 5 seconds. narration: what the voice says (about 12 words, in the reel's language). " +
+      "imagePrompt (English): one picture, describing each recurring character the same way every time. motionPrompt (English): camera and subject movement. " +
+      "musicPrompt (English): one instrumental track. Set kidSafe for children's content.",
+    connectorOnly: true,
+    input: z.object({
+      title: z.string().trim().min(1).max(80),
+      language: z.string().trim().min(2).max(10).default("en"),
+      style: z.enum(STYLE_IDS).default("animated"),
+      kidSafe: z.boolean().default(false),
+      characters: z.array(z.object({ name: z.string().trim().min(1).max(40), description: z.string().trim().min(1).max(300) })).max(5).default([]),
+      shots: z
+        .array(
+          z.object({
+            narration: z.string().trim().max(200),
+            imagePrompt: z.string().trim().min(10).max(800),
+            motionPrompt: z.string().trim().min(3).max(300),
+          }),
+        )
+        .refine((s) => [3, 6, 12].includes(s.length), "Use 3, 6 or 12 shots (15, 30 or 60 seconds)"),
+      musicPrompt: z.string().trim().min(3).max(300),
+    }),
+  },
+  get_reel: {
+    description: "One reel's progress. When it's ready, gives a link to watch the video and a link that opens it in the Reelkar app.",
+    input: z.object({ reel: reelRef }),
+  },
   make_week: {
     description: "Make several reels on a topic (one per day). post: true to also post or schedule them, one a day from startDate.",
     input: z.object({
@@ -81,9 +110,14 @@ export function isAction(name: string): name is ActionName {
   return name in ACTIONS;
 }
 
+// Actions only connected assistants get: Ask Reelkar's own planner writes ideas, not whole scripts.
+export function isConnectorOnly(name: ActionName): boolean {
+  return "connectorOnly" in ACTIONS[name];
+}
+
 // One line per action for the planner prompt: name, what it does and its fields.
 export function describeActions(): string {
-  return ACTION_NAMES.map((name) => {
+  return ACTION_NAMES.filter((name) => !isConnectorOnly(name)).map((name) => {
     const shape = (ACTIONS[name].input as z.ZodObject).shape as Record<string, z.ZodType>;
     const fields = Object.keys(shape).join(", ");
     return `- ${name} {${fields}}: ${ACTIONS[name].description}`;

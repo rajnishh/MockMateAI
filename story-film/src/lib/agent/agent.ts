@@ -6,8 +6,11 @@ import { readFilmScript, writePostCopy } from "@/lib/post-copy";
 import type { LlmProvider } from "@/lib/providers/types";
 import { listAccounts } from "@/lib/social-accounts";
 import { suggestIdeas } from "@/lib/suggestions";
-import { type ActionInput, ACTIONS, type ActionName, isAction } from "./actions";
-import type { AgentCard, PostingMode } from "./cards";
+import { type ActionInput, ACTIONS, type ActionName, isAction, isConnectorOnly } from "./actions";
+import { findLanguage } from "@/lib/languages";
+import { STYLE_HINTS } from "@/lib/styles";
+import { CLIP_SECONDS } from "@/lib/quota/plans";
+import type { AgentCard, PostingMode, ReelLinks } from "./cards";
 import { buildPlannerPrompt, planSchema } from "./planner";
 import { createAction, getAction, getPostingMode, moveAction, recentMessages, saveMessage, setPostingMode, waitingFor } from "./store";
 import { addDays, formatWhen, localNow, nextSlot, zonedToUtc } from "./time";
@@ -22,6 +25,8 @@ export interface AgentDeps {
   rerenderEdit(userId: string, filmId: string, changes: { voice?: "natural" | "clear" | "deeper"; sounds?: boolean; captions?: boolean }): Promise<{ rendersLeft: number }>;
   enqueuePost(post: Post): Promise<void>;
   freeReelsLeft(userId: string): Promise<number>;
+  // Links to a finished reel; left out where there's nowhere to link to.
+  reelLinks?(filmId: string): ReelLinks;
   now?: () => Date;
 }
 
@@ -188,6 +193,48 @@ async function makeReel(deps: AgentDeps, turn: Turn, state: TurnState, input: Ac
   }
 }
 
+// The assistant wrote the script, so Reelkar only makes the video: no AI writing on Reelkar's side.
+async function makeReelFromScript(deps: AgentDeps, turn: Turn, state: TurnState, input: ActionInput<"make_reel_from_script">): Promise<AgentCard[]> {
+  const language = findLanguage(input.language)?.code ?? "auto";
+  // Every picture carries the style, as Reelkar's own scripts do.
+  const style = STYLE_HINTS[input.style];
+  const shots = input.shots.map((s) => ({ ...s, imagePrompt: s.imagePrompt.includes(style) ? s.imagePrompt : `${s.imagePrompt}, ${style}` }));
+  const story = [input.title, ...shots.map((s) => s.narration)].join(". ").slice(0, 8000).padEnd(20, ".");
+  try {
+    const { id } = await deps.startFilm(turn.userId, {
+      story,
+      format: "story",
+      style: input.style,
+      language,
+      durationSec: shots.length * CLIP_SECONDS,
+      kidSafe: input.kidSafe,
+      quality: "standard",
+      script: { title: input.title, language: language === "auto" ? input.language : language, characters: input.characters, shots, musicPrompt: input.musicPrompt },
+    });
+    state.made.push(id);
+    return [{ type: "reel", reelId: id, title: input.title, status: "queued" }];
+  } catch (err) {
+    return [problem(err, "make the reel")];
+  }
+}
+
+const STAGES: Record<string, string> = {
+  script: "writing",
+  keyframes: "making the pictures",
+  clips: "animating",
+  audio: "adding the voice and music",
+  assemble: "putting it together",
+};
+
+async function getReel(deps: AgentDeps, turn: Turn, state: TurnState, input: ActionInput<"get_reel">): Promise<AgentCard[]> {
+  const f = await resolveReel(deps, turn, state, input.reel);
+  if (!f) return [{ type: "error", text: "I couldn't find that reel." }];
+  const card: AgentCard = { type: "reel", reelId: f.id, title: reelTitle(f), status: f.status };
+  if (f.status === "completed") return [{ ...card, links: deps.reelLinks?.(f.id) }];
+  if (f.status === "failed") return [{ ...card, note: f.error ?? "It didn't finish. Try making it again." }];
+  return [{ ...card, note: f.stage && STAGES[f.stage] ? `Now ${STAGES[f.stage]}` : undefined }];
+}
+
 async function run(deps: AgentDeps, turn: Turn, state: TurnState, name: ActionName, raw: unknown): Promise<AgentCard[]> {
   const parsed = ACTIONS[name].input.safeParse(raw ?? {});
   if (!parsed.success) return [{ type: "error", text: `I couldn't do that: ${parsed.error.issues[0]?.message ?? "some details were missing"}.` }];
@@ -203,6 +250,10 @@ async function run(deps: AgentDeps, turn: Turn, state: TurnState, name: ActionNa
     }
     case "make_reel":
       return makeReel(deps, turn, state, parsed.data as ActionInput<"make_reel">);
+    case "make_reel_from_script":
+      return makeReelFromScript(deps, turn, state, parsed.data as ActionInput<"make_reel_from_script">);
+    case "get_reel":
+      return getReel(deps, turn, state, parsed.data as ActionInput<"get_reel">);
     case "make_week": {
       const i = parsed.data as ActionInput<"make_week">;
       let ideas;
@@ -274,7 +325,7 @@ export async function handleMessage(deps: AgentDeps, turn: Turn, text: string) {
   const user = await saveMessage(deps.db, turn.userId, "user", text);
   const cards: AgentCard[] = [];
   for (const a of plan.actions.slice(0, 5)) {
-    if (!isAction(a.name)) continue;
+    if (!isAction(a.name) || isConnectorOnly(a.name)) continue;
     cards.push(...(await run(deps, turn, state, a.name, a.input)));
   }
   const assistant = await saveMessage(deps.db, turn.userId, "assistant", plan.reply, cards);

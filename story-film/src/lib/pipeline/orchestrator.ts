@@ -5,6 +5,7 @@ import { readMedia } from "@/lib/media";
 import { assertCommercialSafe } from "@/lib/models/licenses";
 import type {
   CharacterProfile,
+  FilmScript,
   FilmStyle,
   NarrationLanguage,
   ImageProvider,
@@ -29,6 +30,8 @@ export interface FilmRequest {
   kidSafe?: boolean;
   language?: NarrationLanguage;
   captions?: boolean;
+  // Written by the creator's own assistant; otherwise the LLM writes one from the story.
+  script?: FilmScript;
 }
 
 export interface PipelineDeps {
@@ -77,7 +80,7 @@ export async function runFilm(
   await mkdir(workDir, { recursive: true });
 
   await onStage("script");
-  const script = await deps.llm.writeScript({
+  const script = req.script ?? await deps.llm.writeScript({
     story: req.story,
     style: req.style,
     shotCount: shotCountFor(req.durationSec),

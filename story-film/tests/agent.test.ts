@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { ACTIONS, describeActions } from "@/lib/agent/actions";
+import { ACTION_NAMES, describeActions, isConnectorOnly } from "@/lib/agent/actions";
 import { decide, handleMessage, onReelFinished, runAction, type AgentDeps } from "@/lib/agent/agent";
 import type { AgentCard } from "@/lib/agent/cards";
 import { buildPlannerPrompt } from "@/lib/agent/planner";
@@ -29,8 +29,11 @@ describe("dates in the creator's time zone", () => {
 });
 
 describe("planner prompt", () => {
-  it("lists every action and the creator's situation", () => {
-    for (const name of Object.keys(ACTIONS)) expect(describeActions()).toContain(`- ${name} {`);
+  it("lists every action except connector-only ones, and the creator's situation", () => {
+    for (const name of ACTION_NAMES) {
+      if (isConnectorOnly(name)) expect(describeActions()).not.toContain(`- ${name} {`);
+      else expect(describeActions()).toContain(`- ${name} {`);
+    }
     const prompt = buildPlannerPrompt({
       turn: { timeZone: TZ, language: "hi", topic: "cooking" },
       state: { mode: "ask", reels: [], accounts: [], now: NOW },
