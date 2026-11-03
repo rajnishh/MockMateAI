@@ -30,9 +30,9 @@ interface SessionValue {
   prefs: Prefs | null;
   onboarded: boolean;
   signInWithGoogle: () => Promise<void>;
-  // phone is in E.164 form, e.g. "+971501234567" (see lib/phone.ts).
-  sendOtp: (phone: string) => Promise<void>;
-  verifyOtp: (phone: string, code: string) => Promise<void>;
+  // to is a mobile number in E.164 form ("+971501234567", see lib/phone.ts) or an email address.
+  sendOtp: (to: string) => Promise<void>;
+  verifyOtp: (to: string, code: string) => Promise<void>;
   savePrefs: (p: Prefs) => Promise<void>;
   finishOnboarding: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -42,6 +42,8 @@ const Ctx = createContext<SessionValue | null>(null);
 const PREFS_KEY = "reelkar.prefs";
 const ONBOARDED_KEY = "reelkar.onboarded";
 const DEMO_USER_KEY = "reelkar.demoUser";
+
+export const isEmail = (to: string) => to.includes("@");
 
 // Demo mode has no backend to ask about the session.
 const useRemoteSession = DEMO ? () => ({ data: null, isPending: false }) : authClient.useSession;
@@ -85,14 +87,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const { error } = await authClient.signIn.social({ provider: "google", callbackURL: "/" });
       if (error) throw new Error(error.message ?? "Google sign-in didn't finish");
     },
-    sendOtp: async (phone) => {
+    sendOtp: async (to) => {
       if (DEMO) return;
-      const { error } = await authClient.phoneNumber.sendOtp({ phoneNumber: phone });
+      const { error } = isEmail(to)
+        ? await authClient.emailOtp.sendVerificationOtp({ email: to, type: "sign-in" })
+        : await authClient.phoneNumber.sendOtp({ phoneNumber: to });
       if (error) throw new Error(error.message ?? "Couldn't send the code");
     },
-    verifyOtp: async (phone, code) => {
+    verifyOtp: async (to, code) => {
       if (DEMO) return signInDemo();
-      const { error } = await authClient.phoneNumber.verify({ phoneNumber: phone, code });
+      const { error } = isEmail(to)
+        ? await authClient.signIn.emailOtp({ email: to, otp: code })
+        : await authClient.phoneNumber.verify({ phoneNumber: to, code });
       if (error) throw new Error(error.message ?? "That code didn't match");
     },
     savePrefs: async (p) => {

@@ -30,6 +30,11 @@ const schema = z.object({
   SMS_PROVIDER: z.enum(["console", "msg91"]).default("console"),
   MSG91_AUTH_KEY: z.string().optional(),
   MSG91_OTP_TEMPLATE_ID: z.string().optional(),
+  // Email sign-in codes. "console" prints them in the server log.
+  EMAIL_PROVIDER: z.enum(["console", "resend"]).default("console"),
+  RESEND_API_KEY: z.string().optional(),
+  // Sender on a domain verified in Resend, e.g. "Reelkar <login@reelkar.app>".
+  EMAIL_FROM: z.string().optional(),
   OPENROUTER_API_KEY: z.string().optional(),
   OPENROUTER_MODEL: z.string().default("google/gemini-2.5-flash"),
   FAL_KEY: z.string().optional(),

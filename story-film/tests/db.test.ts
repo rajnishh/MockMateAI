@@ -53,6 +53,7 @@ describe("phone OTP sign-in", () => {
     const auth = createAuth({
       db,
       sms: { sendOtp: async (phone, code) => void sent.push({ phone, code }) },
+      email: { sendOtp: async () => {} },
       baseURL: "http://localhost:3000",
       secret: "test-secret-test-secret-test-secret",
     });
@@ -82,6 +83,7 @@ describe("phone OTP sign-in", () => {
     const auth = createAuth({
       db,
       sms: { sendOtp: async () => {} },
+      email: { sendOtp: async () => {} },
       baseURL: "http://localhost:3000",
       secret: "test-secret-test-secret-test-secret",
     });
@@ -96,5 +98,33 @@ describe("phone OTP sign-in", () => {
     const statuses = [];
     for (let i = 0; i < 4; i++) statuses.push((await send()).status);
     expect(statuses).toEqual([200, 200, 200, 429]);
+  }, 30_000);
+});
+
+describe("email OTP sign-in", () => {
+  it("creates an account on first sign-in with an emailed code", async () => {
+    const sent: { email: string; code: string }[] = [];
+    const auth = createAuth({
+      db,
+      sms: { sendOtp: async () => {} },
+      email: { sendOtp: async (email, code) => void sent.push({ email, code }) },
+      baseURL: "http://localhost:3000",
+      secret: "test-secret-test-secret-test-secret",
+    });
+
+    // Phone-only accounts have a placeholder address that can't receive mail.
+    await auth.api.sendVerificationOTP({ body: { email: "919876543210@phone.storyfilm.invalid", type: "sign-in" } });
+    expect(sent).toEqual([]);
+
+    await auth.api.sendVerificationOTP({ body: { email: "creator@example.ae", type: "sign-in" } });
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ email: "creator@example.ae", code: expect.stringMatching(/^\d{6}$/) });
+
+    await expect(auth.api.signInEmailOTP({ body: { email: "creator@example.ae", otp: "000000" } })).rejects.toThrow();
+    const result = await auth.api.signInEmailOTP({ body: { email: "creator@example.ae", otp: sent[0].code } });
+
+    expect(result.token).toBeTruthy();
+    expect(result.user).toMatchObject({ email: "creator@example.ae", emailVerified: true });
+    expect(await getBalance(db, result.user.id)).toBe(WELCOME_CREDITS);
   }, 30_000);
 });

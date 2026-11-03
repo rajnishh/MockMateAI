@@ -2,16 +2,18 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { expo } from "@better-auth/expo";
 import { betterAuth } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
-import { phoneNumber } from "better-auth/plugins";
+import { emailOTP, phoneNumber } from "better-auth/plugins";
 import { WELCOME_CREDITS } from "@/lib/billing/catalog";
 import { grantCredits } from "@/lib/billing/credits";
 import { type Db, schema } from "@/lib/db";
+import { type EmailSender, PLACEHOLDER_EMAIL_DOMAIN } from "@/lib/email";
 import { isSignInMobile } from "@/lib/phone";
 import type { SmsSender } from "@/lib/sms";
 
 export interface AuthOptions {
   db: Db;
   sms: SmsSender;
+  email: EmailSender;
   baseURL: string;
   secret?: string;
   google?: { clientId: string; clientSecret: string };
@@ -36,6 +38,8 @@ export function createAuth(opts: AuthOptions) {
       customRules: {
         "/phone-number/send-otp": { window: 600, max: 3 },
         "/phone-number/verify": { window: 600, max: 10 },
+        "/email-otp/send-verification-otp": { window: 600, max: 5 },
+        "/sign-in/email-otp": { window: 600, max: 10 },
       },
     },
     // People can delete their account from the app (an App Store and Play Store requirement).
@@ -62,9 +66,22 @@ export function createAuth(opts: AuthOptions) {
         allowedAttempts: 3,
         // Phone-only users get a placeholder email they can replace later.
         signUpOnVerification: {
-          getTempEmail: (n) => `${n.replace(/\D/g, "")}@phone.storyfilm.invalid`,
+          getTempEmail: (n) => `${n.replace(/\D/g, "")}@${PLACEHOLDER_EMAIL_DOMAIN}`,
           getTempName: (n) => `Creator ${n.slice(-4)}`,
         },
+      }),
+      // Sign in with a 6-digit code sent by email; the first sign-in creates the account.
+      emailOTP({
+        sendVerificationOTP: async ({ email, otp, type }) => {
+          // Placeholder addresses of phone-only accounts can't receive mail.
+          if (type !== "sign-in" || email.endsWith(`@${PLACEHOLDER_EMAIL_DOMAIN}`)) return;
+          // Better Auth logs a failed send instead of returning it, so a person never learns
+          // whether an address has an account.
+          await opts.email.sendOtp(email, otp);
+        },
+        otpLength: 6,
+        expiresIn: 300,
+        allowedAttempts: 3,
       }),
       expo(),
       nextCookies(), // must stay last
