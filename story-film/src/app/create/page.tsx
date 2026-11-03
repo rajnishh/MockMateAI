@@ -5,7 +5,8 @@ import { Icon, type IconName } from "../app-shell";
 import { EditMoments } from "../edit-moments";
 import { Celebrate, Loader, ReelLogo } from "../reel-logo";
 import { loadBrand } from "@/lib/brand-prefs";
-import { buildClaudePrompt, claudeUrl } from "@/lib/claude-prompt";
+import { buildClaudePrompt } from "@/lib/claude-prompt";
+import { BuildWithClaude } from "./build-with-claude";
 import { findLanguage, LANGUAGES } from "@/lib/languages";
 import { FILM_STYLES } from "@/lib/styles";
 
@@ -239,12 +240,11 @@ export default function CreatePage() {
     setJobId(data.id);
   }
 
-  // Opens Claude with a prompt that makes this reel through the Reelkar connector.
-  function buildWithClaude() {
-    if (mode === "edit") return;
+  // The prompt that has Claude make this reel through the Reelkar connector.
+  function claudePrompt() {
     const lang = language === "auto" ? undefined : findLanguage(language);
-    const prompt = buildClaudePrompt({
-      type: mode,
+    return buildClaudePrompt({
+      type: mode as Exclude<Mode, "edit">,
       idea: story,
       durationSec,
       language: lang && { code: lang.code, name: lang.name },
@@ -253,7 +253,6 @@ export default function CreatePage() {
       kidSafe: mode === "dance" || (mode === "cartoon" && kidSafe),
       character: mode === "cartoon" ? characters.find((c) => c.id === characterId) : undefined,
     });
-    window.open(claudeUrl(prompt), "_blank", "noopener");
   }
 
   async function writeCaption(platform: "instagram" | "whatsapp") {
@@ -476,7 +475,7 @@ export default function CreatePage() {
             <div className="actions make-actions">
               <button type="submit" disabled={busy}>{busy ? "Working…" : mode === "cartoon" ? "Make episode" : mode === "motion" ? "Make my reel" : mode === "dance" ? "Make the dance" : mode === "edit" ? "Edit my video" : "Make my film"}</button>
               {mode !== "edit" && (
-                <button type="button" className="secondary" onClick={buildWithClaude}>Build with Claude</button>
+                <BuildWithClaude prompt={claudePrompt} />
               )}
             </div>
             {mode !== "edit" && (
