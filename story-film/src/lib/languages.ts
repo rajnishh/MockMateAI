@@ -35,3 +35,12 @@ export function writeInRule(code: string): string {
   if (lang.code === "en") return "Write in simple, natural English.";
   return `Write in natural, everyday ${lang.name} using ${lang.script} script (not Latin letters).`;
 }
+
+// Turns what apps and assistants send ("hi", "hi-IN", "Hindi", "हिन्दी") into a language code.
+// Anything else, including nothing, means "auto": narrate in the language the text is written in.
+export function normaliseLanguage(value: unknown): LanguageCode | "auto" {
+  if (typeof value !== "string") return "auto";
+  const v = value.trim().toLowerCase();
+  const code = v.split(/[-_]/)[0];
+  return LANGUAGES.find((l) => l.code === code || l.name.toLowerCase() === v || l.native === value.trim())?.code ?? "auto";
+}

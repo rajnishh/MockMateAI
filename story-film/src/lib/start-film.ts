@@ -1,16 +1,16 @@
 import { randomUUID } from "node:crypto";
-import { z } from "zod";
 import { PREMIUM_CREDITS_PER_SHOT, STANDARD_CREDITS } from "@/lib/billing/catalog";
 import { spendCredits } from "@/lib/billing/credits";
 import { getCharacter } from "@/lib/characters";
 import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
 import { createFilm } from "@/lib/films";
-import { findLanguage } from "@/lib/languages";
+import { findLanguage, normaliseLanguage } from "@/lib/languages";
 import { buildTts, premiumAvailable } from "@/lib/providers";
 import { filmJobSchema, getFilmQueue, getRedis } from "@/lib/queue/films";
 import { FREE_PLAN, isoWeekKey, shotCountFor } from "@/lib/quota/plans";
 import { RedisQuotaStore, reserveFilm } from "@/lib/quota/quota";
+import { DEFAULT_STYLE, findStyle } from "@/lib/styles";
 
 // Why a film couldn't start; needCredits means buying credits would fix it.
 export class StartError extends Error {
@@ -23,27 +23,55 @@ export class StartError extends Error {
   }
 }
 
+// What a creator reads when a request can't be used, by field.
+const FIELD_ERRORS: Record<string, string> = {
+  story: "Write what your reel is about: at least 20 characters, up to 8,000.",
+  style: "Pick a style from the list.",
+  durationSec: "Pick a length between 10 and 60 seconds.",
+  characterId: "Pick your character again.",
+  referenceImageUrls: "Add up to 4 pictures.",
+  brand: "Your Brand kit settings aren't valid. Open Brand kit and save them again.",
+  script: "The script isn't valid: check each shot has narration, a picture and a motion description.",
+  danceScript: "The dance script isn't valid: check the title, dancers and chant lines.",
+};
+
+// Checks a request from any app or assistant. Callers may leave out the style or send a language
+// as "hi-IN" or "Hindi": the style falls back to the default (motion and dance reels are drawn by
+// Reelkar and don't use one) and the language to its code, or "auto" when it isn't one Reelkar knows.
+export function parseFilmRequest(userId: string, body: unknown) {
+  const input = { ...(body && typeof body === "object" ? body : {}) } as Record<string, unknown>;
+  const drawn = input.format === "motion" || input.format === "dance";
+  const noStyle = input.style === undefined || input.style === null || input.style === "";
+  input.style = drawn || noStyle ? DEFAULT_STYLE : (findStyle(input.style) ?? input.style);
+  input.language = normaliseLanguage(input.language);
+  const parsed = filmJobSchema.safeParse({ ...input, userId });
+  if (parsed.success) return parsed.data;
+  const issue = parsed.error.issues[0];
+  const field = String(issue.path[0] ?? "");
+  // Messages written in the schema itself (like the keyword's) are already readable.
+  throw new StartError(FIELD_ERRORS[field] ?? (issue.code === "custom" || field === "keyword" ? issue.message : "Something in this request isn't right. Please try again."));
+}
+
 // Starts a story or motion reel for a user: checks, charges (free weekly allowance first) and queues
 // it. Shared by the app's Create screen and the Ask Reelkar agent, so both follow the same rules.
 export async function startFilm(userId: string, body: unknown): Promise<{ id: string; credits: number }> {
-  const parsed = filmJobSchema.safeParse({ ...(body as object), userId });
-  if (!parsed.success) throw new StartError(z.prettifyError(parsed.error));
+  const job = parseFilmRequest(userId, body);
   const env = loadEnv();
   const db = getDb();
   // Motion and dance reels use no image or video models, so they are always priced as standard videos.
-  if (parsed.data.format === "motion" || parsed.data.format === "dance") parsed.data.quality = "standard";
-  const { quality, durationSec } = parsed.data;
+  if (job.format === "motion" || job.format === "dance") job.quality = "standard";
+  const { quality, durationSec } = job;
   if (quality === "premium" && !premiumAvailable(env)) throw new StartError("AI animation isn't available yet");
 
   // Refuse before charging if this server can't speak the chosen language.
-  const { language } = parsed.data;
+  const { language } = job;
   if (language !== "auto" && !buildTts(env).supports(language)) {
     throw new StartError(`Narration in ${findLanguage(language)?.name ?? language} isn't available yet`);
   }
 
   let character;
-  if (parsed.data.characterId) {
-    character = await getCharacter(db, userId, parsed.data.characterId);
+  if (job.characterId) {
+    character = await getCharacter(db, userId, job.characterId);
     if (!character) throw new StartError("Character not found", 404);
   }
 
@@ -74,18 +102,18 @@ export async function startFilm(userId: string, body: unknown): Promise<{ id: st
     id: filmId,
     userId,
     characterId: character?.id,
-    story: parsed.data.story,
-    style: parsed.data.style,
-    format: parsed.data.format,
+    story: job.story,
+    style: job.style,
+    format: job.format,
     durationSec,
-    kidSafe: parsed.data.kidSafe,
+    kidSafe: job.kidSafe,
     quality,
     credits,
   });
   await getFilmQueue().add(
     "film",
     {
-      ...parsed.data,
+      ...job,
       character,
       // Paid videos have no watermark beyond the AI label.
       resolution: plan.resolution,

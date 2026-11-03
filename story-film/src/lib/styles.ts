@@ -52,3 +52,13 @@ export const FILM_STYLES = [
 export type FilmStyle = (typeof FILM_STYLES)[number]["id"];
 export const STYLE_IDS = FILM_STYLES.map((s) => s.id) as [FilmStyle, ...FilmStyle[]];
 export const STYLE_HINTS = Object.fromEntries(FILM_STYLES.map((s) => [s.id, s.hint])) as Record<FilmStyle, string>;
+
+// Used when a request names no style. Motion reels have no pictures, so they always use it.
+export const DEFAULT_STYLE: FilmStyle = "animated";
+
+// Matches a style id or its label in any case ("Cinematic", "3D cartoon"); undefined if none does.
+export function findStyle(value: unknown): FilmStyle | undefined {
+  if (typeof value !== "string") return undefined;
+  const v = value.trim().toLowerCase();
+  return FILM_STYLES.find((s) => s.id === v || s.label.toLowerCase() === v)?.id;
+}

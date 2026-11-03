@@ -9,6 +9,7 @@ import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
 import { probeDuration } from "@/lib/ffmpeg";
 import { createFilm } from "@/lib/films";
+import { normaliseLanguage } from "@/lib/languages";
 import { editsAvailable } from "@/lib/providers";
 import { editRequestSchema, getFilmQueue, getRedis } from "@/lib/queue/films";
 import { FREE_PLAN } from "@/lib/quota/plans";
@@ -46,7 +47,7 @@ export async function POST(req: Request) {
     return bad("Brand settings are not valid.");
   }
   const parsed = editRequestSchema.safeParse({
-    language: form.get("language") ?? undefined,
+    language: normaliseLanguage(form.get("language")),
     captions: flag("captions"),
     zooms: flag("zooms"),
     effects: flag("effects"),
