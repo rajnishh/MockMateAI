@@ -327,3 +327,58 @@ export const scheduledPostRelations = relations(scheduledPost, ({ one }) => ({
   film: one(film, { fields: [scheduledPost.filmId], references: [film.id] }),
   socialAccount: one(socialAccount, { fields: [scheduledPost.socialAccountId], references: [socialAccount.id] }),
 }));
+
+// OAuth 2.1 for the connector, so claude.ai, the Claude phone app and other assistants can sign in
+// instead of using a pasted key. Clients come from dynamic client registration; clients whose id
+// is a metadata-document URL aren't stored (their document is fetched instead).
+export const oauthClient = pgTable("oauth_client", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  redirectUris: jsonb("redirect_uris").$type<string[]>().notNull(),
+  // Set only for confidential clients (client_secret_basic or client_secret_post); SHA-256 hash.
+  secretHash: text("secret_hash"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// One "connected app" on /connect: a creator allowed a client. Disconnecting deletes its codes and tokens.
+export const oauthGrant = pgTable(
+  "oauth_grant",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    clientId: text("client_id").notNull(),
+    clientName: text("client_name").notNull(),
+    redirectHost: text("redirect_host").notNull(),
+    scope: text("scope").notNull(),
+    // The MCP endpoint the tokens are for (RFC 8707); tokens are refused anywhere else.
+    resource: text("resource").notNull(),
+    timeZone: text("time_zone").notNull().default("Asia/Kolkata"),
+    lastUsedAt: timestamp("last_used_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("oauth_grant_user_idx").on(t.userId)],
+);
+
+export const oauthTokenKind = pgEnum("oauth_token_kind", ["code", "access", "refresh"]);
+
+// Authorization codes, access tokens and refresh tokens, stored as SHA-256 hashes only.
+// Codes and refresh tokens are single use: usedAt is set, and a second use revokes the whole grant.
+export const oauthToken = pgTable(
+  "oauth_token",
+  {
+    hash: text("hash").primaryKey(),
+    grantId: uuid("grant_id")
+      .notNull()
+      .references(() => oauthGrant.id, { onDelete: "cascade" }),
+    kind: oauthTokenKind("kind").notNull(),
+    // Codes only: the exact redirect URI and the PKCE S256 challenge.
+    redirectUri: text("redirect_uri"),
+    codeChallenge: text("code_challenge"),
+    expiresAt: timestamp("expires_at").notNull(),
+    usedAt: timestamp("used_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("oauth_token_grant_idx").on(t.grantId)],
+);

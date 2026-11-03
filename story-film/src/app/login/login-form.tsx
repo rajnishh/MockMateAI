@@ -3,7 +3,7 @@
 import { type FormEvent, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 
-export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
+export function LoginForm({ googleEnabled, next = "/" }: { googleEnabled: boolean; next?: string }) {
   const [mobile, setMobile] = useState("");
   const [code, setCode] = useState("");
   const [sent, setSent] = useState(false);
@@ -28,7 +28,7 @@ export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
     const { error } = await authClient.phoneNumber.verify({ phoneNumber, code });
     setBusy(false);
     if (error) return setError(error.message ?? "Wrong code");
-    window.location.href = "/";
+    window.location.href = next;
   }
 
   return (
@@ -36,7 +36,7 @@ export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
       {googleEnabled && (
         <>
           <div className="actions">
-            <button type="button" className="secondary" onClick={() => authClient.signIn.social({ provider: "google", callbackURL: "/" })}>
+            <button type="button" className="secondary" onClick={() => authClient.signIn.social({ provider: "google", callbackURL: next })}>
               Continue with Google
             </button>
           </div>

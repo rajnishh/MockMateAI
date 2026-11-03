@@ -1,6 +1,7 @@
 import { createAuth } from "@/lib/auth-config";
 import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
+import { parseOrigins } from "@/lib/oauth/origin";
 import { ConsoleSms, Msg91Sms, type SmsSender } from "@/lib/sms";
 
 const env = loadEnv();
@@ -21,6 +22,10 @@ export const auth = createAuth({
   baseURL: env.BETTER_AUTH_URL,
   secret: env.BETTER_AUTH_SECRET,
   google: googleEnabled ? { clientId: env.GOOGLE_CLIENT_ID!, clientSecret: env.GOOGLE_CLIENT_SECRET! } : undefined,
-  // Expo Go and dev builds use exp:// URLs on the local network.
-  trustedOrigins: process.env.NODE_ENV === "development" ? ["exp://", "exp://**"] : [],
+  // PUBLIC_ORIGINS: tunnels and domains that reach this app. In development, also quick tunnels,
+  // and Expo Go and dev builds, which use exp:// URLs on the local network.
+  trustedOrigins: [
+    ...parseOrigins(env.PUBLIC_ORIGINS),
+    ...(process.env.NODE_ENV === "development" ? ["exp://", "exp://**", "https://*.trycloudflare.com"] : []),
+  ],
 });
