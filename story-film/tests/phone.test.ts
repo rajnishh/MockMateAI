@@ -14,6 +14,7 @@ describe("sign-in phone numbers", () => {
     expect(toE164("AE", "050 123 4567")).toBe("+971501234567");
     expect(toE164("AE", "50 123 4567")).toBe("+971501234567");
     expect(toE164("AE", "+971 50 123 4567")).toBe("+971501234567");
+    expect(toE164("AE", "00971 50 123 4567")).toBe("+971501234567");
     expect(isValidMobile("AE", "04 123 4567")).toBe(false); // Dubai landline
   });
 

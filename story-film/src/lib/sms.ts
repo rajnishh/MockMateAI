@@ -1,5 +1,6 @@
 // Sends login OTPs. Indian SMS needs a DLT-registered sender and template,
-// which MSG91 manages; UAE SMS needs MSG91's international route turned on; "console" just logs the code for local development.
+// which MSG91 manages. UAE SMS needs MSG91's international route turned on.
+// "console" just logs the code for local development.
 export interface SmsSender {
   sendOtp(phoneNumber: string, code: string): Promise<void>;
 }

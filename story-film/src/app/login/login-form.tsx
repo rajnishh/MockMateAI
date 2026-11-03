@@ -33,6 +33,7 @@ export function LoginForm({ googleEnabled, next = "/" }: { googleEnabled: boolea
         : await authClient.emailOtp.sendVerificationOtp({ email: address, type: "sign-in" });
     setBusy(false);
     if (error) return setError(error.message ?? "Couldn't send the code");
+    setCode("");
     setSent(true);
   }
 

@@ -1,6 +1,6 @@
 import { createAuth } from "@/lib/auth-config";
-import { ConsoleEmail, type EmailSender, ResendEmail } from "@/lib/email";
 import { getDb } from "@/lib/db";
+import { ConsoleEmail, type EmailSender, ResendEmail } from "@/lib/email";
 import { loadEnv } from "@/lib/env";
 import { parseOrigins } from "@/lib/oauth/origin";
 import { ConsoleSms, Msg91Sms, type SmsSender } from "@/lib/sms";

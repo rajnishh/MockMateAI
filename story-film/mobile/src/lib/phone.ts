@@ -28,7 +28,8 @@ export function findCountry(code: PhoneCountry): CountryInfo {
 // country code or a leading trunk 0.
 export function nationalNumber(country: PhoneCountry, typed: string): string {
   const c = findCountry(country);
-  let digits = typed.replace(/\D/g, "");
+  // "00" is the international prefix, as in 00971 50 123 4567.
+  let digits = typed.replace(/\D/g, "").replace(/^00/, "");
   const dial = c.dial.slice(1);
   if (digits.startsWith(dial) && digits.length > c.digits) digits = digits.slice(dial.length);
   return digits.replace(/^0+/, "");
