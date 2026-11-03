@@ -2,6 +2,7 @@ import { JetBrainsMono_500Medium } from "@expo-google-fonts/jetbrains-mono";
 import { Hind_400Regular, Hind_600SemiBold } from "@expo-google-fonts/hind";
 import { BricolageGrotesque_800ExtraBold } from "@expo-google-fonts/bricolage-grotesque";
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, useFonts } from "@expo-google-fonts/inter";
+import { useLinkingURL } from "expo-linking";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -9,6 +10,7 @@ import { useEffect, useState } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AnimatedSplash } from "@/components/splash";
+import { rememberReelLink } from "@/lib/pending-link";
 import { SessionProvider, useSession } from "@/lib/session";
 import { ThemeProvider, useTheme } from "@/theme";
 
@@ -21,6 +23,12 @@ function RootStack() {
   const { ready, user, onboarded } = useSession();
   const { mode, colors } = useTheme();
   const [shown, setShown] = useState(false);
+  const url = useLinkingURL();
+
+  // Signed out, a reel link lands on sign-in; remember it so it opens once they're in.
+  useEffect(() => {
+    if (url && ready && !(user && onboarded)) rememberReelLink(url);
+  }, [url, ready, user, onboarded]);
 
   // Fonts are loaded once this renders: swap the static native splash for the animated one.
   useEffect(() => {

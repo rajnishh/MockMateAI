@@ -107,6 +107,10 @@ video { width: 100%; max-width: 360px; border-radius: 16px; display: block; marg
 .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
 .actions > button, .actions > a > button { width: auto; }
 .actions > button[type="submit"]:only-child { width: 100%; }
+/* Create: "Make" stays the big button, "Build with Claude" sits beside it. */
+.make-actions { margin-top: 20px; }
+.create .make-actions > button[type="submit"] { flex: 1 1 200px; margin-top: 0; }
+.make-actions + .muted { margin-top: 8px; }
 .split { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 24px; align-items: start; }
 .split > aside { position: sticky; top: 84px; display: flex; flex-direction: column; gap: 16px; }
 @media (max-width: 1099px) { .split { grid-template-columns: minmax(0, 1fr); } .split > aside { position: static; } }

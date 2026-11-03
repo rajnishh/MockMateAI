@@ -191,9 +191,10 @@ export interface NewFilm {
   durationSec: number;
   quality: "standard" | "premium";
   style: Style;
-  // "motion": animated text and graphics with a voice-over (no AI animation credits).
-  format?: "story" | "motion";
-  // Motion reels: how the reel ends, the comment keyword, and the creator's brand look.
+  // "motion": animated text and graphics with a voice-over; "dance": cartoon kids dance to a
+  // dhol beat with a chant. Both are drawn by Reelkar (no AI animation credits).
+  format?: "story" | "motion" | "dance";
+  // Motion and dance reels: how the reel ends (motion only), the comment keyword, and the brand look.
   ending?: "auto" | "none" | "follow" | "comment";
   keyword?: string;
   brand?: { accent?: string; background?: "light" | "dark"; handle?: string };
@@ -288,6 +289,7 @@ const demoFilms: Film[] = [
   sample("d1", "Mia and the rain", "completed", 2),
   sample("d2", "3 chai hacks nobody told you", "completed", 1),
   sample("d3", "Monsoon recipe in 10 minutes", "completed", 3),
+  { ...sample("d4", "Baarish dance: chham chham chham", "completed", 4), format: "dance" },
 ];
 let demoBalance = 20;
 const demoAccounts: Account[] = [];
@@ -350,8 +352,8 @@ const demoProposals = new Map<string, { reelId: string; text: string; status: "p
 function demoSay(role: "user" | "assistant", text: string, cards: AgentCard[] = []) {
   demoChat.push({ id: `m${demoChat.length}`, role, text, cards, createdAt: new Date().toISOString() });
 }
-function demoReel(title: string): AgentCard {
-  const f: Film = { ...sample(`d${Date.now()}${demoFilms.length}`, title, "queued", 0), format: "motion" };
+function demoReel(title: string, format: Film["format"] = "motion"): AgentCard {
+  const f: Film = { ...sample(`d${Date.now()}${demoFilms.length}`, title, "queued", 0), format };
   demoFilms.push(f);
   return { type: "reel", reelId: f.id, title, status: "queued" };
 }
@@ -389,10 +391,11 @@ const demo: typeof real = {
   },
   createFilm: async (input) => {
     await wait(400);
-    const cost = input.quality === "premium" && input.format !== "motion" ? Math.round(input.durationSec / 5) * 12 : 0;
+    const drawn = input.format === "motion" || input.format === "dance";
+    const cost = input.quality === "premium" && !drawn ? Math.round(input.durationSec / 5) * 12 : 0;
     if (cost > demoBalance) throw new ApiError(`AI animation needs ${cost} credits for this length.`, 402, true);
     demoBalance -= cost;
-    const f: Film = { ...sample(`d${Date.now()}`, input.story.slice(0, 40), "queued", 0), quality: input.quality, credits: cost, story: input.story };
+    const f: Film = { ...sample(`d${Date.now()}`, input.story.slice(0, 40), "queued", 0), quality: drawn ? "standard" : input.quality, credits: cost, story: input.story, format: input.format ?? "story" };
     demoFilms.push(f);
     return { id: f.id, credits: cost };
   },
@@ -464,7 +467,19 @@ const demo: typeof real = {
     await wait(700);
     demoSay("user", text);
     const t = text.toLowerCase();
-    if (/idea|vichar|सुझाव/.test(t)) {
+    if (/dance|naach|नाच/.test(t)) {
+      demoSay("assistant", "Bachchon ke liye dance ideas, “Make this dance” dabao.", [
+        {
+          type: "ideas",
+          format: "dance",
+          ideas: [
+            { title: "Baarish dance", idea: "Kids splash and spin in the monsoon rain, chanting chham chham chham." },
+            { title: "Count to five", idea: "Clap and jump while counting ek, do, teen, char, paanch." },
+            { title: "Brush brush brush", idea: "A morning dance about brushing teeth, with a bouncy chant." },
+          ],
+        },
+      ]);
+    } else if (/idea|vichar|सुझाव/.test(t)) {
       demoSay("assistant", "Ye rahe kuch ideas, jo pasand aaye us par “Make this” dabao.", [
         {
           type: "ideas",
@@ -495,8 +510,8 @@ const demo: typeof real = {
     await wait(500);
     demoSay("user", label);
     if (name === "make_reel") {
-      const title = (input as { title?: string }).title ?? "New reel";
-      demoSay("assistant", "", [demoReel(title)]);
+      const { title = "New reel", format } = input as { title?: string; format?: Film["format"] };
+      demoSay("assistant", "", [demoReel(title, format)]);
     }
     return demoHistory();
   },
