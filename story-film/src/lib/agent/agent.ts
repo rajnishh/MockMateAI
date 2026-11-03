@@ -11,7 +11,8 @@ import { normaliseLanguage } from "@/lib/languages";
 import { DEFAULT_STYLE, STYLE_HINTS } from "@/lib/styles";
 import { CLIP_SECONDS } from "@/lib/quota/plans";
 import type { AgentCard, PostingMode, ReelLinks } from "./cards";
-import { buildPlannerPrompt, planSchema } from "./planner";
+import type { ToolPlanner } from "./claude";
+import { buildPlannerPrompt, contextLines, didSummary, planSchema, toolPlannerSystemPrompt } from "./planner";
 import { createAction, getAction, getPostingMode, moveAction, recentMessages, saveMessage, setPostingMode, waitingFor } from "./store";
 import { addDays, formatWhen, localNow, nextSlot, zonedToUtc } from "./time";
 
@@ -27,6 +28,8 @@ export interface AgentDeps {
   freeReelsLeft(userId: string): Promise<number>;
   // Links to a finished reel; left out where there's nowhere to link to.
   reelLinks?(filmId: string): ReelLinks;
+  // Calls actions as tools (Claude); without it the free model plans in one JSON reply.
+  planner?: ToolPlanner;
   now?: () => Date;
 }
 
@@ -368,7 +371,29 @@ async function run(deps: AgentDeps, turn: Turn, state: TurnState, name: ActionNa
 export async function handleMessage(deps: AgentDeps, turn: Turn, text: string) {
   const state = await loadState(deps, turn.userId);
   const history = await recentMessages(deps.db, turn.userId, 12);
-  const prompt = buildPlannerPrompt({ turn, state, history, freeLeft: await deps.freeReelsLeft(turn.userId).catch(() => null), text });
+  const freeLeft = await deps.freeReelsLeft(turn.userId).catch(() => null);
+  if (deps.planner) {
+    const cards: AgentCard[] = [];
+    try {
+      const reply = await deps.planner.respond({
+        system: toolPlannerSystemPrompt(),
+        history: history.map((m) => ({ role: m.role, text: [m.text, didSummary(m)].filter(Boolean).join(" ") })),
+        message: [...contextLines({ turn, state, freeLeft }), "", `Creator: ${text}`].join("\n"),
+        act: async (name, input) => {
+          if (isConnectorOnly(name)) return [{ type: "error", text: `${name} isn't available here.` }];
+          const made = await run(deps, turn, state, name, input);
+          cards.push(...made);
+          return made;
+        },
+      });
+      return save(deps, turn, text, reply, cards);
+    } catch (err) {
+      console.error(`[agent] ${deps.planner.modelId} failed:`, err);
+      // Something already happened (a reel started): show it rather than planning it again.
+      if (cards.length) return save(deps, turn, text, "Something went wrong partway, but here's what I did.", cards);
+    }
+  }
+  const prompt = buildPlannerPrompt({ turn, state, history, freeLeft, text });
   let plan: { reply: string; actions: { name: string; input?: unknown }[] };
   try {
     plan = planSchema.parse(await deps.llm.completeJson(prompt));
@@ -376,13 +401,17 @@ export async function handleMessage(deps: AgentDeps, turn: Turn, text: string) {
     console.error("[agent] plan failed:", err);
     plan = { reply: "Sorry, I didn't get that. Try “make 3 reels on chai hacks and post them this week”.", actions: [] };
   }
-  const user = await saveMessage(deps.db, turn.userId, "user", text);
   const cards: AgentCard[] = [];
   for (const a of plan.actions.slice(0, 5)) {
     if (!isAction(a.name) || isConnectorOnly(a.name)) continue;
     cards.push(...(await run(deps, turn, state, a.name, a.input)));
   }
-  const assistant = await saveMessage(deps.db, turn.userId, "assistant", plan.reply, cards);
+  return save(deps, turn, text, plan.reply, cards);
+}
+
+async function save(deps: AgentDeps, turn: Turn, text: string, reply: string, cards: AgentCard[]) {
+  const user = await saveMessage(deps.db, turn.userId, "user", text);
+  const assistant = await saveMessage(deps.db, turn.userId, "assistant", reply, cards);
   return { user, assistant };
 }
 

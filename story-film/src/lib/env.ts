@@ -32,6 +32,10 @@ const schema = z.object({
   MSG91_OTP_TEMPLATE_ID: z.string().optional(),
   OPENROUTER_API_KEY: z.string().optional(),
   OPENROUTER_MODEL: z.string().default("google/gemini-2.5-flash"),
+  // Ask Reelkar's brain: "free" (Workers AI / OpenRouter, one-shot plan) or "claude" (tool use, paid per message).
+  ASK_REELKAR_AI: z.enum(["free", "claude"]).default("free"),
+  ANTHROPIC_API_KEY: z.string().optional(),
+  ASK_REELKAR_CLAUDE_MODEL: z.string().default("claude-haiku-5-5"),
   FAL_KEY: z.string().optional(),
   VIDEO_MODEL: z.enum(["wan", "kling"]).default("wan"),
   FAL_IMAGE_MODEL_ID: z.string().optional(),

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { ACTION_NAMES, describeActions, isConnectorOnly } from "@/lib/agent/actions";
 import { decide, handleMessage, onReelFinished, runAction, type AgentDeps } from "@/lib/agent/agent";
 import type { AgentCard } from "@/lib/agent/cards";
+import type { ToolPlanner, ToolPlannerInput } from "@/lib/agent/claude";
 import { buildPlannerPrompt } from "@/lib/agent/planner";
 import { getPostingMode, historyView } from "@/lib/agent/store";
 import { addDays, localNow, nextSlot, zonedToUtc } from "@/lib/agent/time";
@@ -211,5 +212,62 @@ describe("Ask Reelkar", { timeout: 30_000 }, () => {
     const { assistant } = await handleMessage(deps, turn, "???");
     expect(assistant.text).toMatch(/didn't get that/);
     expect(cardsOf(assistant)).toEqual([]);
+  });
+
+  describe("with a tool-calling planner (Claude)", () => {
+    // Stands in for Claude: runs a script of actions, keeping what each one returned.
+    function scripted(steps: (input: ToolPlannerInput) => Promise<string>) {
+      const seen: ToolPlannerInput[] = [];
+      const planner: ToolPlanner = { modelId: "claude-haiku-5-5", respond: async (input) => (seen.push(input), steps(input)) };
+      return { planner, seen };
+    }
+
+    it("makes a reel and proposes the post, with the creator's situation in the message", async () => {
+      const results: AgentCard[][] = [];
+      const { planner, seen } = scripted(async ({ act }) => {
+        results.push(await act("make_reel", { idea: "Three chai hacks for rainy mornings in Mumbai.", format: "motion" }));
+        results.push(await act("post_reel", { reel: "N1", date: "2026-10-30", time: "19:30" }));
+        return "Bana rahi hoon, kal shaam post karne se pehle puchungi.";
+      });
+      const { assistant } = await handleMessage({ ...deps, planner }, turn, "chai hacks pe reel banao, kal shaam post karna");
+
+      expect(assistant.text).toBe("Bana rahi hoon, kal shaam post karne se pehle puchungi.");
+      expect(cardsOf(assistant).map((c) => c.type)).toEqual(["reel", "proposal"]);
+      // What Claude read back from each action is what the creator sees.
+      expect(results.flat()).toEqual(cardsOf(assistant));
+      expect(seen[0].message).toContain("Free reels left this week: 3");
+      expect(seen[0].message).toMatch(/Creator: chai hacks pe reel banao/);
+      expect(seen[0].system).toContain("Call the tools to act");
+      expect(started).toHaveLength(1);
+      expect(plans).toEqual([]);
+
+      // The next message carries the earlier turn, with what was done.
+      await handleMessage({ ...deps, planner }, turn, "thanks");
+      expect(seen[1].history.map((m) => m.role)).toEqual(["user", "assistant"]);
+      expect(seen[1].history[1].text).toContain("Bana rahi hoon");
+      expect(seen[1].history[1].text).toMatch(/\[.+\]/);
+    });
+
+    it("falls back to the free planner when Claude fails before doing anything", async () => {
+      const { planner } = scripted(async () => {
+        throw new Error("529 overloaded");
+      });
+      plans.push({ reply: "Ideas!", actions: [{ name: "suggest_ideas", input: { count: 2 } }] });
+      const { assistant } = await handleMessage({ ...deps, planner }, turn, "ideas do");
+      expect(assistant.text).toBe("Ideas!");
+      expect(cardsOf(assistant)[0]).toMatchObject({ type: "ideas" });
+    });
+
+    it("keeps what was done when Claude fails partway, without doing it twice", async () => {
+      const { planner } = scripted(async ({ act }) => {
+        await act("make_reel", { idea: "Three chai hacks for rainy mornings in Mumbai.", format: "motion" });
+        throw new Error("connection reset");
+      });
+      plans.push({ reply: "again", actions: [{ name: "make_reel", input: { idea: "Three chai hacks for rainy mornings in Mumbai." } }] });
+      const { assistant } = await handleMessage({ ...deps, planner }, turn, "chai reel");
+      expect(assistant.text).toMatch(/partway/);
+      expect(cardsOf(assistant).map((c) => c.type)).toEqual(["reel"]);
+      expect(started).toHaveLength(1);
+    });
   });
 });
