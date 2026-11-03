@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { danceScriptSchema } from "@/lib/dance/script";
+import { DANCE_VOICES, danceScriptSchema } from "@/lib/dance/script";
 import { ENDINGS } from "@/lib/motion/script";
 import { STYLE_IDS } from "@/lib/styles";
 
@@ -60,13 +60,16 @@ export const ACTIONS = {
   },
   make_dance_reel: {
     description:
-      "Make a dance reel from a chant you wrote: cartoon Indian kids dance to a dhol beat while a voice chants your lines on the beat, with bouncing captions. " +
-      "Reelkar draws the kids and makes the beat, so it's free. lines: 2-6 short bouncy lines (3-7 words), each with a move (bounce, clap, wave, spin, jump, twist); " +
+      "Make a dance reel from a chant you wrote: cartoon Indian kids dance to a dhol beat while a voice sings your lines on the beat, with bouncing captions. " +
+      "Reelkar draws the kids and makes the beat, so it's free. " +
+      'voice: "sung" (default, free: your lines sung to a simple kids\' tune), "chant" (free: spoken on the beat) or ' +
+      '"ai_song" (an AI singer sings them as a real song; costs 4 credits, so use it only when the creator asks for it). ' +
+      "lines: 2-6 short bouncy lines (3-7 words), each with a move (bounce, clap, wave, spin, jump, twist); " +
       "they repeat like a chorus until the reel is full. Write an original hook; never copy lyrics from existing songs. " +
       "dancers: 1-4 kids, each with name, skin (light|medium|deep), outfit (kurta|lehenga|frock|shirt), color (hex) and hair (short|curly|ponytails|bun|plait). " +
       "scene: courtyard, park or stage. bpm: 90-140.",
     connectorOnly: true,
-    input: danceScriptSchema.extend({ durationSec: duration }),
+    input: danceScriptSchema.extend({ durationSec: duration, voice: z.enum(DANCE_VOICES).catch("sung") }),
   },
   get_reel: {
     description: "One reel's progress. When it's ready, gives a link to watch the video and a link that opens it in the Reelkar app.",

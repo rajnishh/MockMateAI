@@ -48,6 +48,9 @@ export const STANDARD_CREDITS = 1;
 export const PREMIUM_CREDITS_PER_SHOT = 12;
 // One song of up to 2 minutes (ACE-Step on fal.ai); verify fal's price before launch.
 export const SONG_CREDITS = 4;
+// A dance reel sung by ACE-Step instead of Reelkar's free sung chant: one short song, priced as one.
+// It never uses the free weekly allowance.
+export const DANCE_SONG_CREDITS = SONG_CREDITS;
 // Music videos: Standard (pan-and-zoom scenes, ~$0 to make) is a flat price;
 // Premium animates every 5s scene with AI at the usual per-shot price.
 export const MUSIC_VIDEO_STANDARD_CREDITS = 2;
