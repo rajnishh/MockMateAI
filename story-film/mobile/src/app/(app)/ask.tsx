@@ -34,7 +34,7 @@ import {
   api,
   type PostingMode,
 } from "@/lib/api";
-import { formatLabel } from "@/lib/formats";
+import { formatLabel, ideaBrief } from "@/lib/formats";
 import { useSession } from "@/lib/session";
 import { fonts, radius, useTheme } from "@/theme";
 
@@ -289,6 +289,7 @@ function AgentCardView({
           {card.ideas.map((idea) => (
             <View key={idea.title} style={{ gap: 4 }}>
               <Txt variant="label">{idea.title}</Txt>
+              {idea.hook ? <Txt variant="body" color="tealText">{`“${idea.hook}”`}</Txt> : null}
               <Txt variant="cap">{idea.idea}</Txt>
               <Button
                 label={card.format === "dance" ? "Make this dance" : "Make this"}
@@ -301,7 +302,7 @@ function AgentCardView({
                     api.agentAction(
                       "make_reel",
                       {
-                        idea: `${idea.title}. ${idea.idea}`,
+                        idea: ideaBrief(idea),
                         title: idea.title,
                         format: card.format,
                         language: card.language,

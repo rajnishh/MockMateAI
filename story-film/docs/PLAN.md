@@ -413,3 +413,15 @@ Prices move monthly; waoowaoo and several other licenses unverified; EvoLink is 
       5. Share to Reelkar (share extension) for clips made in other apps.
     - **To check before step 4:** whether a `claude.ai/new?q=…` link opens the Claude phone app with the prompt filled in.
     - **Free API options** (limits change often; check before relying on one): text from the Gemini API free tier, Groq, Mistral or OpenRouter ":free" models (Reelkar already supports OpenRouter); pictures from Cloudflare Workers AI. Singing, music and AI dance video have no ongoing free API, only trial credits.
+
+34. **Ask Reelkar can run on Claude, behind a switch (2026-11-04).**
+    - **Why:** the free planner answers each message with one JSON plan and never sees what its actions did (a reel started, no free reels left, no account connected). Claude calls the actions as tools, reads each result, and can chain steps or explain a problem in its reply.
+    - **How:** `src/lib/agent/claude.ts` runs the Anthropic SDK's tool runner (not the Claude Agent SDK, which brings Claude Code's file and shell tools). Each tool is one Ask Reelkar action, with the same names, descriptions and input schemas as the connector (`tools()` in `mcp.ts`); connector-only tools and `answer_proposal` stay with the connector, since approvals are buttons in the app.
+      - The fixed rules are a cached system prompt (`toolPlannerSystemPrompt`); the creator's situation goes with each message (`contextLines`). The free model's prompt is unchanged.
+      - At most 5 actions per message, low effort, Claude Haiku 5.5 by default (on the model allowlist).
+      - If Claude fails before doing anything, the free planner answers; if it fails partway, the creator sees what was done and nothing runs twice.
+    - **Switch:** `ASK_REELKAR_AI=claude` plus `ANTHROPIC_API_KEY` (optional `ASK_REELKAR_CLAUDE_MODEL`). Default `free`, so decision 31 (the built-in agent is free) holds until this is switched on.
+    - **Cost:** roughly $0.001 per message with Haiku (about 10k input and 800 output tokens over two calls); at most 40 messages a day per creator. Not yet tried against the real API.
+    - **Next:** decide who gets Claude (everyone, paid creators only, or a daily Claude allowance), then run it against real chats in Hindi, Hinglish and English before switching it on.
+
+35. **Sign-in for Gulf creators: UAE mobiles and email codes (2026-11-04).** Sign-in now takes Indian (+91) and UAE (+971) mobile numbers, a 6-digit code by email (Better Auth email OTP), or Google. Email works in every country with one sender (Resend, `EMAIL_PROVIDER=resend`); until it is set, codes print in the server log, like SMS. Only sign-in email codes exist: the plugin's password-reset, verify-email and change-email routes are closed, because codes nobody receives could only be guessed. Each number or address gets at most 5 codes an hour, whatever IP asks (stops inbox flooding and SMS pumping), on top of the per-IP limits. Real UAE SMS needs an international route (MSG91's, or Twilio Verify) and a registered sender.

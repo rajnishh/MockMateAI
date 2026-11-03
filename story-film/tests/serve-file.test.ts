@@ -4,7 +4,7 @@ import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { previewArgs } from "@/lib/edit/preview";
 import { sampleFaces } from "@/lib/edit/vision";
-import { parseRange, serveFile } from "@/lib/serve-file";
+import { fileStream, parseRange, serveFile } from "@/lib/serve-file";
 
 const dir = mkdtempSync(path.join(tmpdir(), "serve-"));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
@@ -32,6 +32,33 @@ describe("serving videos with byte ranges", () => {
     expect(part.headers.get("content-range")).toBe("bytes 2-5/10");
     expect(await part.text()).toBe("2345");
     expect((await serveFile(new Request("http://x/", { headers: { range: "bytes=50-" } }), file, {})).status).toBe(416);
+  });
+
+  it("stops cleanly when a player cancels mid-download, with no stray errors", async () => {
+    const big = path.join(dir, "big.mp4");
+    writeFileSync(big, Buffer.alloc(3 * 1024 * 1024, 7));
+    const errors: unknown[] = [];
+    const onError = (e: unknown) => errors.push(e);
+    process.on("uncaughtException", onError);
+    try {
+      for (let i = 0; i < 5; i++) {
+        const reader = fileStream(big).getReader();
+        await reader.read();
+        await reader.cancel();
+      }
+      await new Promise((r) => setTimeout(r, 200));
+    } finally {
+      process.off("uncaughtException", onError);
+    }
+    expect(errors).toEqual([]);
+  });
+
+  it("streams a whole large file intact", async () => {
+    const big = path.join(dir, "whole.mp4");
+    const data = Buffer.alloc(3 * 1024 * 1024 + 5, 9);
+    writeFileSync(big, data);
+    const res = await serveFile(new Request("http://x/"), big, {});
+    expect(Buffer.from(await res.arrayBuffer()).equals(data)).toBe(true);
   });
 });
 

@@ -4,11 +4,13 @@ import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { Icon, type IconName } from "../app-shell";
 import { EditMoments } from "../edit-moments";
 import { Celebrate, Loader, ReelLogo } from "../reel-logo";
+import { DeleteReel, ReelActions, ReelPlayer } from "../reel-player";
 import { loadBrand } from "@/lib/brand-prefs";
 import { buildClaudePrompt } from "@/lib/claude-prompt";
 import { BuildWithClaude } from "./build-with-claude";
 import { findLanguage, LANGUAGES } from "@/lib/languages";
 import { FILM_STYLES } from "@/lib/styles";
+import { type Idea, type IdeaFormat, ideaBrief } from "@/lib/suggestions";
 
 type Mode = "film" | "cartoon" | "motion" | "dance" | "edit";
 type Status = {
@@ -22,7 +24,20 @@ type Status = {
   format?: string;
 };
 type Character = { id: string; name: string; description: string; imageUrl: string };
-type Idea = { title: string; idea: string };
+
+// Which kind of idea fits each type of reel; a short film and a cartoon episode are both stories.
+const IDEA_FORMAT: Record<Exclude<Mode, "edit">, IdeaFormat> = { film: "story", cartoon: "story", motion: "motion", dance: "dance" };
+
+// Examples in the story box, so a blank box never leaves the creator guessing.
+function storyPlaceholder(mode: Mode, name?: string): string {
+  if (mode === "cartoon") {
+    const who = name ?? "Mia";
+    return `e.g. ${who} wants to fly a kite on Makar Sankranti, but the wind keeps stealing it. ${who} asks Dadi for help, learns the trick of letting the string go, and the kite soars above the whole mohalla.`;
+  }
+  if (mode === "motion") return "e.g. 3 chai mistakes almost every home makes, with a quick fix for each. End with: which one were you making?";
+  if (mode === "dance") return "e.g. A rain dance that counts to five: jump in a puddle for each number.";
+  return "e.g. A dabbawala in Mumbai delivers his 10,000th tiffin and finds a thank-you note inside it.";
+}
 
 const TYPES: { mode: Mode; label: string; help: string; icon: IconName }[] = [
   { mode: "cartoon", label: "Cartoon episode", help: "The same character every episode", icon: "cartoon" },
@@ -84,6 +99,7 @@ export default function CreatePage() {
 
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [loadingIdeas, setLoadingIdeas] = useState(false);
+  const [loadingEpisode, setLoadingEpisode] = useState(false);
 
   const [jobId, setJobId] = useState<string | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
@@ -94,6 +110,7 @@ export default function CreatePage() {
   const [captionFor, setCaptionFor] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [library, setLibrary] = useState<Status[]>([]);
+  const [playing, setPlaying] = useState<string | null>(null);
 
   const loadLibrary = useCallback(() => {
     fetch("/api/films")
@@ -172,18 +189,35 @@ export default function CreatePage() {
     setNewDescription("");
   }
 
+  function ideaRequest(extra: { count?: number; avoid?: string[] } = {}) {
+    return {
+      niche: niche || undefined,
+      characterId: mode === "cartoon" ? characterId ?? undefined : undefined,
+      kidSafe: mode === "dance" || (mode === "cartoon" && kidSafe),
+      language: language === "auto" ? undefined : findLanguage(language)?.name,
+      format: mode === "edit" ? undefined : IDEA_FORMAT[mode],
+      ...extra,
+    };
+  }
+
   async function getIdeas() {
     setLoadingIdeas(true);
     setError(null);
-    const { ok, data } = await postJson<{ ideas: Idea[] }>("/api/suggestions", {
-      niche: niche || undefined,
-      characterId: mode === "cartoon" ? characterId ?? undefined : undefined,
-      kidSafe: mode === "cartoon" && kidSafe,
-      language: language === "auto" ? undefined : findLanguage(language)?.name,
-    });
+    // "More ideas" skips the ones already on screen.
+    const { ok, data } = await postJson<{ ideas: Idea[] }>("/api/suggestions", ideaRequest({ avoid: ideas.map((i) => i.title) }));
     setLoadingIdeas(false);
     if (!ok) return setError(data.error ?? "Couldn't get ideas");
     setIdeas(data.ideas);
+  }
+
+  // The server reads the character's earlier reels, so this continues the series.
+  async function nextEpisode() {
+    setLoadingEpisode(true);
+    setError(null);
+    const { ok, data } = await postJson<{ ideas: Idea[] }>("/api/suggestions", ideaRequest({ count: 1 }));
+    setLoadingEpisode(false);
+    if (!ok || !data.ideas?.[0]) return setError(data.error ?? "Couldn't suggest an episode");
+    setStory(ideaBrief(data.ideas[0]));
   }
 
   async function submit(e: FormEvent) {
@@ -273,16 +307,13 @@ export default function CreatePage() {
     setCopied(true);
   }
 
-  async function share() {
-    const blob = await (await fetch(`/api/films/${jobId}/video`)).blob();
-    const file = new File([blob], `${status?.title ?? "video"}.mp4`, { type: "video/mp4" });
-    // Instagram drops shared text, so the caption also goes on the clipboard to paste.
-    if (caption) await copyCaption();
-    try {
-      await navigator.share({ files: [file], title: status?.title ?? undefined, ...(caption ? { text: caption } : {}) });
-    } catch {
-      // User closed the share sheet; nothing to do.
+  function deleted(id: string) {
+    if (id === jobId) {
+      setJobId(null);
+      setStatus(null);
     }
+    if (id === playing) setPlaying(null);
+    setLibrary((all) => all.filter((f) => f.id !== id));
   }
 
   const busy = submitting || (status !== null && status.status !== "completed" && status.status !== "failed" && status.status !== "review");
@@ -348,19 +379,28 @@ export default function CreatePage() {
           )}
 
           <form onSubmit={submit}>
-            <label htmlFor="niche">Need ideas?</label>
-            <div className="row">
-              <input id="niche" type="text" value={niche} onChange={(e) => setNiche(e.target.value)} placeholder="Your topic, e.g. learning English words" />
-              <button type="button" className="secondary" onClick={getIdeas} disabled={loadingIdeas} style={{ flex: "0 0 auto", width: "auto" }}>
-                {loadingIdeas ? "Thinking…" : "Suggest"}
-              </button>
-            </div>
-            {ideas.length > 0 && (
-              <div className="ideas">
-                {ideas.map((i) => (
-                  <button type="button" key={i.title} title={i.idea} onClick={() => setStory(i.idea)}>{i.title}</button>
-                ))}
-              </div>
+            {mode !== "edit" && (
+              <>
+                <label htmlFor="niche">Need ideas?</label>
+                <div className="row">
+                  <input id="niche" type="text" value={niche} onChange={(e) => setNiche(e.target.value)} placeholder="Your topic, e.g. home cooking, cricket, saving money" />
+                  <button type="button" className="secondary" onClick={getIdeas} disabled={loadingIdeas} style={{ flex: "0 0 auto", width: "auto" }}>
+                    {loadingIdeas ? "Thinking…" : ideas.length ? "More ideas" : "Suggest"}
+                  </button>
+                </div>
+                {ideas.length > 0 && (
+                  <ul className="idea-list">
+                    {ideas.map((i) => (
+                      <li key={i.title}>
+                        <strong>{i.title}</strong>
+                        {i.hook && <span className="hook">“{i.hook}”</span>}
+                        <span className="muted">{i.idea}</span>
+                        <button type="button" className="secondary" onClick={() => setStory(ideaBrief(i))}>Use this</button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
             )}
 
             {mode === "edit" && (
@@ -413,8 +453,24 @@ export default function CreatePage() {
             {mode === "dance" && <p className="muted">Cartoon kids dance to a dhol beat while a voice chants a catchy rhyme, with bouncing captions. Drawn by Reelkar, so it uses your free weekly reels and no AI animation credits.</p>}
             {mode !== "edit" && (
               <>
-                <label htmlFor="story">{mode === "cartoon" ? "What happens in this episode?" : mode === "motion" ? "What is the reel about?" : mode === "dance" ? "What is the dance about? (e.g. a rain dance, counting to five, brushing teeth)" : "Your story"}</label>
-                <textarea id="story" value={story} onChange={(e) => setStory(e.target.value)} minLength={20} required />
+                <div className="label-row">
+                  <label htmlFor="story">{mode === "cartoon" ? "What happens in this episode?" : mode === "motion" ? "What is the reel about?" : mode === "dance" ? "What is the dance about?" : "Your story"}</label>
+                  {mode === "cartoon" && characterId && (
+                    <button type="button" className="secondary small" onClick={nextEpisode} disabled={loadingEpisode}>
+                      {loadingEpisode ? "Thinking…" : "✨ Suggest next episode"}
+                    </button>
+                  )}
+                </div>
+                <p className="muted hint">
+                  {mode === "cartoon"
+                    ? `Give ${characters.find((c) => c.id === characterId)?.name ?? "your character"} a goal, a problem on the way and a happy or funny ending. One small lesson is enough.`
+                    : mode === "motion"
+                      ? "Open with a bold line, then 3 to 5 points, then a question or ask at the end."
+                      : mode === "dance"
+                        ? "A simple action kids can copy: counting, colours, animals or a daily habit."
+                        : "Start with a line that stops the scroll, then what happens and a twist at the end."}
+                </p>
+                <textarea id="story" value={story} onChange={(e) => setStory(e.target.value)} minLength={20} required placeholder={storyPlaceholder(mode, characters.find((c) => c.id === characterId)?.name)} />
               </>
             )}
             <div className="row">
@@ -518,9 +574,12 @@ export default function CreatePage() {
               {!status || status.status === "queued" ? (
                 <Loader label="Queued…" />
               ) : status.status === "failed" ? (
-                <p>
-                  <strong>{status.title ?? "This reel"} didn&apos;t finish.</strong> {status.error || "Please try making it again."}
-                </p>
+                <>
+                  <p>
+                    <strong>{status.title ?? "This reel"} didn&apos;t finish.</strong> {status.error || "Please try making it again."}
+                  </p>
+                  <DeleteReel id={jobId} onDeleted={() => deleted(jobId)} />
+                </>
               ) : status.status === "review" ? (
                 <EditMoments filmId={jobId} onRendering={rendering} />
               ) : status.status === "completed" ? (
@@ -534,7 +593,7 @@ export default function CreatePage() {
                   )}
                   {status.error && <p className="muted">{status.error}</p>}
                   <Celebrate key={pollKey}>
-                    <video src={`/api/films/${jobId}/video?v=${pollKey}`} controls playsInline />
+                    <ReelPlayer src={`/api/films/${jobId}/video?v=${pollKey}`} title={status.title} />
                   </Celebrate>
                   {status.format === "edit" &&
                     (fineTune ? (
@@ -544,12 +603,8 @@ export default function CreatePage() {
                         <button type="button" className="secondary" onClick={() => setFineTune(true)}>Fine-tune effects</button>
                       </div>
                     ))}
-                  <div className="actions">
-                    {canShareFiles && <button type="button" onClick={share}>Share</button>}
-                    <a href={`/api/films/${jobId}/video`} download>
-                      <button type="button" className="secondary">Download</button>
-                    </a>
-                  </div>
+                  {/* Instagram drops shared text, so the caption also goes on the clipboard to paste. */}
+                  <ReelActions id={jobId} title={status.title} beforeShare={caption ? copyCaption : undefined} />
                   <div className="actions">
                     <button type="button" className="secondary" onClick={() => writeCaption("instagram")}>✨ Instagram caption</button>
                     <button type="button" className="secondary" onClick={() => writeCaption("whatsapp")}>✨ WhatsApp message</button>
@@ -570,6 +625,7 @@ export default function CreatePage() {
                       )}
                     </div>
                   )}
+                  <DeleteReel id={jobId} onDeleted={() => deleted(jobId)} />
                 </>
               ) : (
                 <Loader long label={`${STAGE_LABELS[status.stage ?? ""] ?? "Working"}…`} />
@@ -587,17 +643,35 @@ export default function CreatePage() {
             ) : (
               <div className="library">
                 {library.map((f) => (
-                  <div key={f.id} className="post">
-                    <a className="reel-row" href={f.videoUrl ?? "#"} onClick={(e) => !f.videoUrl && e.preventDefault()}>
-                      <span className="thumb" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                  <div key={f.id} className="reel-item">
+                    <div className="post">
+                      {f.videoUrl ? (
+                        <button type="button" className="reel-row plain" aria-expanded={playing === f.id} onClick={() => setPlaying(playing === f.id ? null : f.id)}>
+                          <span className="thumb" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                          </span>
+                          {f.title ?? "Untitled"}
+                        </button>
+                      ) : (
+                        <span className="reel-row">
+                          <span className="thumb" aria-hidden="true" />
+                          {f.title ?? "Untitled"}
+                        </span>
+                      )}
+                      <span className="post-actions">
+                        {f.status === "completed" ? (
+                          <a href={`/calendar?film=${f.id}`}>Schedule</a>
+                        ) : (
+                          <span className={`pill pill-${f.status}`}>{FILM_STATUS[f.status] ?? f.status}</span>
+                        )}
+                        {(f.status === "completed" || f.status === "failed" || f.status === "review") && <DeleteReel id={f.id} small onDeleted={() => deleted(f.id)} />}
                       </span>
-                      {f.title ?? "Untitled"}
-                    </a>
-                    {f.status === "completed" ? (
-                      <a href={`/calendar?film=${f.id}`}>Schedule</a>
-                    ) : (
-                      <span className={`pill pill-${f.status}`}>{FILM_STATUS[f.status] ?? f.status}</span>
+                    </div>
+                    {playing === f.id && f.videoUrl && (
+                      <div className="reel-open">
+                        <ReelPlayer src={f.videoUrl} title={f.title} autoPlay />
+                        <ReelActions id={f.id} title={f.title} />
+                      </div>
                     )}
                   </div>
                 ))}

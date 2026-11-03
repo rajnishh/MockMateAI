@@ -153,11 +153,8 @@ export default function Home() {
                     <span className="reel-title">{f.title ?? "Untitled"}</span>
                   </>
                 );
-                return f.videoUrl ? (
-                  <a key={f.id} className="reel-thumb" href={f.videoUrl} target="_blank" rel="noreferrer" style={{ background: THUMBS[i % THUMBS.length] }}>{body}</a>
-                ) : (
-                  <Link key={f.id} className="reel-thumb" href={`/create?film=${f.id}`} style={{ background: THUMBS[i % THUMBS.length] }}>{body}</Link>
-                );
+                // Finished reels play on the reel page (inline player, share, download), not in a bare tab.
+                return <Link key={f.id} className="reel-thumb" href={`/create?film=${f.id}`} style={{ background: THUMBS[i % THUMBS.length] }}>{body}</Link>;
               })}
             </div>
           )}

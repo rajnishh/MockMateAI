@@ -40,7 +40,10 @@ export interface Billing {
 
 export interface Idea {
   title: string;
+  // The first spoken line; missing when the AI's hook was weak.
+  hook?: string;
   idea: string;
+  format?: "story" | "motion" | "dance";
 }
 
 export interface PostCopy {
@@ -97,7 +100,7 @@ export type Voice = "natural" | "clear" | "deeper";
 // Ask Reelkar, the built-in agent (mirrors story-film/src/lib/agent/cards.ts).
 export type PostingMode = "ask" | "auto_schedule" | "auto_now";
 export type AgentCard =
-  | { type: "ideas"; ideas: { title: string; idea: string }[]; format: "story" | "motion" | "dance"; language?: string }
+  | { type: "ideas"; ideas: { title: string; hook?: string; idea: string }[]; format: "story" | "motion" | "dance"; language?: string }
   | { type: "reel"; reelId: string; title: string; status: string; note?: string }
   | { type: "reels"; reels: { reelId: string; title: string; status: string; format: string }[] }
   | { type: "proposal"; actionId: string; text: string; status: "proposed" | "waiting" | "done" | "cancelled" | "failed" }
@@ -229,8 +232,8 @@ const real = {
   film: (id: string) => call<Film>(`/api/films/${id}`),
   createFilm: (input: NewFilm) => call<{ id: string; credits: number }>("/api/films", { method: "POST", body: JSON.stringify(input) }),
   billing: () => call<Billing>("/api/billing"),
-  ideas: async (niche: string, language: string) =>
-    (await call<{ ideas: Idea[] }>("/api/suggestions", { method: "POST", body: JSON.stringify({ niche, language }) })).ideas,
+  ideas: async (niche: string, language: string, more: { format?: Idea["format"]; avoid?: string[] } = {}) =>
+    (await call<{ ideas: Idea[] }>("/api/suggestions", { method: "POST", body: JSON.stringify({ niche, language, ...more }) })).ideas,
   caption: (id: string, platform: Platform) => call<PostCopy>(`/api/films/${id}/copy`, { method: "POST", body: JSON.stringify({ platform }) }),
   // "Edit my video": multipart upload; the server adds captions, zooms, cards, effects and sounds.
   uploadEdit: async (input: EditUpload) => {
@@ -275,6 +278,14 @@ const real = {
   createPost: async (input: NewPost) => (await call<{ post: Post }>("/api/posts", { method: "POST", body: JSON.stringify(input) })).post,
   cancelPost: (id: string) => call<unknown>(`/api/posts/${id}`, { method: "DELETE" }),
   retryPost: (id: string) => call<unknown>(`/api/posts/${id}/retry`, { method: "POST" }),
+  deleteFilm: (id: string) => call<unknown>(`/api/films/${id}`, { method: "DELETE" }),
+  // A signed link that plays without signing in (for 2 hours): used to save and share the video.
+  // The server builds it on its public URL; the phone downloads through the address it already
+  // reaches (a LAN IP or tunnel in development, where the public URL is often localhost).
+  shareLink: async (id: string) => {
+    const { url } = await call<{ url: string }>(`/api/films/${id}/link`, { method: "POST" });
+    return `${API_URL}${new URL(url).pathname}`;
+  },
   videoUrl: (film: Film) => (film.videoUrl ? `${API_URL}${film.videoUrl}` : null),
   videoHeaders: async (): Promise<Record<string, string>> => {
     const cookie = await authClient.getCookie();
@@ -571,6 +582,14 @@ const demo: typeof real = {
     const p = demoPosts.find((x) => x.id === id);
     if (p) Object.assign(p, { status: "scheduled", error: null, scheduledAt: new Date().toISOString() });
     return {};
+  },
+  deleteFilm: async (id) => {
+    const i = demoFilms.findIndex((f) => f.id === id);
+    if (i >= 0) demoFilms.splice(i, 1);
+    return {};
+  },
+  shareLink: async () => {
+    throw new ApiError("Saving and sharing need the Reelkar server, not the demo", 503);
   },
   videoUrl: () => null,
   previewUri: () => null,

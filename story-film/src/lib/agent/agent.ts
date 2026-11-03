@@ -5,14 +5,15 @@ import { type Post, createPost } from "@/lib/posts";
 import { readFilmScript, writePostCopy } from "@/lib/post-copy";
 import type { LlmProvider } from "@/lib/providers/types";
 import { listAccounts } from "@/lib/social-accounts";
-import { suggestIdeas } from "@/lib/suggestions";
+import { ideaBrief, suggestIdeas } from "@/lib/suggestions";
 import { type ActionInput, ACTIONS, type ActionName, isAction, isConnectorOnly } from "./actions";
 import { normaliseLanguage } from "@/lib/languages";
 import { DEFAULT_STYLE, STYLE_HINTS } from "@/lib/styles";
 import { CLIP_SECONDS } from "@/lib/quota/plans";
 import type { AgentCard, PostingMode, ReelLinks } from "./cards";
-import { buildPlannerPrompt, planSchema } from "./planner";
-import { createAction, getAction, getPostingMode, moveAction, recentMessages, saveMessage, setPostingMode, waitingFor } from "./store";
+import type { ToolPlanner } from "./claude";
+import { buildPlannerPrompt, contextLines, didSummary, planSchema, toolPlannerSystemPrompt } from "./planner";
+import { type AgentMessage, createAction, getAction, getPostingMode, moveAction, recentMessages, saveMessage, setPostingMode, waitingFor } from "./store";
 import { addDays, formatWhen, localNow, nextSlot, zonedToUtc } from "./time";
 
 type Account = Awaited<ReturnType<typeof listAccounts>>[number];
@@ -27,6 +28,8 @@ export interface AgentDeps {
   freeReelsLeft(userId: string): Promise<number>;
   // Links to a finished reel; left out where there's nowhere to link to.
   reelLinks?(filmId: string): ReelLinks;
+  // Calls actions as tools (Claude); without it the free model plans in one JSON reply.
+  planner?: ToolPlanner;
   now?: () => Date;
 }
 
@@ -292,7 +295,7 @@ async function run(deps: AgentDeps, turn: Turn, state: TurnState, name: ActionNa
     case "suggest_ideas": {
       const i = parsed.data as ActionInput<"suggest_ideas">;
       try {
-        const ideas = await suggestIdeas(deps.llm, { niche: i.topic ?? turn.topic, language: i.language ?? turn.language });
+        const ideas = await suggestIdeas(deps.llm, { niche: i.topic ?? turn.topic, language: i.language ?? turn.language, format: i.format, count: i.count });
         return [{ type: "ideas", ideas: ideas.slice(0, i.count), format: i.format, language: i.language ?? turn.language }];
       } catch (err) {
         return [problem(err, "find ideas")];
@@ -312,14 +315,14 @@ async function run(deps: AgentDeps, turn: Turn, state: TurnState, name: ActionNa
       const i = parsed.data as ActionInput<"make_week">;
       let ideas;
       try {
-        ideas = (await suggestIdeas(deps.llm, { niche: i.topic ?? turn.topic, language: i.language ?? turn.language })).slice(0, i.count);
+        ideas = (await suggestIdeas(deps.llm, { niche: i.topic ?? turn.topic, language: i.language ?? turn.language, format: i.format, count: i.count })).slice(0, i.count);
       } catch (err) {
         return [problem(err, "plan the week")];
       }
       const first = i.startDate ?? localNow(nextSlot(state.now, turn.timeZone, i.time), turn.timeZone).date;
       const cards: AgentCard[] = [];
       for (const [day, idea] of ideas.entries()) {
-        const made = await makeReel(deps, turn, state, { idea: `${idea.title}. ${idea.idea}`, title: idea.title, format: i.format, language: i.language, durationSec: i.durationSec });
+        const made = await makeReel(deps, turn, state, { idea: ideaBrief(idea), title: idea.title, format: i.format, language: i.language, durationSec: i.durationSec });
         cards.push(...made);
         // Out of free reels or credits: stop instead of failing the rest one by one.
         if (made[0]?.type !== "reel") break;
@@ -365,10 +368,35 @@ async function run(deps: AgentDeps, turn: Turn, state: TurnState, name: ActionNa
 }
 
 // One chat message: plan with the AI, then do it. Results come back as cards with the reply.
+// The creator's message is saved once the AI has their request and before any action runs.
 export async function handleMessage(deps: AgentDeps, turn: Turn, text: string) {
   const state = await loadState(deps, turn.userId);
   const history = await recentMessages(deps.db, turn.userId, 12);
-  const prompt = buildPlannerPrompt({ turn, state, history, freeLeft: await deps.freeReelsLeft(turn.userId).catch(() => null), text });
+  const freeLeft = await deps.freeReelsLeft(turn.userId).catch(() => null);
+  let user: AgentMessage | undefined;
+  if (deps.planner) {
+    user = await saveMessage(deps.db, turn.userId, "user", text);
+    const cards: AgentCard[] = [];
+    try {
+      const reply = await deps.planner.respond({
+        system: toolPlannerSystemPrompt(),
+        history: history.map((m) => ({ role: m.role, text: [m.text, didSummary(m)].filter(Boolean).join(" ") })),
+        message: [...contextLines({ turn, state, freeLeft }), "", `Creator: ${text}`].join("\n"),
+        act: async (name, input) => {
+          if (isConnectorOnly(name)) return [{ type: "error", text: `${name} isn't available here.` }];
+          const made = await run(deps, turn, state, name, input);
+          cards.push(...made);
+          return made;
+        },
+      });
+      return { user, assistant: await saveMessage(deps.db, turn.userId, "assistant", reply, cards) };
+    } catch (err) {
+      console.error(`[agent] ${deps.planner.modelId} failed:`, err);
+      // Something already happened (a reel started): show it rather than planning it again.
+      if (cards.length) return { user, assistant: await saveMessage(deps.db, turn.userId, "assistant", "Something went wrong partway, but here's what I did.", cards) };
+    }
+  }
+  const prompt = buildPlannerPrompt({ turn, state, history, freeLeft, text });
   let plan: { reply: string; actions: { name: string; input?: unknown }[] };
   try {
     plan = planSchema.parse(await deps.llm.completeJson(prompt));
@@ -376,7 +404,7 @@ export async function handleMessage(deps: AgentDeps, turn: Turn, text: string) {
     console.error("[agent] plan failed:", err);
     plan = { reply: "Sorry, I didn't get that. Try “make 3 reels on chai hacks and post them this week”.", actions: [] };
   }
-  const user = await saveMessage(deps.db, turn.userId, "user", text);
+  user ??= await saveMessage(deps.db, turn.userId, "user", text);
   const cards: AgentCard[] = [];
   for (const a of plan.actions.slice(0, 5)) {
     if (!isAction(a.name) || isConnectorOnly(a.name)) continue;

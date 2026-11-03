@@ -1,12 +1,14 @@
+import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { rerenderEdit } from "@/lib/edit/rerender";
-import { loadEnv } from "@/lib/env";
+import { type Env, loadEnv } from "@/lib/env";
 import { buildLlm } from "@/lib/providers";
 import { publicVideoUrl } from "@/lib/public-video";
 import { enqueuePost, getPublishQueue } from "@/lib/queue/publish";
 import { freeReelsLeft, startFilm } from "@/lib/start-film";
 import type { AgentDeps, Turn } from "./agent";
+import { ClaudeToolPlanner } from "./claude";
 import { validTimeZone } from "./time";
 
 export function agentDeps(): AgentDeps {
@@ -17,6 +19,7 @@ export function agentDeps(): AgentDeps {
     startFilm,
     rerenderEdit,
     enqueuePost: (post) => enqueuePost(getPublishQueue(), post),
+    planner: claudePlanner(env),
     freeReelsLeft: (userId) => freeReelsLeft(userId),
     reelLinks: env.TOKEN_ENCRYPTION_KEY
       ? (id) => ({
@@ -44,4 +47,19 @@ export const turnSchema = z.object({
 
 export function toTurn(userId: string, t: z.infer<typeof turnSchema>): Turn {
   return { userId, timeZone: validTimeZone(t.timeZone), language: t.language, topic: t.topic, brand: t.brand };
+}
+
+// Claude only when switched on and a key is set; otherwise the free planner answers.
+// A chat reply shouldn't hang: one minute per call and one retry, then the free planner answers.
+let planner: ClaudeToolPlanner | undefined;
+let warned = false;
+function claudePlanner(env: Env): ClaudeToolPlanner | undefined {
+  if (env.ASK_REELKAR_AI !== "claude") return undefined;
+  if (!env.ANTHROPIC_API_KEY) {
+    if (!warned) console.warn("ASK_REELKAR_AI=claude but ANTHROPIC_API_KEY is not set; Ask Reelkar uses the free model");
+    warned = true;
+    return undefined;
+  }
+  planner ??= new ClaudeToolPlanner(new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: 60_000, maxRetries: 1 }), env.ASK_REELKAR_CLAUDE_MODEL);
+  return planner;
 }
