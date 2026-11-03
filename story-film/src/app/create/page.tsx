@@ -4,6 +4,7 @@ import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { Icon, type IconName } from "../app-shell";
 import { EditMoments } from "../edit-moments";
 import { Celebrate, Loader, ReelLogo } from "../reel-logo";
+import { DeleteReel, ReelActions, ReelPlayer } from "../reel-player";
 import { loadBrand } from "@/lib/brand-prefs";
 import { buildClaudePrompt } from "@/lib/claude-prompt";
 import { BuildWithClaude } from "./build-with-claude";
@@ -109,6 +110,7 @@ export default function CreatePage() {
   const [captionFor, setCaptionFor] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [library, setLibrary] = useState<Status[]>([]);
+  const [playing, setPlaying] = useState<string | null>(null);
 
   const loadLibrary = useCallback(() => {
     fetch("/api/films")
@@ -305,16 +307,13 @@ export default function CreatePage() {
     setCopied(true);
   }
 
-  async function share() {
-    const blob = await (await fetch(`/api/films/${jobId}/video`)).blob();
-    const file = new File([blob], `${status?.title ?? "video"}.mp4`, { type: "video/mp4" });
-    // Instagram drops shared text, so the caption also goes on the clipboard to paste.
-    if (caption) await copyCaption();
-    try {
-      await navigator.share({ files: [file], title: status?.title ?? undefined, ...(caption ? { text: caption } : {}) });
-    } catch {
-      // User closed the share sheet; nothing to do.
+  function deleted(id: string) {
+    if (id === jobId) {
+      setJobId(null);
+      setStatus(null);
     }
+    if (id === playing) setPlaying(null);
+    setLibrary((all) => all.filter((f) => f.id !== id));
   }
 
   const busy = submitting || (status !== null && status.status !== "completed" && status.status !== "failed" && status.status !== "review");
@@ -575,9 +574,12 @@ export default function CreatePage() {
               {!status || status.status === "queued" ? (
                 <Loader label="Queued…" />
               ) : status.status === "failed" ? (
-                <p>
-                  <strong>{status.title ?? "This reel"} didn&apos;t finish.</strong> {status.error || "Please try making it again."}
-                </p>
+                <>
+                  <p>
+                    <strong>{status.title ?? "This reel"} didn&apos;t finish.</strong> {status.error || "Please try making it again."}
+                  </p>
+                  <DeleteReel id={jobId} onDeleted={() => deleted(jobId)} />
+                </>
               ) : status.status === "review" ? (
                 <EditMoments filmId={jobId} onRendering={rendering} />
               ) : status.status === "completed" ? (
@@ -591,7 +593,7 @@ export default function CreatePage() {
                   )}
                   {status.error && <p className="muted">{status.error}</p>}
                   <Celebrate key={pollKey}>
-                    <video src={`/api/films/${jobId}/video?v=${pollKey}`} controls playsInline />
+                    <ReelPlayer src={`/api/films/${jobId}/video?v=${pollKey}`} title={status.title} />
                   </Celebrate>
                   {status.format === "edit" &&
                     (fineTune ? (
@@ -601,12 +603,8 @@ export default function CreatePage() {
                         <button type="button" className="secondary" onClick={() => setFineTune(true)}>Fine-tune effects</button>
                       </div>
                     ))}
-                  <div className="actions">
-                    {canShareFiles && <button type="button" onClick={share}>Share</button>}
-                    <a href={`/api/films/${jobId}/video`} download>
-                      <button type="button" className="secondary">Download</button>
-                    </a>
-                  </div>
+                  {/* Instagram drops shared text, so the caption also goes on the clipboard to paste. */}
+                  <ReelActions id={jobId} title={status.title} beforeShare={caption ? copyCaption : undefined} />
                   <div className="actions">
                     <button type="button" className="secondary" onClick={() => writeCaption("instagram")}>✨ Instagram caption</button>
                     <button type="button" className="secondary" onClick={() => writeCaption("whatsapp")}>✨ WhatsApp message</button>
@@ -627,6 +625,7 @@ export default function CreatePage() {
                       )}
                     </div>
                   )}
+                  <DeleteReel id={jobId} onDeleted={() => deleted(jobId)} />
                 </>
               ) : (
                 <Loader long label={`${STAGE_LABELS[status.stage ?? ""] ?? "Working"}…`} />
@@ -644,17 +643,35 @@ export default function CreatePage() {
             ) : (
               <div className="library">
                 {library.map((f) => (
-                  <div key={f.id} className="post">
-                    <a className="reel-row" href={f.videoUrl ?? "#"} onClick={(e) => !f.videoUrl && e.preventDefault()}>
-                      <span className="thumb" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                  <div key={f.id} className="reel-item">
+                    <div className="post">
+                      {f.videoUrl ? (
+                        <button type="button" className="reel-row plain" aria-expanded={playing === f.id} onClick={() => setPlaying(playing === f.id ? null : f.id)}>
+                          <span className="thumb" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                          </span>
+                          {f.title ?? "Untitled"}
+                        </button>
+                      ) : (
+                        <span className="reel-row">
+                          <span className="thumb" aria-hidden="true" />
+                          {f.title ?? "Untitled"}
+                        </span>
+                      )}
+                      <span className="post-actions">
+                        {f.status === "completed" ? (
+                          <a href={`/calendar?film=${f.id}`}>Schedule</a>
+                        ) : (
+                          <span className={`pill pill-${f.status}`}>{FILM_STATUS[f.status] ?? f.status}</span>
+                        )}
+                        {(f.status === "completed" || f.status === "failed" || f.status === "review") && <DeleteReel id={f.id} small onDeleted={() => deleted(f.id)} />}
                       </span>
-                      {f.title ?? "Untitled"}
-                    </a>
-                    {f.status === "completed" ? (
-                      <a href={`/calendar?film=${f.id}`}>Schedule</a>
-                    ) : (
-                      <span className={`pill pill-${f.status}`}>{FILM_STATUS[f.status] ?? f.status}</span>
+                    </div>
+                    {playing === f.id && f.videoUrl && (
+                      <div className="reel-open">
+                        <ReelPlayer src={f.videoUrl} title={f.title} autoPlay />
+                        <ReelActions id={f.id} title={f.title} />
+                      </div>
                     )}
                   </div>
                 ))}

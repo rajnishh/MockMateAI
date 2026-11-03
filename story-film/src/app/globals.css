@@ -188,6 +188,24 @@ header.top .post-actions { flex-wrap: wrap; justify-content: flex-start; }
 .label-row button.small, button.small { width: auto; min-height: 34px; padding: 0 12px; font-size: 13.5px; }
 .hint { margin: 2px 0 8px; font-size: 14px; }
 
+/* ---------- Reel player, actions and delete ---------- */
+.reel-player { position: relative; width: 100%; max-width: 360px; }
+.reel-player video { width: 100%; aspect-ratio: 9 / 16; object-fit: cover; margin-top: 12px; }
+.reel-player .pip { position: absolute; top: 22px; right: 10px; min-height: 34px; padding: 0 12px; background: rgba(21, 10, 26, 0.72); color: #fff; border-color: transparent; backdrop-filter: blur(6px); }
+.reel-player .pip:hover:not(:disabled) { border-color: #fff; }
+button.ghost { width: auto; background: transparent; color: var(--ink-muted); border-color: transparent; box-shadow: none; padding: 0 10px; }
+button.ghost:hover:not(:disabled) { color: var(--ink); background: var(--surface-sunken); }
+button.ghost.danger:hover:not(:disabled) { color: var(--danger); background: var(--coral-tint); }
+button.danger-solid { width: auto; background: var(--danger); color: #fff; box-shadow: none; }
+.confirm { display: grid; gap: 8px; padding: 12px 14px; border-radius: 14px; background: var(--coral-tint); color: var(--ink); font-size: 14px; font-weight: 600; }
+.confirm-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.reel-item { display: grid; gap: 8px; }
+button.plain { width: auto; min-height: 0; padding: 0; background: none; border: 0; box-shadow: none; color: inherit; font-weight: 700; text-align: left; justify-content: flex-start; }
+button.plain:active:not(:disabled) { transform: none; box-shadow: none; }
+.reel-row .thumb:empty { background: var(--surface-sunken); }
+.reel-item .post { flex-wrap: wrap; }
+.reel-open { padding: 4px 4px 12px; }
+
 /* ---------- Checkboxes as rows ---------- */
 .check + .muted, .check + p { margin-top: 14px; }
 .check { display: flex; align-items: center; gap: 12px; margin: 14px 0 0; font-size: 15px; font-weight: 600; color: var(--ink); cursor: pointer; }
