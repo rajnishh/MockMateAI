@@ -34,6 +34,7 @@ import {
   api,
   type PostingMode,
 } from "@/lib/api";
+import { formatLabel } from "@/lib/formats";
 import { useSession } from "@/lib/session";
 import { fonts, radius, useTheme } from "@/theme";
 
@@ -290,7 +291,7 @@ function AgentCardView({
               <Txt variant="label">{idea.title}</Txt>
               <Txt variant="cap">{idea.idea}</Txt>
               <Button
-                label="Make this"
+                label={card.format === "dance" ? "Make this dance" : "Make this"}
                 small
                 kind="secondary"
                 icon="sparkle"
@@ -336,6 +337,7 @@ function AgentCardView({
                 reelId={r.reelId}
                 title={r.title}
                 status={r.status}
+                format={r.format}
               />
             ))
           ) : (
@@ -454,10 +456,12 @@ function ReelRow({
   reelId,
   title,
   status,
+  format,
 }: {
   reelId: string;
   title: string;
   status: string;
+  format?: string;
 }) {
   const ready = status === "completed";
   return (
@@ -466,6 +470,7 @@ function ReelRow({
         <Txt variant="label" numberOfLines={2}>
           {title}
         </Txt>
+        {formatLabel(format) ? <Txt variant="cap">{formatLabel(format)}</Txt> : null}
         {ready ? (
           <Status kind="ok" text="Ready" />
         ) : status === "failed" ? (
