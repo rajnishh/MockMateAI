@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { describeActions } from "@/lib/agent/actions";
 import type { AgentDeps } from "@/lib/agent/agent";
 import { handleRpc, tools } from "@/lib/agent/mcp";
 import { historyView } from "@/lib/agent/store";
@@ -95,6 +96,42 @@ describe("Reelkar connector (MCP)", { timeout: 30_000 }, () => {
     // The creator sees what the assistant did in Ask Reelkar.
     const history = await historyView(db, "u1");
     expect(history.some((m) => m.text === "Via Claude: make reel")).toBe(true);
+  });
+
+  it("makes a reel from the assistant's own script, then reports progress and links", async () => {
+    let body: Record<string, unknown> = {};
+    deps.startFilm = async (userId, b) => {
+      body = b as Record<string, unknown>;
+      const f = await createFilm(db, { userId, story: body.story as string, style: "animated", durationSec: 15, format: "story", kidSafe: true });
+      return { id: f.id, credits: 0 };
+    };
+    deps.reelLinks = (id) => ({ video: `http://localhost:3000/api/public/video/t-${id}.mp4`, app: `reelkar://reel/${id}`, web: `http://localhost:3000/create?film=${id}` });
+    const shot = (n: number) => ({ narration: `Dubi dubi dum dum ${n}`, imagePrompt: `Three Indian toddlers dancing in a courtyard, pose ${n}`, motionPrompt: "kids bounce and clap" });
+
+    const made = textOf(await call("make_reel_from_script", { title: "Dubi Dubi Dance", language: "hi", kidSafe: true, shots: [shot(1), shot(2), shot(3)], musicPrompt: "bouncy dhol beat for kids" }));
+    const reelId = made.match(/id ([0-9a-f-]{36})/)![1];
+    expect(made).toContain('Reel "Dubi Dubi Dance"');
+    // Reelkar makes the video from the script as written: 3 shots is 15 seconds, and every picture gets the style.
+    expect(body).toMatchObject({ format: "story", style: "animated", language: "hi", durationSec: 15, kidSafe: true });
+    const script = body.script as { title: string; shots: { narration: string; imagePrompt: string }[] };
+    expect(script.title).toBe("Dubi Dubi Dance");
+    expect(script.shots.map((s) => s.narration)).toEqual(["Dubi dubi dum dum 1", "Dubi dubi dum dum 2", "Dubi dubi dum dum 3"]);
+    expect(script.shots[0].imagePrompt).toMatch(/^Three Indian toddlers dancing in a courtyard, pose 1, .+/);
+
+    await updateFilm(db, reelId, { stage: "keyframes" });
+    expect(textOf(await call("get_reel", { reel: reelId }))).toContain("Now making the pictures");
+    await updateFilm(db, reelId, { status: "completed", stage: "done" });
+    const ready = textOf(await call("get_reel", { reel: reelId }));
+    expect(ready).toContain(`Open in the Reelkar app: reelkar://reel/${reelId}`);
+    expect(ready).toContain(`Watch: http://localhost:3000/api/public/video/t-${reelId}.mp4`);
+
+    // Only 15, 30 or 60 seconds.
+    const odd = (await call("make_reel_from_script", { title: "Odd", shots: [shot(1), shot(2)], musicPrompt: "calm" })) as { result: { isError: boolean; content: { text: string }[] } };
+    expect(odd.result.isError).toBe(true);
+    expect(odd.result.content[0].text).toMatch(/3, 6 or 12 shots/);
+    // Ask Reelkar's own planner writes ideas, not scripts.
+    expect(describeActions()).not.toContain("make_reel_from_script");
+    expect(describeActions()).toContain("get_reel");
   });
 
   it("explains problems instead of failing silently", async () => {

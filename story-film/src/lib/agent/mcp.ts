@@ -11,7 +11,9 @@ export const SERVER_INFO = { name: "reelkar", title: "Reelkar", version: "0.1.0"
 const PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"];
 const INSTRUCTIONS = [
   "Reelkar makes short vertical videos (reels) for a creator and posts them to their Instagram and YouTube.",
-  "Reels take a minute or two to make: after make_reel or make_week, use list_reels to check progress.",
+  "Reels take a minute or two to make: after make_reel or make_week, use get_reel or list_reels to check progress.",
+  "To write the reel yourself, use make_reel_from_script: you write the narration and pictures, Reelkar makes the video.",
+  "When a reel is ready, give the creator get_reel's links: the video, and the one that opens it in the Reelkar app.",
   'Posting follows the creator\'s setting. In "ask" mode post_reel returns a proposal; only call answer_proposal after the creator clearly says yes or no.',
   "Write ideas in the language the creator wants (codes like hi, ta, en). Never invent statistics.",
 ].join(" ");
@@ -32,7 +34,7 @@ function inputSchema(schema: z.ZodType): JsonSchema {
 
 const answerSchema = z.object({ proposal_id: z.uuid(), approve: z.boolean() });
 
-const READ_ONLY = new Set(["list_reels", "suggest_ideas"]);
+const READ_ONLY = new Set(["list_reels", "suggest_ideas", "get_reel"]);
 
 export function tools() {
   return [
@@ -57,7 +59,10 @@ export function cardText(c: AgentCard): string {
     case "ideas":
       return `Ideas (${c.format}):\n${c.ideas.map((i, n) => `${n + 1}. ${i.title}: ${i.idea}`).join("\n")}`;
     case "reel":
-      return `Reel "${c.title}" (id ${c.reelId}): ${c.status}${c.note ? `. ${c.note}` : ""}`;
+      return [
+        `Reel "${c.title}" (id ${c.reelId}): ${c.status}${c.note ? `. ${c.note}` : ""}`,
+        ...(c.links ? [`Watch: ${c.links.video} (works for 2 hours)`, `Open in the Reelkar app: ${c.links.app}`, `Open on the web: ${c.links.web}`] : []),
+      ].join("\n");
     case "reels":
       return c.reels.length ? `Reels, newest first:\n${c.reels.map((r, n) => `R${n + 1}: "${r.title}" (id ${r.reelId}, ${r.format}, ${r.status})`).join("\n")}` : "No reels yet.";
     case "proposal":

@@ -4,6 +4,8 @@ Creators can use Reelkar from an AI assistant they already pay for (Claude Code,
 
 - suggest ideas
 - make one reel, or a week of reels
+- make a reel from a script the assistant wrote itself (`make_reel_from_script`). The assistant does the writing on the creator's own subscription, and Reelkar only makes the video.
+- check one reel's progress and get its links: watch the video, or open it in the Reelkar app (`get_reel`)
 - post or schedule a reel
 - write a caption
 - list reels and their progress

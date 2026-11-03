@@ -121,6 +121,43 @@ describe.skipIf(!hasFfmpeg)("runFilm end to end with fake providers", () => {
     expect(probeDuration(output)).toBeCloseTo(10, 0);
   }, 60_000);
 
+  it("uses a script the creator's assistant wrote instead of writing one", async () => {
+    const tone = path.join(dir, "tone3.wav");
+    const clip = path.join(dir, "src3.mp4");
+    ffmpeg("-f", "lavfi", "-i", "sine=frequency=500:duration=1", tone);
+    ffmpeg("-f", "lavfi", "-i", "testsrc=size=720x1280:rate=24:duration=5", "-pix_fmt", "yuv420p", clip);
+    const prompts: string[] = [];
+    const spoken: string[] = [];
+    const deps: PipelineDeps = {
+      llm: { modelId: "llama-3.3-70b", completeJson: async () => ({}), writeScript: async () => { throw new Error("should not write a script"); } },
+      image: { modelId: "flux-1-schnell", generateKeyframe: async ({ prompt }) => (prompts.push(prompt), { url: "https://img/x" }) },
+      video: { modelId: "ken-burns-ffmpeg", animate: async () => ({ url: `file://${clip}` }) },
+      tts: { modelId: "kokoro-82m", speak: async ({ text }) => (spoken.push(text), readFileSync(tone)) },
+      fetchFn: (async () => new Response("unused")) as unknown as typeof fetch,
+    };
+    const script = {
+      title: "Dubi Dubi Dance",
+      language: "en",
+      characters: [],
+      shots: [
+        { narration: "Dubi dubi", imagePrompt: "kids clap", motionPrompt: "bounce" },
+        { narration: "dum dum", imagePrompt: "kids spin", motionPrompt: "spin" },
+      ],
+      musicPrompt: "dhol",
+    };
+
+    const { title } = await runFilm(
+      deps,
+      { story: "x".repeat(30), style: "animated", durationSec: 10, resolution: "480p", watermark: true, referenceImageUrls: [], script },
+      path.join(dir, "job3"),
+    );
+
+    expect(title).toBe("Dubi Dubi Dance");
+    expect(prompts).toEqual(["kids clap", "kids spin"]);
+    expect(spoken).toEqual(["Dubi dubi", "dum dum"]);
+    expect(JSON.parse(readFileSync(path.join(dir, "job3", "script.json"), "utf8")).title).toBe("Dubi Dubi Dance");
+  }, 60_000);
+
   it("refuses to run with a non-commercial model", async () => {
     const deps = {
       llm: { modelId: "llama-3.3-70b", writeScript: async () => { throw new Error("unreachable"); } },
