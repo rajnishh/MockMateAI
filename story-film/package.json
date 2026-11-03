@@ -17,6 +17,7 @@
     "billing:plans": "tsx --env-file=.env scripts/create-razorpay-plans.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.4.0",
     "@better-auth/drizzle-adapter": "^1.7.14",
     "@better-auth/expo": "^1.7.14",
     "@contentauth/c2pa-node": "^0.9.9",
