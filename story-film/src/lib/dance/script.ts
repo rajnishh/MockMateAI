@@ -32,6 +32,12 @@ export const danceScriptSchema = z.object({
   lines: z.array(z.object({ text: z.string().trim().min(1).max(70), move: z.enum(DANCE_MOVES).catch("bounce") })).min(1).max(8),
 });
 
+// How the chant is voiced. "sung" (the default, free) sings the TTS voice to a simple tune on the beat;
+// "chant" speaks it on the beat; "ai_song" has ACE-Step sing it as a real song, which costs credits.
+// It is a request option rather than part of the script, so a script the LLM writes can never pick a paid voice.
+export const DANCE_VOICES = ["sung", "chant", "ai_song"] as const;
+export type DanceVoice = (typeof DANCE_VOICES)[number];
+
 export type Dancer = z.infer<typeof dancerSchema>;
 export type DanceScript = z.infer<typeof danceScriptSchema>;
 
@@ -60,6 +66,13 @@ export interface Segment {
   // -1 is the intro (title on screen, kids bounce) and -2 the finale (everyone jumps).
   line: number;
   move: DanceMove;
+  start: number;
+  end: number;
+  // When the chant's words are heard, in seconds from the segment's start (sung voices only).
+  words?: WordTime[];
+}
+
+export interface WordTime {
   start: number;
   end: number;
 }

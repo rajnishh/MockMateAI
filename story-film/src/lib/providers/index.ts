@@ -53,6 +53,15 @@ function buildMusic(env: Env, quality: Quality) {
   return undefined;
 }
 
+// AI singing for dance reels: the self-hosted ACE-Step when configured (as for music), else ACE-Step on fal.
+export function danceSongAvailable(env: Env): boolean {
+  return Boolean(env.ACESTEP_URL || env.FAL_KEY);
+}
+
+export function buildDanceSinger(env: Env): AceStepMusic | FalAceStep {
+  return env.ACESTEP_URL ? new AceStepMusic(env.ACESTEP_URL) : buildSongProvider(env);
+}
+
 export function songsAvailable(env: Env): boolean {
   return Boolean(env.FAL_KEY);
 }

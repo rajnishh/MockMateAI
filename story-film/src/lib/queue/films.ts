@@ -1,6 +1,6 @@
 import { VOICES } from "@/lib/edit/audio";
 import { editPlanSchema } from "@/lib/edit/plan";
-import { danceScriptSchema } from "@/lib/dance/script";
+import { DANCE_VOICES, danceScriptSchema } from "@/lib/dance/script";
 import { ENDINGS } from "@/lib/motion/script";
 import { filmScriptSchema } from "@/lib/pipeline/script";
 import { STYLE_IDS } from "@/lib/styles";
@@ -31,6 +31,8 @@ export const filmJobSchema = z.object({
   script: filmScriptSchema.optional(),
   // Dance reels only: a chant and dancers an assistant already wrote.
   danceScript: danceScriptSchema.optional(),
+  // Dance reels only: "sung" (free) sings the chant to a tune, "chant" speaks it, "ai_song" (paid) has an AI sing it.
+  danceVoice: z.enum(DANCE_VOICES).default("sung"),
   // Motion reels only: how the reel ends, and the creator's brand look.
   ending: z.enum(ENDINGS).default("auto"),
   keyword: z.string().trim().max(20).regex(/^[\p{L}\p{N}_-]*$/u, "One word, no spaces").optional(),

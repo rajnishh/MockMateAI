@@ -72,11 +72,19 @@ export function dholBeat(bpm: number, durationSec: number, seed = 7): Buffer {
     const tail = i > total - fade ? (total - i) / fade : 1;
     pcm.writeInt16LE(Math.round(Math.tanh(out[i] * 1.2) * tail * 32000), 44 + i * 2);
   }
-  writeWavHeader(pcm, total);
+  writeWavHeader(pcm, total, SAMPLE_RATE);
   return pcm;
 }
 
-function writeWavHeader(buf: Buffer, samples: number) {
+// Mono 16-bit WAV of float samples (-1..1).
+export function encodeWav(samples: Float32Array, rate: number): Buffer {
+  const buf = Buffer.alloc(44 + samples.length * 2);
+  for (let i = 0; i < samples.length; i++) buf.writeInt16LE(Math.round(Math.max(-1, Math.min(1, samples[i])) * 32000), 44 + i * 2);
+  writeWavHeader(buf, samples.length, rate);
+  return buf;
+}
+
+function writeWavHeader(buf: Buffer, samples: number, rate: number) {
   buf.write("RIFF", 0);
   buf.writeUInt32LE(36 + samples * 2, 4);
   buf.write("WAVE", 8);
@@ -84,8 +92,8 @@ function writeWavHeader(buf: Buffer, samples: number) {
   buf.writeUInt32LE(16, 16);
   buf.writeUInt16LE(1, 20);
   buf.writeUInt16LE(1, 22);
-  buf.writeUInt32LE(SAMPLE_RATE, 24);
-  buf.writeUInt32LE(SAMPLE_RATE * 2, 28);
+  buf.writeUInt32LE(rate, 24);
+  buf.writeUInt32LE(rate * 2, 28);
   buf.writeUInt16LE(2, 32);
   buf.writeUInt16LE(16, 34);
   buf.write("data", 36);

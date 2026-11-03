@@ -2,7 +2,7 @@ import type { SKRSContext2D } from "@napi-rs/canvas";
 import { activeWord, clamp01, easeOutBack, font } from "@/lib/motion/render";
 import { AI_LABEL } from "@/lib/pipeline/assemble";
 import { chunkWords } from "@/lib/pipeline/captions";
-import { beatSec, type DanceMove, type DanceScript, type Dancer, type Segment } from "./script";
+import { beatSec, type DanceMove, type DanceScript, type Dancer, type Segment, type WordTime } from "./script";
 
 // Draws one frame of a dance reel: the scene, cartoon kids dancing on the beat, the chant as
 // bouncing captions, and the AI label. All sizes are for 1080x1920 and scale with the height.
@@ -583,12 +583,23 @@ function titleCard(ctx: SKRSContext2D, w: number, h: number, title: string, k: n
   ctx.restore();
 }
 
+// Which word is being sung: from the sung words' own timings when there are some, else shared out by length.
+export function chantWordAt(words: string[], sinceStart: number, spoken: number, timed?: WordTime[]): number {
+  if (timed?.length === words.length) {
+    let i = 0;
+    while (i + 1 < timed.length && timed[i + 1].start <= sinceStart) i++;
+    return i;
+  }
+  return sinceStart <= spoken ? activeWord(words, spoken, Math.max(0, sinceStart)) : words.length - 1;
+}
+
 // The chant line on a plum pill, bouncing on each beat, the word being sung in saffron.
-function chant(ctx: SKRSContext2D, w: number, h: number, text: string, sinceStart: number, spoken: number, beats: number) {
+function chant(ctx: SKRSContext2D, w: number, h: number, text: string, sinceStart: number, spoken: number, beats: number, timed?: WordTime[]) {
   const chunks = chunkWords(text);
   const words = chunks.flatMap((c, ci) => c.split(" ").map((wd) => ({ wd, ci })));
   if (!words.length) return;
-  const current = sinceStart <= spoken ? activeWord(words.map((x) => x.wd), spoken, Math.max(0, sinceStart)) : words.length - 1;
+  if (timed?.length) spoken = timed.at(-1)!.end;
+  const current = chantWordAt(words.map((x) => x.wd), sinceStart, spoken, timed);
   const chunk = chunks[words[current].ci];
   const size = Math.round(w * 0.075);
   const rtl = font(ctx, chunk, size);
@@ -686,7 +697,8 @@ export function drawDanceFrame(f: DanceFrame) {
   const scale = (h / 1920) * [1.5, 1.35, 1.2, 0.98][n - 1];
   const spread = n >= 3 ? 0.3 : 0.18;
   const xAt = (k: number) => (n === 1 ? w / 2 : w * (0.5 - spread + (2 * spread * k) / (n - 1)));
-  const voice = seg.line >= 0 && t - seg.start <= (f.spoken[seg.line] ?? 0);
+  const voiceEnd = seg.words?.length ? seg.words.at(-1)!.end : seg.line >= 0 ? (f.spoken[seg.line] ?? 0) : 0;
+  const voice = t - seg.start >= (seg.words?.[0]?.start ?? 0) && t - seg.start <= voiceEnd;
   script.dancers.forEach((dancer, k) => {
     // Slightly different timing and size per kid, so they look like kids, not clones.
     const lag = k * 0.04;
@@ -700,10 +712,12 @@ export function drawDanceFrame(f: DanceFrame) {
 
   if (seg.line === -1) titleCard(ctx, w, h, script.title, easeOutBack(clamp01(t / 0.5)), false);
   else titleCard(ctx, w, h, script.title, 1, true);
-  if (f.captions !== false && seg.line >= 0) chant(ctx, w, h, script.lines[seg.line].text, t - seg.start, f.spoken[seg.line] ?? 0, beats);
-  // The hook comes back in the finale only when its voice fits there (see voicePlacements).
-  const hookFits = seg.end - seg.start >= (f.spoken[0] ?? 0) + 0.1;
-  if (finale && hookFits && f.captions !== false) chant(ctx, w, h, script.lines[0].text, t - seg.start, f.spoken[0] ?? 0, beats);
+  if (f.captions !== false && seg.line >= 0) chant(ctx, w, h, script.lines[seg.line].text, t - seg.start, f.spoken[seg.line] ?? 0, beats, seg.words);
+  // The hook comes back in the finale only when its voice fits there (see voicePlacements). Sung reels say so
+  // with the finale's word timings; spoken ones (no timings anywhere) by the length of the hook.
+  const timed = segments.some((s) => s.words);
+  const hookFits = timed ? Boolean(seg.words) : seg.end - seg.start >= (f.spoken[0] ?? 0) + 0.1;
+  if (finale && hookFits && f.captions !== false) chant(ctx, w, h, script.lines[0].text, t - seg.start, f.spoken[0] ?? 0, beats, seg.words);
 
   // Thin progress bar at the top.
   ctx.fillStyle = "rgba(42,18,53,0.15)";

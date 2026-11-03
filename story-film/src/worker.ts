@@ -9,7 +9,7 @@ import { instagramAvailable, instagramClient, youtubeAvailable } from "@/lib/con
 import { pendingPosts, publishPost } from "@/lib/posts";
 import { provenanceFromEnv, trySign } from "@/lib/provenance";
 import { grantCredits } from "@/lib/billing/credits";
-import { buildPipelineDeps, buildSingDeps, buildSongProvider, buildTranscriber, type Quality, songsAvailable } from "@/lib/providers";
+import { buildDanceSinger, buildPipelineDeps, buildSingDeps, buildSongProvider, buildTranscriber, type Quality, songsAvailable } from "@/lib/providers";
 import { type MyVoiceJob, SONG_QUEUE, type SongJob, type SongQueueJob } from "@/lib/queue/songs";
 import { singInMyVoice } from "@/lib/voice/sing";
 import { updateSong } from "@/lib/songs/songs";
@@ -86,8 +86,16 @@ const filmWorker = new Worker<FilmQueueJob>(
     } else if ((job.data as FilmJob).format === "dance") {
       const d = job.data as FilmJob;
       const { llm, tts } = depsFor("standard");
-      result = await runDanceReel({ llm, tts, fontsDir: env.FONTS_DIR }, { ...d, handle: d.brand?.handle }, workDir, onStage);
-      description = "Dance reel: chant and voice made with AI; dancers, beat and animation drawn by Reelkar";
+      const aiSong = d.danceVoice === "ai_song";
+      result = await runDanceReel(
+        { llm, tts, fontsDir: env.FONTS_DIR, ...(aiSong ? { singer: buildDanceSinger(env), whisper } : {}) },
+        { ...d, voice: d.danceVoice, handle: d.brand?.handle },
+        workDir,
+        onStage,
+      );
+      description = aiSong
+        ? "Dance reel: chant and song made with AI (ACE-Step); dancers and animation drawn by Reelkar"
+        : "Dance reel: chant and voice made with AI; singing, dancers, beat and animation made by Reelkar";
     } else if ((job.data as FilmJob).format === "motion") {
       const d = job.data as FilmJob;
       const { llm, tts, music, fontsDir } = depsFor("standard");

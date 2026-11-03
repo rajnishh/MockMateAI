@@ -222,7 +222,7 @@ async function makeReelFromScript(deps: AgentDeps, turn: Turn, state: TurnState,
 
 // The assistant wrote the chant and picked the dancers; Reelkar draws, animates and adds the beat.
 async function makeDanceReel(deps: AgentDeps, turn: Turn, state: TurnState, input: ActionInput<"make_dance_reel">): Promise<AgentCard[]> {
-  const { durationSec, ...danceScript } = input;
+  const { durationSec, voice, ...danceScript } = input;
   const language = normaliseLanguage(danceScript.language);
   try {
     const { id } = await deps.startFilm(turn.userId, {
@@ -235,6 +235,7 @@ async function makeDanceReel(deps: AgentDeps, turn: Turn, state: TurnState, inpu
       quality: "standard",
       brand: turn.brand,
       danceScript,
+      danceVoice: voice,
     });
     state.made.push(id);
     return [{ type: "reel", reelId: id, title: danceScript.title, status: "queued" }];
