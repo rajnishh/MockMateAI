@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { danceScriptSchema } from "@/lib/dance/script";
 import { ENDINGS } from "@/lib/motion/script";
 import { STYLE_IDS } from "@/lib/styles";
 
@@ -10,7 +11,7 @@ const time = z.string().regex(/^([01]?\d|2[0-3]):[0-5]\d$/);
 // A reel: "R1" = newest of the creator's reels, "N1" = first reel made in this same reply,
 // "latest", or a reel id.
 const reelRef = z.string().trim().min(1).max(60).default("latest");
-const format = z.enum(["story", "motion"]).catch("motion");
+const format = z.enum(["story", "motion", "dance"]).catch("motion");
 const duration = z.coerce.number().pipe(z.union([z.literal(15), z.literal(30), z.literal(60)])).catch(30);
 const language = z.string().trim().min(2).max(10).optional();
 
@@ -21,7 +22,7 @@ export const ACTIONS = {
   },
   make_reel: {
     description:
-      'Make one reel. format "motion": animated text, tips, lists and numbers with a voice-over; "story": a narrated story with pictures. idea: 1-3 sentences the video is made from.',
+      'Make one reel. format "motion": animated text, tips, lists and numbers with a voice-over; "story": a narrated story with pictures; "dance": cartoon kids dancing to a dhol beat with a chant, for young children. idea: 1-3 sentences the video is made from.',
     input: z.object({
       idea: z.string().trim().min(20).max(2000),
       title: z.string().trim().max(80).optional(),
@@ -56,6 +57,16 @@ export const ACTIONS = {
         .refine((s) => [3, 6, 12].includes(s.length), "Use 3, 6 or 12 shots (15, 30 or 60 seconds)"),
       musicPrompt: z.string().trim().min(3).max(300),
     }),
+  },
+  make_dance_reel: {
+    description:
+      "Make a dance reel from a chant you wrote: cartoon Indian kids dance to a dhol beat while a voice chants your lines on the beat, with bouncing captions. " +
+      "Reelkar draws the kids and makes the beat, so it's free. lines: 2-6 short bouncy lines (3-7 words), each with a move (bounce, clap, wave, spin, jump, twist); " +
+      "they repeat like a chorus until the reel is full. Write an original hook; never copy lyrics from existing songs. " +
+      "dancers: 1-4 kids, each with name, skin (light|medium|deep), outfit (kurta|lehenga|frock|shirt), color (hex) and hair (short|curly|ponytails|bun|plait). " +
+      "scene: courtyard, park or stage. bpm: 90-140.",
+    connectorOnly: true,
+    input: danceScriptSchema.extend({ durationSec: duration }),
   },
   get_reel: {
     description: "One reel's progress. When it's ready, gives a link to watch the video and a link that opens it in the Reelkar app.",

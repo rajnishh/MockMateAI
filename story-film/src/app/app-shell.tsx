@@ -15,6 +15,7 @@ const ICONS = {
   cartoon: <><circle cx="12" cy="12" r="9" /><path d="M9 10h.01M15 10h.01M8.5 15a4 4 0 0 0 7 0" /></>,
   film: <><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4" /></>,
   motion: <><path d="M4 17c3-8 6-8 8-4s5 4 8-4" /><circle cx="20" cy="9" r="1.5" /></>,
+  dance: <><circle cx="12" cy="4.5" r="2" /><path d="M5 8l4 2h6l4-4M12 10v5l-4 6M12 15l4 2 1 4" /></>,
   edit: <><rect x="3" y="5" width="13" height="14" rx="3" /><path d="M16 10l5-3v10l-5-3" /></>,
   spark: <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />,
   songs: <><path d="M9 18V5l11-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="17" cy="16" r="3" /></>,

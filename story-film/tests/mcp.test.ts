@@ -134,6 +134,30 @@ describe("Reelkar connector (MCP)", { timeout: 30_000 }, () => {
     expect(describeActions()).toContain("get_reel");
   });
 
+  it("makes a dance reel from the assistant's chant, always kid-safe", async () => {
+    let body: Record<string, unknown> = {};
+    deps.startFilm = async (userId, b) => {
+      body = b as Record<string, unknown>;
+      const f = await createFilm(db, { userId, story: body.story as string, style: "animated", durationSec: 15, format: "dance", kidSafe: true });
+      return { id: f.id, credits: 0 };
+    };
+    const tool = tools().find((t) => t.name === "make_dance_reel")!;
+    expect(tool.inputSchema.required).toEqual(expect.arrayContaining(["title", "language", "dancers", "lines"]));
+
+    const made = textOf(await call("make_dance_reel", {
+      title: "Dubi Dubi Dum Dum",
+      language: "hi",
+      durationSec: 15,
+      dancers: [{ name: "Meera", skin: "light", outfit: "lehenga", color: "#e0198a", hair: "ponytails" }],
+      lines: [{ text: "डुबी डुबी डम डम", move: "clap" }, { text: "हम सब दोस्त", move: "jump" }],
+    }));
+    expect(made).toContain('Reel "Dubi Dubi Dum Dum"');
+    expect(body).toMatchObject({ format: "dance", kidSafe: true, durationSec: 15, language: "hi", quality: "standard" });
+    expect(body.danceScript).toMatchObject({ title: "Dubi Dubi Dum Dum", bpm: 118, scene: "courtyard", lines: [{ move: "clap" }, { move: "jump" }] });
+    expect(body.danceScript).not.toHaveProperty("durationSec");
+    expect(describeActions()).not.toContain("make_dance_reel");
+  });
+
   it("explains problems instead of failing silently", async () => {
     const bad = (await call("make_reel", { idea: "too short" })) as { result: { isError: boolean; content: { text: string }[] } };
     expect(bad.result.isError).toBe(true);

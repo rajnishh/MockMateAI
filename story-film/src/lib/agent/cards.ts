@@ -5,7 +5,7 @@ export type PostingMode = "ask" | "auto_schedule" | "auto_now";
 export type ReelLinks = { video: string; app: string; web: string };
 
 export type AgentCard =
-  | { type: "ideas"; ideas: { title: string; idea: string }[]; format: "story" | "motion"; language?: string }
+  | { type: "ideas"; ideas: { title: string; idea: string }[]; format: "story" | "motion" | "dance"; language?: string }
   | { type: "reel"; reelId: string; title: string; status: string; note?: string; links?: ReelLinks }
   | { type: "reels"; reels: { reelId: string; title: string; status: string; format: string }[] }
   // Waits for the creator's tap (posting mode "ask"); status is refreshed when history is read.

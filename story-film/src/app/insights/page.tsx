@@ -8,7 +8,7 @@ type Post = { id: string; status: string; platform: string | null; scheduledAt: 
 
 const WEEKS = 8;
 const DAY = 86_400_000;
-const FORMATS: Record<string, string> = { story: "Cartoons and films", motion: "Motion reels", edit: "Video edits" };
+const FORMATS: Record<string, string> = { story: "Cartoons and films", motion: "Motion reels", dance: "Dance reels", edit: "Video edits" };
 const PLATFORMS: Record<string, string> = { instagram: "Instagram", youtube: "YouTube" };
 
 function weekStart(d = new Date()) {

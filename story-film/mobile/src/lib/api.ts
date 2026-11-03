@@ -17,7 +17,7 @@ export interface Film {
   error: string | null;
   createdAt: string;
   videoUrl: string | null;
-  format?: "story" | "motion" | "edit" | "music";
+  format?: "story" | "motion" | "dance" | "edit" | "music";
 }
 
 export type Currency = "INR" | "USD" | "AED";
@@ -97,7 +97,7 @@ export type Voice = "natural" | "clear" | "deeper";
 // Ask Reelkar, the built-in agent (mirrors story-film/src/lib/agent/cards.ts).
 export type PostingMode = "ask" | "auto_schedule" | "auto_now";
 export type AgentCard =
-  | { type: "ideas"; ideas: { title: string; idea: string }[]; format: "story" | "motion"; language?: string }
+  | { type: "ideas"; ideas: { title: string; idea: string }[]; format: "story" | "motion" | "dance"; language?: string }
   | { type: "reel"; reelId: string; title: string; status: string; note?: string }
   | { type: "reels"; reels: { reelId: string; title: string; status: string; format: string }[] }
   | { type: "proposal"; actionId: string; text: string; status: "proposed" | "waiting" | "done" | "cancelled" | "failed" }

@@ -7,8 +7,8 @@ import type { LlmProvider } from "@/lib/providers/types";
 import { listAccounts } from "@/lib/social-accounts";
 import { suggestIdeas } from "@/lib/suggestions";
 import { type ActionInput, ACTIONS, type ActionName, isAction, isConnectorOnly } from "./actions";
-import { findLanguage } from "@/lib/languages";
-import { STYLE_HINTS } from "@/lib/styles";
+import { normaliseLanguage } from "@/lib/languages";
+import { DEFAULT_STYLE, STYLE_HINTS } from "@/lib/styles";
 import { CLIP_SECONDS } from "@/lib/quota/plans";
 import type { AgentCard, PostingMode, ReelLinks } from "./cards";
 import { buildPlannerPrompt, planSchema } from "./planner";
@@ -180,11 +180,13 @@ async function makeReel(deps: AgentDeps, turn: Turn, state: TurnState, input: Ac
     const { id } = await deps.startFilm(turn.userId, {
       story: input.idea,
       format: input.format,
-      language: input.language ?? turn.language ?? "auto",
+      // The model may name the language ("Hindi"); the apps send their saved code.
+      language: normaliseLanguage(input.language ?? turn.language),
       durationSec: input.durationSec,
       quality: "standard",
-      ...(input.style ? { style: input.style } : {}),
+      style: input.style ?? DEFAULT_STYLE,
       ...(input.format === "motion" ? { ending: input.ending ?? "auto", brand: turn.brand } : {}),
+      ...(input.format === "dance" ? { kidSafe: true, brand: turn.brand } : {}),
     });
     state.made.push(id);
     return [{ type: "reel", reelId: id, title: input.title ?? (input.idea.length > 48 ? `${input.idea.slice(0, 45)}…` : input.idea), status: "queued" }];
@@ -195,7 +197,7 @@ async function makeReel(deps: AgentDeps, turn: Turn, state: TurnState, input: Ac
 
 // The assistant wrote the script, so Reelkar only makes the video: no AI writing on Reelkar's side.
 async function makeReelFromScript(deps: AgentDeps, turn: Turn, state: TurnState, input: ActionInput<"make_reel_from_script">): Promise<AgentCard[]> {
-  const language = findLanguage(input.language)?.code ?? "auto";
+  const language = normaliseLanguage(input.language);
   // Every picture carries the style, as Reelkar's own scripts do.
   const style = STYLE_HINTS[input.style];
   const shots = input.shots.map((s) => ({ ...s, imagePrompt: s.imagePrompt.includes(style) ? s.imagePrompt : `${s.imagePrompt}, ${style}` }));
@@ -213,6 +215,29 @@ async function makeReelFromScript(deps: AgentDeps, turn: Turn, state: TurnState,
     });
     state.made.push(id);
     return [{ type: "reel", reelId: id, title: input.title, status: "queued" }];
+  } catch (err) {
+    return [problem(err, "make the reel")];
+  }
+}
+
+// The assistant wrote the chant and picked the dancers; Reelkar draws, animates and adds the beat.
+async function makeDanceReel(deps: AgentDeps, turn: Turn, state: TurnState, input: ActionInput<"make_dance_reel">): Promise<AgentCard[]> {
+  const { durationSec, ...danceScript } = input;
+  const language = normaliseLanguage(danceScript.language);
+  try {
+    const { id } = await deps.startFilm(turn.userId, {
+      story: [danceScript.title, ...danceScript.lines.map((l) => l.text)].join(". ").slice(0, 8000).padEnd(20, "."),
+      format: "dance",
+      style: "animated",
+      language,
+      durationSec,
+      kidSafe: true,
+      quality: "standard",
+      brand: turn.brand,
+      danceScript,
+    });
+    state.made.push(id);
+    return [{ type: "reel", reelId: id, title: danceScript.title, status: "queued" }];
   } catch (err) {
     return [problem(err, "make the reel")];
   }
@@ -252,6 +277,8 @@ async function run(deps: AgentDeps, turn: Turn, state: TurnState, name: ActionNa
       return makeReel(deps, turn, state, parsed.data as ActionInput<"make_reel">);
     case "make_reel_from_script":
       return makeReelFromScript(deps, turn, state, parsed.data as ActionInput<"make_reel_from_script">);
+    case "make_dance_reel":
+      return makeDanceReel(deps, turn, state, parsed.data as ActionInput<"make_dance_reel">);
     case "get_reel":
       return getReel(deps, turn, state, parsed.data as ActionInput<"get_reel">);
     case "make_week": {

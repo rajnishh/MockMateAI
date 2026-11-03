@@ -8,7 +8,7 @@ import { loadBrand } from "@/lib/brand-prefs";
 import { findLanguage, LANGUAGES } from "@/lib/languages";
 import { FILM_STYLES } from "@/lib/styles";
 
-type Mode = "film" | "cartoon" | "motion" | "edit";
+type Mode = "film" | "cartoon" | "motion" | "dance" | "edit";
 type Status = {
   id: string;
   status: string;
@@ -26,6 +26,7 @@ const TYPES: { mode: Mode; label: string; help: string; icon: IconName }[] = [
   { mode: "cartoon", label: "Cartoon episode", help: "The same character every episode", icon: "cartoon" },
   { mode: "film", label: "Short film", help: "Real-looking scenes and Indian art styles", icon: "film" },
   { mode: "motion", label: "Motion reel", help: "Tips, lists and quotes that move", icon: "motion" },
+  { mode: "dance", label: "Kids dance", help: "Cartoon kids dance to a dhol beat", icon: "dance" },
   { mode: "edit", label: "Edit my video", help: "Captions, zooms and effects on your clip", icon: "edit" },
 ];
 const FILM_STATUS: Record<string, string> = { queued: "Queued", running: "Making", review: "Check effects", failed: "Failed" };
@@ -226,7 +227,7 @@ export default function CreatePage() {
       language,
       captions,
       quality,
-      ...(mode === "cartoon" ? { style: "animated", characterId, kidSafe } : mode === "motion" ? { style: "animated", format: "motion", ending, keyword: ending === "comment" && keyword ? keyword : undefined, brand: loadBrand() } : { style }),
+      ...(mode === "cartoon" ? { style: "animated", characterId, kidSafe } : mode === "motion" ? { style: "animated", format: "motion", ending, keyword: ending === "comment" && keyword ? keyword : undefined, brand: loadBrand() } : mode === "dance" ? { style: "animated", format: "dance", kidSafe: true, brand: loadBrand() } : { style }),
     });
     setSubmitting(false);
     if (!ok) {
@@ -392,9 +393,10 @@ export default function CreatePage() {
                 </div>
               </>
             )}
+            {mode === "dance" && <p className="muted">Cartoon kids dance to a dhol beat while a voice chants a catchy rhyme, with bouncing captions. Drawn by Reelkar, so it uses your free weekly reels and no AI animation credits.</p>}
             {mode !== "edit" && (
               <>
-                <label htmlFor="story">{mode === "cartoon" ? "What happens in this episode?" : mode === "motion" ? "What is the reel about?" : "Your story"}</label>
+                <label htmlFor="story">{mode === "cartoon" ? "What happens in this episode?" : mode === "motion" ? "What is the reel about?" : mode === "dance" ? "What is the dance about? (e.g. a rain dance, counting to five, brushing teeth)" : "Your story"}</label>
                 <textarea id="story" value={story} onChange={(e) => setStory(e.target.value)} minLength={20} required />
               </>
             )}
@@ -436,7 +438,7 @@ export default function CreatePage() {
                 </select>
               </div>
             </div>
-            {billing?.premiumAvailable && mode !== "motion" && mode !== "edit" && (
+            {billing?.premiumAvailable && mode !== "motion" && mode !== "dance" && mode !== "edit" && (
               <>
                 <label htmlFor="quality">Animation</label>
                 <select id="quality" value={quality} onChange={(e) => setQuality(e.target.value)}>
@@ -453,7 +455,7 @@ export default function CreatePage() {
               </label>
             )}
             <p className="muted">Free plan: a few videos per week, 720p, labelled “Created with AI”.</p>
-            <button type="submit" disabled={busy}>{busy ? "Working…" : mode === "cartoon" ? "Make episode" : mode === "motion" ? "Make my reel" : mode === "edit" ? "Edit my video" : "Make my film"}</button>
+            <button type="submit" disabled={busy}>{busy ? "Working…" : mode === "cartoon" ? "Make episode" : mode === "motion" ? "Make my reel" : mode === "dance" ? "Make the dance" : mode === "edit" ? "Edit my video" : "Make my film"}</button>
           </form>
         </section>
 
@@ -468,7 +470,7 @@ export default function CreatePage() {
                 <div>
                   <dt>Cost</dt>
                   <dd>
-                    {quality === "premium" && mode !== "motion" && mode !== "edit" && billing
+                    {quality === "premium" && mode !== "motion" && mode !== "dance" && mode !== "edit" && billing
                       ? `${Math.round(durationSec / 5) * billing.premiumCreditsPerShot} credits`
                       : billing?.freeLeft === 0
                         ? "1 credit (free reels used)"

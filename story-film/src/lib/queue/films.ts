@@ -1,5 +1,6 @@
 import { VOICES } from "@/lib/edit/audio";
 import { editPlanSchema } from "@/lib/edit/plan";
+import { danceScriptSchema } from "@/lib/dance/script";
 import { ENDINGS } from "@/lib/motion/script";
 import { filmScriptSchema } from "@/lib/pipeline/script";
 import { STYLE_IDS } from "@/lib/styles";
@@ -23,10 +24,13 @@ export const filmJobSchema = z.object({
   language: z.enum(["auto", ...LANGUAGE_CODES]).default("auto"),
   captions: z.boolean().default(true),
   quality: z.enum(["standard", "premium"]).default("standard"),
-  // "motion" reels are animated text slides with a voice-over: always standard quality.
-  format: z.enum(["story", "motion"]).default("story"),
+  // "motion" reels are animated text slides with a voice-over, "dance" reels cartoon kids dancing to a
+  // dhol beat with a chant: both drawn by Reelkar, so always standard quality.
+  format: z.enum(["story", "motion", "dance"]).default("story"),
   // Story reels only: a script an assistant already wrote, used instead of writing one.
   script: filmScriptSchema.optional(),
+  // Dance reels only: a chant and dancers an assistant already wrote.
+  danceScript: danceScriptSchema.optional(),
   // Motion reels only: how the reel ends, and the creator's brand look.
   ending: z.enum(ENDINGS).default("auto"),
   keyword: z.string().trim().max(20).regex(/^[\p{L}\p{N}_-]*$/u, "One word, no spaces").optional(),
