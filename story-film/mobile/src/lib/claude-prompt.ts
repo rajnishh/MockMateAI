@@ -77,6 +77,12 @@ export function buildClaudePrompt(r: ClaudeReel): string {
   ].join("\n");
 }
 
-export function claudeUrl(prompt: string): string {
-  return `https://claude.ai/new?q=${encodeURIComponent(prompt)}`;
+// Where the creator opens Claude. The web link fills in the prompt (and opens the Claude phone app
+// on phones); the Desktop app's own claude:// link opens a new chat there. Claude in Chrome has
+// no link a page can open, so for it the prompt is copied for the creator to paste.
+export type ClaudeTarget = "web" | "desktop" | "chrome";
+
+export function claudeUrl(prompt: string, target: Exclude<ClaudeTarget, "chrome"> = "web"): string {
+  const base = target === "desktop" ? "claude://claude.ai/new" : "https://claude.ai/new";
+  return `${base}?q=${encodeURIComponent(prompt)}`;
 }
