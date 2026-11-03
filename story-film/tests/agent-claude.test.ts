@@ -53,6 +53,37 @@ describe("Ask Reelkar on Claude", () => {
     expect(names).not.toContain("answer_proposal");
   });
 
+  it("runs the calls in one reply one at a time, in Claude's order", async () => {
+    const { client } = fakeClaude(
+      { content: [toolUse("t1", "make_reel", { idea: "Three chai hacks for rainy mornings in Mumbai." }), toolUse("t2", "post_reel", { reel: "N1" })], stop_reason: "tool_use" },
+      { content: [{ type: "text", text: "Done." }], stop_reason: "end_turn" },
+    );
+    const log: string[] = [];
+    const act = async (name: ActionName) => {
+      log.push(`start ${name}`);
+      // make_reel is the slow one; post_reel must still wait for it, since "N1" is the reel it makes.
+      await new Promise((r) => setTimeout(r, name === "make_reel" ? 30 : 0));
+      log.push(`end ${name}`);
+      return [] as AgentCard[];
+    };
+    await new ClaudeToolPlanner(client).respond({ ...base, act });
+    expect(log).toEqual(["start make_reel", "end make_reel", "start post_reel", "end post_reel"]);
+  });
+
+  it("tells Claude when an action fails, and carries on", async () => {
+    const { client, requests } = fakeClaude(
+      { content: [toolUse("t1", "list_reels", {}), toolUse("t2", "suggest_ideas", {})], stop_reason: "tool_use" },
+      { content: [{ type: "text", text: "Here are ideas." }], stop_reason: "end_turn" },
+    );
+    const { calls, act } = recorder((name) => {
+      if (name === "list_reels") throw new Error("database down");
+      return [{ type: "ideas", ideas: [], format: "motion" }];
+    });
+    expect(await new ClaudeToolPlanner(client).respond({ ...base, act })).toBe("Here are ideas.");
+    expect(calls.map((c) => c.name)).toEqual(["list_reels", "suggest_ideas"]);
+    expect(JSON.stringify((requests[1].messages as Block[]).at(-1))).toContain('"is_error":true');
+  });
+
   it("stops after 5 actions in one message", async () => {
     const { client } = fakeClaude(
       { content: Array.from({ length: 6 }, (_, i) => toolUse(`t${i}`, "list_reels", {})), stop_reason: "tool_use" },

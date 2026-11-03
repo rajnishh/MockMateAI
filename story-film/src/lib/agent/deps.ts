@@ -50,6 +50,7 @@ export function toTurn(userId: string, t: z.infer<typeof turnSchema>): Turn {
 }
 
 // Claude only when switched on and a key is set; otherwise the free planner answers.
+// A chat reply shouldn't hang: one minute per call and one retry, then the free planner answers.
 let planner: ClaudeToolPlanner | undefined;
 let warned = false;
 function claudePlanner(env: Env): ClaudeToolPlanner | undefined {
@@ -59,6 +60,6 @@ function claudePlanner(env: Env): ClaudeToolPlanner | undefined {
     warned = true;
     return undefined;
   }
-  planner ??= new ClaudeToolPlanner(new Anthropic({ apiKey: env.ANTHROPIC_API_KEY }), env.ASK_REELKAR_CLAUDE_MODEL);
+  planner ??= new ClaudeToolPlanner(new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: 60_000, maxRetries: 1 }), env.ASK_REELKAR_CLAUDE_MODEL);
   return planner;
 }

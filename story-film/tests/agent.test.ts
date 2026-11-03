@@ -4,7 +4,7 @@ import { decide, handleMessage, onReelFinished, runAction, type AgentDeps } from
 import type { AgentCard } from "@/lib/agent/cards";
 import type { ToolPlanner, ToolPlannerInput } from "@/lib/agent/claude";
 import { buildPlannerPrompt } from "@/lib/agent/planner";
-import { getPostingMode, historyView } from "@/lib/agent/store";
+import { getPostingMode, historyView, recentMessages } from "@/lib/agent/store";
 import { addDays, localNow, nextSlot, zonedToUtc } from "@/lib/agent/time";
 import type { Db } from "@/lib/db";
 import { scheduledPost, socialAccount, user } from "@/lib/db/schema";
@@ -256,6 +256,8 @@ describe("Ask Reelkar", { timeout: 30_000 }, () => {
       const { assistant } = await handleMessage({ ...deps, planner }, turn, "ideas do");
       expect(assistant.text).toBe("Ideas!");
       expect(cardsOf(assistant)[0]).toMatchObject({ type: "ideas" });
+      // The creator's message is saved once, not again by the fallback.
+      expect((await recentMessages(db, "u1", 10)).map((m) => m.role)).toEqual(["user", "assistant"]);
     });
 
     it("keeps what was done when Claude fails partway, without doing it twice", async () => {

@@ -36,6 +36,14 @@ export class ClaudeToolPlanner implements ToolPlanner {
 
   async respond({ system, history, message, act }: ToolPlannerInput): Promise<string> {
     let used = 0;
+    // The runner starts every call in one reply at once, but actions build on each other
+    // ("make_reel" then "post_reel N1"), so they run one at a time in the order Claude wrote them.
+    let previous: Promise<unknown> = Promise.resolve();
+    const inOrder = <T>(step: () => Promise<T>): Promise<T> => {
+      const next = previous.then(step);
+      previous = next.catch(() => undefined);
+      return next;
+    };
     const actionTools = tools()
       .filter((t) => isAction(t.name) && !isConnectorOnly(t.name))
       .map((t) =>
@@ -43,11 +51,12 @@ export class ClaudeToolPlanner implements ToolPlanner {
           name: t.name,
           description: t.description,
           inputSchema: t.inputSchema as { type: "object" },
-          run: async (input) => {
-            if (++used > MAX_ACTIONS) return `Not done: at most ${MAX_ACTIONS} actions per message. Ask the creator to send the rest as a new message.`;
-            const cards = await act(t.name as ActionName, input);
-            return cards.map(cardText).join("\n\n") || "Done.";
-          },
+          run: (input) =>
+            inOrder(async () => {
+              if (++used > MAX_ACTIONS) return `Not done: at most ${MAX_ACTIONS} actions per message. Ask the creator to send the rest as a new message.`;
+              const cards = await act(t.name as ActionName, input);
+              return cards.map(cardText).join("\n\n") || "Done.";
+            }),
         }),
       );
     const final = await this.client.beta.messages.toolRunner({
