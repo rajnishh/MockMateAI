@@ -106,5 +106,7 @@ function strongHook(i: Idea): string | undefined {
 
 // The text a reel is made from: the hook goes first so the script opens with it.
 export function ideaBrief(i: Pick<Idea, "title" | "hook" | "idea">): string {
-  return i.hook ? `${i.hook} ${i.idea}` : `${i.title}. ${i.idea}`;
+  if (!i.hook) return `${i.title}. ${i.idea}`;
+  // Hooks often end without a full stop; add one so the line and the idea don't run together.
+  return /[.!?।؟…"”]$/.test(i.hook) ? `${i.hook} ${i.idea}` : `${i.hook}. ${i.idea}`;
 }

@@ -60,6 +60,8 @@ describe("idea suggestions", () => {
 
   it("starts the reel text with the hook", () => {
     expect(ideaBrief({ title: "Chai", hook: "Stop boiling milk twice.", idea: "Why it matters." })).toBe("Stop boiling milk twice. Why it matters.");
+    expect(ideaBrief({ title: "Chai", hook: "Sachin scored 100 centuries", idea: "A kid tries." })).toBe("Sachin scored 100 centuries. A kid tries.");
+    expect(ideaBrief({ title: "Chai", hook: "क्या आप जानते हैं कि चाय कब बनी?", idea: "कहानी।" })).toBe("क्या आप जानते हैं कि चाय कब बनी? कहानी।");
     expect(ideaBrief({ title: "Chai", idea: "Why it matters." })).toBe("Chai. Why it matters.");
   });
 });

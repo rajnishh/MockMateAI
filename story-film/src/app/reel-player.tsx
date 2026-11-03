@@ -61,6 +61,8 @@ export function ReelActions({ id, title, beforeShare }: { id: string; title?: st
   const [canShareFiles, setCanShareFiles] = useState(false);
   const [canShare, setCanShare] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  // Shown to copy by hand when the browser blocks the clipboard.
+  const [manualLink, setManualLink] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const name = `${(title ?? "reel").replace(/[^\p{L}\p{N} _-]+/gu, "").trim() || "reel"}.mp4`;
 
@@ -92,13 +94,15 @@ export function ReelActions({ id, title, beforeShare }: { id: string; title?: st
 
   async function copyLink() {
     setNote(null);
+    setManualLink(null);
     const url = await signedLink(id);
     if (!url) return setNote("Couldn't make a link. Try Download instead.");
     try {
       await navigator.clipboard.writeText(url);
       setNote("Link copied. It works for 2 hours, no sign-in needed.");
     } catch {
-      setNote(url);
+      setManualLink(url);
+      setNote("Copy this link. It works for 2 hours, no sign-in needed.");
     }
   }
 
@@ -120,6 +124,7 @@ export function ReelActions({ id, title, beforeShare }: { id: string; title?: st
         </button>
       </div>
       {note && <p className="muted" role="status">{note}</p>}
+      {manualLink && <input className="link-box" readOnly value={manualLink} aria-label="Link to the reel" onFocus={(e) => e.currentTarget.select()} />}
     </>
   );
 }

@@ -204,7 +204,11 @@ button.plain { width: auto; min-height: 0; padding: 0; background: none; border:
 button.plain:active:not(:disabled) { transform: none; box-shadow: none; }
 .reel-row .thumb:empty { background: var(--surface-sunken); }
 .reel-item .post { flex-wrap: wrap; }
+.reel-item .post-actions { align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.reel-item .post-actions:has(.confirm) { flex-basis: 100%; }
+.reel-item .post-actions .confirm { flex-basis: 100%; }
 .reel-open { padding: 4px 4px 12px; }
+.link-box { width: 100%; font-size: 13px; font-family: var(--font-mono); }
 
 /* ---------- Checkboxes as rows ---------- */
 .check + .muted, .check + p { margin-top: 14px; }
