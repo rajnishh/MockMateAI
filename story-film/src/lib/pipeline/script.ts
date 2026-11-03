@@ -42,7 +42,8 @@ export function buildScriptPrompt({ story, style, shotCount, character, kidSafe,
     `Write exactly ${shotCount} shots of 5 seconds each.`,
     languageRule(language),
     "title follows the narration language; imagePrompt, motionPrompt and musicPrompt are always in English.",
-    "Narration per shot must be speakable in about 5 seconds (max ~14 words).",
+    "Narration per shot must be speakable in about 5 seconds (max ~14 words); every shot has narration.",
+    "title is a short, catchy name of 2 to 6 words and is never empty.",
     ...(character
       ? [
           `The main character is ${character.name}: ${character.description}.`,
@@ -77,6 +78,32 @@ export function parseJson(raw: string): unknown {
   return JSON.parse(body);
 }
 
-export function parseScript(raw: string): FilmScript {
-  return filmScriptSchema.parse(parseJson(raw));
+// A reply that has the right shape but can't make a reel; asking again usually fixes it.
+export class GarbledScriptError extends Error {
+  constructor(detail: string) {
+    super(`The script came back garbled: ${detail}`);
+    this.name = "GarbledScriptError";
+  }
+}
+
+// The free Llama often leaves the title empty; a reel shouldn't fail over that,
+// so it falls back to the first narration line or the start of the idea.
+function withTitle(data: unknown, story: string): unknown {
+  if (!data || typeof data !== "object") return data;
+  const d = data as { title?: unknown; shots?: { narration?: unknown }[] };
+  if (typeof d.title === "string" && d.title.trim()) return data;
+  const narration = (Array.isArray(d.shots) ? d.shots : []).map((s) => s?.narration).find((n) => typeof n === "string" && n.trim());
+  const title = (narration as string | undefined)?.trim() || story.trim().split(/\s+/).slice(0, 6).join(" ") || "My reel";
+  return { ...d, title: title.slice(0, 60) };
+}
+
+export function parseScript(raw: string, story = ""): FilmScript {
+  const script = filmScriptSchema.parse(withTitle(parseJson(raw), story));
+  if (!script.shots.some((s) => s.narration.trim())) throw new GarbledScriptError("no shot has narration");
+  return script;
+}
+
+// Worth asking the LLM again: unparseable JSON, the wrong shape, or no narration.
+export function isGarbledScript(err: unknown): boolean {
+  return err instanceof SyntaxError || err instanceof GarbledScriptError || (err as Error)?.name === "ZodError";
 }

@@ -1,4 +1,4 @@
-import { buildScriptPrompt, parseJson, parseScript } from "@/lib/pipeline/script";
+import { buildScriptPrompt, isGarbledScript, parseJson, parseScript } from "@/lib/pipeline/script";
 import type { FilmScript, LlmProvider, ScriptRequest } from "./types";
 
 // Enough for a 60-second script or a week of reel plans.
@@ -20,8 +20,16 @@ export class OpenAiCompatibleLlm implements LlmProvider {
     this.modelId = opts.licenseId;
   }
 
+  // Replies vary from call to call, so a garbled one gets one more try.
   async writeScript(input: ScriptRequest): Promise<FilmScript> {
-    return parseScript(await this.complete(buildScriptPrompt(input)));
+    const prompt = buildScriptPrompt(input);
+    try {
+      return parseScript(await this.complete(prompt), input.story);
+    } catch (err) {
+      if (!isGarbledScript(err)) throw err;
+      console.warn(`Script came back garbled, asking again: ${(err as Error).message.slice(0, 200)}`);
+      return parseScript(await this.complete(prompt), input.story);
+    }
   }
 
   async completeJson(prompt: string): Promise<unknown> {

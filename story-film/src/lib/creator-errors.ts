@@ -1,3 +1,4 @@
+import { isGarbledScript } from "@/lib/pipeline/script";
 import { ImageSafetyError } from "@/lib/providers/safety";
 
 export const SAFETY_BLOCKED_MESSAGE = "A picture for this reel was blocked by the safety filter. Try rewording your idea.";
@@ -10,7 +11,7 @@ const PROVIDER_STATUS = /^(?:Cloudflare AI|fal|LLM|Kokoro|Sarvam TTS|Whisper|Tra
 export function creatorMessage(err: unknown): string {
   const message = err instanceof Error ? err.message : String(err);
   if (err instanceof ImageSafetyError || /NSFW|content_policy_violation|"code":8007/i.test(message)) return SAFETY_BLOCKED_MESSAGE;
-  if ((err as Error)?.name === "ZodError" || err instanceof SyntaxError || /^LLM reply was cut off/.test(message)) {
+  if (isGarbledScript(err) || /^LLM reply was cut off/.test(message)) {
     return "The script for this reel came out garbled. Please try making it again.";
   }
   const status = Number(message.match(PROVIDER_STATUS)?.[1]);
