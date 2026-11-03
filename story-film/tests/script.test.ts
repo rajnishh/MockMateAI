@@ -92,6 +92,12 @@ describe("writeScript with an unreliable LLM", () => {
     expect(creatorMessage(err)).toMatch(/garbled/);
   });
 
+  it("asks for full narration sentences that fit a 5-second shot", () => {
+    const prompt = buildScriptPrompt({ story: "A story", style: "cinematic", shotCount: 3 });
+    expect(prompt).toContain("8 to 12 words");
+    expect(prompt).toContain("never a short label");
+  });
+
   it("asks for a title that is never empty", () => {
     expect(buildScriptPrompt({ story: "A story", style: "cinematic", shotCount: 3 })).toContain("never empty");
   });
