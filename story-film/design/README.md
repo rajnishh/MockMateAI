@@ -1,6 +1,25 @@
 # Design system
 
-## v2.0: Creator energy (current, 2026-10-31)
+## v3.0: Masala Pop (current, 2026-11-03)
+
+A bolder, warmer brand, with layouts like the Bachat app's Home:
+- **Colours:** a saffron-to-marigold hero with plum text, chilli for the main button, mint for AI and wins, and plum ink on cream.
+- **Dark mode:** plum night, with the same saffron hero.
+- **Layout:**
+  - Each page has one hero card with the number that matters, plus Ask Reelkar.
+  - Actions sit in an icon grid.
+  - A deep-plum sidebar on desktop and a floating plum tab bar on phones.
+- **Type:** Bricolage Grotesque headings and Inter text, with Hind for Indic scripts.
+- **Logo:** the reel logo stays, in plum and marigold.
+
+Files:
+- `v3.0/directions.html`: the four directions compared (Masala Pop, Studio Violet, Premiere Night, Coral Wave).
+- `v3.0/mockups.html`: Home and Make a reel for the web, on desktop and phone, in light and dark.
+- `v3.0/tokens.json`: the v3.0 tokens. The token names are v2.0's, plus `hero-start`, `hero-end`, `hero-ring`, `deep` and `on-deep`. Both apps use it:
+  - **Web:** `src/app/globals.css`. Home dashboard at `/`, Make a reel at `/create`, Brand kit at `/brand`, Insights at `/insights`.
+  - **Mobile:** `npm run theme` in `mobile/` generates `src/theme/tokens.ts` from this file. Fonts are Inter and Bricolage Grotesque.
+
+## v2.0: Creator energy (2026-10-31)
 
 More energy for creators, keeping the v1.0 reel logo:
 - **Light theme, "Creator studio":** navy with a stronger coral for main buttons (navy text on coral), a sunny yellow for wins, bigger radii, pressable buttons, and Plus Jakarta Sans.
@@ -16,7 +35,7 @@ Files and links:
 
 Chosen logo treatment, "Option 1+": the original reel stays the one mark (app icon, splash, header). Short loads show the reel spinning, long waits add coral and teal rings, and a finished reel gets one ring burst and confetti.
 
-- `v2.0/tokens.json`: the v2.0 tokens (adds `pop` / `on-pop`). The mobile theme is generated from it (`npm run theme`); the web app mirrors the colours in `src/app/globals.css`.
+- `v2.0/tokens.json`: the v2.0 tokens (adds `pop` / `on-pop`). Kept for reference; both apps now use v3.0.
 
 ## v1.0: Reelkar (Trust Navy)
 

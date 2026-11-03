@@ -251,7 +251,7 @@ export default function CalendarPage() {
       <section>
         <h2>Schedule a video</h2>
         {films.length === 0 ? (
-          <p className="muted">Finished videos will appear here. <Link href="/">Make one</Link>.</p>
+          <p className="muted">Finished videos will appear here. <Link href="/create">Make one</Link>.</p>
         ) : accounts.length === 0 ? (
           <p className="muted">Connect a YouTube channel to schedule posts.</p>
         ) : (

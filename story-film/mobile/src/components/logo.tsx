@@ -52,9 +52,10 @@ export function ReelLogo({ size = 64, loop = false, rings = false }: { size?: nu
 
   const k = size / 112;
   const dark = mode === "dark";
-  const tile = dark ? colors.surfaceRaised : colors.brand;
-  const reel = dark ? colors.teal : "#ffffff";
-  const tail = dark ? colors.pop : colors.teal;
+  // v3.0: a plum tile with the marigold reel, mint tail and chilli hub in both themes.
+  const tile = dark ? colors.surfaceRaised : colors.deep;
+  const reel = colors.pop;
+  const tail = colors.teal;
   const spin = t.interpolate({ inputRange: [0, 0.45, 1], outputRange: ["0deg", "360deg", "360deg"], easing: Easing.bezier(0.6, 0, 0.3, 1) });
   const feed = t.interpolate({ inputRange: [0, 0.35, 0.58, 0.68, 1], outputRange: [0.15, 0.15, 1.15, 1, 1] });
   const click = t.interpolate({ inputRange: [0, 0.45, 0.53, 0.62, 1], outputRange: [1, 1, 1.9, 1, 1] });
@@ -71,7 +72,6 @@ export function ReelLogo({ size = 64, loop = false, rings = false }: { size?: nu
     <View
       style={[
         { width: size, height: size, borderRadius: 30 * k, backgroundColor: tile },
-        dark ? { shadowColor: colors.teal, shadowOpacity: 0.6, shadowRadius: 10 * k, shadowOffset: { width: 0, height: 0 } } : null,
       ]}>
       <Animated.View
         style={{

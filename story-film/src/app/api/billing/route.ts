@@ -7,6 +7,7 @@ import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
 import { premiumAvailable } from "@/lib/providers";
 import { getUserId, unauthorized } from "@/lib/session";
+import { freeReelsLeft } from "@/lib/start-film";
 
 export async function GET() {
   const userId = await getUserId();
@@ -21,6 +22,7 @@ export async function GET() {
     keyId: rzp?.keys.keyId ?? null,
     balance: await getBalance(db, userId),
     freeVideosPerWeek: env.FREE_FILMS_PER_WEEK,
+    freeLeft: await freeReelsLeft(userId),
     premiumAvailable: premiumAvailable(env),
     premiumCreditsPerShot: PREMIUM_CREDITS_PER_SHOT,
     packs: PACKS,

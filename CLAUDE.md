@@ -9,7 +9,7 @@ The active project is **Reelkar** in `story-film/`: an AI creator studio for Ind
 - **Run it on this computer:** use the `run-local` skill (`.claude/skills/run-local/SKILL.md`).
 - **Plan and decisions:** `story-film/docs/PLAN.md`.
 - **AI connector (MCP):** `story-film/docs/CONNECTORS.md`.
-- **Design system:** `story-film/design/` (v2.0 is current).
+- **Design system:** `story-film/design/` (v3.0 "Masala Pop" is current).
 - **Checks before committing**, in `story-film/`:
   - `npm run typecheck && npm test`
   - In `mobile/`: `npx tsc --noEmit && npx expo lint`

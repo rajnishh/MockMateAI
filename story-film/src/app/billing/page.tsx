@@ -10,6 +10,7 @@ type Billing = {
   enabled: boolean;
   balance: number;
   freeVideosPerWeek: number;
+  freeLeft?: number;
   premiumAvailable: boolean;
   premiumCreditsPerShot: number;
   packs: Pack[];
@@ -142,8 +143,19 @@ export default function BillingPage() {
       {error && <div className="status error-box" role="alert">{error}</div>}
 
       <div className="balance">
-        <span className="muted">Balance</span>
-        <strong>{data.balance} credits</strong>
+        <div>
+          <span className="muted">Balance</span>
+          <strong>{data.balance} credits</strong>
+        </div>
+        {data.freeLeft !== undefined && (
+          <div className="balance-free">
+            <span className="muted">Free this week</span>
+            <b>{data.freeLeft} of {data.freeVideosPerWeek} left</b>
+            <span className="meter" role="img" aria-label={`${data.freeLeft} of ${data.freeVideosPerWeek} free reels left this week`}>
+              <i style={{ width: `${(data.freeLeft / Math.max(1, data.freeVideosPerWeek)) * 100}%` }} />
+            </span>
+          </div>
+        )}
       </div>
       <p className="muted">
         {data.freeVideosPerWeek} standard videos a week are free. After that a standard video costs 1 credit.
