@@ -112,12 +112,13 @@ export function buildLlm(env: Env): OpenAiCompatibleLlm {
     });
   }
   const accountId = requireKey(env.CLOUDFLARE_ACCOUNT_ID, "CLOUDFLARE_ACCOUNT_ID");
-  // Workers AI's OpenAI-compatible endpoint; JSON mode isn't relied on there.
+  // Workers AI's OpenAI-compatible endpoint. Every call wants JSON, and without JSON mode the free
+  // Llama sometimes sends broken JSON (an unquoted key, a stray quote), so it's on.
   return new OpenAiCompatibleLlm(
     `${cloudflareAiBase(accountId)}/v1`,
     requireKey(env.CLOUDFLARE_API_TOKEN, "CLOUDFLARE_API_TOKEN"),
     env.CF_LLM_MODEL ?? CLOUDFLARE_DEFAULTS.llmModel,
-    { licenseId: "llama-3.3-70b", jsonMode: false },
+    { licenseId: "llama-3.3-70b", jsonMode: true },
   );
 }
 

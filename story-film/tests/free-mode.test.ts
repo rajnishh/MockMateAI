@@ -3,10 +3,12 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { createCharacter, referenceSheetPrompt } from "@/lib/characters";
+import { loadEnv } from "@/lib/env";
 import { LocalMediaStore, publicMediaUrl, readMedia } from "@/lib/media";
 import { defaultFfmpeg } from "@/lib/pipeline/orchestrator";
+import { buildLlm } from "@/lib/providers";
 import { CloudflareFluxImage } from "@/lib/providers/cloudflare";
 import { KenBurnsVideo } from "@/lib/providers/kenburns";
 import { OpenAiCompatibleLlm } from "@/lib/providers/llm";
@@ -76,6 +78,23 @@ describe("AI suggestions", () => {
     const llm = new OpenAiCompatibleLlm("https://x/v1", "k", "@cf/model", { licenseId: "llama-3.3-70b", jsonMode: false }, fetchFn);
 
     await expect(llm.completeJson("ideas")).rejects.toThrow("cut off");
+  });
+
+  it("asks the free Workers AI model for JSON mode, and tries once more if a reply still doesn't parse", async () => {
+    const bodies: Record<string, unknown>[] = [];
+    const replies = ['{"ideas":[{"title" "Rain"}]}', '{"ideas":[{"title":"Rain","idea":"Puddle colours."}]}'];
+    vi.stubGlobal("fetch", (async (_url: string, init: RequestInit) => {
+      bodies.push(JSON.parse(init.body as string));
+      return new Response(JSON.stringify({ choices: [{ message: { content: replies[bodies.length - 1] }, finish_reason: "stop" }] }));
+    }) as unknown as typeof fetch);
+    try {
+      const llm = buildLlm(loadEnv({ CLOUDFLARE_ACCOUNT_ID: "acct", CLOUDFLARE_API_TOKEN: "tok" }));
+      expect(await llm.completeJson("ideas")).toEqual({ ideas: [{ title: "Rain", idea: "Puddle colours." }] });
+      expect(bodies).toHaveLength(2);
+      expect(bodies[0].response_format).toEqual({ type: "json_object" });
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 

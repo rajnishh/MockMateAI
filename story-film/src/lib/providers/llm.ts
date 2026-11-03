@@ -32,8 +32,15 @@ export class OpenAiCompatibleLlm implements LlmProvider {
     }
   }
 
+  // Same for anything else that should come back as JSON: one more try if it doesn't parse.
   async completeJson(prompt: string): Promise<unknown> {
-    return parseJson(await this.complete(prompt));
+    try {
+      return parseJson(await this.complete(prompt));
+    } catch (err) {
+      if (!(err instanceof SyntaxError)) throw err;
+      console.warn(`LLM reply wasn't valid JSON, asking again: ${err.message.slice(0, 200)}`);
+      return parseJson(await this.complete(prompt));
+    }
   }
 
   private async complete(prompt: string): Promise<string> {
