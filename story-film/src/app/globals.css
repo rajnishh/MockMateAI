@@ -73,7 +73,7 @@ button.secondary:active:not(:disabled) { transform: scale(0.98); box-shadow: non
 a:has(> button) { display: inline-flex; text-decoration: none; }
 
 label { display: block; margin: 18px 0 6px; font-size: 13px; line-height: 18px; font-weight: 700; color: var(--ink-muted); }
-input[type="text"], input[type="tel"], input[type="datetime-local"], input:not([type]), textarea, select {
+input[type="text"], input[type="tel"], input[type="email"], input[type="datetime-local"], input:not([type]), textarea, select {
   font: inherit; font-size: 16px; line-height: 26px; width: 100%; min-height: 50px; padding: 11px 14px;
   border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface-sunken); color: var(--ink);
   transition: border-color .12s ease, background-color .12s ease;
@@ -244,6 +244,7 @@ header.top .post-actions { flex-wrap: wrap; justify-content: flex-start; }
 .cc { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .cc-badge { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid currentColor; font-size: 10px; font-weight: 700; }
 .prefix { flex: 0 0 auto !important; display: flex; align-items: center; min-height: 50px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface-sunken); color: var(--ink); font-weight: 700; font-family: var(--font-mono); }
+select.prefix { width: auto; padding-right: 38px; background-position: right 12px center; }
 
 /* ---------- App shell ---------- */
 /* Deep-plum sidebar from 768px (icon rail below 1024px), floating plum tab bar on phones. */
