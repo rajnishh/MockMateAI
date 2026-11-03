@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { Alert, StyleSheet, View } from "react-native";
 
 import { Icon } from "@/components/icon";
 import { LogoLoader } from "@/components/logo";
@@ -58,7 +58,7 @@ export default function Making() {
         failed ? (
           <>
             <Button label="Try a new reel" icon="refresh" block onPress={() => router.replace("/create")} />
-            <Button label="Delete this reel" icon="trash" kind="danger" block onPress={() => confirmDelete(id, () => router.replace("/reels"), setError)} />
+            <Button label="Delete this reel" icon="trash" kind="danger" block onPress={() => confirmDelete(id, () => router.replace("/reels"), (message) => Alert.alert("Couldn't delete", message))} />
           </>
         ) : (
           <Button label="Go to Home" kind="secondary" block onPress={() => router.replace("/home")} />

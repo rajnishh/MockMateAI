@@ -6,7 +6,8 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Db } from "@/lib/db";
 import { film, scheduledPost, user } from "@/lib/db/schema";
-import { createFilm, updateFilm } from "@/lib/films";
+import { saveCharacter } from "@/lib/characters";
+import { createFilm, seriesEpisodes, updateFilm } from "@/lib/films";
 import { createPost } from "@/lib/posts";
 import { saveYouTubeAccount } from "@/lib/social-accounts";
 import { testDb } from "./helpers/db";
@@ -96,5 +97,20 @@ describe("DELETE /api/films/:id", () => {
 
   it("answers 404 for an id that isn't a reel", async () => {
     expect((await del("not-a-uuid")).status).toBe(404);
+  });
+});
+
+describe("series episodes", () => {
+  it("lists a character's own finished episodes, newest first, without failed ones", async () => {
+    const c = await saveCharacter(db, "u1", { id: crypto.randomUUID(), name: "Mia", description: "toddler", style: "animated", referenceImageUrl: "file:///ref.jpg", seed: 7 });
+    const ep = async (title: string, status: "completed" | "failed", userId = "u1") => {
+      const f = await createFilm(db, { userId, characterId: c.id, story: `${title} story`, style: "animated", durationSec: 30 });
+      await updateFilm(db, f.id, { status, title, createdAt: new Date(Date.now() + (title === "Kite day" ? 1000 : 0)) });
+    };
+    await ep("Rainy day", "completed");
+    await ep("Broken", "failed");
+    await ep("Kite day", "completed");
+    expect(await seriesEpisodes(db, "u1", c.id)).toEqual(["Kite day: Kite day story", "Rainy day: Rainy day story"]);
+    expect(await seriesEpisodes(db, "u2", c.id)).toEqual([]);
   });
 });

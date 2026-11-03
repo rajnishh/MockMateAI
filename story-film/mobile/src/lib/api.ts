@@ -280,7 +280,12 @@ const real = {
   retryPost: (id: string) => call<unknown>(`/api/posts/${id}/retry`, { method: "POST" }),
   deleteFilm: (id: string) => call<unknown>(`/api/films/${id}`, { method: "DELETE" }),
   // A signed link that plays without signing in (for 2 hours): used to save and share the video.
-  shareLink: async (id: string) => (await call<{ url: string }>(`/api/films/${id}/link`, { method: "POST" })).url,
+  // The server builds it on its public URL; the phone downloads through the address it already
+  // reaches (a LAN IP or tunnel in development, where the public URL is often localhost).
+  shareLink: async (id: string) => {
+    const { url } = await call<{ url: string }>(`/api/films/${id}/link`, { method: "POST" });
+    return `${API_URL}${new URL(url).pathname}`;
+  },
   videoUrl: (film: Film) => (film.videoUrl ? `${API_URL}${film.videoUrl}` : null),
   videoHeaders: async (): Promise<Record<string, string>> => {
     const cookie = await authClient.getCookie();

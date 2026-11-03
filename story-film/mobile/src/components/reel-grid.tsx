@@ -1,5 +1,5 @@
-import { router } from "expo-router";
-import { useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 
 import { api, type Film } from "@/lib/api";
@@ -38,6 +38,8 @@ const canDelete = (f: Film) => f.status === "completed" || f.status === "failed"
 export function ReelGrid({ films, columns = 2, onDeleted }: { films: Film[]; columns?: number; onDeleted?: () => void }) {
   const { colors } = useTheme();
   const [playing, setPlaying] = useState<string | null>(null);
+  // Tabs and pushed screens stay mounted, so stop the inline video when this screen loses focus.
+  useFocusEffect(useCallback(() => () => setPlaying(null), []));
   const open = (f: Film) => router.push(f.status === "completed" ? `/reel/${f.id}` : f.status === "review" ? `/edit/${f.id}` : `/making/${f.id}`);
   const remove = (f: Film) =>
     confirmDelete(

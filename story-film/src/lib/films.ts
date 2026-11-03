@@ -1,6 +1,6 @@
 import { readdir, rm } from "node:fs/promises";
 import path from "node:path";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, notExists } from "drizzle-orm";
 import type { Db } from "@/lib/db";
 import { film, scheduledPost } from "@/lib/db/schema";
 
@@ -43,15 +43,14 @@ export async function deleteFilm(db: Db, userId: string, id: string, outputDir: 
   const row = await getFilm(db, userId, id).catch(() => undefined);
   if (!row) return "not_found";
   if (!DELETABLE.includes(row.status)) return "busy";
-  const uploading = await db
+  // One statement, so a post the publisher claims meanwhile still keeps the reel.
+  const uploading = db
     .select({ id: scheduledPost.id })
     .from(scheduledPost)
-    .where(and(eq(scheduledPost.filmId, id), eq(scheduledPost.status, "publishing")))
-    .limit(1);
-  if (uploading.length) return "busy";
+    .where(and(eq(scheduledPost.filmId, film.id), eq(scheduledPost.status, "publishing")));
   const gone = await db
     .delete(film)
-    .where(and(eq(film.id, id), eq(film.userId, userId), inArray(film.status, DELETABLE)))
+    .where(and(eq(film.id, id), eq(film.userId, userId), inArray(film.status, DELETABLE), notExists(uploading)))
     .returning({ id: film.id });
   if (!gone.length) return "busy";
   // The id came from the database (a UUID), never straight from the request.
@@ -62,12 +61,13 @@ export async function deleteFilm(db: Db, userId: string, id: string, outputDir: 
   return "deleted";
 }
 
-// A cartoon series is every film made with one character; newest first, for "suggest the next episode".
+// A cartoon series is every film made with one character (failed ones never aired); newest first,
+// for "suggest the next episode".
 export async function seriesEpisodes(db: Db, userId: string, characterId: string, limit = 5): Promise<string[]> {
   const rows = await db
     .select({ title: film.title, story: film.story })
     .from(film)
-    .where(and(eq(film.userId, userId), eq(film.characterId, characterId)))
+    .where(and(eq(film.userId, userId), eq(film.characterId, characterId), ne(film.status, "failed")))
     .orderBy(desc(film.createdAt))
     .limit(limit);
   return rows.map((r) => (r.title ? `${r.title}: ${r.story}` : r.story).slice(0, 240));
