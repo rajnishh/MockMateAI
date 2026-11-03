@@ -18,6 +18,7 @@ Files:
 - `v3.0/tokens.json`: the v3.0 tokens. The token names are v2.0's, plus `hero-start`, `hero-end`, `hero-ring`, `deep` and `on-deep`. Both apps use it:
   - **Web:** `src/app/globals.css`. Home dashboard at `/`, Make a reel at `/create`, Brand kit at `/brand`, Insights at `/insights`.
   - **Mobile:** `npm run theme` in `mobile/` generates `src/theme/tokens.ts` from this file. Fonts are Inter and Bricolage Grotesque.
+  - **App icon, splash and favicon:** `node scripts/app-icons.mjs` in `story-film/` draws the PNGs in `mobile/assets/images/` from the Masala Pop mark (saffron reel on deep plum).
 
 ## v2.0: Creator energy (2026-10-31)
 
