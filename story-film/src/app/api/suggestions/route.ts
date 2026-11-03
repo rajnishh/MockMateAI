@@ -3,6 +3,8 @@ import { z } from "zod";
 import { getCharacter } from "@/lib/characters";
 import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
+import { creatorMessage } from "@/lib/creator-errors";
+import { isGarbledScript } from "@/lib/pipeline/script";
 import { buildLlm } from "@/lib/providers";
 import { getUserId, unauthorized } from "@/lib/session";
 import { suggestIdeas } from "@/lib/suggestions";
@@ -26,6 +28,9 @@ export async function POST(req: Request) {
     const ideas = await suggestIdeas(buildLlm(loadEnv()), { ...parsed.data, character });
     return NextResponse.json({ ideas });
   } catch (err) {
-    return NextResponse.json({ error: `Couldn't get ideas: ${(err as Error).message}` }, { status: 502 });
+    console.error("[suggestions]", err);
+    // A plain sentence for the creator, never the raw parser or provider error.
+    const why = isGarbledScript(err) ? "The AI's answer came out garbled. Please try again." : creatorMessage(err);
+    return NextResponse.json({ error: `Couldn't get ideas. ${why}` }, { status: 502 });
   }
 }
