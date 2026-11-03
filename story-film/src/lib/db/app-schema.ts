@@ -358,7 +358,7 @@ export const oauthGrant = pgTable(
     lastUsedAt: timestamp("last_used_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (t) => [index("oauth_grant_user_idx").on(t.userId)],
+  (t) => [index("oauth_grant_user_idx").on(t.userId), uniqueIndex("oauth_grant_app_idx").on(t.userId, t.clientId, t.resource)],
 );
 
 export const oauthTokenKind = pgEnum("oauth_token_kind", ["code", "access", "refresh"]);

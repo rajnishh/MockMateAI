@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { DANCE_VOICES, danceScriptSchema } from "@/lib/dance/script";
-import { ENDINGS } from "@/lib/motion/script";
+import { ENDINGS, motionScriptSchema } from "@/lib/motion/script";
 import { STYLE_IDS } from "@/lib/styles";
 
 // Everything Ask Reelkar can do. The same list (names, descriptions and input schemas) will be
@@ -38,13 +38,15 @@ export const ACTIONS = {
       "Make a story reel from a script you wrote: Reelkar makes the pictures, motion, voice, music and captions exactly from it. " +
       "3 shots = 15s, 6 = 30s, 12 = 60s; each shot is 5 seconds. narration: what the voice says (about 12 words, in the reel's language). " +
       "imagePrompt (English): one picture, describing each recurring character the same way every time. motionPrompt (English): camera and subject movement. " +
-      "musicPrompt (English): one instrumental track. Set kidSafe for children's content.",
+      "musicPrompt (English): one instrumental track. Set kidSafe for children's content. " +
+      "characterId: the creator's saved character, if they gave you one; Reelkar keeps that character's look in every picture.",
     connectorOnly: true,
     input: z.object({
       title: z.string().trim().min(1).max(80),
       language: z.string().trim().min(2).max(10).default("en"),
       style: z.enum(STYLE_IDS).default("animated"),
       kidSafe: z.boolean().default(false),
+      characterId: z.uuid().optional(),
       characters: z.array(z.object({ name: z.string().trim().min(1).max(40), description: z.string().trim().min(1).max(300) })).max(5).default([]),
       shots: z
         .array(
@@ -57,6 +59,17 @@ export const ACTIONS = {
         .refine((s) => [3, 6, 12].includes(s.length), "Use 3, 6 or 12 shots (15, 30 or 60 seconds)"),
       musicPrompt: z.string().trim().min(3).max(300),
     }),
+  },
+  make_motion_reel_from_script: {
+    description:
+      "Make a motion reel from slides you wrote: bold animated text with a voice-over (tips, lists, numbers, quotes), no AI pictures, so it's free. " +
+      "Reelkar animates and voices the slides exactly as written. About one slide per 5-6 seconds of reel, 2-12 slides. Start with a \"title\" slide " +
+      "(headline, optional highlight copied from it, optional sub). Slide types: title, list (heading, 2-5 items), stat (value number, optional prefix/suffix, label), " +
+      "chart (label, 2-8 values in order, optional suffix), compare (before/after each {label, value}), contrast (before, after), timer (seconds, label), " +
+      "question (text), quote (text, optional real author), cta (text, optional action). Every slide has narration (what the voice says, up to ~25 words, in the reel's language). " +
+      "Numbers must be real or given by the creator; never invent statistics or quotes. theme: navy, saffron, mint or night. ending: none, follow, comment or auto.",
+    connectorOnly: true,
+    input: motionScriptSchema.extend({ ending: z.enum(ENDINGS).catch("auto"), keyword: z.string().trim().max(20).optional() }),
   },
   make_dance_reel: {
     description:

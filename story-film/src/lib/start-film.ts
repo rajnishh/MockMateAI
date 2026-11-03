@@ -33,6 +33,7 @@ const FIELD_ERRORS: Record<string, string> = {
   brand: "Your Brand kit settings aren't valid. Open Brand kit and save them again.",
   script: "The script isn't valid: check each shot has narration, a picture and a motion description.",
   danceScript: "The dance script isn't valid: check the title, dancers and chant lines.",
+  motionScript: "The slides aren't valid: check each slide's type, its fields and its narration.",
   danceVoice: "Pick how the chant is voiced: sung, chant or AI song.",
 };
 

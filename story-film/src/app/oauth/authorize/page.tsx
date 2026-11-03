@@ -13,12 +13,15 @@ export const metadata: Metadata = { title: "Connect to Reelkar" };
 type Search = Promise<Record<string, string | string[] | undefined>>;
 
 // OAuth consent: an assistant (claude.ai, the Claude phone app...) asks to use Reelkar for the creator.
-// Not signed in: off to /login and back here. Bad client or return address: an error, never a redirect.
+// Not signed in: off to /login and back here first. Bad client or return address: an error, never a redirect.
 export default async function AuthorizePage({ searchParams }: { searchParams: Search }) {
   const query = new URLSearchParams();
   for (const [k, v] of Object.entries(await searchParams)) if (typeof v === "string") query.set(k, v);
   const h = await headers();
   const issuer = issuerFor(h);
+  // Sign-in comes first, so anonymous visitors can't make Reelkar fetch client documents from anywhere.
+  const session = await auth.api.getSession({ headers: h });
+  if (!session) redirect(`/login?next=${encodeURIComponent(`/oauth/authorize?${query}`)}`);
 
   let request;
   try {
@@ -33,9 +36,6 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Se
       </Shell>
     );
   }
-
-  const session = await auth.api.getSession({ headers: h });
-  if (!session) redirect(`/login?next=${encodeURIComponent(`/oauth/authorize?${query}`)}`);
 
   const host = redirectHost(request.redirectUri);
   const local = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host);

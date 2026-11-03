@@ -3,9 +3,7 @@ import { headers } from "next/headers";
 import { auth, googleEnabled } from "@/lib/auth";
 import { ReelLogo } from "../reel-logo";
 import { LoginForm } from "./login-form";
-
-// Where to go after signing in: a path on this site only (the connector's consent screen uses it).
-const safeNext = (next: unknown) => (typeof next === "string" && /^\/(?![/\\])/.test(next) ? next : "/");
+import { safeNext } from "@/lib/safe-next";
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string | string[] }> }) {
   const next = safeNext((await searchParams).next);

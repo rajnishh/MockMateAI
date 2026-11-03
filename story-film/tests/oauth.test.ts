@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createToken } from "@/lib/agent/tokens";
 import type { Db } from "@/lib/db";
-import { oauthToken, user } from "@/lib/db/schema";
+import { oauthClient, oauthToken, user } from "@/lib/db/schema";
 import { type FetchClientDocument, isClientDocumentUrl, isPrivateAddress, parseClientDocument } from "@/lib/oauth/client-document";
 import { isTrustedOrigin, publicOrigin } from "@/lib/oauth/origin";
 import { connectorOwner, connectorUnauthorized } from "@/lib/oauth/resource";
@@ -19,6 +19,7 @@ import {
   OAuthError,
   parseAuthorization,
   protectedResourceMetadata,
+  pruneUnusedClients,
   registerClient,
   revokeGrant,
   revokeOAuthToken,
@@ -158,6 +159,36 @@ describe("Connector OAuth 2.1", { timeout: 30_000 }, () => {
     const c = await authorize();
     await rejects(redeem(c.code, c.verifier, { client_id: other }), "invalid_grant");
     await rejects(redeem(c.code, "short"), "invalid_request");
+  });
+
+  it("doesn't use up a code on a failed attempt, so the right verifier still works", async () => {
+    const { code, verifier: v } = await authorize();
+    await rejects(redeem(code, verifier()), "invalid_grant");
+    const tokens = await redeem(code, v);
+    expect(await accessTokenOwner(db, tokens.access_token, RESOURCE)).toMatchObject({ userId: "u1" });
+    expect(await listGrants(db, "u1")).toHaveLength(1);
+  });
+
+  it("keeps one connected app per assistant, even when Allow is pressed twice at once", async () => {
+    await Promise.all([authorize(), authorize()]);
+    await authorize();
+    expect(await listGrants(db, "u1")).toHaveLength(1);
+  });
+
+  it("answers malformed client credentials with invalid_client, not a crash", async () => {
+    const basic = `Basic ${Buffer.from(`${clientId}%zz:secret`).toString("base64")}`;
+    const e = await exchangeToken(db, form({ grant_type: "refresh_token", refresh_token: "x" }), basic, ISSUER).catch((err) => err);
+    expect(e).toMatchObject({ error: "invalid_client", status: 401 });
+  });
+
+  it("drops registrations nobody connected within a day", async () => {
+    const stale = (await registerClient(db, { redirect_uris: [CALLBACK] })).client_id;
+    await authorize();
+    await db.update(oauthClient).set({ createdAt: new Date(Date.now() - 2 * 86_400_000) });
+    await pruneUnusedClients(db);
+    const left = (await db.select().from(oauthClient)).map((c) => c.id);
+    expect(left).toContain(clientId);
+    expect(left).not.toContain(stale);
   });
 
   it("revokes the connection when a code is used twice", async () => {

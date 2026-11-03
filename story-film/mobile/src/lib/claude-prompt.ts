@@ -11,9 +11,11 @@ export interface ClaudeReel {
   // Leave out to use the idea's own language.
   language?: { code: string; name: string };
   brand?: BrandPrefs;
-  // Picture style id for film and cartoon reels (see ./styles.ts).
+  // Picture style id for film and cartoon reels (see styles.ts in the same app).
   style?: string;
   kidSafe?: boolean;
+  // Cartoon episodes: the creator's saved character, so every episode shows the same one.
+  character?: { id: string; name: string; description: string };
 }
 
 const TYPE_LABEL: Record<ClaudeReelType, string> = {
@@ -40,11 +42,16 @@ function steps(r: ClaudeReel, lang: string): string[] {
       `Write an original, bouncy chant yourself and call make_dance_reel with durationSec ${r.durationSec} and language ${lang}. Make the dancers Indian kids${r.brand?.accent ? ` and dress one of them in my accent colour ${r.brand.accent}` : ""}.`,
     ];
   if (r.type === "motion")
-    return [`Call make_reel with format "motion", durationSec ${r.durationSec}, language ${lang} and the idea above (a few clear sentences).`];
+    return [
+      `Write the slides yourself and call make_motion_reel_from_script: about ${Math.round(r.durationSec / 5)} slides for ${r.durationSec} seconds, narration in ${lang}. Use only real numbers.`,
+    ];
   const shots = SHOTS[r.durationSec] ?? 6;
   return [
     `Write the script yourself and call make_reel_from_script with ${shots} shots (${r.durationSec} seconds), narration in ${lang}` +
       `${r.style ? `, style "${r.style}"` : ""}${r.kidSafe ? " and kidSafe true" : ""}. Describe each recurring character the same way in every shot.`,
+    ...(r.character
+      ? [`The main character is my saved character ${r.character.name}: ${r.character.description}. Pass characterId "${r.character.id}" and describe ${r.character.name} exactly like that in every shot they appear in.`]
+      : []),
   ];
 }
 

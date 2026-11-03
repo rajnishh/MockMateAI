@@ -1,5 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { and, desc, eq, isNull, lt } from "drizzle-orm";
+import { and, desc, eq, isNull, lt, notExists } from "drizzle-orm";
 import type { Db } from "@/lib/db";
 import { oauthClient, oauthGrant, oauthToken } from "@/lib/db/schema";
 import { type FetchClientDocument, fetchClientDocument, isClientDocumentUrl, validRedirectUri } from "./client-document";
@@ -18,6 +18,10 @@ export const REFRESH_TTL_SEC = 30 * 86400;
 const ACCESS_PREFIX = "rkat_";
 const REFRESH_PREFIX = "rkrt_";
 const MAX_REDIRECT_URIS = 10;
+// "Last used" on /connect only needs to be roughly right; don't write it on every tool call.
+const LAST_USED_EVERY_MS = 5 * 60 * 1000;
+// Registered clients that no creator connected within a day are dropped.
+const UNUSED_CLIENT_MS = 86_400_000;
 
 export const hashSecret = (s: string) => createHash("sha256").update(s).digest("hex");
 const random = (prefix = "") => prefix + randomBytes(32).toString("base64url");
@@ -104,6 +108,7 @@ export async function registerClient(db: Db, body: unknown) {
     throw new OAuthError("invalid_client_metadata", "Only the code response type is supported.");
   }
   const name = typeof b.client_name === "string" && b.client_name.trim() ? b.client_name.trim().slice(0, 80) : "An AI assistant";
+  await pruneUnusedClients(db);
   const id = random("rkc_");
   const secret = method === "none" ? null : random("rks_");
   const [row] = await db
@@ -120,6 +125,13 @@ export async function registerClient(db: Db, body: unknown) {
     response_types: ["code"],
     token_endpoint_auth_method: method,
   };
+}
+
+// Registrations nobody finished connecting (claude.ai registers again on each attempt) don't pile up.
+export async function pruneUnusedClients(db: Db, now = new Date()) {
+  await db
+    .delete(oauthClient)
+    .where(and(lt(oauthClient.createdAt, new Date(now.getTime() - UNUSED_CLIENT_MS)), notExists(db.select().from(oauthGrant).where(eq(oauthGrant.clientId, oauthClient.id)))));
 }
 
 export async function findClient(db: Db, clientId: string, fetchDoc: FetchClientDocument = fetchClientDocument): Promise<Client | null> {
@@ -211,19 +223,15 @@ export async function parseAuthorization(
 export const redirectHost = (uri: string) => new URL(uri).host;
 
 export async function approve(db: Db, req: AuthorizationRequest, issuer: string, userId: string, timeZone: string, now = new Date()) {
-  const [existing] = await db
-    .select()
-    .from(oauthGrant)
-    .where(and(eq(oauthGrant.userId, userId), eq(oauthGrant.clientId, req.client.id), eq(oauthGrant.resource, req.resource)));
-  const grant =
-    existing ??
-    (
-      await db
-        .insert(oauthGrant)
-        .values({ userId, clientId: req.client.id, clientName: req.client.name, redirectHost: redirectHost(req.redirectUri), scope: req.scope, resource: req.resource, timeZone })
-        .returning()
-    )[0];
-  if (existing) await db.update(oauthGrant).set({ timeZone, clientName: req.client.name }).where(eq(oauthGrant.id, grant.id));
+  // One grant per creator, app and endpoint: allowing again (even twice at once) updates it.
+  const [grant] = await db
+    .insert(oauthGrant)
+    .values({ userId, clientId: req.client.id, clientName: req.client.name, redirectHost: redirectHost(req.redirectUri), scope: req.scope, resource: req.resource, timeZone })
+    .onConflictDoUpdate({
+      target: [oauthGrant.userId, oauthGrant.clientId, oauthGrant.resource],
+      set: { timeZone, clientName: req.client.name, redirectHost: redirectHost(req.redirectUri) },
+    })
+    .returning();
   const code = random();
   await db.insert(oauthToken).values({
     hash: hashSecret(code),
@@ -249,8 +257,12 @@ async function authenticateClient(db: Db, form: URLSearchParams, authorization: 
     const decoded = Buffer.from(authorization.slice(6), "base64").toString();
     const i = decoded.indexOf(":");
     if (i > 0) {
-      clientId = decodeURIComponent(decoded.slice(0, i));
-      secret = decodeURIComponent(decoded.slice(i + 1));
+      try {
+        clientId = decodeURIComponent(decoded.slice(0, i));
+        secret = decodeURIComponent(decoded.slice(i + 1));
+      } catch {
+        throw new OAuthError("invalid_client", "Malformed client credentials", 401);
+      }
     }
   }
   const client = clientId ? await findClient(db, clientId, fetchDoc) : null;
@@ -264,8 +276,9 @@ export const s256 = (verifier: string) => createHash("sha256").update(verifier).
 async function issueTokens(db: Db, grant: typeof oauthGrant.$inferSelect, now: Date) {
   const access = random(ACCESS_PREFIX);
   const refresh = random(REFRESH_PREFIX);
-  // Expired rows are no use; used refresh tokens stay until they expire, to catch a stolen one being replayed.
-  await db.delete(oauthToken).where(and(eq(oauthToken.grantId, grant.id), lt(oauthToken.expiresAt, now)));
+  // Expired rows (from every grant, so idle ones don't pile up) are no use; used refresh tokens stay
+  // until they expire, to catch a stolen one being replayed.
+  await db.delete(oauthToken).where(lt(oauthToken.expiresAt, now));
   await db.insert(oauthToken).values([
     { hash: hashSecret(access), grantId: grant.id, kind: "access", expiresAt: new Date(now.getTime() + ACCESS_TTL_SEC * 1000) },
     { hash: hashSecret(refresh), grantId: grant.id, kind: "refresh", expiresAt: new Date(now.getTime() + REFRESH_TTL_SEC * 1000) },
@@ -274,8 +287,16 @@ async function issueTokens(db: Db, grant: typeof oauthGrant.$inferSelect, now: D
 }
 
 // Codes and refresh tokens are spent exactly once. A second use means one leaked, so the
-// whole grant is revoked (OAuth 2.1 §4.1.3 and §4.3.1).
-async function spend(db: Db, hash: string, kind: "code" | "refresh", clientId: string, now: Date) {
+// whole grant is revoked (OAuth 2.1 §4.1.3 and §4.3.1). `check` runs before the token is spent,
+// so a request that fails it (a wrong PKCE verifier, say) doesn't use up the code.
+async function spend(
+  db: Db,
+  hash: string,
+  kind: "code" | "refresh",
+  clientId: string,
+  now: Date,
+  check: (row: { token: typeof oauthToken.$inferSelect; grant: typeof oauthGrant.$inferSelect }) => void = () => {},
+) {
   const [row] = await db
     .select({ token: oauthToken, grant: oauthGrant })
     .from(oauthToken)
@@ -283,6 +304,10 @@ async function spend(db: Db, hash: string, kind: "code" | "refresh", clientId: s
     .where(and(eq(oauthToken.hash, hash), eq(oauthToken.kind, kind)));
   const what = kind === "code" ? "authorization code" : "refresh token";
   if (!row || row.grant.clientId !== clientId) throw new OAuthError("invalid_grant", `Unknown ${what}`);
+  if (!row.token.usedAt) {
+    if (row.token.expiresAt <= now) throw new OAuthError("invalid_grant", `The ${what} has expired`);
+    check(row);
+  }
   const claimed = await db
     .update(oauthToken)
     .set({ usedAt: now })
@@ -292,7 +317,6 @@ async function spend(db: Db, hash: string, kind: "code" | "refresh", clientId: s
     await db.delete(oauthGrant).where(eq(oauthGrant.id, row.grant.id));
     throw new OAuthError("invalid_grant", `This ${what} was already used, so the connection was revoked. Connect again.`);
   }
-  if (row.token.expiresAt <= now) throw new OAuthError("invalid_grant", `The ${what} has expired`);
   return row;
 }
 
@@ -309,10 +333,11 @@ export async function exchangeToken(db: Db, form: URLSearchParams, authorization
     const verifier = form.get("code_verifier");
     if (!code) throw new OAuthError("invalid_request", "code is required");
     if (!verifier || !/^[A-Za-z0-9._~-]{43,128}$/.test(verifier)) throw new OAuthError("invalid_request", "A PKCE code_verifier of 43 to 128 characters is required");
-    const { token, grant } = await spend(db, hashSecret(code), "code", client.id, now);
-    if (form.get("redirect_uri") && form.get("redirect_uri") !== token.redirectUri) throw new OAuthError("invalid_grant", "redirect_uri doesn't match the authorization request");
-    if (!token.codeChallenge || !sameHash(s256(verifier), token.codeChallenge)) throw new OAuthError("invalid_grant", "The PKCE code_verifier doesn't match");
-    if (resource && canonicalResource(resource, issuer) !== grant.resource) throw new OAuthError("invalid_target", "resource doesn't match the authorization request");
+    const { grant } = await spend(db, hashSecret(code), "code", client.id, now, ({ token, grant }) => {
+      if (form.get("redirect_uri") && form.get("redirect_uri") !== token.redirectUri) throw new OAuthError("invalid_grant", "redirect_uri doesn't match the authorization request");
+      if (!token.codeChallenge || !sameHash(s256(verifier), token.codeChallenge)) throw new OAuthError("invalid_grant", "The PKCE code_verifier doesn't match");
+      if (resource && canonicalResource(resource, issuer) !== grant.resource) throw new OAuthError("invalid_target", "resource doesn't match the authorization request");
+    });
     return issueTokens(db, grant, now);
   }
 
@@ -351,7 +376,9 @@ export async function accessTokenOwner(db: Db, token: string, resource: string, 
     .innerJoin(oauthGrant, eq(oauthToken.grantId, oauthGrant.id))
     .where(and(eq(oauthToken.hash, hashSecret(token)), eq(oauthToken.kind, "access")));
   if (!row || row.token.expiresAt <= now || row.grant.resource !== resource) return null;
-  await db.update(oauthGrant).set({ lastUsedAt: now }).where(eq(oauthGrant.id, row.grant.id));
+  if (!row.grant.lastUsedAt || now.getTime() - row.grant.lastUsedAt.getTime() > LAST_USED_EVERY_MS) {
+    await db.update(oauthGrant).set({ lastUsedAt: now }).where(eq(oauthGrant.id, row.grant.id));
+  }
   return { userId: row.grant.userId, timeZone: row.grant.timeZone, clientName: row.grant.clientName };
 }
 

@@ -251,6 +251,7 @@ export default function CreatePage() {
       brand: loadBrand(),
       style: mode === "film" ? style : mode === "cartoon" ? "animated" : undefined,
       kidSafe: mode === "dance" || (mode === "cartoon" && kidSafe),
+      character: mode === "cartoon" ? characters.find((c) => c.id === characterId) : undefined,
     });
     window.open(claudeUrl(prompt), "_blank", "noopener");
   }

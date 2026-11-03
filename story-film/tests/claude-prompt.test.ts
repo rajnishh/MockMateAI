@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { buildClaudePrompt, claudeUrl } from "@/lib/claude-prompt";
 
@@ -31,9 +32,16 @@ describe("Build with Claude prompt", () => {
     expect(p).toContain("Brand look: none set");
   });
 
-  it("uses make_reel for motion reels", () => {
+  it("has Claude write motion slides itself, and passes a cartoon's saved character", () => {
     const p = buildClaudePrompt({ type: "motion", idea: "3 chai hacks", durationSec: 30, language: { code: "en", name: "English" } });
-    expect(p).toContain('make_reel with format "motion", durationSec 30, language "en"');
+    expect(p).toContain('make_motion_reel_from_script: about 6 slides for 30 seconds, narration in "en"');
+    const c = buildClaudePrompt({ type: "cartoon", idea: "Mia at the fair", durationSec: 15, character: { id: "c1", name: "Mia", description: "a girl in a yellow frock" } });
+    expect(c).toContain('Pass characterId "c1"');
+  });
+
+  it("is the same in the mobile app", () => {
+    const body = (f: string) => readFileSync(f, "utf8").split("\n").slice(3).join("\n");
+    expect(body("mobile/src/lib/claude-prompt.ts")).toBe(body("src/lib/claude-prompt.ts"));
   });
 
   it("opens a new Claude chat with the prompt filled in", () => {
