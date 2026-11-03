@@ -1,9 +1,10 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { Alert, StyleSheet, View } from "react-native";
 
 import { Icon } from "@/components/icon";
 import { LogoLoader } from "@/components/logo";
+import { confirmDelete } from "@/components/reel-grid";
 import { Banner, Button, Card, Header, ProgressBar, Screen, Txt } from "@/components/ui";
 import { api, type Film, type Stage } from "@/lib/api";
 import { fonts, useTheme } from "@/theme";
@@ -55,7 +56,10 @@ export default function Making() {
     <Screen
       footer={
         failed ? (
-          <Button label="Try a new reel" icon="refresh" block onPress={() => router.replace("/create")} />
+          <>
+            <Button label="Try a new reel" icon="refresh" block onPress={() => router.replace("/create")} />
+            <Button label="Delete this reel" icon="trash" kind="danger" block onPress={() => confirmDelete(id, () => router.replace("/reels"), (message) => Alert.alert("Couldn't delete", message))} />
+          </>
         ) : (
           <Button label="Go to Home" kind="secondary" block onPress={() => router.replace("/home")} />
         )

@@ -7,6 +7,7 @@ import { Banner, Button, Card, ChipRow, Credits, Field, Header, ListRow, Row, Sc
 import { api, ApiError, type Idea, type Voice } from "@/lib/api";
 import { buildClaudePrompt, claudeUrl } from "@/lib/claude-prompt";
 import { API_URL } from "@/lib/config";
+import { ideaBrief } from "@/lib/formats";
 import { LANGUAGES } from "@/lib/languages";
 import { useSession } from "@/lib/session";
 import { INDIAN_ART, LOOKS, type Style } from "@/lib/styles";
@@ -65,7 +66,8 @@ export default function Create() {
   async function getIdeas() {
     setIdeasBusy(true);
     try {
-      setIdeas(await api.ideas(prefs?.topic ?? "", language));
+      // Ideas fit the reel type picked; "More ideas" skips the ones already shown.
+      setIdeas(await api.ideas(prefs?.topic ?? "", language, { format: editing ? undefined : kind as Exclude<Kind, "edit">, avoid: ideas?.map((i) => i.title) }));
     } catch (err) {
       setError({ text: (err as Error).message, credits: false });
     } finally {
@@ -358,11 +360,12 @@ export default function Create() {
             maxLength={2000}
             placeholder={IDEA_PLACEHOLDER[kind as Exclude<Kind, "edit">]}
           />
-          <Button label={ideasBusy ? "Finding ideas…" : "Give me ideas for my topic"} kind="ghost" icon="sparkle" disabled={ideasBusy} onPress={getIdeas} style={{ paddingHorizontal: 0 }} />
+          <Txt variant="cap">Start with a line that stops the scroll, then say what happens and how it ends.</Txt>
+          <Button label={ideasBusy ? "Finding ideas…" : ideas ? "More ideas" : "Give me ideas for my topic"} kind="ghost" icon="sparkle" disabled={ideasBusy} onPress={getIdeas} style={{ paddingHorizontal: 0 }} />
           {ideas ? (
             <Card flat>
               {ideas.map((i) => (
-                <ListRow key={i.title} title={i.title} sub={i.idea} right={<Button label="Use" small kind="secondary" onPress={() => (setStory(`${i.title}. ${i.idea}`), setIdeas(null))} />} />
+                <ListRow key={i.title} title={i.title} sub={i.hook ? `“${i.hook}”\n${i.idea}` : i.idea} right={<Button label="Use" small kind="secondary" onPress={() => (setStory(ideaBrief(i)), setIdeas(null))} />} />
               ))}
             </Card>
           ) : null}
