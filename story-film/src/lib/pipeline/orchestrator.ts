@@ -15,6 +15,7 @@ import type {
   TtsProvider,
   VideoProvider,
 } from "@/lib/providers/types";
+import { cleanImagePrompt, fillBlockedFrames, generateKeyframeSafely } from "@/lib/providers/safety";
 import { CLIP_SECONDS, shotCountFor } from "@/lib/quota/plans";
 import { buildAssembleArgs } from "./assemble";
 import { buildCues, renderCaptionImages } from "./captions";
@@ -80,7 +81,7 @@ export async function runFilm(
   await mkdir(workDir, { recursive: true });
 
   await onStage("script");
-  const script = req.script ?? await deps.llm.writeScript({
+  let script = req.script ?? await deps.llm.writeScript({
     story: req.story,
     style: req.style,
     shotCount: shotCountFor(req.durationSec),
@@ -88,6 +89,8 @@ export async function runFilm(
     kidSafe: req.kidSafe,
     language: req.language,
   });
+  // Image filters often misread children's scenes (bath time, bedtime), so kids' prompts skip those words up front.
+  if (req.kidSafe) script = { ...script, shots: script.shots.map((s) => ({ ...s, imagePrompt: cleanImagePrompt(s.imagePrompt) })) };
   await writeFile(path.join(workDir, "script.json"), JSON.stringify(script, null, 2));
 
   // A saved character's reference image anchors identity; otherwise the
@@ -96,12 +99,13 @@ export async function runFilm(
   const seed = req.character?.seed;
   const refs = [...(req.character ? [req.character.referenceImageUrl] : []), ...req.referenceImageUrls];
   const [first, ...rest] = script.shots;
-  const firstFrame = await deps.image.generateKeyframe({ prompt: first.imagePrompt, referenceImageUrls: refs, seed });
-  const anchors = req.character ? refs : [...refs, firstFrame.url].slice(-5);
+  // A shot the safety filter blocks twice reuses a neighbouring picture instead of failing the reel.
+  const firstFrame = await generateKeyframeSafely(deps.image, { prompt: first.imagePrompt, referenceImageUrls: refs, seed });
+  const anchors = req.character || !firstFrame ? refs : [...refs, firstFrame.url].slice(-5);
   const restFrames = await mapLimit(rest, 3, (shot) =>
-    deps.image.generateKeyframe({ prompt: shot.imagePrompt, referenceImageUrls: anchors, seed }),
+    generateKeyframeSafely(deps.image, { prompt: shot.imagePrompt, referenceImageUrls: anchors, seed }),
   );
-  const frames = [firstFrame, ...restFrames];
+  const frames = fillBlockedFrames([firstFrame, ...restFrames]);
 
   await onStage("clips");
   const clips = await mapLimit(script.shots, 3, async (shot, i) => {

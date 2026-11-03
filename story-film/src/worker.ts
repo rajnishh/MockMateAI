@@ -9,6 +9,7 @@ import { instagramAvailable, instagramClient, youtubeAvailable } from "@/lib/con
 import { pendingPosts, publishPost } from "@/lib/posts";
 import { provenanceFromEnv, trySign } from "@/lib/provenance";
 import { grantCredits } from "@/lib/billing/credits";
+import { creatorMessage } from "@/lib/creator-errors";
 import { buildPipelineDeps, buildSingDeps, buildSongProvider, buildTranscriber, type Quality, songsAvailable } from "@/lib/providers";
 import { type MyVoiceJob, SONG_QUEUE, type SongJob, type SongQueueJob } from "@/lib/queue/songs";
 import { singInMyVoice } from "@/lib/voice/sing";
@@ -119,10 +120,11 @@ filmWorker.on("failed", async (job, err) => {
   if (job && job.attemptsMade >= (job.opts.attempts ?? 1)) {
     // A failed re-render keeps the video the creator already has.
     if (isEditRender(job) && job.data.rerender) {
-      await updateFilm(db, job.data.filmId, { status: "completed", stage: "done", error: `Re-render failed: ${err.message}`.slice(0, 500) });
+      await updateFilm(db, job.data.filmId, { status: "completed", stage: "done", error: `Re-render failed: ${creatorMessage(err)}`.slice(0, 500) });
       return;
     }
-    await updateFilm(db, filmIdOf(job), { status: "failed", error: err.message.slice(0, 500) });
+    // The raw provider error stays in the log above; the creator gets a plain sentence.
+    await updateFilm(db, filmIdOf(job), { status: "failed", error: creatorMessage(err) });
     await onReelFinished(agentDeps(), filmIdOf(job)).catch(() => undefined);
     if ("quotaKey" in job.data && job.data.quotaKey) await new RedisQuotaStore(getRedis()).decrement(job.data.quotaKey);
     if (job.data.credits > 0) await grantCredits(db, job.data.userId, job.data.credits, "refund", job.id!);
@@ -166,7 +168,7 @@ if (songsAvailable(env)) {
   songWorker.on("failed", async (job, err) => {
     console.error(`song ${job?.data.songId} failed:`, err.message);
     if (job && job.attemptsMade >= (job.opts.attempts ?? 1)) {
-      await updateSong(db, job.data.songId, { status: "failed", error: err.message.slice(0, 500) });
+      await updateSong(db, job.data.songId, { status: "failed", error: creatorMessage(err) });
       await grantCredits(db, job.data.userId, job.data.credits, "refund", `song:${job.data.songId}`);
     }
   });
