@@ -42,7 +42,12 @@ export function buildScriptPrompt({ story, style, shotCount, character, kidSafe,
     `Write exactly ${shotCount} shots of 5 seconds each.`,
     languageRule(language),
     "title follows the narration language; imagePrompt, motionPrompt and musicPrompt are always in English.",
-    "Narration per shot must be speakable in about 5 seconds (max ~14 words).",
+    // Each shot's voice-over is cut at 5 seconds, so 12 words is the ceiling; the free Llama otherwise writes 2-3 word labels.
+    "Narration is a spoken voice-over: every shot gets one complete, vivid sentence of 8 to 12 words (never more than 12, it must fit in 5 seconds).",
+    "Each line tells the story or adds a funny or surprising detail the picture can't show; never a short label like \"Cute dog\" or \"Wake up\".",
+    "Read in order, the lines flow as one short story: hook the viewer in the first shot and end with a payoff.",
+    'Example of the length and tone wanted, about a different topic; never copy its words or names: "Nobody warned us that the neighbour\'s goat also wanted breakfast."',
+    "title is a short, catchy name of 2 to 6 words and is never empty.",
     ...(character
       ? [
           `The main character is ${character.name}: ${character.description}.`,
@@ -58,7 +63,7 @@ export function buildScriptPrompt({ story, style, shotCount, character, kidSafe,
     "musicPrompt describes one instrumental background track (genre, mood, tempo).",
     "Reply with JSON only, matching:",
     '{"title":string,"language":string,"characters":[{"name":string,"description":string}],',
-    '"shots":[{"narration":string,"imagePrompt":string,"motionPrompt":string}],"musicPrompt":string}',
+    '"shots":[{"narration":string (8-12 words),"imagePrompt":string,"motionPrompt":string}],"musicPrompt":string}',
     "",
     "Idea:",
     story,
@@ -77,6 +82,32 @@ export function parseJson(raw: string): unknown {
   return JSON.parse(body);
 }
 
-export function parseScript(raw: string): FilmScript {
-  return filmScriptSchema.parse(parseJson(raw));
+// A reply that has the right shape but can't make a reel; asking again usually fixes it.
+export class GarbledScriptError extends Error {
+  constructor(detail: string) {
+    super(`The script came back garbled: ${detail}`);
+    this.name = "GarbledScriptError";
+  }
+}
+
+// The free Llama often leaves the title empty; a reel shouldn't fail over that,
+// so it falls back to the first narration line or the start of the idea.
+function withTitle(data: unknown, story: string): unknown {
+  if (!data || typeof data !== "object") return data;
+  const d = data as { title?: unknown; shots?: { narration?: unknown }[] };
+  if (typeof d.title === "string" && d.title.trim()) return data;
+  const narration = (Array.isArray(d.shots) ? d.shots : []).map((s) => s?.narration).find((n) => typeof n === "string" && n.trim());
+  const title = (narration as string | undefined)?.trim() || story.trim().split(/\s+/).slice(0, 6).join(" ") || "My reel";
+  return { ...d, title: title.slice(0, 60) };
+}
+
+export function parseScript(raw: string, story = ""): FilmScript {
+  const script = filmScriptSchema.parse(withTitle(parseJson(raw), story));
+  if (!script.shots.some((s) => s.narration.trim())) throw new GarbledScriptError("no shot has narration");
+  return script;
+}
+
+// Worth asking the LLM again: unparseable JSON, the wrong shape, or no narration.
+export function isGarbledScript(err: unknown): boolean {
+  return err instanceof SyntaxError || err instanceof GarbledScriptError || (err as Error)?.name === "ZodError";
 }
