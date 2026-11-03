@@ -30,6 +30,7 @@ interface SessionValue {
   prefs: Prefs | null;
   onboarded: boolean;
   signInWithGoogle: () => Promise<void>;
+  // phone is in E.164 form, e.g. "+971501234567" (see lib/phone.ts).
   sendOtp: (phone: string) => Promise<void>;
   verifyOtp: (phone: string, code: string) => Promise<void>;
   savePrefs: (p: Prefs) => Promise<void>;
@@ -41,11 +42,6 @@ const Ctx = createContext<SessionValue | null>(null);
 const PREFS_KEY = "reelkar.prefs";
 const ONBOARDED_KEY = "reelkar.onboarded";
 const DEMO_USER_KEY = "reelkar.demoUser";
-
-export function toE164India(phone: string): string {
-  const digits = phone.replace(/\D/g, "");
-  return `+91${digits.slice(-10)}`;
-}
 
 // Demo mode has no backend to ask about the session.
 const useRemoteSession = DEMO ? () => ({ data: null, isPending: false }) : authClient.useSession;
@@ -91,12 +87,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     },
     sendOtp: async (phone) => {
       if (DEMO) return;
-      const { error } = await authClient.phoneNumber.sendOtp({ phoneNumber: toE164India(phone) });
+      const { error } = await authClient.phoneNumber.sendOtp({ phoneNumber: phone });
       if (error) throw new Error(error.message ?? "Couldn't send the code");
     },
     verifyOtp: async (phone, code) => {
       if (DEMO) return signInDemo();
-      const { error } = await authClient.phoneNumber.verify({ phoneNumber: toE164India(phone), code });
+      const { error } = await authClient.phoneNumber.verify({ phoneNumber: phone, code });
       if (error) throw new Error(error.message ?? "That code didn't match");
     },
     savePrefs: async (p) => {

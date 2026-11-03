@@ -2,17 +2,21 @@
 
 import { type FormEvent, useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import { findCountry, isValidMobile, PHONE_COUNTRIES, type PhoneCountry, toE164 } from "@/lib/phone";
 
 export function LoginForm({ googleEnabled, next = "/" }: { googleEnabled: boolean; next?: string }) {
+  const [country, setCountry] = useState<PhoneCountry>("IN");
   const [mobile, setMobile] = useState("");
   const [code, setCode] = useState("");
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const phoneNumber = `+91${mobile}`;
+  const phoneNumber = toE164(country, mobile);
+  const info = findCountry(country);
 
   async function sendCode(e: FormEvent) {
     e.preventDefault();
+    if (!isValidMobile(country, mobile)) return setError(`Enter a ${info.name} mobile number, like ${info.example}`);
     setBusy(true);
     setError(null);
     const { error } = await authClient.phoneNumber.sendOtp({ phoneNumber });
@@ -47,16 +51,27 @@ export function LoginForm({ googleEnabled, next = "/" }: { googleEnabled: boolea
         <form onSubmit={sendCode}>
           <label htmlFor="mobile">Mobile number</label>
           <div className="row keep">
-            <span className="prefix">+91</span>
+            <select
+              className="prefix"
+              aria-label="Country"
+              value={country}
+              onChange={(e) => {
+                setCountry(e.target.value as PhoneCountry);
+                setError(null);
+              }}>
+              {PHONE_COUNTRIES.map((c) => (
+                <option key={c.code} value={c.code}>{`${c.name} ${c.dial}`}</option>
+              ))}
+            </select>
             <input
               id="mobile"
               type="tel"
               inputMode="numeric"
               autoComplete="tel-national"
-              pattern="[6-9][0-9]{9}"
-              maxLength={10}
+              placeholder={info.example}
+              maxLength={16}
               value={mobile}
-              onChange={(e) => setMobile(e.target.value.replace(/\D/g, ""))}
+              onChange={(e) => setMobile(e.target.value.replace(/[^\d ]/g, ""))}
               required
             />
           </div>
@@ -66,7 +81,7 @@ export function LoginForm({ googleEnabled, next = "/" }: { googleEnabled: boolea
         </form>
       ) : (
         <form onSubmit={verify}>
-          <label htmlFor="code">Enter the 6-digit code sent to +91 {mobile}</label>
+          <label htmlFor="code">Enter the 6-digit code sent to {phoneNumber}</label>
           <input
             id="code"
             type="text"

@@ -48,7 +48,7 @@ describe("characters and films", () => {
 });
 
 describe("phone OTP sign-in", () => {
-  it("creates an account on first verified sign-in and rejects non-Indian numbers", async () => {
+  it("creates an account on first verified sign-in and accepts only Indian and UAE mobiles", async () => {
     const sent: { phone: string; code: string }[] = [];
     const auth = createAuth({
       db,
@@ -58,6 +58,11 @@ describe("phone OTP sign-in", () => {
     });
 
     await expect(auth.api.sendPhoneNumberOTP({ body: { phoneNumber: "+15551234567" } })).rejects.toThrow();
+
+    await expect(auth.api.sendPhoneNumberOTP({ body: { phoneNumber: "+97141234567" } })).rejects.toThrow(); // UAE landline
+    await auth.api.sendPhoneNumberOTP({ body: { phoneNumber: "+971501234567" } });
+    expect(sent.map((s) => s.phone)).toEqual(["+971501234567"]);
+    sent.length = 0;
 
     await auth.api.sendPhoneNumberOTP({ body: { phoneNumber: "+919876543210" } });
     expect(sent).toHaveLength(1);

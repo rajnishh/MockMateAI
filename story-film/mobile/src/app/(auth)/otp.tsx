@@ -2,7 +2,7 @@ import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 
 import { Banner, Button, Field, Header, Row, Screen, Txt } from "@/components/ui";
-import { toE164India, useSession } from "@/lib/session";
+import { useSession } from "@/lib/session";
 
 export default function Otp() {
   const { phone = "" } = useLocalSearchParams<{ phone: string }>();
@@ -33,7 +33,7 @@ export default function Otp() {
 
   return (
     <Screen>
-      <Header title="Enter the code" sub={`Sent to ${toE164India(phone)}`} back />
+      <Header title="Enter the code" sub={`Sent to ${phone}`} back />
       <Field
         label="6-digit code"
         value={code}

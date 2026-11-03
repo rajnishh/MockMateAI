@@ -1,5 +1,5 @@
 // Sends login OTPs. Indian SMS needs a DLT-registered sender and template,
-// which MSG91 manages; "console" just logs the code for local development.
+// which MSG91 manages; UAE SMS needs MSG91's international route turned on; "console" just logs the code for local development.
 export interface SmsSender {
   sendOtp(phoneNumber: string, code: string): Promise<void>;
 }
@@ -28,6 +28,3 @@ export class Msg91Sms implements SmsSender {
     if (!res.ok || body.type === "error") throw new Error(`MSG91: ${body.message ?? res.status}`);
   }
 }
-
-// Indian mobile numbers in E.164: +91 followed by 10 digits starting 6-9.
-export const INDIAN_MOBILE = /^\+91[6-9]\d{9}$/;

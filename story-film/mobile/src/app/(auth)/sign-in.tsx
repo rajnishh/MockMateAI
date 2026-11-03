@@ -2,17 +2,20 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
 
-import { Banner, Button, Field, Header, Screen, Txt } from "@/components/ui";
+import { Banner, Button, ChipRow, Field, Header, Screen, Txt } from "@/components/ui";
+import { findCountry, isValidMobile, PHONE_COUNTRIES, type PhoneCountry, toE164 } from "@/lib/phone";
 import { useSession } from "@/lib/session";
 import { useTheme } from "@/theme";
 
 export default function SignIn() {
   const { signInWithGoogle, sendOtp } = useSession();
   const { colors } = useTheme();
+  const [country, setCountry] = useState<PhoneCountry>("IN");
   const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState<"google" | "phone" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const valid = phone.replace(/\D/g, "").length === 10;
+  const info = findCountry(country);
+  const valid = isValidMobile(country, phone);
 
   async function run(kind: "google" | "phone", fn: () => Promise<void>) {
     setBusy(kind);
@@ -36,15 +39,20 @@ export default function SignIn() {
         <Txt variant="cap">or</Txt>
         <View style={{ flex: 1, height: 1, backgroundColor: colors.line }} />
       </View>
+      <ChipRow
+        options={PHONE_COUNTRIES.map((c) => ({ value: c.code, label: `${c.name} ${c.dial}` }))}
+        value={country}
+        onChange={setCountry}
+      />
       <Field
-        label="Indian mobile number (+91)"
+        label={`${info.name} mobile number (${info.dial})`}
         value={phone}
         onChangeText={setPhone}
         keyboardType="phone-pad"
         autoComplete="tel"
         textContentType="telephoneNumber"
-        placeholder="98765 43210"
-        maxLength={14}
+        placeholder={info.example}
+        maxLength={16}
       />
       <Button
         label="Send code"
@@ -53,12 +61,13 @@ export default function SignIn() {
         loading={busy === "phone"}
         onPress={() =>
           run("phone", async () => {
-            await sendOtp(phone);
-            router.push({ pathname: "/otp", params: { phone } });
+            const e164 = toE164(country, phone);
+            await sendOtp(e164);
+            router.push({ pathname: "/otp", params: { phone: e164 } });
           })
         }
       />
-      <Txt variant="cap">We&apos;ll send a 6-digit code by SMS. Outside India? Use Google for now.</Txt>
+      <Txt variant="cap">We&apos;ll send a 6-digit code by SMS. Somewhere else? Use Google for now.</Txt>
     </Screen>
   );
 }

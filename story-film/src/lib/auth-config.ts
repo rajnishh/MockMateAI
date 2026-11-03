@@ -6,7 +6,8 @@ import { phoneNumber } from "better-auth/plugins";
 import { WELCOME_CREDITS } from "@/lib/billing/catalog";
 import { grantCredits } from "@/lib/billing/credits";
 import { type Db, schema } from "@/lib/db";
-import { INDIAN_MOBILE, type SmsSender } from "@/lib/sms";
+import { isSignInMobile } from "@/lib/phone";
+import type { SmsSender } from "@/lib/sms";
 
 export interface AuthOptions {
   db: Db;
@@ -54,7 +55,8 @@ export function createAuth(opts: AuthOptions) {
     plugins: [
       phoneNumber({
         sendOTP: ({ phoneNumber, code }) => opts.sms.sendOtp(phoneNumber, code),
-        phoneNumberValidator: (n) => INDIAN_MOBILE.test(n),
+        // Indian and UAE mobiles (src/lib/phone.ts).
+        phoneNumberValidator: (n) => isSignInMobile(n),
         otpLength: 6,
         expiresIn: 300,
         allowedAttempts: 3,
