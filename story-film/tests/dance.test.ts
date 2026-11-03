@@ -4,10 +4,19 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { dholBeat, SAMPLE_RATE } from "@/lib/dance/beat";
-import { poseFor } from "@/lib/dance/draw";
-import { danceFfmpegArgs, type DanceRenderInput, runDanceReel, voicePlacements } from "@/lib/dance/pipeline";
+import { encodeWav } from "@/lib/dance/beat";
+import { chantWordAt, poseFor } from "@/lib/dance/draw";
+import { attachWords, danceFfmpegArgs, danceLyrics, type DanceRenderInput, runDanceReel, songSegments, voicePlacements } from "@/lib/dance/pipeline";
 import { beatSec, DANCE_MOVES, type DanceScript, danceScriptSchema, planDance } from "@/lib/dance/script";
+import { planMelody, SING_LEAD, SING_RATE, singLine, splitPieces, syllables, trackPitch } from "@/lib/dance/sing";
+import { ACTIONS } from "@/lib/agent/actions";
+import { runAction } from "@/lib/agent/agent";
+import { DANCE_SONG_CREDITS, PREMIUM_CREDITS_PER_SHOT } from "@/lib/billing/catalog";
+import { user } from "@/lib/db/schema";
+import type { SongInput } from "@/lib/providers/fal-music";
 import type { LlmProvider, TtsProvider } from "@/lib/providers/types";
+import { paidCredits, parseFilmRequest } from "@/lib/start-film";
+import { testDb } from "./helpers/db";
 
 const dir = mkdtempSync(path.join(tmpdir(), "dance-"));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
@@ -142,7 +151,7 @@ describe("runDanceReel", () => {
     const silent = { modelId: "kokoro-82m", speak: async () => Buffer.from("RIFF") } as unknown as TtsProvider;
     await runDanceReel(
       { llm, tts: silent, fontsDir: "unused", probeDuration: async () => 1.5, render: async (input) => void (rendered = input) },
-      { story: "A rain dance for toddlers", durationSec: 15, watermark: false, language: "hi" },
+      { story: "A rain dance for toddlers", durationSec: 15, watermark: false, language: "hi", voice: "chant" },
       path.join(dir, "job2"),
     );
     expect(prompts[0]).toContain("A rain dance for toddlers");
@@ -150,5 +159,231 @@ describe("runDanceReel", () => {
     expect(rendered!.segments.at(-1)!.end).toBe(15);
     expect(rendered!.voices).toHaveLength(3);
     expect(rendered!.spoken).toEqual([1.5, 1.5, 1.5]);
+  });
+});
+
+// A voice-like test signal: each "syllable" a buzzy vowel at a gliding pitch, with short gaps between them,
+// so the singer has words to cut, pitch to flatten and silences to find.
+function fakeSpeech(syllableCount: number, gapAfter: number[] = []): Float32Array {
+  const syl = Math.round(SING_RATE * 0.22);
+  const gap = Math.round(SING_RATE * 0.06);
+  const x = new Float32Array(gap + syllableCount * (syl + gap));
+  let at = gap;
+  let phase = 0;
+  for (let k = 0; k < syllableCount; k++) {
+    for (let i = 0; i < syl; i++) {
+      const hz = 190 + 40 * Math.sin((k + i / syl) * 2.1);
+      phase += (2 * Math.PI * hz) / SING_RATE;
+      const env = Math.sin((Math.PI * i) / syl);
+      x[at + i] = 0.5 * env * (Math.sin(phase) + 0.5 * Math.sin(2 * phase) + 0.3 * Math.sin(3 * phase));
+    }
+    at += syl + (gapAfter.includes(k) ? gap * 2 : gap);
+    if (at + syl > x.length) break;
+  }
+  return x;
+}
+
+const midiAt = (pcm: Float32Array, from: number, to: number) => {
+  const tr = trackPitch(pcm);
+  const hz = [...tr.periods.slice(Math.floor(from * 100), Math.floor(to * 100))].filter((p) => p > 0).map((p) => SING_RATE / p).sort((a, b) => a - b);
+  return hz.length ? 69 + 12 * Math.log2(hz[hz.length >> 1] / 440) : NaN;
+};
+
+describe("sung melody", () => {
+  it("counts syllables in Latin script and Hindi", () => {
+    expect([syllables("dubi"), syllables("dum"), syllables("chalo")]).toEqual([2, 1, 2]);
+    expect([syllables("डुबी"), syllables("डम"), syllables("ऊपर"), syllables("नाचो")]).toEqual([2, 1, 2, 2]);
+  });
+
+  it("puts every note on the eighth-note grid in the major pentatonic, ending lines open or home", () => {
+    const eighth = beatSec(120) / 2;
+    const tonic = 57;
+    for (let line = 0; line < 3; line++) {
+      const m = planMelody(script.lines[line].text, 120, line, 3, tonic);
+      for (const n of m.notes) {
+        expect((n.start / eighth) % 1).toBeCloseTo(0, 9);
+        expect([0, 2, 4, 7, 9]).toContain((n.midi - tonic) % 12);
+        expect(n.end).toBeGreaterThan(n.start);
+      }
+      expect((m.durationSec / eighth) % 1).toBeCloseTo(0, 9);
+      expect(m.notes.at(-1)!.end).toBeCloseTo(m.durationSec, 9);
+      // The last note is held: twice the length of the others.
+      expect(m.notes.at(-1)!.end - m.notes.at(-1)!.start).toBeCloseTo(2 * (m.notes[0].end - m.notes[0].start), 9);
+      // "Call" lines end on sol, the last line comes home to do.
+      expect(m.notes.at(-1)!.midi - tonic).toBe(line === 2 || line % 2 === 1 ? 0 : 7);
+    }
+    // डुबी डुबी डम डम: two notes for each डुबी, one for each डम, a quarter beat each; words follow their notes.
+    const hook = planMelody("डुबी डुबी डम डम", 120, 0, 3, tonic);
+    expect(hook.notes.map((n) => n.word)).toEqual([0, 0, 1, 1, 2, 3]);
+    expect(hook.words.map((w) => w.start / eighth)).toEqual([0, 4, 8, 10]);
+    expect(hook.words.at(-1)!.end).toBeCloseTo(hook.durationSec, 9);
+    expect(planMelody("डुबी डुबी डम डम", 120, 0, 3, tonic)).toEqual(hook);
+  });
+
+  it("cuts the voice into words at the quiet gaps", () => {
+    const x = fakeSpeech(4);
+    const pieces = splitPieces(x, [1, 1, 1, 1]);
+    expect(pieces).toHaveLength(4);
+    const per = (0.22 + 0.06) * SING_RATE;
+    pieces.slice(1).forEach(([start], k) => {
+      // Each cut lands in the gap before syllable k+1, give or take a frame.
+      const gapStart = 0.06 * SING_RATE + (k + 1) * per - 0.06 * SING_RATE;
+      expect(start).toBeGreaterThanOrEqual(gapStart - 0.015 * SING_RATE);
+      expect(start).toBeLessThanOrEqual(gapStart + 0.075 * SING_RATE);
+    });
+  });
+
+  it("sings each piece at its note's pitch, the same every time", () => {
+    const x = fakeSpeech(5);
+    const melody = planMelody("dubi dubi dum", 120, 0, 3, 52);
+    const a = singLine(x, melody);
+    expect(singLine(x, melody)).toEqual(a);
+    expect(a.length).toBeGreaterThanOrEqual(Math.round((SING_LEAD + melody.durationSec) * SING_RATE));
+    for (const n of melody.notes) {
+      const mid = midiAt(a, SING_LEAD + n.start + 0.06, SING_LEAD + n.end - 0.06);
+      expect(Math.abs(mid - n.midi)).toBeLessThan(0.6);
+    }
+    let peak = 0;
+    for (const v of a) peak = Math.max(peak, Math.abs(v));
+    expect(peak).toBeCloseTo(0.9, 2);
+  });
+});
+
+describe("sung captions", () => {
+  it("highlights the word being sung from its timing, and gives the finale the hook's words", () => {
+    const words = [{ start: 0, end: 0.5 }, { start: 0.5, end: 1 }, { start: 1, end: 2 }];
+    expect([0, 0.49, 0.5, 1.2, 5].map((t) => chantWordAt(["a", "b", "c"], t, 2, words))).toEqual([0, 0, 1, 2, 2]);
+    // Without timings (spoken chant) it still shares the time out by word length.
+    expect(chantWordAt(["a", "b"], 0.1, 1)).toBe(0);
+
+    const spoken = [1.5, 1.5, 1.5];
+    const segs = attachWords(planDance(script, spoken, 15), spoken, [[{ start: 0, end: 1 }], [{ start: 0, end: 1.5 }], [{ start: 0, end: 1.2 }]]);
+    for (const s of segs.filter((x) => x.line >= 0)) expect(s.words).toBeDefined();
+    expect(segs[0].words).toBeUndefined();
+    expect(segs.at(-1)!.words).toEqual([{ start: 0, end: 1 }]);
+  });
+});
+
+describe("AI-sung dance reels", () => {
+  it("repeats the chant as a chorus to fill the reel", () => {
+    const short = danceLyrics(script, 15);
+    expect(short.text.startsWith("[chorus]\nडुबी डुबी डम डम")).toBe(true);
+    expect(short.lines).toEqual([0, 1, 2]);
+    expect(danceLyrics(script, 60).lines.length).toBeGreaterThan(9);
+  });
+
+  it("lays segments where the song sings each line, with Whisper's word times when they fit", () => {
+    const timed = [{ text: "", start: 2, end: 4 }, { text: "", start: 4.5, end: 6.5 }, { text: "", start: 7, end: 9 }];
+    const heard = [2, 2.5, 3, 3.5].map((t) => ({ start: t, end: t + 0.4 }));
+    const segs = songSegments(script, [0, 1, 2], timed, heard, 12);
+    expect(segs.map((s) => s.line)).toEqual([-1, 0, 1, 2, -2]);
+    expect(segs[0]).toMatchObject({ start: 0, end: 2 });
+    expect(segs.at(-1)).toMatchObject({ start: 9, end: 12 });
+    for (let i = 1; i < segs.length; i++) expect(segs[i].start).toBe(segs[i - 1].end);
+    // Four words heard in line 0's four-word span: their own times, from the segment start.
+    expect(segs[1].words).toEqual([0, 0.5, 1, 1.5].map((t) => ({ start: expect.closeTo(t, 9), end: expect.closeTo(t + 0.4, 9) })));
+    // Line 1 has no heard words: shared out over its sung span by syllables.
+    expect(segs[2].words).toHaveLength(3);
+    expect(segs[2].words!.at(-1)!.end).toBeCloseTo(2, 6);
+  });
+
+  it("plays the song alone (it has its own drums), with no beat or chant voices", () => {
+    const segs = songSegments(script, [0], [{ text: "", start: 1, end: 3 }], [], 6);
+    const args = danceFfmpegArgs({ segments: segs, spoken: [], voices: [], beat: "", song: "song.mp3", output: "out.mp4" }, 1080, 1920);
+    expect(args.filter((a) => a === "-i")).toHaveLength(2);
+    expect(args).toContain("song.mp3");
+    expect(args[args.indexOf("-filter_complex") + 1]).not.toContain("adelay");
+  });
+
+  it("asks the singer for the chant at the reel's tempo and length, and never speaks it", async () => {
+    const asked: SongInput[] = [];
+    const singer = { modelId: "ace-step-1.5", sing: async (i: SongInput) => (asked.push(i), { data: Buffer.from("song"), ext: "mp3" }) };
+    const whisper = { modelId: "whisper", words: async () => [1, 1.5, 2, 2.5].map((t) => ({ start: t, end: t + 0.3 })) };
+    const tts = { modelId: "kokoro-82m", speak: async () => { throw new Error("should not speak"); } } as unknown as TtsProvider;
+    const llm = { modelId: "llama-3.3-70b" } as unknown as LlmProvider;
+    let rendered: DanceRenderInput | undefined;
+    await runDanceReel(
+      { llm, tts, singer, whisper, fontsDir: "unused", render: async (input) => void (rendered = input) },
+      { story: "x".repeat(30), durationSec: 15, watermark: false, danceScript: script, voice: "ai_song" },
+      path.join(dir, "song-job"),
+    );
+    expect(asked[0]).toMatchObject({ durationSec: 15, vocalLanguage: "hi" });
+    expect(asked[0].style).toContain("120 bpm");
+    expect(asked[0].lyrics).toContain("गोल गोल घूमो");
+    expect(rendered!.song).toBe(path.join(dir, "song-job", "song.mp3"));
+    expect(rendered!.segments.at(-1)!.end).toBe(15);
+    expect(rendered!.segments.find((s) => s.line === 0)!.words![0].start).toBeCloseTo(0, 6);
+
+    await expect(
+      runDanceReel({ llm, tts, fontsDir: "unused" }, { story: "x".repeat(30), durationSec: 15, watermark: false, danceScript: script, voice: "ai_song" }, path.join(dir, "x")),
+    ).rejects.toThrow(/AI singing/);
+  });
+});
+
+describe("dance voice option", () => {
+  const body = { story: "A rain dance for toddlers, clap clap", durationSec: 15, format: "dance" };
+
+  it("defaults to the free sung melody and charges credits only for the AI song", () => {
+    const sung = parseFilmRequest("u1", body);
+    expect(sung.danceVoice).toBe("sung");
+    expect(paidCredits(sung)).toBeUndefined();
+    expect(paidCredits(parseFilmRequest("u1", { ...body, danceVoice: "chant" }))).toBeUndefined();
+    expect(paidCredits(parseFilmRequest("u1", { ...body, danceVoice: "ai_song" }))).toBe(DANCE_SONG_CREDITS);
+    expect(paidCredits(parseFilmRequest("u1", { ...body, format: "story", quality: "premium" }))).toBe(3 * PREMIUM_CREDITS_PER_SHOT);
+    expect(() => parseFilmRequest("u1", { ...body, danceVoice: "opera" })).toThrow(/sung, chant or AI song/);
+  });
+
+  it("lets the connector pick a voice, sung unless asked, and passes it to the reel", async () => {
+    const input = ACTIONS.make_dance_reel.input;
+    const base = { ...script, durationSec: 15 };
+    expect(input.parse(base).voice).toBe("sung");
+    expect(input.parse({ ...base, voice: "karaoke" }).voice).toBe("sung");
+    expect(input.parse({ ...base, voice: "ai_song" }).voice).toBe("ai_song");
+    expect(ACTIONS.make_dance_reel.description).toMatch(/"ai_song".*credits/);
+
+    const db = await testDb();
+    const now = new Date();
+    await db.insert(user).values({ id: "u1", name: "One", email: "one@example.com", createdAt: now, updatedAt: now });
+    const bodies: Record<string, unknown>[] = [];
+    const deps = {
+      db,
+      llm: {} as LlmProvider,
+      startFilm: async (_: string, b: unknown) => (bodies.push(b as Record<string, unknown>), { id: "00000000-0000-4000-8000-000000000001", credits: 0 }),
+      rerenderEdit: async () => ({ rendersLeft: 0 }),
+      enqueuePost: async () => {},
+      freeReelsLeft: async () => 3,
+    };
+    const turn = { userId: "u1", timeZone: "Asia/Kolkata" };
+    await runAction(deps, turn, "make_dance_reel", base);
+    await runAction(deps, turn, "make_dance_reel", { ...base, voice: "ai_song" });
+    expect(bodies.map((b) => b.danceVoice)).toEqual(["sung", "ai_song"]);
+    expect(bodies[1].danceScript).not.toHaveProperty("voice");
+  });
+});
+
+describe("runDanceReel sung", () => {
+  it("sings every line by default, on the eighth-note grid, with word timings for the captions", async () => {
+    const wav = encodeWav(fakeSpeech(6), SING_RATE);
+    const tts = { modelId: "kokoro-82m", speak: async () => wav } as unknown as TtsProvider;
+    const llm = { modelId: "llama-3.3-70b" } as unknown as LlmProvider;
+    let rendered: DanceRenderInput | undefined;
+    await runDanceReel(
+      { llm, tts, fontsDir: "unused", render: async (input) => void (rendered = input) },
+      { story: "x".repeat(30), durationSec: 15, watermark: false, danceScript: script },
+      path.join(dir, "sung-job"),
+    );
+    const r = rendered!;
+    expect(r.sung).toBe(true);
+    expect(r.voices.every((v) => /sung-\d\.wav$/.test(v))).toBe(true);
+    const eighth = beatSec(script.bpm) / 2;
+    for (const s of r.spoken) expect((s / eighth) % 1).toBeCloseTo(0, 6);
+    for (const s of r.segments.filter((x) => x.line >= 0)) {
+      expect(s.words).toHaveLength(script.lines[s.line].text.split(" ").length);
+      for (const w of s.words!) expect(((s.start + w.start) / eighth) % 1).toBeCloseTo(0, 6);
+    }
+    const graph = danceFfmpegArgs(r, 1080, 1920).join(" ");
+    expect(graph).toContain("aecho");
+    // Sung lines start SING_LEAD early, so their vowels land on the beat.
+    expect(graph).toContain(`adelay=${Math.round((r.segments[1].start - SING_LEAD) * 1000)}|`);
   });
 });

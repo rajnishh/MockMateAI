@@ -1,4 +1,5 @@
 import { readMedia } from "@/lib/media";
+import { ImageSafetyError } from "./safety";
 import type { ImageProvider, Resolution, VideoProvider } from "./types";
 
 // Default fal.ai model IDs, checked against fal's OpenAPI schemas on 2026-10-27.
@@ -73,13 +74,22 @@ export class FalNanoBanana implements ImageProvider {
       ),
     );
     const hasRefs = refs.length > 0;
-    const out = await this.client.run<{ images: { url: string }[] }>(hasRefs ? this.editModelId : this.textModelId, {
-      prompt: input.prompt,
-      ...(hasRefs ? { image_urls: refs } : {}),
-      ...(input.seed !== undefined ? { seed: input.seed } : {}),
-      aspect_ratio: "9:16",
-      num_images: 1,
-    });
+    let out: { images?: { url: string }[] };
+    try {
+      out = await this.client.run(hasRefs ? this.editModelId : this.textModelId, {
+        prompt: input.prompt,
+        ...(hasRefs ? { image_urls: refs } : {}),
+        ...(input.seed !== undefined ? { seed: input.seed } : {}),
+        aspect_ratio: "9:16",
+        num_images: 1,
+      });
+    } catch (err) {
+      // fal reports a refused prompt as a 422 with type content_policy_violation.
+      if (/content_policy_violation/.test((err as Error).message)) throw new ImageSafetyError((err as Error).message);
+      throw err;
+    }
+    // Nano Banana sometimes returns no image instead of an error when its filter trips.
+    if (!out.images?.[0]?.url) throw new ImageSafetyError("fal returned no image");
     return { url: out.images[0].url };
   }
 }

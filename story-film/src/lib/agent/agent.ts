@@ -211,6 +211,7 @@ async function makeReelFromScript(deps: AgentDeps, turn: Turn, state: TurnState,
       durationSec: shots.length * CLIP_SECONDS,
       kidSafe: input.kidSafe,
       quality: "standard",
+      ...(input.characterId ? { characterId: input.characterId } : {}),
       script: { title: input.title, language: language === "auto" ? input.language : language, characters: input.characters, shots, musicPrompt: input.musicPrompt },
     });
     state.made.push(id);
@@ -220,9 +221,32 @@ async function makeReelFromScript(deps: AgentDeps, turn: Turn, state: TurnState,
   }
 }
 
+// The assistant wrote the slides, so Reelkar only animates and voices them.
+async function makeMotionReelFromScript(deps: AgentDeps, turn: Turn, state: TurnState, input: ActionInput<"make_motion_reel_from_script">): Promise<AgentCard[]> {
+  const { ending, keyword, ...motionScript } = input;
+  try {
+    const { id } = await deps.startFilm(turn.userId, {
+      story: [motionScript.title, ...motionScript.slides.map((s) => s.narration)].join(". ").slice(0, 8000).padEnd(20, "."),
+      format: "motion",
+      language: normaliseLanguage(motionScript.language),
+      // The real length follows the narration; this only sizes the free-reel check (about 5 seconds a slide).
+      durationSec: Math.min(60, Math.max(10, motionScript.slides.length * 5)),
+      quality: "standard",
+      ending,
+      ...(keyword ? { keyword } : {}),
+      brand: turn.brand,
+      motionScript,
+    });
+    state.made.push(id);
+    return [{ type: "reel", reelId: id, title: motionScript.title, status: "queued" }];
+  } catch (err) {
+    return [problem(err, "make the reel")];
+  }
+}
+
 // The assistant wrote the chant and picked the dancers; Reelkar draws, animates and adds the beat.
 async function makeDanceReel(deps: AgentDeps, turn: Turn, state: TurnState, input: ActionInput<"make_dance_reel">): Promise<AgentCard[]> {
-  const { durationSec, ...danceScript } = input;
+  const { durationSec, voice, ...danceScript } = input;
   const language = normaliseLanguage(danceScript.language);
   try {
     const { id } = await deps.startFilm(turn.userId, {
@@ -235,6 +259,7 @@ async function makeDanceReel(deps: AgentDeps, turn: Turn, state: TurnState, inpu
       quality: "standard",
       brand: turn.brand,
       danceScript,
+      danceVoice: voice,
     });
     state.made.push(id);
     return [{ type: "reel", reelId: id, title: danceScript.title, status: "queued" }];
@@ -277,6 +302,8 @@ async function run(deps: AgentDeps, turn: Turn, state: TurnState, name: ActionNa
       return makeReel(deps, turn, state, parsed.data as ActionInput<"make_reel">);
     case "make_reel_from_script":
       return makeReelFromScript(deps, turn, state, parsed.data as ActionInput<"make_reel_from_script">);
+    case "make_motion_reel_from_script":
+      return makeMotionReelFromScript(deps, turn, state, parsed.data as ActionInput<"make_motion_reel_from_script">);
     case "make_dance_reel":
       return makeDanceReel(deps, turn, state, parsed.data as ActionInput<"make_dance_reel">);
     case "get_reel":

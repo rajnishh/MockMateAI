@@ -3,9 +3,11 @@ import { headers } from "next/headers";
 import { auth, googleEnabled } from "@/lib/auth";
 import { ReelLogo } from "../reel-logo";
 import { LoginForm } from "./login-form";
+import { safeNext } from "@/lib/safe-next";
 
-export default async function LoginPage() {
-  if (await auth.api.getSession({ headers: await headers() })) redirect("/");
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string | string[] }> }) {
+  const next = safeNext((await searchParams).next);
+  if (await auth.api.getSession({ headers: await headers() })) redirect(next);
   return (
     <div className="auth">
       <section className="auth-art">
@@ -31,7 +33,7 @@ export default async function LoginPage() {
         <div>
           <h2>Sign in</h2>
           <p className="sub">Make reels, cartoons and short films for Reels, Shorts and WhatsApp.</p>
-          <LoginForm googleEnabled={googleEnabled} />
+          <LoginForm googleEnabled={googleEnabled} next={next} />
           <p className="muted fine">Free plan: a few videos every week. No card needed.</p>
         </div>
       </main>

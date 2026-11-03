@@ -74,7 +74,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [billing, setBilling] = useState<Billing | null>(null);
   const [menu, setMenu] = useState(false);
   const acct = useRef<HTMLDivElement>(null);
-  const bare = path === "/login";
+  const bare = path === "/login" || path.startsWith("/oauth/");
 
   useEffect(() => {
     if (bare) return;

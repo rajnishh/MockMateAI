@@ -1,13 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { PREMIUM_CREDITS_PER_SHOT, STANDARD_CREDITS } from "@/lib/billing/catalog";
+import { DANCE_SONG_CREDITS, PREMIUM_CREDITS_PER_SHOT, STANDARD_CREDITS } from "@/lib/billing/catalog";
 import { spendCredits } from "@/lib/billing/credits";
 import { getCharacter } from "@/lib/characters";
 import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
 import { createFilm } from "@/lib/films";
 import { findLanguage, normaliseLanguage } from "@/lib/languages";
-import { buildTts, premiumAvailable } from "@/lib/providers";
-import { filmJobSchema, getFilmQueue, getRedis } from "@/lib/queue/films";
+import { buildTts, danceSongAvailable, premiumAvailable } from "@/lib/providers";
+import { type FilmJob, filmJobSchema, getFilmQueue, getRedis } from "@/lib/queue/films";
 import { FREE_PLAN, isoWeekKey, shotCountFor } from "@/lib/quota/plans";
 import { RedisQuotaStore, reserveFilm } from "@/lib/quota/quota";
 import { DEFAULT_STYLE, findStyle } from "@/lib/styles";
@@ -33,6 +33,8 @@ const FIELD_ERRORS: Record<string, string> = {
   brand: "Your Brand kit settings aren't valid. Open Brand kit and save them again.",
   script: "The script isn't valid: check each shot has narration, a picture and a motion description.",
   danceScript: "The dance script isn't valid: check the title, dancers and chant lines.",
+  motionScript: "The slides aren't valid: check each slide's type, its fields and its narration.",
+  danceVoice: "Pick how the chant is voiced: sung, chant or AI song.",
 };
 
 // Checks a request from any app or assistant. Callers may leave out the style or send a language
@@ -62,6 +64,9 @@ export async function startFilm(userId: string, body: unknown): Promise<{ id: st
   if (job.format === "motion" || job.format === "dance") job.quality = "standard";
   const { quality, durationSec } = job;
   if (quality === "premium" && !premiumAvailable(env)) throw new StartError("AI animation isn't available yet");
+  // An AI-sung dance reel is a paid song; the free sung and spoken chants are standard reels.
+  const aiSong = job.format === "dance" && job.danceVoice === "ai_song";
+  if (aiSong && !danceSongAvailable(env)) throw new StartError("AI singing isn't available yet");
 
   // Refuse before charging if this server can't speak the chosen language.
   const { language } = job;
@@ -75,22 +80,22 @@ export async function startFilm(userId: string, body: unknown): Promise<{ id: st
     if (!character) throw new StartError("Character not found", 404);
   }
 
-  // Standard videos use the free weekly allowance first, then 1 credit.
-  // Premium (AI animation) always costs credits per shot.
+  // Standard videos use the free weekly allowance first, then 1 credit; paid ones always cost credits.
   const filmId = randomUUID();
   const plan = { ...FREE_PLAN, filmsPerWeek: env.FREE_FILMS_PER_WEEK };
   let quotaKey: string | undefined;
-  let credits = 0;
-  if (quality === "standard") {
+  const paid = paidCredits(job);
+  let credits = paid ?? 0;
+  if (paid === undefined) {
     const quota = await reserveFilm(new RedisQuotaStore(getRedis()), userId, durationSec, plan);
     if (quota.ok) quotaKey = quota.key;
     else credits = STANDARD_CREDITS;
-  } else {
-    credits = shotCountFor(durationSec) * PREMIUM_CREDITS_PER_SHOT;
   }
   if (credits > 0 && !(await spendCredits(db, userId, credits, filmId))) {
     throw new StartError(
-      quality === "standard"
+      aiSong
+        ? `AI singing needs ${credits} credits.`
+        : quality === "standard"
         ? `You've used this week's ${plan.filmsPerWeek} free videos. Buy credits to keep creating.`
         : `AI animation needs ${credits} credits for this length.`,
       402,
@@ -124,6 +129,14 @@ export async function startFilm(userId: string, body: unknown): Promise<{ id: st
     { jobId: film.id },
   );
   return { id: film.id, credits };
+}
+
+// What a paid reel costs: AI animation per shot, an AI-sung dance reel a song's price. Undefined for
+// standard reels, which use the free weekly allowance first and then cost STANDARD_CREDITS.
+export function paidCredits(job: Pick<FilmJob, "format" | "quality" | "durationSec" | "danceVoice">): number | undefined {
+  if (job.format === "dance" && job.danceVoice === "ai_song") return DANCE_SONG_CREDITS;
+  if (job.quality === "premium") return shotCountFor(job.durationSec) * PREMIUM_CREDITS_PER_SHOT;
+  return undefined;
 }
 
 // Free standard reels left this week.

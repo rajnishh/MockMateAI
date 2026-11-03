@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import type { Film } from "@/lib/api";
+import { formatLabel } from "@/lib/formats";
 import { ReelThumb } from "./reel-thumb";
 import { Status, Txt } from "./ui";
 
@@ -26,6 +27,7 @@ export function ReelGrid({ films, columns = 2 }: { films: Film[]; columns?: numb
           <Txt variant="label" numberOfLines={2}>
             {f.title ?? f.story}
           </Txt>
+          {formatLabel(f.format) ? <Txt variant="cap">{formatLabel(f.format)}</Txt> : null}
           {filmStatus(f)}
         </Pressable>
       ))}

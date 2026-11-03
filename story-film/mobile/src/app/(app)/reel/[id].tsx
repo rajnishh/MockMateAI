@@ -9,6 +9,7 @@ import { ReelThumb } from "@/components/reel-thumb";
 import { Banner, Button, Card, Chip, ChipRow, Header, Row, Screen, Skeleton, Txt } from "@/components/ui";
 import { api, type Account, type Film, type Platform, type PostCopy } from "@/lib/api";
 import { PLATFORM_LABEL } from "@/lib/connect";
+import { formatLabel } from "@/lib/formats";
 import { useData } from "@/lib/use-data";
 import { radius } from "@/theme";
 
@@ -110,7 +111,7 @@ export default function Reel() {
 
   return (
     <Screen>
-      <Header title={film?.title ?? "Your reel"} sub="Ready · Made with AI" back />
+      <Header title={film?.title ?? "Your reel"} sub={["Ready", formatLabel(film?.format), "Made with AI"].filter(Boolean).join(" · ")} back />
       <View style={styles.player}>
         {url && headers ? <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="cover" nativeControls /> : film ? <ReelThumb seed={0} playable /> : <Skeleton height={420} />}
         {/* Straight from "Making your reel": celebrate once. */}

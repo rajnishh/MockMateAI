@@ -107,6 +107,10 @@ video { width: 100%; max-width: 360px; border-radius: 16px; display: block; marg
 .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
 .actions > button, .actions > a > button { width: auto; }
 .actions > button[type="submit"]:only-child { width: 100%; }
+/* Create: "Make" stays the big button, "Build with Claude" sits beside it. */
+.make-actions { margin-top: 20px; }
+.create .make-actions > button[type="submit"] { flex: 1 1 200px; margin-top: 0; }
+.make-actions + .muted { margin-top: 8px; }
 .split { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 24px; align-items: start; }
 .split > aside { position: sticky; top: 84px; display: flex; flex-direction: column; gap: 16px; }
 @media (max-width: 1099px) { .split { grid-template-columns: minmax(0, 1fr); } .split > aside { position: static; } }
@@ -556,3 +560,13 @@ main.home { max-width: 1200px; display: flex; flex-direction: column; gap: 22px;
 .split-list b { font-variant-numeric: tabular-nums; }
 @media (max-width: 1023px) { .insight-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 559px) { .bars { gap: 4px; } .bar-label { font-size: 10px; } .stat strong { font-size: 32px; line-height: 36px; } }
+
+/* ---------- Connector sign-in (OAuth consent) ---------- */
+.oauth { min-height: 100vh; display: flex; }
+.oauth .auth-form { flex: 1; max-width: none; }
+.oauth .side-brand { color: var(--ink); padding: 0 0 24px; }
+.oauth h2 { margin-top: 0; }
+.oauth-can { list-style: none; margin: 20px 0 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px; background: var(--surface-raised); border: 1px solid var(--line); border-radius: 16px; font-weight: 600; }
+.oauth-can li { display: flex; align-items: center; gap: 12px; }
+.oauth-can li::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--teal); flex: none; }
+.oauth .status { margin: 12px 0 0; }

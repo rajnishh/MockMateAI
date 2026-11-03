@@ -26,6 +26,8 @@ export interface MotionRequest {
   ending?: Ending;
   keyword?: string;
   brand?: Brand;
+  // Written by the creator's own assistant; otherwise the LLM writes the slides from the story.
+  motionScript?: MotionScript;
 }
 
 const MUSIC_BY_THEME: Record<MotionScript["theme"], string> = {
@@ -46,7 +48,7 @@ export async function runMotionReel(
   await mkdir(workDir, { recursive: true });
 
   await onStage("script");
-  const raw = await deps.llm.completeJson(buildMotionPrompt({ ...req, handle: req.brand?.handle }));
+  const raw = req.motionScript ?? (await deps.llm.completeJson(buildMotionPrompt({ ...req, handle: req.brand?.handle })));
   const script = applyEnding(motionScriptSchema.parse(raw), req.ending);
   await writeFile(path.join(workDir, "script.json"), JSON.stringify(script, null, 2));
 

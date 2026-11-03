@@ -1,21 +1,31 @@
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import { useState } from "react";
-import { View } from "react-native";
+import { Linking, Pressable, View } from "react-native";
 
 import { Banner, Button, Card, ChipRow, Credits, Field, Header, ListRow, Row, Screen, Txt } from "@/components/ui";
 import { api, ApiError, type Idea, type Voice } from "@/lib/api";
+import { buildClaudePrompt, claudeUrl } from "@/lib/claude-prompt";
+import { API_URL } from "@/lib/config";
 import { LANGUAGES } from "@/lib/languages";
 import { useSession } from "@/lib/session";
 import { INDIAN_ART, LOOKS, type Style } from "@/lib/styles";
 import { useData } from "@/lib/use-data";
 
-type Kind = "story" | "motion" | "edit";
+type Kind = "story" | "motion" | "dance" | "edit";
 type Ending = "auto" | "none" | "follow" | "comment";
 type Picked = { uri: string; name: string; type: string; seconds: number | null; mb: number | null };
 
 // Same limit as the server: the free plan's 60-second reels.
 const MAX_EDIT_SEC = 60;
+// Connect AI lives on the web app; the phone only points there.
+const CONNECT_URL = API_URL ? `${API_URL}/connect` : "";
+
+const IDEA_PLACEHOLDER: Record<Exclude<Kind, "edit">, string> = {
+  story: "Mia finds colours in the puddles after the rain…",
+  motion: "3 chai hacks nobody told you, with a tip for each…",
+  dance: "A rain dance for the monsoon, counting to five, or brushing teeth…",
+};
 
 export default function Create() {
   const { prefs } = useSession();
@@ -44,6 +54,9 @@ export default function Create() {
   const perShot = billing.data?.premiumCreditsPerShot ?? 12;
   const premiumCost = Math.round(durationSec / 5) * perShot;
   const motion = kind === "motion";
+  const dance = kind === "dance";
+  // Motion and dance reels are drawn by Reelkar: free weekly reels, no AI animation choice.
+  const drawn = motion || dance;
   const editing = kind === "edit";
   const tooLong = Boolean(video?.seconds && video.seconds > MAX_EDIT_SEC + 0.5);
   const blocked = editing ? !video || tooLong : story.trim().length < 20;
@@ -96,10 +109,11 @@ export default function Create() {
             story: story.trim(),
             language,
             durationSec,
-            quality: motion ? "standard" : quality,
-            style,
-            format: kind === "motion" ? "motion" : "story",
+            quality: drawn ? "standard" : quality,
+            style: dance ? "animated" : style,
+            format: kind === "motion" || kind === "dance" ? kind : "story",
             ...(motion ? { ending, keyword: keywordValue, brand: prefs?.brand } : {}),
+            ...(dance ? { kidSafe: true, brand: prefs?.brand } : {}),
           });
       setStory("");
       setVideo(null);
@@ -110,6 +124,32 @@ export default function Create() {
       setBusy(false);
     }
   }
+
+  // Opens Claude (the app if installed, else the browser) with a prompt that makes this reel.
+  function buildWithClaude() {
+    if (editing) return;
+    const lang = LANGUAGES.find((l) => l.code === language);
+    const prompt = buildClaudePrompt({
+      type: kind === "story" ? "film" : kind,
+      idea: story,
+      durationSec,
+      language: lang && { code: lang.code, name: lang.label },
+      brand: prefs?.brand,
+      style: kind === "story" ? style : undefined,
+      kidSafe: dance,
+    });
+    Linking.openURL(claudeUrl(prompt)).catch(() => setError({ text: "Couldn't open Claude. Try again.", credits: false }));
+  }
+
+  const brandButton = (
+    <Button
+      label={prefs?.brand?.accent || prefs?.brand?.handle ? "Using your brand look · change" : "Add your brand colour and handle"}
+      kind="ghost"
+      icon="edit"
+      onPress={() => router.push("/account")}
+      style={{ paddingHorizontal: 0 }}
+    />
+  );
 
   const endingPicker = (
     <View style={{ gap: 6 }}>
@@ -127,13 +167,7 @@ export default function Create() {
       {ending === "comment" ? (
         <Field label="Word to comment (optional)" value={keyword} onChangeText={(t) => setKeyword(t.replace(/\s/g, "").slice(0, 20))} placeholder="GUIDE" autoCapitalize="characters" />
       ) : null}
-      <Button
-        label={prefs?.brand?.accent || prefs?.brand?.handle ? "Using your brand look · change" : "Add your brand colour and handle"}
-        kind="ghost"
-        icon="edit"
-        onPress={() => router.push("/account")}
-        style={{ paddingHorizontal: 0 }}
-      />
+      {brandButton}
     </View>
   );
 
@@ -142,7 +176,7 @@ export default function Create() {
       footer={
         <>
           <Button
-            label={editing ? (busy ? "Uploading…" : "Edit my video") : quality === "premium" && !motion ? `Make my reel · ${premiumCost} credits` : "Make my reel"}
+            label={editing ? (busy ? "Uploading…" : "Edit my video") : dance ? "Make the dance" : quality === "premium" && !drawn ? `Make my reel · ${premiumCost} credits` : "Make my reel"}
             icon="sparkle"
             block
             disabled={blocked}
@@ -160,6 +194,16 @@ export default function Create() {
                 ? "Write at least 20 characters, or pick an idea"
                 : "About 2 minutes · you can leave this screen"}
           </Txt>
+          {editing ? null : (
+            <>
+              <Button label="Build with Claude" kind="secondary" icon="sparkle" block onPress={buildWithClaude} />
+              <Pressable accessibilityRole="link" disabled={!CONNECT_URL} onPress={() => Linking.openURL(CONNECT_URL).catch(() => undefined)}>
+                <Txt variant="cap" style={{ textAlign: "center" }}>
+                  {`Needs the Reelkar connector in Claude. Set it up in Connect AI ${CONNECT_URL ? `at ${CONNECT_URL.replace(/^https?:\/\//, "")}` : "on the Reelkar website"}`}
+                </Txt>
+              </Pressable>
+            </>
+          )}
         </>
       }>
       <Header title="Make a reel" right={<Credits count={billing.data?.balance ?? null} />} />
@@ -177,12 +221,14 @@ export default function Create() {
           options={[
             { value: "story", label: "Story with pictures" },
             { value: "motion", label: "Motion reel · text and graphics" },
+            { value: "dance", label: "Kids dance · cartoon kids, dhol beat, chant" },
             { value: "edit", label: "Edit my video" },
           ]}
           value={kind}
           onChange={setKind}
         />
         {motion ? <Txt variant="cap">Tips, lists, numbers and quotes animated on screen with a voice-over. Uses your free weekly reels.</Txt> : null}
+        {dance ? <Txt variant="cap">Cartoon kids dance to a dhol beat while a voice chants a catchy rhyme, with bouncing captions. Made for young children. Uses your free weekly reels.</Txt> : null}
         {editing ? <Txt variant="cap">Upload a video you filmed. We add captions in your language, zooms, cards for your main points, effects around you and sounds.</Txt> : null}
       </View>
 
@@ -291,7 +337,8 @@ export default function Create() {
       ) : (
         <>
           {motion ? endingPicker : null}
-          {motion ? null : (
+          {dance ? brandButton : null}
+          {drawn ? null : (
             <>
               <View style={{ gap: 6 }}>
                 <Txt variant="cap">Look</Txt>
@@ -303,7 +350,14 @@ export default function Create() {
               </View>
             </>
           )}
-          <Field label="Your idea or story" value={story} onChangeText={setStory} multiline maxLength={2000} placeholder="Mia finds colours in the puddles after the rain…" />
+          <Field
+            label={dance ? "What is the dance about?" : motion ? "What is the reel about?" : "Your idea or story"}
+            value={story}
+            onChangeText={setStory}
+            multiline
+            maxLength={2000}
+            placeholder={IDEA_PLACEHOLDER[kind as Exclude<Kind, "edit">]}
+          />
           <Button label={ideasBusy ? "Finding ideas…" : "Give me ideas for my topic"} kind="ghost" icon="sparkle" disabled={ideasBusy} onPress={getIdeas} style={{ paddingHorizontal: 0 }} />
           {ideas ? (
             <Card flat>
@@ -328,7 +382,7 @@ export default function Create() {
               onChange={setLength}
             />
           </View>
-          {motion ? null : (
+          {drawn ? null : (
             <View style={{ gap: 6 }}>
               <Txt variant="cap">Quality</Txt>
               <ChipRow<"standard" | "premium">

@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "oauth_grant_app_idx" ON "oauth_grant" USING btree ("user_id","client_id","resource");
