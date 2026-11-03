@@ -9,6 +9,9 @@ const schema = z.object({
   DATABASE_URL: z.string().default("postgres://postgres:postgres@localhost:5432/storyfilm"),
   BETTER_AUTH_URL: z.string().default("http://localhost:3000"),
   BETTER_AUTH_SECRET: z.string().optional(),
+  // Other public addresses that reach this app, comma separated (for example a named Cloudflare
+  // Tunnel while BETTER_AUTH_URL stays localhost). Sign-in and the connector's OAuth accept them.
+  PUBLIC_ORIGINS: z.string().optional(),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   // Instagram API with Instagram Login (Meta App Dashboard → Instagram → API setup).

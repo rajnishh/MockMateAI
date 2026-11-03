@@ -4,12 +4,14 @@ import Link from "next/link";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 
 type Key = { id: string; name: string; hint: string; createdAt: string; lastUsedAt: string | null };
+type App = { id: string; name: string; redirectHost: string; createdAt: string; lastUsedAt: string | null };
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "Never");
 
 // Lets a creator connect Claude, Cursor or another AI assistant to Reelkar with a personal key.
 export default function ConnectPage() {
   const [keys, setKeys] = useState<Key[]>([]);
+  const [apps, setApps] = useState<App[]>([]);
   const [name, setName] = useState("Claude on my laptop");
   const [fresh, setFresh] = useState<string | null>(null);
   const [origin, setOrigin] = useState("");
@@ -21,6 +23,8 @@ export default function ConnectPage() {
     const res = await fetch("/api/tokens");
     if (!res.ok) throw new Error("Couldn't load your keys. Refresh to try again.");
     setKeys((await res.json()).tokens);
+    const appsRes = await fetch("/api/oauth/grants");
+    if (appsRes.ok) setApps((await appsRes.json()).apps);
   }, []);
 
   useEffect(() => {
@@ -48,6 +52,12 @@ export default function ConnectPage() {
     const res = await fetch(`/api/tokens/${id}`, { method: "DELETE" });
     if (!res.ok) return setError("Couldn't remove the key.");
     setKeys((k) => k.filter((x) => x.id !== id));
+  }
+
+  async function disconnect(id: string) {
+    const res = await fetch(`/api/oauth/grants/${id}`, { method: "DELETE" });
+    if (!res.ok) return setError("Couldn't disconnect the app.");
+    setApps((a) => a.filter((x) => x.id !== id));
   }
 
   async function copy(id: string, text: string) {
@@ -83,6 +93,23 @@ export default function ConnectPage() {
         Use Reelkar from Claude, Cursor or another assistant you already pay for. It can suggest ideas, make reels, write captions and post them. Your posting setting
         (&ldquo;ask me first&rdquo; and so on) and your free reels apply exactly as in the app, and everything it does shows up in <Link href="/ask">Ask Reelkar</Link>.
       </p>
+
+      <div className="agent-card">
+        <strong>Claude on the web and the Claude phone app</strong>
+        <span className="muted">
+          No key needed: you sign in to Reelkar instead. On claude.ai, open Settings → Connectors → Add custom connector, name it Reelkar and paste this address. It then
+          shows up in the Claude phone app too. It needs a paid Claude plan, and Reelkar must be reachable from the internet (a tunnel or your own domain), not
+          localhost.
+        </span>
+        <div className="idea">
+          <pre className="caption-text" style={{ fontFamily: "ui-monospace, monospace", fontSize: 13, overflowX: "auto", whiteSpace: "pre" }}>
+            {url}
+          </pre>
+          <button type="button" className="secondary" onClick={() => copy("url", url)}>
+            {copied === "url" ? "Copied" : "Copy address"}
+          </button>
+        </div>
+      </div>
 
       <form className="agent-card" onSubmit={create}>
         <strong>1. Create a key</strong>
@@ -120,7 +147,6 @@ export default function ConnectPage() {
           </div>
         ))}
         <span className="muted">Then ask, for example: &ldquo;Use Reelkar to make a Hindi reel about monsoon recipes and post it tomorrow at 7:30 pm.&rdquo;</span>
-        <span className="muted">ChatGPT and Claude on the web connect with a sign-in button instead of a key; that comes with the next update.</span>
       </div>
 
       <div className="agent-card">
@@ -136,6 +162,25 @@ export default function ConnectPage() {
             </div>
             <button type="button" className="secondary" onClick={() => revoke(k.id)}>
               Remove
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="agent-card">
+        <strong>Connected apps</strong>
+        {apps.length === 0 && <span className="muted">No apps yet. Apps you allow with sign-in, like Claude on the web, show up here.</span>}
+        {apps.map((a) => (
+          <div key={a.id} className="row-card">
+            <div className="grow">
+              <span>
+                {a.name} <span className="muted">· {a.redirectHost}</span>
+              </span>
+              <span className="muted">
+                Connected {when(a.createdAt)} · Last used: {when(a.lastUsedAt)}
+              </span>
+            </div>
+            <button type="button" className="secondary" onClick={() => disconnect(a.id)}>
+              Disconnect
             </button>
           </div>
         ))}
