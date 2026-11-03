@@ -227,11 +227,10 @@ export function Card({ children, onPress, flat, style }: { children: ReactNode; 
 
 export function Hero({ children }: { children: ReactNode }) {
   const { colors } = useTheme();
-  // Two soft circles in the corner give the card some play; they sit behind the content.
+  // A soft ring in the corner gives the card some play; it sits behind the content.
   return (
     <View style={[styles.hero, { backgroundColor: colors.brand, overflow: "hidden" }]}>
-      <View pointerEvents="none" style={[styles.heroRing, { borderColor: colors.coral }]} />
-      <View pointerEvents="none" style={[styles.heroDot, { backgroundColor: colors.teal }]} />
+      <View pointerEvents="none" style={[styles.heroRing, { borderColor: colors.heroRing }]} />
       {children}
     </View>
   );
@@ -414,8 +413,7 @@ const styles = StyleSheet.create({
   shadowLight: { shadowColor: "#111827", shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
   shadowDark: { shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 3 },
   hero: { borderRadius: radius.lg, padding: 18, gap: 10 },
-  heroRing: { position: "absolute", right: -46, top: -46, width: 150, height: 150, borderRadius: 75, borderWidth: 20, opacity: 0.4 },
-  heroDot: { position: "absolute", right: 54, bottom: -30, width: 60, height: 60, borderRadius: 30, opacity: 0.35 },
+  heroRing: { position: "absolute", right: -46, top: -46, width: 150, height: 150, borderRadius: 75, borderWidth: 20 },
   win: { flexDirection: "row", alignItems: "center", gap: space[3], borderRadius: 14, paddingVertical: space[3], paddingHorizontal: 14 },
   winDot: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
   banner: { flexDirection: "row", alignItems: "flex-start", gap: 10, borderRadius: radius.md, padding: 14 },

@@ -1,13 +1,7 @@
 import { JetBrainsMono_500Medium } from "@expo-google-fonts/jetbrains-mono";
 import { Hind_400Regular, Hind_600SemiBold } from "@expo-google-fonts/hind";
-import {
-  PlusJakartaSans_400Regular,
-  PlusJakartaSans_500Medium,
-  PlusJakartaSans_600SemiBold,
-  PlusJakartaSans_700Bold,
-  PlusJakartaSans_800ExtraBold,
-  useFonts,
-} from "@expo-google-fonts/plus-jakarta-sans";
+import { BricolageGrotesque_800ExtraBold } from "@expo-google-fonts/bricolage-grotesque";
+import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, useFonts } from "@expo-google-fonts/inter";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -57,11 +51,11 @@ function RootStack() {
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
-    PlusJakartaSans_400Regular,
-    PlusJakartaSans_500Medium,
-    PlusJakartaSans_600SemiBold,
-    PlusJakartaSans_700Bold,
-    PlusJakartaSans_800ExtraBold,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    BricolageGrotesque_800ExtraBold,
     Hind_400Regular,
     Hind_600SemiBold,
     JetBrainsMono_500Medium,

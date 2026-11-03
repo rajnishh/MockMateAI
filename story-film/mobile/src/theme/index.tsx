@@ -9,12 +9,13 @@ export type Mode = "light" | "dark";
 export type Colors = { [K in keyof typeof palette.light]: string };
 
 export const fonts = {
-  regular: "PlusJakartaSans_400Regular",
-  medium: "PlusJakartaSans_500Medium",
-  semibold: "PlusJakartaSans_600SemiBold",
-  bold: "PlusJakartaSans_700Bold",
-  extrabold: "PlusJakartaSans_800ExtraBold",
-  // Indian scripts: Plus Jakarta Sans has no Devanagari, so text typed by people uses Hind.
+  // v3.0: Inter for text, Bricolage Grotesque for titles and big numbers.
+  regular: "Inter_400Regular",
+  medium: "Inter_500Medium",
+  semibold: "Inter_600SemiBold",
+  bold: "Inter_700Bold",
+  extrabold: "BricolageGrotesque_800ExtraBold",
+  // Indian scripts: Inter and Bricolage have no Devanagari, so text typed by people uses Hind.
   indic: "Hind_400Regular",
   indicBold: "Hind_600SemiBold",
   mono: "JetBrainsMono_500Medium",

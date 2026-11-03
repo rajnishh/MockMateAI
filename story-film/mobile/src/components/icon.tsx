@@ -38,7 +38,7 @@ export function Icon({ name, size = 24, color }: { name: IconName; size?: number
 }
 
 // The Reelkar mark: white reel on trust navy, coral hub, teal film strip.
-const LOGO = `<svg viewBox="0 0 112 112"><rect width="112" height="112" rx="30" fill="#18264a"/><rect x="56" y="80" width="36" height="8" rx="4" fill="#2bc4b4"/><circle cx="54" cy="54" r="32" fill="#ffffff"/><circle cx="54" cy="36" r="6" fill="#18264a"/><circle cx="71" cy="48" r="6" fill="#18264a"/><circle cx="65" cy="68" r="6" fill="#18264a"/><circle cx="43" cy="68" r="6" fill="#18264a"/><circle cx="37" cy="48" r="6" fill="#18264a"/><circle cx="54" cy="54" r="5" fill="#f27a5e"/></svg>`;
+const LOGO = `<svg viewBox="0 0 112 112"><rect width="112" height="112" rx="30" fill="#2a1235"/><rect x="56" y="80" width="36" height="8" rx="4" fill="#14d9a0"/><circle cx="54" cy="54" r="32" fill="#ffb21a"/><circle cx="54" cy="36" r="6" fill="#2a1235"/><circle cx="71" cy="48" r="6" fill="#2a1235"/><circle cx="65" cy="68" r="6" fill="#2a1235"/><circle cx="43" cy="68" r="6" fill="#2a1235"/><circle cx="37" cy="48" r="6" fill="#2a1235"/><circle cx="54" cy="54" r="5" fill="#ff4d2e"/></svg>`;
 
 export function Logo({ size = 48 }: { size?: number }) {
   return <SvgXml xml={LOGO} width={size} height={size} accessibilityLabel="Reelkar" />;

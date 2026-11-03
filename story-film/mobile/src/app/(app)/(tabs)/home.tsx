@@ -14,7 +14,8 @@ import { useTheme } from "@/theme";
 const WEEK = 7 * 86400000;
 
 export default function Home() {
-  const { user } = useSession();
+  const { user, prefs } = useSession();
+  const branded = Boolean(prefs?.brand?.accent || prefs?.brand?.handle);
   const { colors } = useTheme();
   const films = useData(() => api.films());
   const billing = useData(() => api.billing());
@@ -105,7 +106,12 @@ export default function Home() {
           sub={connected ? undefined : "2 minutes"}
           action={connected ? undefined : <Button label="Connect" small kind="secondary" onPress={() => router.push("/connections")} />}
         />
-        <CheckRow label="Create your brand kit" done={false} sub="Coming in the next beta" />
+        <CheckRow
+          label="Set your brand look"
+          done={branded}
+          sub="Your colour and handle on motion reels"
+          action={branded ? undefined : <Button label="Set up" small kind="secondary" onPress={() => router.push("/account")} />}
+        />
         <CheckRow label="Make 5 reels this week" done={thisWeek.length >= 5} sub={`${Math.min(thisWeek.length, 5)} of 5`} />
       </Card>
 

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import type { AgentCard, PostingMode } from "@/lib/agent/cards";
+import { loadBrand } from "@/lib/brand-prefs";
 import { Loader, ReelLogo } from "../reel-logo";
 
 type Message = { id: string; role: "user" | "assistant"; text: string; cards: AgentCard[]; createdAt: string };
@@ -20,9 +21,9 @@ const busy = (messages: Message[]) =>
   messages.some((m) => m.cards.some((c) => (c.type === "reel" && (c.status === "queued" || c.status === "running")) || ((c.type === "proposal" || c.type === "post") && c.status === "waiting")));
 
 // The device's time zone goes with every request, so "tomorrow 7:30 pm" means the creator's evening.
-// With no saved language, the agent answers in the language the creator writes in.
+// With no saved language, the agent answers in the language the creator writes in. The Brand kit look goes too.
 function turn() {
-  return { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone };
+  return { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, brand: loadBrand() };
 }
 
 async function send(path: string, body: unknown, method = "POST") {
@@ -56,6 +57,12 @@ export default function AskPage() {
   useEffect(() => {
     load().catch((e) => setError((e as Error).message));
   }, [load]);
+
+  // Home's Ask box and Ideas tile open this page with a starter message to send.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("q");
+    if (q) setText(q.slice(0, 1000));
+  }, []);
 
   useEffect(() => {
     if (!busy(messages)) return;

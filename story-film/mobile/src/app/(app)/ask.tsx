@@ -198,7 +198,7 @@ export default function Ask() {
                   style={[
                     styles.bubble,
                     m.role === "user"
-                      ? { backgroundColor: colors.brand, alignSelf: "flex-end" }
+                      ? { backgroundColor: colors.deep, alignSelf: "flex-end" }
                       : {
                           backgroundColor: colors.surfaceRaised,
                           borderColor: colors.line,
@@ -209,7 +209,7 @@ export default function Ask() {
                 >
                   <Txt
                     style={{
-                      color: m.role === "user" ? colors.onBrand : colors.ink,
+                      color: m.role === "user" ? colors.onDeep : colors.ink,
                     }}
                   >
                     {m.text}
