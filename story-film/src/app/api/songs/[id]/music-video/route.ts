@@ -7,7 +7,8 @@ import { getCharacter } from "@/lib/characters";
 import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
 import { createFilm } from "@/lib/films";
-import { premiumAvailable } from "@/lib/providers";
+import { cinematicAvailable, premiumAvailable } from "@/lib/providers";
+import { resolvePhoto, StartError } from "@/lib/start-film";
 import { getFilmQueue, musicVideoRequestSchema } from "@/lib/queue/films";
 import { FREE_PLAN } from "@/lib/quota/plans";
 import { getUserId, unauthorized } from "@/lib/session";
@@ -23,8 +24,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const db = getDb();
   const song = await getSong(db, userId, id).catch(() => undefined);
   if (!song?.outputPath || song.status !== "completed") return NextResponse.json({ error: "Song not found" }, { status: 404 });
-  if (parsed.data.quality === "premium" && !premiumAvailable(loadEnv())) {
+  const env = loadEnv();
+  const { quality, singer } = parsed.data;
+  if (quality === "premium" && !premiumAvailable(env)) {
     return NextResponse.json({ error: "AI animation isn't available yet" }, { status: 400 });
+  }
+  if (quality === "cinematic" && !cinematicAvailable(env)) {
+    return NextResponse.json({ error: "Cinematic videos aren't available yet" }, { status: 400 });
+  }
+  if (singer && quality === "standard") {
+    return NextResponse.json({ error: "Singing it yourself needs AI animation or Cinematic quality." }, { status: 400 });
+  }
+  let photoUrl: string | undefined;
+  try {
+    photoUrl = await resolvePhoto({ ...parsed.data, userId }, env.OUTPUT_DIR);
+  } catch (err) {
+    if (err instanceof StartError) return NextResponse.json({ error: err.message }, { status: err.status });
+    throw err;
   }
 
   let character;
@@ -34,7 +50,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   const filmId = randomUUID();
-  const credits = musicVideoCredits(parsed.data.quality, song.durationSec);
+  const credits = musicVideoCredits(quality, song.durationSec, { singer, cinematicModel: env.CINEMATIC_VIDEO_MODEL });
   if (!(await spendCredits(db, userId, credits, filmId))) {
     return NextResponse.json({ error: `This music video needs ${credits} credits.`, needCredits: true }, { status: 402 });
   }
@@ -48,8 +64,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       style: parsed.data.style,
       durationSec: song.durationSec,
       kidSafe: parsed.data.kidSafe,
-      quality: parsed.data.quality,
+      quality,
       credits,
+      photoConsentAt: photoUrl ? new Date() : undefined,
     });
     await getFilmQueue().add(
       "music-video",
@@ -63,7 +80,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         genre: findGenre(song.genre)?.label ?? song.genre,
         mood: song.mood,
         character,
-        resolution: FREE_PLAN.resolution,
+        photoUrl,
+        resolution: quality === "cinematic" ? "1080p" : FREE_PLAN.resolution,
         // Paid, so no free-plan watermark (the AI label stays).
         watermark: false,
         credits,

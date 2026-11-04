@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { CINEMATIC_CREDITS_PER_SHOT, CURRENCIES, PACKS, PLANS, PREMIUM_CREDITS_PER_SHOT } from "@/lib/billing/catalog";
+import { CINEMATIC_CREDITS_PER_SHOT, CURRENCIES, PACKS, PLANS, PREMIUM_CREDITS_PER_SHOT, SINGER_CREDITS_PER_SHOT } from "@/lib/billing/catalog";
 import { razorpayFromEnv, planIdsFromEnv } from "@/lib/billing/config";
 import { getBalance, recentLedger } from "@/lib/billing/credits";
 import { currentSubscription } from "@/lib/billing/service";
@@ -27,6 +27,7 @@ export async function GET() {
     premiumCreditsPerShot: PREMIUM_CREDITS_PER_SHOT,
     cinematicAvailable: cinematicAvailable(env),
     cinematicCreditsPerShot: CINEMATIC_CREDITS_PER_SHOT[env.CINEMATIC_VIDEO_MODEL],
+    singerCreditsPerShot: SINGER_CREDITS_PER_SHOT,
     packs: PACKS,
     plans: PLANS.map((p) => ({ ...p, currencies: CURRENCIES.filter((c) => planIds[`${p.id}:${c}`]) })),
     subscription: sub

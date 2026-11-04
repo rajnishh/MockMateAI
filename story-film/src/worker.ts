@@ -10,7 +10,7 @@ import { pendingPosts, publishPost } from "@/lib/posts";
 import { provenanceFromEnv, trySign } from "@/lib/provenance";
 import { grantCredits } from "@/lib/billing/credits";
 import { creatorMessage } from "@/lib/creator-errors";
-import { buildDanceSinger, buildPipelineDeps, buildSingDeps, buildSongProvider, buildTranscriber, type Quality, songsAvailable } from "@/lib/providers";
+import { buildDanceSinger, buildPipelineDeps, buildSinger, buildSingDeps, buildSongProvider, buildTranscriber, type Quality, songsAvailable } from "@/lib/providers";
 import { type MyVoiceJob, SONG_QUEUE, type SongJob, type SongQueueJob } from "@/lib/queue/songs";
 import { singInMyVoice } from "@/lib/voice/sing";
 import { updateSong } from "@/lib/songs/songs";
@@ -78,8 +78,8 @@ const filmWorker = new Worker<FilmQueueJob>(
     } else if (isMusicVideo(job)) {
       const d = job.data;
       result = await runMusicVideo(
-        { ...depsFor(d.quality), whisper },
-        { ...d, sceneSec: d.quality === "premium" ? { min: 3, max: 5 } : { min: 4, max: 7 } },
+        { ...depsFor(d.quality), whisper, ...(d.singer && d.quality !== "standard" ? { singer: buildSinger(env, d.quality) } : {}) },
+        { ...d, sceneSec: d.quality === "standard" ? { min: 4, max: 7 } : { min: 3, max: 5 } },
         workDir,
         onStage,
       );

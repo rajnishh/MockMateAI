@@ -14,28 +14,46 @@ const STAGES: Record<string, string> = {
   done: "Finished",
 };
 
+export interface MusicVideoPrices {
+  premiumAvailable: boolean;
+  premiumCreditsPerShot: number;
+  cinematicAvailable?: boolean;
+  cinematicCreditsPerShot?: number;
+  singerCreditsPerShot?: { premium: number; cinematic: number };
+}
+
 // Mirrors musicVideoCredits() in src/lib/billing/catalog.ts.
-function cost(quality: string, durationSec: number, perShot: number) {
-  return quality === "standard" ? 2 : Math.ceil(durationSec / 5) * perShot;
+function cost(quality: string, durationSec: number, prices: MusicVideoPrices, singer: boolean) {
+  if (quality === "standard") return 2;
+  const perShot =
+    singer && prices.singerCreditsPerShot
+      ? prices.singerCreditsPerShot[quality as "premium" | "cinematic"]
+      : quality === "cinematic"
+        ? (prices.cinematicCreditsPerShot ?? prices.premiumCreditsPerShot)
+        : prices.premiumCreditsPerShot;
+  return Math.ceil(durationSec / 5) * perShot;
 }
 
 export function MusicVideoPanel({
   songId,
   durationSec,
   characters,
-  premiumAvailable,
-  premiumCreditsPerShot,
+  prices,
 }: {
   songId: string;
   durationSec: number;
   characters: Character[];
-  premiumAvailable: boolean;
-  premiumCreditsPerShot: number;
+  prices: MusicVideoPrices;
 }) {
   const [style, setStyle] = useState("animated");
   const [quality, setQuality] = useState("standard");
   const [characterId, setCharacterId] = useState("");
   const [kidSafe, setKidSafe] = useState(false);
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [photoConsent, setPhotoConsent] = useState(false);
+  const [singer, setSinger] = useState(false);
+  const paid = quality !== "standard";
+  const credits = cost(quality, durationSec, prices, paid && singer);
   const [filmId, setFilmId] = useState<string | null>(null);
   const [film, setFilm] = useState<Film | null>(null);
   const [error, setError] = useState<{ text: string; needCredits?: boolean } | null>(null);
@@ -54,12 +72,33 @@ export function MusicVideoPanel({
   }, [filmId]);
 
   async function start() {
+    if (paid && photo && !photoConsent) return setError({ text: "Tick the box to confirm the person in the photo agreed." });
     setBusy(true);
     setError(null);
+    // The photo goes up first; the request names it.
+    let photoId: string | undefined;
+    if (paid && photo) {
+      const form = new FormData();
+      form.append("photo", photo);
+      const up = await fetch("/api/photos", { method: "POST", body: form });
+      const upBody = (await up.json().catch(() => ({}))) as { photo?: string; error?: string };
+      if (!up.ok || !upBody.photo) {
+        setBusy(false);
+        return setError({ text: upBody.error ?? "Couldn't upload your photo" });
+      }
+      photoId = upBody.photo;
+    }
     const res = await fetch(`/api/songs/${songId}/music-video`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ style, quality, kidSafe, ...(characterId ? { characterId } : {}) }),
+      body: JSON.stringify({
+        style,
+        quality,
+        kidSafe,
+        singer: paid && singer,
+        ...(characterId ? { characterId } : {}),
+        ...(photoId ? { photo: photoId, photoConsent } : {}),
+      }),
     });
     const body = await res.json();
     setBusy(false);
@@ -107,13 +146,40 @@ export function MusicVideoPanel({
           </select>
         </div>
       </div>
-      {premiumAvailable && (
+      {prices.premiumAvailable && (
         <>
           <label htmlFor={`mv-q-${songId}`}>Animation</label>
           <select id={`mv-q-${songId}`} value={quality} onChange={(e) => setQuality(e.target.value)}>
-            <option value="standard">Moving pictures · {cost("standard", durationSec, premiumCreditsPerShot)} credits</option>
-            <option value="premium">AI animation · {cost("premium", durationSec, premiumCreditsPerShot)} credits</option>
+            <option value="standard">Moving pictures · {cost("standard", durationSec, prices, false)} credits</option>
+            <option value="premium">AI animation · {cost("premium", durationSec, prices, singer)} credits</option>
+            {prices.cinematicAvailable && (
+              <option value="cinematic">Cinematic, hyper-real 1080p · {cost("cinematic", durationSec, prices, singer)} credits</option>
+            )}
           </select>
+        </>
+      )}
+      {paid && (
+        <>
+          <label className="check">
+            <input type="checkbox" checked={singer} onChange={(e) => setSinger(e.target.checked)} /> Sing it yourself: the star lip-syncs the
+            song in every scene
+          </label>
+          <label htmlFor={`mv-photo-${songId}`}>Star photo (optional)</label>
+          <input
+            id={`mv-photo-${songId}`}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={(e) => {
+              setPhoto(e.target.files?.[0] ?? null);
+              setPhotoConsent(false);
+            }}
+          />
+          {photo && (
+            <label className="check">
+              <input type="checkbox" checked={photoConsent} onChange={(e) => setPhotoConsent(e.target.checked)} /> This is me, or this person
+              agreed to be in my video
+            </label>
+          )}
         </>
       )}
       <label className="check">
@@ -121,7 +187,7 @@ export function MusicVideoPanel({
       </label>
       <p className="muted">Scenes follow the lyrics, with lyric captions synced to the singing.</p>
       <button type="button" onClick={start} disabled={busy}>
-        {busy ? "Starting…" : `Make music video · ${cost(quality, durationSec, premiumCreditsPerShot)} credits`}
+        {busy ? "Starting…" : `Make music video · ${credits} credits`}
       </button>
       {error && (
         <p className="muted">

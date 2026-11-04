@@ -70,7 +70,12 @@ export type FilmJob = z.infer<typeof filmJobSchema> & {
 
 export const musicVideoRequestSchema = z.object({
   style: z.enum(STYLE_IDS).default("animated"),
-  quality: z.enum(["standard", "premium"]).default("standard"),
+  quality: z.enum(["standard", "premium", "cinematic"]).default("standard"),
+  // The star is the person in this uploaded photo (POST /api/photos), with the creator's consent.
+  photo: z.string().regex(PHOTO_ID).optional(),
+  photoConsent: z.boolean().default(false),
+  // "Sing it yourself": the star lip-syncs the song in every scene (AI animation or Cinematic only).
+  singer: z.boolean().default(false),
   characterId: z.uuid().optional(),
   kidSafe: z.boolean().default(false),
   captions: z.boolean().default(true),
@@ -86,6 +91,7 @@ export type MusicVideoJob = z.infer<typeof musicVideoRequestSchema> & {
   genre: string;
   mood: string;
   character?: CharacterProfile;
+  photoUrl?: string;
   resolution: Resolution;
   watermark: boolean;
   credits: number;

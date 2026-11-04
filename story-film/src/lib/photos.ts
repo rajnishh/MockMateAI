@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { access, mkdir, writeFile } from "node:fs/promises";
+import { access, mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -28,6 +28,11 @@ export async function savePhoto(outputDir: string, userId: string, data: Buffer)
   const id = `${randomUUID()}.${ext}`;
   await writeFile(path.join(dir, id), data);
   return id;
+}
+
+// Removes every photo a user uploaded; runs when they delete their account.
+export async function deletePhotos(outputDir: string, userId: string): Promise<void> {
+  await rm(userDir(outputDir, userId), { recursive: true, force: true });
 }
 
 // The photo's file URL for the pipeline, or undefined when this user has no such photo.
