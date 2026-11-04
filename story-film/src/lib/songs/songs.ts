@@ -33,9 +33,16 @@ export function songView(s: Song) {
     durationSec: s.durationSec,
     status: s.status,
     myVoice: Boolean(s.voiceProfileId),
+    // A trimmed / faded / sped-up copy of another song.
+    edited: Boolean(s.parentSongId && !s.voiceProfileId),
     contentCredentials: s.contentCredentials,
     error: s.error,
     createdAt: s.createdAt.toISOString(),
     audioUrl: s.status === "completed" ? `/api/songs/${s.id}/audio` : null,
   };
+}
+
+// Splits one song charge across its takes (4 credits, 2 takes -> [2, 2]; 5, 2 -> [3, 2]).
+export function takeCredits(total: number, takes: number): number[] {
+  return Array.from({ length: takes }, (_, i) => Math.floor(total / takes) + (i < total % takes ? 1 : 0));
 }
