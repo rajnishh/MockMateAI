@@ -7,6 +7,7 @@ import { AceStepMusic } from "./acestep";
 import { CLOUDFLARE_DEFAULTS, cloudflareAiBase, CloudflareFluxImage } from "./cloudflare";
 import { DEFAULT_FAL_MODELS, FalImageToVideo, FalNanoBanana, FalQueueClient } from "./fal";
 import { FalAceStep } from "./fal-music";
+import { FalSongEditor } from "./fal-song-edit";
 import { FalChatterboxVc, FalDemucs, SeedVcServer } from "./voice";
 import { CloudflareTranscriber, CloudflareWhisper } from "./whisper";
 import { KenBurnsVideo } from "./kenburns";
@@ -71,6 +72,11 @@ export function songsAvailable(env: Env): boolean {
 
 export function buildSongProvider(env: Env): FalAceStep {
   return new FalAceStep(new FalQueueClient(requireKey(env.FAL_KEY, "FAL_KEY")));
+}
+
+// Remix (cover, extend, replace a part): ACE-Step's edit endpoints on fal, like songs.
+export function buildSongEditor(env: Env): FalSongEditor {
+  return new FalSongEditor(new FalQueueClient(requireKey(env.FAL_KEY, "FAL_KEY")));
 }
 
 // "Sing in my voice" needs fal (separation) and Whisper (consent check).
