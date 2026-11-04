@@ -5,15 +5,15 @@ import { buildLlm } from "@/lib/providers";
 import { getRedis } from "@/lib/queue/films";
 import { allow } from "@/lib/rate-limit";
 import { getUserId, unauthorized } from "@/lib/session";
-import { writeLyrics } from "@/lib/songs/lyrics";
-import { songOptionsSchema } from "@/lib/songs/request";
+import { enhanceLyrics, writeLyrics } from "@/lib/songs/lyrics";
+import { lyricsRequestSchema } from "@/lib/songs/request";
 import { assertNoRealArtists, SongSafetyError } from "@/lib/songs/safety";
 import { findGenre } from "@/lib/songs/styles";
 
 export async function POST(req: Request) {
   const userId = await getUserId();
   if (!userId) return unauthorized();
-  const parsed = songOptionsSchema.safeParse(await req.json());
+  const parsed = lyricsRequestSchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: z.prettifyError(parsed.error) }, { status: 400 });
   const genre = findGenre(parsed.data.genre);
   if (!genre) return NextResponse.json({ error: "Unknown genre" }, { status: 400 });
@@ -22,8 +22,10 @@ export async function POST(req: Request) {
   }
   try {
     const llm = buildLlm(loadEnv());
-    await assertNoRealArtists(llm, [parsed.data.topic]);
-    const out = await writeLyrics(llm, { ...parsed.data, genre });
+    const { draft, ...options } = parsed.data;
+    await assertNoRealArtists(llm, [options.topic, draft ?? ""]);
+    // With the creator's own lines: "Enhance my lyrics" grows them into a full song.
+    const out = draft ? await enhanceLyrics(llm, draft, { ...options, genre }) : await writeLyrics(llm, { ...options, genre });
     // The model is told not to name artists; check its output too.
     await assertNoRealArtists(llm, [out.title, out.lyrics]);
     return NextResponse.json(out);

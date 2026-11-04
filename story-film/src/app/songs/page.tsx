@@ -2,6 +2,8 @@
 
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { LANGUAGES } from "@/lib/languages";
+import { STYLE_CHIPS } from "@/lib/songs/styles";
+import { SongEditor } from "./song-editor";
 import { MusicVideoPanel, type MusicVideoPrices } from "./music-video-panel";
 import { MyVoices, type Voice } from "./my-voice";
 
@@ -14,6 +16,7 @@ type Song = {
   audioUrl: string | null;
   durationSec: number;
   myVoice: boolean;
+  edited: boolean;
   contentCredentials: boolean;
   createdAt: string;
 };
@@ -47,11 +50,16 @@ export default function SongsPage() {
   const [kidSafe, setKidSafe] = useState(false);
   const [title, setTitle] = useState("");
   const [lyrics, setLyrics] = useState("");
+  const [style, setStyle] = useState("");
+  const [vocal, setVocal] = useState("auto");
+  const [twoTakes, setTwoTakes] = useState(true);
 
   const [songs, setSongs] = useState<Song[]>([]);
   const [credits, setCredits] = useState(4);
   const [available, setAvailable] = useState(true);
   const [writing, setWriting] = useState(false);
+  const [styling, setStyling] = useState(false);
+  const [editFor, setEditFor] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [needCredits, setNeedCredits] = useState(false);
@@ -86,14 +94,28 @@ export default function SongsPage() {
 
   const options = { topic, genre, mood, language, durationSec, kidSafe };
 
-  async function writeWithAi() {
+  // With lines already in the box, AI grows them into a full song and keeps them; otherwise it writes from the topic.
+  async function writeWithAi(enhance: boolean) {
     setWriting(true);
     setError(null);
-    const { ok, data } = await postJson<{ title: string; lyrics: string }>("/api/songs/lyrics", options);
+    const { ok, data } = await postJson<{ title: string; lyrics: string }>("/api/songs/lyrics", enhance ? { ...options, draft: lyrics } : options);
     setWriting(false);
     if (!ok) return setError(data.error ?? "Couldn't write lyrics");
-    setTitle(data.title);
+    if (!title || !enhance) setTitle(data.title);
     setLyrics(data.lyrics);
+  }
+
+  async function enhanceStyle() {
+    setStyling(true);
+    setError(null);
+    const { ok, data } = await postJson<{ style: string }>("/api/songs/style", { ...options, idea: style || topic, vocal });
+    setStyling(false);
+    if (!ok) return setError(data.error ?? "Couldn't write a style");
+    setStyle(data.style);
+  }
+
+  function addChip(chip: string) {
+    setStyle((s) => (s.toLowerCase().includes(chip) ? s : s.trim() ? `${s.trim().replace(/,$/, "")}, ${chip}` : chip));
   }
 
   async function singInMyVoice(songId: string) {
@@ -113,7 +135,7 @@ export default function SongsPage() {
     setSubmitting(true);
     setError(null);
     setNeedCredits(false);
-    const { ok, data } = await postJson<{ id: string }>("/api/songs", { ...options, title, lyrics });
+    const { ok, data } = await postJson<{ id: string }>("/api/songs", { ...options, title, lyrics, style, vocal, takes: twoTakes ? 2 : 1 });
     setSubmitting(false);
     if (!ok) {
       setNeedCredits(Boolean(data.needCredits));
@@ -134,7 +156,7 @@ export default function SongsPage() {
 
       <form onSubmit={makeSong}>
         <label htmlFor="topic">What is the song about?</label>
-        <input id="topic" type="text" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="e.g. my grandmother's kitchen on a rainy day" required />
+        <input id="topic" type="text" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="e.g. my grandmother's kitchen on a rainy day" />
 
         <label>Style</label>
         <div className="ideas">
@@ -171,7 +193,7 @@ export default function SongsPage() {
         </label>
 
         <div className="actions">
-          <button type="button" className="secondary" onClick={writeWithAi} disabled={writing || topic.trim().length < 3}>
+          <button type="button" className="secondary" onClick={() => writeWithAi(false)} disabled={writing || topic.trim().length < 3}>
             {writing ? "Writing…" : "✨ Write lyrics with AI"}
           </button>
         </div>
@@ -187,6 +209,49 @@ export default function SongsPage() {
           style={{ minHeight: 260 }}
           required
         />
+        <div className="actions">
+          <button type="button" className="secondary" onClick={() => writeWithAi(true)} disabled={writing || lyrics.trim().length < 10}>
+            {writing ? "Writing…" : "✨ Enhance my lyrics"}
+          </button>
+          <span className="muted">Write a few lines of your own and AI makes them a full song, keeping your lines.</span>
+        </div>
+
+        <label htmlFor="style">Sound (optional)</label>
+        <textarea
+          id="style"
+          value={style}
+          onChange={(e) => setStyle(e.target.value)}
+          maxLength={500}
+          placeholder="e.g. sad papa-beti song, soft piano. Leave empty to use the style above."
+          style={{ minHeight: 70 }}
+        />
+        <div className="ideas">
+          {STYLE_CHIPS.map((chip) => {
+            const on = style.toLowerCase().includes(chip);
+            return <button type="button" key={chip} className="chip" aria-pressed={on} onClick={() => addChip(chip)}>{on ? chip : `+ ${chip}`}</button>;
+          })}
+        </div>
+        <div className="actions">
+          <button type="button" className="secondary" onClick={enhanceStyle} disabled={styling}>
+            {styling ? "Writing…" : "✨ Enhance style"}
+          </button>
+          <span className="muted">Turns a few words into a detailed sound: instruments, tempo, vocals.</span>
+        </div>
+
+        <div className="row">
+          <div>
+            <label htmlFor="vocal">Voice</label>
+            <select id="vocal" value={vocal} onChange={(e) => setVocal(e.target.value)}>
+              <option value="auto">Any</option>
+              <option value="female">Female</option>
+              <option value="male">Male</option>
+              <option value="duet">Duet</option>
+            </select>
+          </div>
+        </div>
+        <label className="check">
+          <input type="checkbox" checked={twoTakes} onChange={(e) => setTwoTakes(e.target.checked)} /> Make 2 versions to choose from (same price)
+        </label>
         <p className="muted">
           Use [Verse] and [Chorus] on their own lines. Songs can&apos;t name or imitate real singers or bands. A song costs {credits} credits.
         </p>
@@ -215,6 +280,18 @@ export default function SongsPage() {
                   <>
                     <audio src={s.audioUrl} controls preload="none" />
                     <a href={s.audioUrl} download>Download</a>
+                    {editFor === s.id ? (
+                      <SongEditor
+                        songId={s.id}
+                        durationSec={s.durationSec}
+                        onDone={() => {
+                          setEditFor(null);
+                          load();
+                        }}
+                      />
+                    ) : (
+                      <button type="button" className="secondary" onClick={() => setEditFor(s.id)}>✂️ Trim, fade, speed</button>
+                    )}
                     {s.contentCredentials && (
                       <span className="muted cc">
                         <span className="cc-badge">cr</span> Content Credentials: marked as AI-generated
