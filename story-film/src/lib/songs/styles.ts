@@ -25,6 +25,27 @@ export function findGenre(id: string): Genre | undefined {
   return GENRES.find((g) => g.id === id);
 }
 
-export function stylePrompt(genre: Genre, mood: string): string {
-  return `${genre.prompt}${mood ? `, ${mood} mood` : ""}`.slice(0, 512);
+export const VOCALS = ["auto", "female", "male", "duet"] as const;
+export type Vocal = (typeof VOCALS)[number];
+
+const VOCAL_PROMPTS: Record<Vocal, string> = {
+  auto: "",
+  female: "female lead vocals",
+  male: "male lead vocals",
+  duet: "male and female duet vocals",
+};
+
+// Quick tags the creator can tap to add to a style, like Suno's style chips. Sound only, never artists.
+export const STYLE_CHIPS = [
+  "acoustic guitar", "piano", "strings", "tabla", "dhol", "harmonium", "flute", "sitar", "synths", "808 bass",
+  "slow tempo", "mid tempo", "fast tempo", "soft", "powerful", "emotional", "dreamy", "groovy", "cinematic", "live band",
+] as const;
+
+// The style ACE-Step receives: the creator's own style text (written or AI-enhanced) when there is one, else the genre preset.
+export function stylePrompt(genre: Genre, mood: string, vocal: Vocal = "auto", custom?: string): string {
+  const base = custom?.trim() || genre.prompt;
+  // The creator's style that already says "female vocals" doesn't need it twice; presets always get the choice.
+  const voice = vocal !== "auto" && !new RegExp(`\\b${vocal}\\b`, "i").test(custom ?? "") ? VOCAL_PROMPTS[vocal] : "";
+  const parts = [base, mood && !custom?.trim() ? `${mood} mood` : "", voice];
+  return parts.filter(Boolean).join(", ").slice(0, 512);
 }

@@ -5,10 +5,17 @@ import { user } from "@/lib/db/schema";
 import { FalQueueClient } from "@/lib/providers/fal";
 import { FalAceStep } from "@/lib/providers/fal-music";
 import type { LlmProvider } from "@/lib/providers/types";
-import { buildLyricsPrompt, cleanLyrics, targetLines, writeLyrics } from "@/lib/songs/lyrics";
+import { buildEnhancePrompt, draftLanguage, buildLyricsPrompt, cleanLyrics, enhanceLyrics, missingLines, targetLines, writeLyrics } from "@/lib/songs/lyrics";
+import { editedLength, isNoop, songEditArgs, songEditSchema } from "@/lib/songs/edit";
+import { lyricsRequestSchema, newSongSchema } from "@/lib/songs/request";
+import { buildStylePrompt, writeStyle } from "@/lib/songs/style-writer";
 import { assertNoRealArtists, findBlockedArtist, SongSafetyError } from "@/lib/songs/safety";
-import { createSong, getSong, listSongs, songView, updateSong } from "@/lib/songs/songs";
+import { createSong, getSong, listSongs, songView, takeCredits, updateSong } from "@/lib/songs/songs";
 import { findGenre, stylePrompt } from "@/lib/songs/styles";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { defaultFfmpeg, probeDuration } from "@/lib/ffmpeg";
 import { testDb } from "./helpers/db";
 
 function llmReplying(reply: unknown | (() => unknown)): LlmProvider & { prompts: string[] } {
@@ -110,5 +117,118 @@ describe("songs and credits", () => {
     expect(await grantCredits(db, "u1", 4, "refund", "song:s1")).toBe(false);
     expect(await getBalance(db, "u1")).toBe(5);
     expect((await recentLedger(db, "u1")).map((l) => l.reason)).toContain("song");
+  });
+});
+
+describe("enhance my lyrics", () => {
+  const genre = findGenre("bollywood-romantic")!;
+  const draft = "पापा की दुनिया में मैं ही रानी\nहर दिन लगे जैसे नई कहानी";
+  const req = { topic: "", genre, mood: "romantic", language: "hi" as const, durationSec: 60 };
+
+  it("asks to keep the creator's lines word for word", () => {
+    const prompt = buildEnhancePrompt(draft, req);
+    expect(prompt).toContain(draft);
+    expect(prompt).toContain("exactly as written");
+    expect(prompt).toContain("Devanagari");
+    expect(prompt).not.toContain("Topic:");
+  });
+
+  it("keeps the script the creator wrote in", () => {
+    expect(draftLanguage("Papa ki duniya mein main hi rani", "hi")).toBe("hinglish");
+    expect(draftLanguage(draft, "hinglish")).toBe("hi");
+    expect(draftLanguage(draft, "hi")).toBe("hi");
+    expect(draftLanguage("My papa's world", "en")).toBe("en");
+    expect(buildEnhancePrompt("Papa ki duniya mein main hi rani", req)).toContain("Hinglish");
+  });
+
+  it("finds dropped lines, ignoring spacing and punctuation", () => {
+    expect(missingLines(draft, "[Verse]\nपापा की दुनिया में, मैं ही रानी!\nकुछ और")).toEqual(["हर दिन लगे जैसे नई कहानी"]);
+    expect(missingLines("[Chorus]\nhello world", "[Verse]\nHello world")).toEqual([]);
+  });
+
+  it("tries again once when the AI drops a line", async () => {
+    const replies = [
+      { title: "Papa", lyrics: "[Verse]\nपापा की दुनिया में मैं ही रानी\nबदली हुई लाइन" },
+      { title: "Papa Ki Duniya", lyrics: `[Verse]\n${draft}\n[Chorus]\nपापा की दुनिया, प्यारी सी दुनिया` },
+    ];
+    const llm = llmReplying(() => replies.shift());
+    const out = await enhanceLyrics(llm, draft, req);
+    expect(llm.prompts).toHaveLength(2);
+    expect(llm.prompts[1]).toContain("dropped or changed");
+    expect(out.title).toBe("Papa Ki Duniya");
+    expect(missingLines(draft, out.lyrics)).toEqual([]);
+  });
+
+  it("accepts a topic or a draft, but not neither", () => {
+    expect(lyricsRequestSchema.safeParse({ genre: "pop", draft }).success).toBe(true);
+    expect(lyricsRequestSchema.safeParse({ genre: "pop", topic: "rain" }).success).toBe(true);
+    expect(lyricsRequestSchema.safeParse({ genre: "pop", topic: "", draft: "hi" }).success).toBe(false);
+  });
+});
+
+describe("song style", () => {
+  const genre = findGenre("bollywood-romantic")!;
+
+  it("uses the creator's style text over the preset, and adds the voice", () => {
+    expect(stylePrompt(genre, "sad", "female")).toBe(`${genre.prompt}, sad mood, female lead vocals`);
+    expect(stylePrompt(genre, "sad", "duet", "lo-fi, piano, 70 bpm")).toBe("lo-fi, piano, 70 bpm, male and female duet vocals");
+    expect(stylePrompt(genre, "", "auto", "  ")).toBe(genre.prompt);
+    expect(stylePrompt(genre, "", "female", "ballad, soft female vocals")).toBe("ballad, soft female vocals");
+    expect(stylePrompt(genre, "", "male", "ballad, soft female vocals")).toBe("ballad, soft female vocals, male lead vocals");
+  });
+
+  it("writes a detailed style without artists, tidied and capped", async () => {
+    const req = { idea: "sad papa beti song", genre, mood: "sad", vocal: "female" as const, language: "hinglish" as const };
+    const prompt = buildStylePrompt(req);
+    expect(prompt).toContain("sad papa beti song");
+    expect(prompt).toContain("female lead");
+    expect(prompt).toContain("never name real singers");
+    const style = await writeStyle(llmReplying({ style: "  emotional Bollywood ballad,  soft piano, 72 bpm, " + "x".repeat(400) }), req);
+    expect(style.startsWith("emotional Bollywood ballad, soft piano, 72 bpm,")).toBe(true);
+    expect(style.length).toBe(300);
+  });
+
+  it("makes two takes by default and splits the price between them", () => {
+    const song = newSongSchema.parse({ genre: "pop", title: "T", lyrics: "[Verse]\nla la la la la la la" });
+    expect(song).toMatchObject({ takes: 2, vocal: "auto", topic: "" });
+    expect(takeCredits(4, 2)).toEqual([2, 2]);
+    expect(takeCredits(5, 2)).toEqual([3, 2]);
+    expect(takeCredits(4, 1)).toEqual([4]);
+  });
+});
+
+describe("crop, fade and speed", () => {
+  const edit = (e: object) => songEditSchema.parse(e);
+
+  it("builds ffmpeg arguments and the new length", () => {
+    const e = edit({ startSec: 10, endSec: 40, fadeInSec: 2, fadeOutSec: 3, speed: 1.25 });
+    expect(editedLength(e, 60)).toBe(24);
+    expect(songEditArgs("in.mp3", "out.mp3", e, 60)).toEqual([
+      "-y", "-ss", "10", "-t", "30", "-i", "in.mp3",
+      "-af", "atempo=1.25,afade=t=in:st=0:d=2,afade=t=out:st=21:d=3",
+      "-c:a", "libmp3lame", "-q:a", "2", "out.mp3",
+    ]);
+  });
+
+  it("rejects empty and impossible edits", () => {
+    expect(isNoop(edit({}), 60)).toBe(true);
+    expect(isNoop(edit({ endSec: 80 }), 60)).toBe(true);
+    expect(isNoop(edit({ fadeOutSec: 2 }), 60)).toBe(false);
+    expect(() => editedLength(edit({ startSec: 59.5 }), 60)).toThrow(/at least one second/);
+    expect(songEditSchema.safeParse({ startSec: 10, endSec: 5 }).success).toBe(false);
+    expect(songEditSchema.safeParse({ speed: 3 }).success).toBe(false);
+  });
+
+  it("really crops, speeds up and fades a song", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "song-edit-"));
+    try {
+      const input = path.join(dir, "in.mp3");
+      await defaultFfmpeg(["-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=20", "-c:a", "libmp3lame", input]);
+      const e = edit({ startSec: 2, endSec: 14, fadeOutSec: 2, speed: 1.2 });
+      await defaultFfmpeg(songEditArgs(input, path.join(dir, "out.mp3"), e, await probeDuration(input)));
+      expect(await probeDuration(path.join(dir, "out.mp3"))).toBeCloseTo(10, 0);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });
