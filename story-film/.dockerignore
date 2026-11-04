@@ -1,0 +1,13 @@
+node_modules
+.next
+output
+mobile
+design
+docs
+tests
+deploy
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+.git

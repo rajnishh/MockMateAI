@@ -1,0 +1,111 @@
+import { router } from "expo-router";
+import { useState } from "react";
+import { View } from "react-native";
+
+import { Banner, Button, ChipRow, Field, Header, Screen, Txt } from "@/components/ui";
+import { findCountry, isValidMobile, PHONE_COUNTRIES, type PhoneCountry, toE164 } from "@/lib/phone";
+import { useSession } from "@/lib/session";
+import { useTheme } from "@/theme";
+
+type Method = "phone" | "email";
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export default function SignIn() {
+  const { signInWithGoogle, sendOtp } = useSession();
+  const { colors } = useTheme();
+  const [method, setMethod] = useState<Method>("phone");
+  const [country, setCountry] = useState<PhoneCountry>("IN");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState<"google" | "code" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const info = findCountry(country);
+  const address = email.trim().toLowerCase();
+  const valid = method === "phone" ? isValidMobile(country, phone) : EMAIL.test(address);
+
+  async function run(kind: "google" | "code", fn: () => Promise<void>) {
+    setBusy(kind);
+    setError(null);
+    try {
+      await fn();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <Screen>
+      <Header title="Sign in or create your account" back />
+      {error ? <Banner kind="error" text={error} /> : null}
+      <Button label="Continue with Google" kind="secondary" block loading={busy === "google"} onPress={() => run("google", signInWithGoogle)} />
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <View style={{ flex: 1, height: 1, backgroundColor: colors.line }} />
+        <Txt variant="cap">or get a code</Txt>
+        <View style={{ flex: 1, height: 1, backgroundColor: colors.line }} />
+      </View>
+      <ChipRow
+        options={[
+          { value: "phone", label: "Mobile number" },
+          { value: "email", label: "Email" },
+        ]}
+        value={method}
+        onChange={(m) => {
+          setMethod(m);
+          setError(null);
+        }}
+      />
+      {method === "phone" ? (
+        <>
+          <ChipRow
+            options={PHONE_COUNTRIES.map((c) => ({ value: c.code, label: `${c.name} ${c.dial}` }))}
+            value={country}
+            onChange={setCountry}
+          />
+          <Field
+            label={`${info.name} mobile number (${info.dial})`}
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
+            autoComplete="tel"
+            textContentType="telephoneNumber"
+            placeholder={info.example}
+            maxLength={16}
+          />
+        </>
+      ) : (
+        <Field
+          label="Email address"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="email"
+          textContentType="emailAddress"
+          placeholder="name@example.com"
+        />
+      )}
+      <Button
+        label="Send code"
+        block
+        disabled={!valid}
+        loading={busy === "code"}
+        onPress={() =>
+          run("code", async () => {
+            const to = method === "phone" ? toE164(country, phone) : address;
+            await sendOtp(to);
+            router.push({ pathname: "/otp", params: { to } });
+          })
+        }
+      />
+      <Txt variant="cap">
+        {method === "phone"
+          ? "We'll send a 6-digit code by SMS to Indian and UAE numbers. Somewhere else? Use email or Google."
+          : "We'll email you a 6-digit code. No password needed."}
+      </Txt>
+    </Screen>
+  );
+}

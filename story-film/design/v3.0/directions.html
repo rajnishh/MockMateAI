@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Reelkar v3 Directions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Sora:wght@400..800&family=Fraunces:opsz,wght@9..144,500..800&family=Plus+Jakarta+Sans:wght@400..800&family=Inter:wght@400..700&display=swap" rel="stylesheet" />
+<style>
+  :root { --page: #f3f1ee; --page-ink: #1b1a1f; --page-muted: #66636d; --line: #e2ded8; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --page: #0e0d11; --page-ink: #f2f0f5; --page-muted: #a19dab; --line: #26242c; } }
+  :root[data-theme="dark"] { --page: #0e0d11; --page-ink: #f2f0f5; --page-muted: #a19dab; --line: #26242c; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--page-ink); font: 15px/1.5 Inter, system-ui, sans-serif; }
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font: 800 clamp(28px, 4vw, 40px)/1.1 "Plus Jakarta Sans", sans-serif; margin: 0 0 8px; letter-spacing: -0.02em; }
+  .lede { color: var(--page-muted); max-width: 760px; margin: 0 0 20px; }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 28px; }
+  .bar button { font: 600 14px Inter, sans-serif; padding: 8px 16px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--page-ink); cursor: pointer; }
+  .bar button[aria-pressed="true"] { background: var(--page-ink); color: var(--page); border-color: var(--page-ink); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 28px; }
+  .dir h2 { font: 800 22px/1.2 "Plus Jakarta Sans", sans-serif; margin: 0; }
+  .dir .tag { font-size: 13px; color: var(--page-muted); margin: 2px 0 12px; }
+  .dir .why { font-size: 14px; margin: 14px 0 10px; }
+  .sw { display: flex; gap: 6px; flex-wrap: wrap; }
+  .sw span { display: flex; flex-direction: column; gap: 4px; font: 500 11px ui-monospace, monospace; color: var(--page-muted); }
+  .sw i { width: 44px; height: 32px; border-radius: 10px; border: 1px solid var(--line); }
+  .font { font-size: 13px; color: var(--page-muted); margin-top: 10px; }
+
+  /* Phone */
+  .phone { width: 100%; max-width: 340px; border-radius: 36px; overflow: hidden; background: var(--bg); color: var(--ink); box-shadow: 0 24px 60px -20px rgba(0,0,0,.35); font-family: var(--body); border: 6px solid #0b0b0e; position: relative; }
+  .hero { background: var(--hero); color: var(--hero-ink); padding: 18px 16px 18px; border-radius: 0 0 26px 26px; position: relative; overflow: hidden; }
+  .hero::after { content: ""; position: absolute; right: -60px; top: -40px; width: 200px; height: 200px; border-radius: 50%; border: 22px solid var(--hero-ring); pointer-events: none; }
+  .hero > * { position: relative; z-index: 1; }
+  .top { display: flex; align-items: center; gap: 10px; }
+  .top b { font: 700 17px var(--display); flex: 1; }
+  .round { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--hero-chip); }
+  .lbl { font-size: 13px; opacity: .85; margin-top: 16px; }
+  .big { font: 800 44px/1 var(--display); letter-spacing: -0.03em; margin: 4px 0 2px; }
+  .big small { font-size: 18px; font-weight: 700; opacity: .8; letter-spacing: 0; }
+  .meter { height: 8px; border-radius: 99px; background: var(--hero-chip); margin: 12px 0 6px; overflow: hidden; }
+  .meter i { display: block; height: 100%; width: 60%; background: var(--accent); border-radius: 99px; }
+  .fine { font-size: 12px; opacity: .85; }
+  .chips { display: flex; gap: 6px; margin: 12px 0 14px; flex-wrap: wrap; }
+  .chip { font: 700 12px var(--body); padding: 5px 10px; border-radius: 99px; background: var(--hero-chip); }
+  .chip.on { background: var(--accent); color: var(--accent-ink); }
+  .ask { display: flex; align-items: center; gap: 8px; background: #fff; color: #1b1a1f; border-radius: 99px; padding: 6px 6px 6px 14px; font-size: 13px; }
+  .ask span { flex: 1; min-width: 0; color: #55525c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ask em { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--deep); color: #fff; }
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px 8px; padding: 16px 14px 6px; }
+  .tile { display: flex; flex-direction: column; align-items: center; gap: 6px; font: 600 11px var(--body); text-align: center; }
+  .tile i { width: 52px; height: 52px; border-radius: 16px; display: grid; place-items: center; background: var(--surface); color: var(--brand-on-surface); box-shadow: 0 1px 0 var(--edge); }
+  .tile.main i { background: var(--brand); color: var(--brand-ink); }
+  .tile.ai i { background: var(--accent); color: var(--accent-ink); }
+  .alert { margin: 10px 14px; background: var(--deep); color: #fff; border-radius: 18px; padding: 12px; display: flex; gap: 10px; align-items: center; }
+  .alert .th { width: 40px; height: 52px; border-radius: 10px; background: var(--thumb); flex: none; display: grid; place-items: center; }
+  .alert div { flex: 1; font-size: 12px; opacity: .9; }
+  .alert div b { display: block; font: 700 14px var(--body); opacity: 1; }
+  .alert a { font: 700 13px var(--body); color: var(--accent); }
+  .head { display: flex; justify-content: space-between; padding: 8px 16px 4px; font: 700 15px var(--display); }
+  .head a { font: 600 12px var(--body); color: var(--link); }
+  .list { margin: 0 14px; background: var(--surface); border-radius: 18px; padding: 2px 12px; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--edge); font-size: 13px; }
+  .row:last-child { border: 0; }
+  .row .dot { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font: 800 11px var(--body); color: #fff; flex: none; }
+  .row div { flex: 1; }
+  .row div small { display: block; color: var(--muted); font-size: 11px; }
+  .row time { font: 700 12px var(--body); }
+  .nav { margin: 14px 12px 12px; background: var(--deep); color: #fff; border-radius: 22px; display: flex; justify-content: space-around; align-items: center; padding: 8px 4px; font: 600 10px var(--body); }
+  .nav span { display: flex; flex-direction: column; align-items: center; gap: 2px; opacity: .7; }
+  .nav span.on { opacity: 1; color: var(--accent); }
+  .nav .plus { width: 44px; height: 44px; border-radius: 50%; background: var(--brand); color: var(--brand-ink); display: grid; place-items: center; opacity: 1; margin-top: -2px; }
+  svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .mk svg { width: 34px; height: 34px; stroke: none; }
+  .note { margin-top: 40px; border-top: 1px solid var(--line); padding-top: 20px; color: var(--page-muted); font-size: 14px; max-width: 820px; }
+  .note b { color: var(--page-ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Reelkar v3 · four brand directions</h1>
+  <p class="lede">The same Home screen in four colour stories, built with the bold layout you liked in Bachat: a coloured hero with one big number, an icon grid, a dark alert card and a floating dark tab bar. None of them use Bachat's blue. Pick one, or mix parts of two.</p>
+  <div class="bar" role="group" aria-label="Mode">
+    <button type="button" data-m="light" aria-pressed="true">Light</button>
+    <button type="button" data-m="dark" aria-pressed="false">Dark</button>
+  </div>
+  <div class="grid" id="grid"></div>
+  <div class="note">
+    <p><b>How to read these.</b> The layout and copy are identical on purpose, so only the brand changes. The reel logo stays; only its colours change. Every direction is checked for readable text: where white on the hero colour would be too faint (saffron, coral), the hero text is dark instead.</p>
+    <p><b>Next.</b> Once you pick, I'll turn it into design v3.0 tokens, mock up Home and Make a reel for web (desktop and phone), then restyle the app and add the missing screens.</p>
+  </div>
+</div>
+
+<script>
+const D = [
+  {
+    id: "masala", name: "1 · Masala Pop", tag: "Saffron, chilli and mint. Loud, warm, festive.",
+    why: "Feels like Indian street posters and festival colour. Stands out in a feed full of blue and purple apps, and reads as fun and made for desi creators. Works for cartoons, songs and kids' content.",
+    display: '"Bricolage Grotesque", sans-serif', body: 'Inter, sans-serif', fonts: "Bricolage Grotesque + Inter",
+    light: { bg: "#FFF7EE", surface: "#FFFFFF", ink: "#2A1235", muted: "#7A6472", edge: "#F3E5D6", hero: "linear-gradient(150deg,#FFB21A 0%,#FF7A1A 100%)", heroInk: "#2A1235", heroChip: "rgba(42,18,53,.12)", heroRing: "rgba(255,255,255,.22)", brand: "#FF4D2E", brandInk: "#FFFFFF", brandOnSurface: "#E2401F", accent: "#14D9A0", accentInk: "#062B22", deep: "#2A1235", link: "#E2401F", thumb: "linear-gradient(160deg,#FF4D2E,#FFB21A)" },
+    dark:  { bg: "#150A1A", surface: "#24142B", ink: "#FFF1E6", muted: "#C2A9B8", edge: "#341F3D", hero: "linear-gradient(150deg,#FFB21A 0%,#FF7A1A 100%)", heroInk: "#2A1235", heroChip: "rgba(42,18,53,.14)", heroRing: "rgba(255,255,255,.2)", brand: "#FF5A3C", brandInk: "#FFFFFF", brandOnSurface: "#FF8A5C", accent: "#2BF0B5", accentInk: "#062B22", deep: "#0B050D", link: "#FF9A5C", thumb: "linear-gradient(160deg,#FF4D2E,#FFB21A)" },
+    swatches: [["#FF7A1A","Saffron"],["#FF4D2E","Chilli"],["#14D9A0","Mint"],["#2A1235","Plum ink"],["#FFF7EE","Cream"]],
+    logo: ["#2A1235","#FFB21A"]
+  },
+  {
+    id: "studio", name: "2 · Studio Violet", tag: "Electric violet with lime. Creator-tool energy.",
+    why: "Purple is the colour of creator tools and nightlife; lime gives it a sharp, techy pop for 'AI made this'. Feels premium and young without copying Instagram's gradient. Strong for Gulf and urban Indian creators.",
+    display: 'Sora, sans-serif', body: 'Inter, sans-serif', fonts: "Sora + Inter",
+    light: { bg: "#F5F3FF", surface: "#FFFFFF", ink: "#16112E", muted: "#5F5A7A", edge: "#E6E1FA", hero: "linear-gradient(150deg,#6A2BFF 0%,#4A16D9 100%)", heroInk: "#FFFFFF", heroChip: "rgba(255,255,255,.16)", heroRing: "rgba(255,255,255,.1)", brand: "#6A2BFF", brandInk: "#FFFFFF", brandOnSurface: "#5B21E6", accent: "#C8FF3D", accentInk: "#1C2600", deep: "#16112E", link: "#5B21E6", thumb: "linear-gradient(160deg,#6A2BFF,#FF4FA3)" },
+    dark:  { bg: "#0A0716", surface: "#17122C", ink: "#F1EEFF", muted: "#A8A1C9", edge: "#251E42", hero: "linear-gradient(150deg,#6A2BFF 0%,#3D10C0 100%)", heroInk: "#FFFFFF", heroChip: "rgba(255,255,255,.14)", heroRing: "rgba(255,255,255,.08)", brand: "#7B45FF", brandInk: "#FFFFFF", brandOnSurface: "#A98BFF", accent: "#C8FF3D", accentInk: "#1C2600", deep: "#05030C", link: "#B49BFF", thumb: "linear-gradient(160deg,#6A2BFF,#FF4FA3)" },
+    swatches: [["#6A2BFF","Violet"],["#C8FF3D","Lime"],["#FF4FA3","Pink"],["#16112E","Night"],["#F5F3FF","Lilac"]],
+    logo: ["#16112E","#C8FF3D"]
+  },
+  {
+    id: "premiere", name: "3 · Premiere Night", tag: "Cinema black, marquee gold and red carpet.",
+    why: "Borrows from film premieres and Bollywood posters: dark, rich, a little glamorous. Says 'short films and cartoons that look like cinema'. Gold reads as premium in both India and the Gulf.",
+    display: 'Fraunces, serif', body: '"Plus Jakarta Sans", sans-serif', fonts: "Fraunces + Plus Jakarta Sans",
+    light: { bg: "#FAF6EF", surface: "#FFFFFF", ink: "#17140F", muted: "#6E665A", edge: "#EDE4D4", hero: "linear-gradient(160deg,#1E1A14 0%,#0E0C09 100%)", heroInk: "#FFF4DC", heroChip: "rgba(255,212,94,.14)", heroRing: "rgba(255,200,61,.14)", brand: "#E0342B", brandInk: "#FFFFFF", brandOnSurface: "#C92A22", accent: "#FFC83D", accentInk: "#2A1E00", deep: "#17140F", link: "#B8860B", thumb: "linear-gradient(160deg,#E0342B,#FFC83D)" },
+    dark:  { bg: "#0C0A08", surface: "#1A1712", ink: "#FBF1DE", muted: "#B5A88F", edge: "#2A251C", hero: "linear-gradient(160deg,#2A2418 0%,#14110C 100%)", heroInk: "#FFF4DC", heroChip: "rgba(255,212,94,.14)", heroRing: "rgba(255,200,61,.16)", brand: "#F0443A", brandInk: "#FFFFFF", brandOnSurface: "#FF7A70", accent: "#FFC83D", accentInk: "#2A1E00", deep: "#000000", link: "#FFC83D", thumb: "linear-gradient(160deg,#E0342B,#FFC83D)" },
+    swatches: [["#0E0C09","Cinema"],["#FFC83D","Gold"],["#E0342B","Carpet"],["#FAF6EF","Ivory"],["#6E665A","Taupe"]],
+    logo: ["#FFC83D","#0E0C09"]
+  },
+  {
+    id: "coral", name: "4 · Coral Wave (bolder v2)", tag: "Today's coral, teal and navy, turned up.",
+    why: "Keeps the brand you already have, so the logo, mobile app and store listing stay familiar. The change is boldness: a full coral hero, bigger numbers and a navy tab bar, like Bachat's structure. Safest choice.",
+    display: '"Plus Jakarta Sans", sans-serif', body: '"Plus Jakarta Sans", sans-serif', fonts: "Plus Jakarta Sans",
+    light: { bg: "#FFF6F3", surface: "#FFFFFF", ink: "#18264A", muted: "#5D6886", edge: "#F6E3DE", hero: "linear-gradient(150deg,#FF8A6B 0%,#FF5A4E 100%)", heroInk: "#18264A", heroChip: "rgba(24,38,74,.12)", heroRing: "rgba(255,255,255,.24)", brand: "#18264A", brandInk: "#FFFFFF", brandOnSurface: "#E2483C", accent: "#12C8B0", accentInk: "#032A25", deep: "#18264A", link: "#D9443A", thumb: "linear-gradient(160deg,#FF5A4E,#12C8B0)" },
+    dark:  { bg: "#0B1022", surface: "#151D38", ink: "#F2F4FF", muted: "#A6AFCF", edge: "#222C4E", hero: "linear-gradient(150deg,#FF8A6B 0%,#FF5A4E 100%)", heroInk: "#18264A", heroChip: "rgba(24,38,74,.14)", heroRing: "rgba(255,255,255,.2)", brand: "#FF5A4E", brandInk: "#FFFFFF", brandOnSurface: "#FF8A7A", accent: "#1FE3C8", accentInk: "#032A25", deep: "#060A18", link: "#FF8A7A", thumb: "linear-gradient(160deg,#FF5A4E,#12C8B0)" },
+    swatches: [["#FF5A4E","Coral"],["#12C8B0","Teal"],["#18264A","Navy"],["#FFF6F3","Blush"],["#5D6886","Slate"]],
+    logo: ["#18264A","#FF5A4E"]
+  },
+];
+
+const I = {
+  bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 20a2 2 0 0 0 4 0"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  cartoon: '<circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 15a4 4 0 0 0 7 0"/>',
+  song: '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
+  edit: '<rect x="3" y="5" width="13" height="14" rx="3"/><path d="M16 10l5-3v10l-5-3"/>',
+  spark: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>',
+  cal: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  kit: '<circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10" r="1.2"/><circle cx="12" cy="7.5" r="1.2"/><circle cx="15.5" cy="10" r="1.2"/><path d="M12 21a3 3 0 0 1 0-6h2"/>',
+  chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  home: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>',
+  reels: '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M10 9l5 3-5 3z"/>',
+  you: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  play: '<path d="M9 7l8 5-8 5z" fill="currentColor"/>',
+};
+const ic = (n) => `<svg viewBox="0 0 24 24" aria-hidden="true">${I[n]}</svg>`;
+const logo = ([tile, reel]) => `<span class="mk"><svg viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="11" fill="${tile}"/><circle cx="20" cy="20" r="11" fill="${reel}"/><g fill="${tile}"><circle cx="20" cy="13.5" r="2.6"/><circle cx="26.2" cy="18" r="2.6"/><circle cx="23.8" cy="25.3" r="2.6"/><circle cx="16.2" cy="25.3" r="2.6"/><circle cx="13.8" cy="18" r="2.6"/><circle cx="20" cy="20" r="1.4"/></g></svg></span>`;
+const tiles = [["Make reel","plus","main"],["Cartoon","cartoon",""],["Song","song",""],["Edit video","edit",""],["Ideas","spark","ai"],["Calendar","cal",""],["Brand kit","kit",""],["Insights","chart",""]];
+const posts = [["IG","#E1306C","Chai with Dadi · ep 3","Instagram Reels","Tue 7:30"],["YT","#FF0033","Monsoon pakora song","YouTube Shorts","Thu 6:00"],["WA","#1FAF55","Diwali greeting","WhatsApp status","Sat 9:00"]];
+
+function phone(d, mode) {
+  const c = d[mode];
+  const vars = { "--bg": c.bg, "--surface": c.surface, "--ink": c.ink, "--muted": c.muted, "--edge": c.edge, "--hero": c.hero, "--hero-ink": c.heroInk, "--hero-chip": c.heroChip, "--hero-ring": c.heroRing, "--brand": c.brand, "--brand-ink": c.brandInk, "--brand-on-surface": c.brandOnSurface, "--accent": c.accent, "--accent-ink": c.accentInk, "--deep": c.deep, "--link": c.link, "--thumb": c.thumb, "--display": d.display, "--body": d.body };
+  const style = Object.entries(vars).map(([k, v]) => `${k}:${v}`).join(";");
+  return `<div class="phone" style='${style}'>
+    <div class="hero">
+      <div class="top">${logo(d.logo)}<b>Hi, Rajnish</b><span class="round">${ic("bell")}</span></div>
+      <div class="lbl">Reels this week</div>
+      <div class="big">12 <small>reels</small></div>
+      <div class="fine">3 posted · 2 scheduled · 7 drafts</div>
+      <div class="meter"><i></i></div>
+      <div class="fine">3 of 5 free reels left this week</div>
+      <div class="chips"><span class="chip on">+18% views</span><span class="chip">4-week streak</span></div>
+      <div class="ask">${ic("spark")}<span>Ask Reelkar: a reel about chai?</span><em>${ic("arrow")}</em></div>
+    </div>
+    <div class="tiles">${tiles.map(([t, n, k]) => `<span class="tile ${k}"><i>${ic(n)}</i>${t}</span>`).join("")}</div>
+    <div class="alert"><span class="th">${ic("play")}</span><div><b>Your reel is ready</b>Monsoon chai · 0:30 · Hindi</div><a>View</a></div>
+    <div class="head">Coming up <a>See all</a></div>
+    <div class="list">${posts.map(([a, col, t, s, tm]) => `<div class="row"><span class="dot" style="background:${col}">${a}</span><div>${t}<small>${s}</small></div><time>${tm}</time></div>`).join("")}</div>
+    <div class="nav"><span class="on">${ic("home")}Home</span><span>${ic("reels")}Reels</span><span class="plus">${ic("plus")}</span><span>${ic("cal")}Calendar</span><span>${ic("you")}You</span></div>
+  </div>`;
+}
+
+function render(mode) {
+  document.getElementById("grid").innerHTML = D.map((d) => `<section class="dir">
+    <h2>${d.name}</h2><p class="tag">${d.tag}</p>
+    ${phone(d, mode)}
+    <p class="why">${d.why}</p>
+    <div class="sw">${d.swatches.map(([h, n]) => `<span><i style="background:${h}"></i>${n}<br>${h}</span>`).join("")}</div>
+    <p class="font">Type: ${d.fonts}</p>
+  </section>`).join("");
+}
+
+let mode = "light";
+try { if (matchMedia("(prefers-color-scheme: dark)").matches) mode = "dark"; } catch {}
+function set(m) {
+  mode = m;
+  document.documentElement.dataset.theme = m;
+  document.querySelectorAll(".bar button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.m === m)));
+  render(m);
+}
+document.querySelectorAll(".bar button").forEach((b) => b.addEventListener("click", () => set(b.dataset.m)));
+set(mode);
+</script>
+</body>
+</html>
