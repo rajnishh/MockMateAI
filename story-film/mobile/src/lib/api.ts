@@ -212,6 +212,66 @@ export interface NewFilm {
   kidSafe?: boolean;
 }
 
+// Song Studio (mirrors songView in story-film/src/lib/songs/songs.ts).
+export type SongStatus = "queued" | "running" | "completed" | "failed";
+export interface Song {
+  id: string;
+  title: string;
+  genre: string;
+  mood: string;
+  language: string;
+  lyrics: string;
+  durationSec: number;
+  status: SongStatus;
+  myVoice: boolean;
+  edited: boolean;
+  contentCredentials: boolean;
+  error: string | null;
+  createdAt: string;
+  audioUrl: string | null;
+}
+export type RemixKind = "cover" | "extend" | "replace";
+export interface SongStudio {
+  songs: Song[];
+  // What one Create costs, and each kind of remix.
+  credits: number;
+  remixCredits: Record<RemixKind, number>;
+  available: boolean;
+}
+export type SongModel = "ace-step" | "lyria";
+export type SongVocal = "auto" | "female" | "male" | "duet";
+export interface SongOptions {
+  topic: string;
+  genre: string;
+  mood: string;
+  language: string;
+  durationSec: 30 | 60 | 120;
+  kidSafe: boolean;
+}
+export interface NewSong extends SongOptions {
+  title: string;
+  lyrics: string;
+  style?: string;
+  vocal: SongVocal;
+  takes: 1 | 2;
+  model: SongModel;
+}
+export interface SongEdit {
+  startSec: number;
+  endSec?: number;
+  fadeInSec: number;
+  fadeOutSec: number;
+  speed: number;
+}
+export interface SongRemix {
+  kind: RemixKind;
+  style?: string;
+  lyrics?: string;
+  extendSec?: number;
+  startSec?: number;
+  endSec?: number;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -326,6 +386,16 @@ const real = {
     return `${API_URL}${new URL(url).pathname}`;
   },
   videoUrl: (film: Film) => (film.videoUrl ? `${API_URL}${film.videoUrl}` : null),
+  songs: () => call<SongStudio>("/api/songs"),
+  song: (id: string) => call<Song>(`/api/songs/${id}`),
+  createSong: (input: NewSong) => call<{ id: string; ids: string[] }>("/api/songs", { method: "POST", body: JSON.stringify(input) }),
+  // "✨ Write lyrics with AI" from the topic, or "✨ Enhance my lyrics" with the creator's own lines as the draft.
+  songLyrics: (input: SongOptions & { draft?: string }) => call<{ title: string; lyrics: string }>("/api/songs/lyrics", { method: "POST", body: JSON.stringify(input) }),
+  songStyle: async (input: Partial<SongOptions> & { genre: string; idea: string; vocal?: SongVocal }) =>
+    (await call<{ style: string }>("/api/songs/style", { method: "POST", body: JSON.stringify(input) })).style,
+  editSong: (id: string, edit: SongEdit) => call<Song>(`/api/songs/${id}/edit`, { method: "POST", body: JSON.stringify(edit) }),
+  remixSong: (id: string, remix: SongRemix) => call<{ id: string }>(`/api/songs/${id}/remix`, { method: "POST", body: JSON.stringify(remix) }),
+  songAudioUrl: (song: Song) => (song.audioUrl ? `${API_URL}${song.audioUrl}` : null),
   videoHeaders: async (): Promise<Record<string, string>> => {
     const cookie = await authClient.getCookie();
     return cookie ? { Cookie: cookie } : {};
@@ -354,6 +424,26 @@ const demoPosts: Post[] = [
   { id: "p2", filmId: "d2", title: "3 chai hacks nobody told you", scheduledAt: at(0, 19, 30), status: "scheduled", externalUrl: null, error: null, accountName: "@priyacooks", platform: "instagram" },
   { id: "p3", filmId: "d3", title: "Monsoon recipe in 10 minutes", scheduledAt: at(1, 13), status: "scheduled", externalUrl: null, error: null, accountName: "Priya Cooks", platform: "youtube" },
 ];
+
+const demoSongs: Song[] = [demoSong("s1", "Baarish wali chai", "indie-acoustic"), demoSong("s2", "Dadi ki rasoi", "bollywood-romantic")];
+function demoSong(id: string, title: string, genre: string): Song {
+  return {
+    id,
+    title,
+    genre,
+    mood: "happy",
+    language: "hi",
+    lyrics: "[Verse]\nBaarish ki boondein, khidki pe gaana\n\n[Chorus]\nYe pal hai mera",
+    durationSec: 60,
+    status: "completed",
+    myVoice: false,
+    edited: false,
+    contentCredentials: true,
+    error: null,
+    createdAt: new Date().toISOString(),
+    audioUrl: `/api/songs/${id}/audio`,
+  };
+}
 
 function sample(id: string, title: string, status: FilmStatus, daysAgo: number): Film {
   return {
@@ -647,6 +737,41 @@ const demo: typeof real = {
   shareLink: async () => {
     throw new ApiError("Saving and sharing need the Reelkar server, not the demo", 503);
   },
+  songs: async () => (await wait(300), { songs: [...demoSongs], credits: 4, remixCredits: { cover: 2, extend: 2, replace: 1 }, available: true }),
+  song: async (id) => {
+    await wait(200);
+    const s = demoSongs.find((x) => x.id === id);
+    if (!s) throw new ApiError("Song not found", 404);
+    return s;
+  },
+  createSong: async (input) => {
+    await wait(500);
+    if (demoBalance < 4) throw new ApiError("A song costs 4 credits.", 402, true);
+    demoBalance -= 4;
+    const ids = Array.from({ length: input.takes }, (_, i) => `s${Date.now()}${i}`);
+    ids.forEach((id, i) => demoSongs.unshift({ ...demoSong(id, input.takes > 1 ? `${input.title} (v${i + 1})` : input.title, input.genre), status: "queued", audioUrl: null, lyrics: input.lyrics }));
+    return { id: ids[0], ids };
+  },
+  songLyrics: async (input) => (
+    await wait(600),
+    { title: input.topic ? input.topic.slice(0, 40) : "Meri kahani", lyrics: `${input.draft ? `${input.draft}\n\n` : ""}[Verse]\nBaarish ki boondein, khidki pe gaana\nChai ki pyaali, maa ka bulaana\n\n[Chorus]\nYe pal hai mera, ye ghar hai mera\nHar subah naya, har din sunehra` }
+  ),
+  songStyle: async (input) => (await wait(400), `${input.idea || "soft"}, acoustic guitar, tabla, warm female vocals, mid tempo`),
+  editSong: async (id) => {
+    await wait(400);
+    const s = demoSongs.find((x) => x.id === id)!;
+    const copy = { ...s, id: `s${Date.now()}`, title: `${s.title} (edit)`, edited: true };
+    demoSongs.unshift(copy);
+    return copy;
+  },
+  remixSong: async (id, remix) => {
+    await wait(400);
+    const s = demoSongs.find((x) => x.id === id)!;
+    const copy = { ...s, id: `s${Date.now()}`, title: `${s.title} (${remix.kind})`, status: "queued" as const, audioUrl: null };
+    demoSongs.unshift(copy);
+    return { id: copy.id };
+  },
+  songAudioUrl: () => null,
   videoUrl: () => null,
   previewUri: () => null,
   videoHeaders: async () => ({}),
