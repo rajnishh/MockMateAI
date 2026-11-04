@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -6,7 +6,8 @@ import { describe, expect, it } from "vitest";
 import { REMIX_CREDITS } from "@/lib/billing/catalog";
 import { FalQueueClient } from "@/lib/providers/fal";
 import { FAL_ACE_STEP_EDIT, FalSongEditor } from "@/lib/providers/fal-song-edit";
-import { remixCall, remixCredits, remixedDurationSec, remixRequestSchema, remixSchemaFor, runRemix } from "@/lib/songs/remix";
+import { defaultFfmpeg, probeDuration } from "@/lib/ffmpeg";
+import { EXTEND_BLEND_SEC, EXTEND_CUT_SEC, remixCall, remixCredits, remixedDurationSec, remixRequestSchema, remixSchemaFor, runRemix } from "@/lib/songs/remix";
 
 // A fake fal queue plus CDN: records what was sent and answers every request locally.
 function fakeFal(outUrl = "https://cdn.test/out/remix.mp3") {
@@ -22,6 +23,8 @@ function fakeFal(outUrl = "https://cdn.test/out/remix.mp3") {
   const editor = new FalSongEditor(new FalQueueClient("k", fetchFn, 0), fetchFn);
   return { calls, editor };
 }
+
+const tools = (workDir: string) => ({ workDir, ffmpeg: defaultFfmpeg, probeDuration });
 
 const song = { audioUrl: "https://cdn.test/song.mp3", style: "bollywood pop, female vocals", lyrics: "[Verse]\nbaarish", durationSec: 60 };
 
@@ -118,7 +121,7 @@ describe("remix requests", () => {
     });
     expect(remixCall({ kind: "extend" }, song)).toEqual({
       kind: "extend",
-      input: { audioUrl: song.audioUrl, style: song.style, lyrics: song.lyrics, extendBeforeSec: 0, extendAfterSec: 30 },
+      input: { audioUrl: song.audioUrl, style: song.style, lyrics: song.lyrics, extendSec: 30 },
     });
     expect(remixCall({ kind: "replace", startSec: 5, endSec: 15, lyrics: "[Verse]\nnaya" }, song)).toEqual({
       kind: "replace",
@@ -128,9 +131,28 @@ describe("remix requests", () => {
 
   it("runs the mapped call on the right endpoint", async () => {
     const { calls, editor } = fakeFal();
-    await runRemix(editor, remixCall({ kind: "extend", extendSec: 20 }, song));
-    expect(calls[0].url).toBe("https://queue.fal.run/fal-ai/ace-step/audio-outpaint");
-    expect(calls[0].body!.extend_after_duration).toBe(20);
+    await runRemix(editor, remixCall({ kind: "replace", startSec: 5, endSec: 15 }, song), tools(os.tmpdir()));
+    expect(calls[0].url).toBe("https://queue.fal.run/fal-ai/ace-step/audio-inpaint");
+  });
+
+  it("extends by repainting a copy of the ending, so the original part stays as it was", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "remix-extend-"));
+    const source = path.join(dir, "song.mp3");
+    await defaultFfmpeg(["-y", "-f", "lavfi", "-i", "sine=frequency=330:duration=20", "-c:a", "libmp3lame", source]);
+    const { calls, editor } = fakeFal();
+
+    await runRemix(editor, remixCall({ kind: "extend", extendSec: 30 }, { ...song, audioUrl: pathToFileURL(source).href, durationSec: 20 }), tools(dir));
+
+    const body = calls[0].body!;
+    expect(calls[0].url).toBe("https://queue.fal.run/fal-ai/ace-step/audio-inpaint");
+    expect(body.start_time).toBeCloseTo(20 - EXTEND_CUT_SEC - EXTEND_BLEND_SEC, 1);
+    expect(body.end_time).toBeCloseTo(50, 1);
+    // The lengthened song sent to fal: 15s of the song (its last 5s dropped) plus 35s looped from before the cut.
+    const sent = path.join(dir, "sent.mp3");
+    await writeFile(sent, Buffer.from(String(body.audio_url).split(",")[1], "base64"));
+    expect(await probeDuration(sent)).toBeCloseTo(50, 0);
+    // The temporary copy is cleaned up.
+    expect((await readdir(dir)).sort()).toEqual(["sent.mp3", "song.mp3"]);
   });
 
   it("knows the remixed length", () => {
