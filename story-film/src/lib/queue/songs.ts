@@ -1,5 +1,6 @@
 import { Queue } from "bullmq";
 import type { RemixCall } from "@/lib/songs/remix";
+import type { SongModel } from "@/lib/songs/request";
 import { getRedis } from "./films";
 
 export const SONG_QUEUE = "songs";
@@ -13,6 +14,8 @@ export interface SongJob {
   durationSec: number;
   vocalLanguage: string;
   credits: number;
+  // Missing on jobs queued before short songs existed: ACE-Step.
+  model?: SongModel;
 }
 
 // Job name "my-voice": re-sing an existing song in the user's recorded voice.
