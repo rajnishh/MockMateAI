@@ -7,7 +7,7 @@ import { cardText, tools } from "./mcp";
 
 // Haiku is quick and cheap enough for chat (about a tenth of a cent per message).
 export const DEFAULT_CLAUDE_AGENT_MODEL = "claude-haiku-5-5";
-const MAX_ACTIONS = 5;
+export const MAX_ACTIONS = 5;
 
 export interface ToolPlannerInput {
   system: string;
@@ -24,8 +24,24 @@ export interface ToolPlanner {
   respond(input: ToolPlannerInput): Promise<string>;
 }
 
-// The tool loop runs in the Anthropic SDK; each tool is one Ask Reelkar action, described
-// exactly as the connector describes it to assistants.
+// The actions a tool-calling planner may use, described exactly as the connector describes them
+// to assistants. Connector-only tools and proposal answers stay with the connector; approvals are
+// buttons in the app.
+export function plannerTools() {
+  return tools().filter((t) => isAction(t.name) && !isConnectorOnly(t.name));
+}
+
+// Runs one action for the model and says what it did; past the limit, says it wasn't done.
+export function limitedActions(act: ToolPlannerInput["act"]) {
+  let used = 0;
+  return async (name: string, input: unknown): Promise<string> => {
+    if (++used > MAX_ACTIONS) return `Not done: at most ${MAX_ACTIONS} actions per message. Ask the creator to send the rest as a new message.`;
+    const cards = await act(name as ActionName, input);
+    return cards.map(cardText).join("\n\n") || "Done.";
+  };
+}
+
+// The tool loop runs in the Anthropic SDK; each tool is one Ask Reelkar action.
 export class ClaudeToolPlanner implements ToolPlanner {
   constructor(
     private readonly client: Anthropic,
@@ -35,7 +51,7 @@ export class ClaudeToolPlanner implements ToolPlanner {
   }
 
   async respond({ system, history, message, act }: ToolPlannerInput): Promise<string> {
-    let used = 0;
+    const run = limitedActions(act);
     // The runner starts every call in one reply at once, but actions build on each other
     // ("make_reel" then "post_reel N1"), so they run one at a time in the order Claude wrote them.
     let previous: Promise<unknown> = Promise.resolve();
@@ -44,21 +60,14 @@ export class ClaudeToolPlanner implements ToolPlanner {
       previous = next.catch(() => undefined);
       return next;
     };
-    const actionTools = tools()
-      .filter((t) => isAction(t.name) && !isConnectorOnly(t.name))
-      .map((t) =>
-        betaTool({
-          name: t.name,
-          description: t.description,
-          inputSchema: t.inputSchema as { type: "object" },
-          run: (input) =>
-            inOrder(async () => {
-              if (++used > MAX_ACTIONS) return `Not done: at most ${MAX_ACTIONS} actions per message. Ask the creator to send the rest as a new message.`;
-              const cards = await act(t.name as ActionName, input);
-              return cards.map(cardText).join("\n\n") || "Done.";
-            }),
-        }),
-      );
+    const actionTools = plannerTools().map((t) =>
+      betaTool({
+        name: t.name,
+        description: t.description,
+        inputSchema: t.inputSchema as { type: "object" },
+        run: (input) => inOrder(() => run(t.name, input)),
+      }),
+    );
     const final = await this.client.beta.messages.toolRunner({
       model: this.modelId,
       max_tokens: 4096,
@@ -78,9 +87,14 @@ export class ClaudeToolPlanner implements ToolPlanner {
   }
 }
 
-// Earlier turns as chat messages; the API needs the first one to be the creator's.
+// Earlier turns as Claude chat messages.
 function historyMessages(history: ToolPlannerInput["history"]): Anthropic.Beta.BetaMessageParam[] {
-  const messages = history.filter((m) => m.text.trim()).map((m) => ({ role: m.role, content: m.text }));
+  return chatHistory(history).map((m) => ({ role: m.role, content: m.text }));
+}
+
+// Earlier turns that have text, starting with the creator's; chat APIs want the creator first.
+export function chatHistory(history: ToolPlannerInput["history"]): ToolPlannerInput["history"] {
+  const messages = history.filter((m) => m.text.trim());
   while (messages[0]?.role === "assistant") messages.shift();
   return messages;
 }
