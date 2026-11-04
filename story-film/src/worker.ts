@@ -2,6 +2,7 @@ import { mkdir, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { type Job, Worker } from "bullmq";
 import { getDb } from "@/lib/db";
+import { defaultFfmpeg, probeDuration } from "@/lib/ffmpeg";
 import { loadEnv } from "@/lib/env";
 import { updateFilm } from "@/lib/films";
 import { type PipelineDeps, runFilm } from "@/lib/pipeline/orchestrator";
@@ -160,7 +161,7 @@ if (songsAvailable(env)) {
         await rename(mixed, outputPath);
         await rm(path.join(dir, `${songId}-work`), { recursive: true, force: true });
       } else if (job.name === "remix") {
-        const audio = await runRemix(songEditor, (job.data as RemixJob).call);
+        const audio = await runRemix(songEditor, (job.data as RemixJob).call, { workDir: dir, ffmpeg: defaultFfmpeg, probeDuration });
         outputPath = path.join(dir, `${songId}.${audio.ext}`);
         await writeFile(outputPath, audio.data);
       } else {
