@@ -50,6 +50,7 @@ Edit `/opt/reelkar/story-film/deploy/.env`:
 | `GOOGLE_CLIENT_ID/SECRET` | Google Cloud → Credentials → OAuth client (web) | Google sign-in, YouTube posting |
 | `INSTAGRAM_APP_ID/SECRET` | Meta App Dashboard → Instagram → API setup with Instagram login | Instagram posting |
 | `SMS_PROVIDER=msg91` + keys | MSG91 (needs DLT registration in India) | Real SMS codes. Until then, codes appear in the logs: `docker compose logs web \| grep OTP` |
+| `EMAIL_PROVIDER=resend` + `RESEND_API_KEY`, `EMAIL_FROM` | Resend (verify your sending domain there) | Real email codes. Until then, codes appear in the logs: `docker compose logs web \| grep OTP` |
 | `FAL_KEY`, `SARVAM_API_KEY`, `OPENROUTER_API_KEY` | fal.ai, Sarvam, OpenRouter | Optional: premium video, songs, more languages, better scripts |
 
 Redirect URIs to register:

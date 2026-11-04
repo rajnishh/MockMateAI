@@ -1,4 +1,5 @@
 import { readMedia } from "@/lib/media";
+import { ImageSafetyError } from "./safety";
 import type { ImageProvider, Resolution, VideoProvider } from "./types";
 
 // Default fal.ai model IDs, checked against fal's OpenAPI schemas on 2026-10-27.
@@ -7,6 +8,9 @@ export const DEFAULT_FAL_MODELS = {
   imageEdit: "fal-ai/nano-banana-2/edit",
   wan: "fal-ai/wan-25-preview/image-to-video",
   kling: "fal-ai/kling-video/v2.6/pro/image-to-video",
+  // Cinematic quality, checked against fal's OpenAPI schemas on 2026-11-04.
+  kling3: "fal-ai/kling-video/v3/pro/image-to-video",
+  veo31: "fal-ai/veo3.1/image-to-video",
 };
 
 const QUEUE_BASE = "https://queue.fal.run";
@@ -53,6 +57,12 @@ export class FalQueueClient {
   }
 }
 
+function imageType(url: string): string {
+  if (url.endsWith(".png")) return "image/png";
+  if (url.endsWith(".webp")) return "image/webp";
+  return "image/jpeg";
+}
+
 export class FalNanoBanana implements ImageProvider {
   readonly modelId = "nano-banana-2";
 
@@ -69,17 +79,26 @@ export class FalNanoBanana implements ImageProvider {
     // drawn in standard quality) are sent inline as data URIs.
     const refs = await Promise.all(
       input.referenceImageUrls.map(async (u) =>
-        u.startsWith("file://") ? `data:image/jpeg;base64,${(await readMedia(u)).toString("base64")}` : u,
+        u.startsWith("file://") ? `data:${imageType(u)};base64,${(await readMedia(u)).toString("base64")}` : u,
       ),
     );
     const hasRefs = refs.length > 0;
-    const out = await this.client.run<{ images: { url: string }[] }>(hasRefs ? this.editModelId : this.textModelId, {
-      prompt: input.prompt,
-      ...(hasRefs ? { image_urls: refs } : {}),
-      ...(input.seed !== undefined ? { seed: input.seed } : {}),
-      aspect_ratio: "9:16",
-      num_images: 1,
-    });
+    let out: { images?: { url: string }[] };
+    try {
+      out = await this.client.run(hasRefs ? this.editModelId : this.textModelId, {
+        prompt: input.prompt,
+        ...(hasRefs ? { image_urls: refs } : {}),
+        ...(input.seed !== undefined ? { seed: input.seed } : {}),
+        aspect_ratio: "9:16",
+        num_images: 1,
+      });
+    } catch (err) {
+      // fal reports a refused prompt as a 422 with type content_policy_violation.
+      if (/content_policy_violation/.test((err as Error).message)) throw new ImageSafetyError((err as Error).message);
+      throw err;
+    }
+    // Nano Banana sometimes returns no image instead of an error when its filter trips.
+    if (!out.images?.[0]?.url) throw new ImageSafetyError("fal returned no image");
     return { url: out.images[0].url };
   }
 }
@@ -87,14 +106,27 @@ export class FalNanoBanana implements ImageProvider {
 export class FalImageToVideo implements VideoProvider {
   constructor(
     private readonly client: FalQueueClient,
-    readonly modelId: "wan-2.x" | "kling-2.6",
+    readonly modelId: "wan-2.x" | "kling-2.6" | "kling-3.0" | "veo-3.1",
     private readonly falModelId: string,
   ) {}
 
   async animate(input: { imageUrl: string; prompt: string; durationSec: number; resolution: Resolution }): Promise<{ url: string }> {
-    // Wan and Kling only take 5 or 10 seconds; longer than needed is trimmed in assembly.
+    // Wan and Kling 2.6 only take 5 or 10 seconds; longer than needed is trimmed in assembly.
     const payload: Record<string, unknown> = { prompt: input.prompt, duration: input.durationSec > 5 ? "10" : "5" };
-    if (this.modelId === "wan-2.x") {
+    if (this.modelId === "veo-3.1") {
+      // Veo takes 4, 6 or 8 seconds. Its native audio doubles the price, and narration and music
+      // are added in assembly; 1080p costs the same as 720p.
+      payload.image_url = input.imageUrl;
+      payload.duration = input.durationSec > 6 ? "8s" : input.durationSec > 4 ? "6s" : "4s";
+      payload.aspect_ratio = "9:16";
+      payload.resolution = "1080p";
+      payload.generate_audio = false;
+    } else if (this.modelId === "kling-3.0") {
+      // Kling 3.0 takes any whole number of seconds from 3 to 15.
+      payload.start_image_url = input.imageUrl;
+      payload.duration = String(Math.min(15, Math.max(3, Math.ceil(input.durationSec))));
+      payload.generate_audio = false;
+    } else if (this.modelId === "wan-2.x") {
       payload.image_url = input.imageUrl;
       // Wan defaults to 1080p, which costs 1.5x the 720p rate.
       payload.resolution = input.resolution;

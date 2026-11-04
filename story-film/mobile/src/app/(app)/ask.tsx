@@ -34,6 +34,7 @@ import {
   api,
   type PostingMode,
 } from "@/lib/api";
+import { formatLabel, ideaBrief } from "@/lib/formats";
 import { useSession } from "@/lib/session";
 import { fonts, radius, useTheme } from "@/theme";
 
@@ -288,9 +289,10 @@ function AgentCardView({
           {card.ideas.map((idea) => (
             <View key={idea.title} style={{ gap: 4 }}>
               <Txt variant="label">{idea.title}</Txt>
+              {idea.hook ? <Txt variant="body" color="tealText">{`“${idea.hook}”`}</Txt> : null}
               <Txt variant="cap">{idea.idea}</Txt>
               <Button
-                label="Make this"
+                label={card.format === "dance" ? "Make this dance" : "Make this"}
                 small
                 kind="secondary"
                 icon="sparkle"
@@ -300,7 +302,7 @@ function AgentCardView({
                     api.agentAction(
                       "make_reel",
                       {
-                        idea: `${idea.title}. ${idea.idea}`,
+                        idea: ideaBrief(idea),
                         title: idea.title,
                         format: card.format,
                         language: card.language,
@@ -336,6 +338,7 @@ function AgentCardView({
                 reelId={r.reelId}
                 title={r.title}
                 status={r.status}
+                format={r.format}
               />
             ))
           ) : (
@@ -454,10 +457,12 @@ function ReelRow({
   reelId,
   title,
   status,
+  format,
 }: {
   reelId: string;
   title: string;
   status: string;
+  format?: string;
 }) {
   const ready = status === "completed";
   return (
@@ -466,6 +471,7 @@ function ReelRow({
         <Txt variant="label" numberOfLines={2}>
           {title}
         </Txt>
+        {formatLabel(format) ? <Txt variant="cap">{formatLabel(format)}</Txt> : null}
         {ready ? (
           <Status kind="ok" text="Ready" />
         ) : status === "failed" ? (

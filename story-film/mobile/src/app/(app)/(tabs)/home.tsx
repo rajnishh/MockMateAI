@@ -122,7 +122,7 @@ export default function Home() {
       {films.data && list.length === 0 ? (
         <Empty title="No reels yet" text="Your reels will show up here. Make your first one in about 2 minutes." action={<Button label="Make my first reel" icon="sparkle" onPress={() => router.push("/create")} />} />
       ) : (
-        <ReelGrid films={list.slice(0, 4)} />
+        <ReelGrid films={list.slice(0, 4)} onDeleted={films.reload} />
       )}
     </Screen>
   );

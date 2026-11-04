@@ -9,6 +9,8 @@ export interface ModelLicense {
 export const MODEL_LICENSES: Record<string, ModelLicense> = {
   "wan-2.x": { license: "Apache-2.0 (weights); fal.ai API terms", commercial: true },
   "kling-2.6": { license: "fal.ai API terms", commercial: true },
+  "kling-3.0": { license: "fal.ai API terms", commercial: true },
+  "veo-3.1": { license: "fal.ai / Google API terms", commercial: true, note: "SynthID stamped" },
   "nano-banana-2": { license: "fal.ai / Google API terms", commercial: true, note: "SynthID stamped" },
   "kokoro-82m": { license: "Apache-2.0", commercial: true },
   "routed-tts": { license: "Routes to the engines below; each is checked on its own", commercial: true },
@@ -25,6 +27,8 @@ export const MODEL_LICENSES: Record<string, ModelLicense> = {
   "flux-1-schnell": { license: "Apache-2.0; Cloudflare Workers AI terms", commercial: true },
   "ken-burns-ffmpeg": { license: "FFmpeg (LGPL/GPL), run server-side", commercial: true },
   "llama-3.3-70b": { license: "Llama 3.3 Community License", commercial: true, note: "attribution; >700M MAU needs a Meta license" },
+  "claude-haiku-5-5": { license: "Anthropic Commercial Terms of Service (API)", commercial: true },
+  "claude-sonnet-5-5": { license: "Anthropic Commercial Terms of Service (API)", commercial: true },
   "openrouter": { license: "Per routed model; check the chosen model's terms", commercial: true },
 
   "xtts-v2": { license: "CPML", commercial: false, note: "Coqui defunct; no commercial license available" },

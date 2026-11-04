@@ -2,10 +2,11 @@ import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 
 import { Banner, Button, Field, Header, Row, Screen, Txt } from "@/components/ui";
-import { toE164India, useSession } from "@/lib/session";
+import { isEmail, useSession } from "@/lib/session";
 
 export default function Otp() {
-  const { phone = "" } = useLocalSearchParams<{ phone: string }>();
+  // A mobile number in E.164 form or an email address.
+  const { to = "" } = useLocalSearchParams<{ to: string }>();
   const { verifyOtp, sendOtp } = useSession();
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -23,7 +24,7 @@ export default function Otp() {
     setError(null);
     try {
       // On success the session changes and the router moves on to onboarding.
-      await verifyOtp(phone, code);
+      await verifyOtp(to, code);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -33,24 +34,25 @@ export default function Otp() {
 
   return (
     <Screen>
-      <Header title="Enter the code" sub={`Sent to ${toE164India(phone)}`} back />
+      <Header title="Enter the code" sub={`Sent to ${to}`} back />
       <Field
         label="6-digit code"
         value={code}
         onChangeText={(t) => setCode(t.replace(/\D/g, "").slice(0, 6))}
         keyboardType="number-pad"
-        autoComplete="sms-otp"
+        autoComplete={isEmail(to) ? "one-time-code" : "sms-otp"}
         textContentType="oneTimeCode"
         autoFocus
         style={{ fontSize: 24, letterSpacing: 8, textAlign: "center" }}
       />
-      {error ? <Banner kind="error" text={`${error}. Check the SMS and try again.`} /> : null}
+      {isEmail(to) ? <Txt variant="cap">Not in your inbox? Check spam or promotions.</Txt> : null}
+      {error ? <Banner kind="error" text={`${error}. Check the ${isEmail(to) ? "email" : "SMS"} and try again.`} /> : null}
       <Button label="Verify" block disabled={code.length !== 6} loading={busy} onPress={verify} />
       <Row style={{ justifyContent: "space-between" }}>
         {wait > 0 ? (
           <Txt variant="cap">Resend code in 0:{String(wait).padStart(2, "0")}</Txt>
         ) : (
-          <Button label="Resend code" kind="ghost" onPress={() => sendOtp(phone).then(() => setWait(30), (e) => setError(e.message))} />
+          <Button label="Resend code" kind="ghost" onPress={() => sendOtp(to).then(() => setWait(30), (e) => setError(e.message))} />
         )}
       </Row>
     </Screen>

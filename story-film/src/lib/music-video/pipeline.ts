@@ -8,6 +8,7 @@ import { type Cue, renderCaptionImages } from "@/lib/pipeline/captions";
 import { defaultFfmpeg, probeDuration } from "@/lib/ffmpeg";
 import { mapLimit } from "@/lib/pipeline/orchestrator";
 import { STYLE_HINTS } from "@/lib/pipeline/script";
+import { fillBlockedFrames, generateKeyframeSafely } from "@/lib/providers/safety";
 import type { CharacterProfile, FilmStyle, ImageProvider, LlmProvider, Resolution, VideoProvider } from "@/lib/providers/types";
 import { planScenes, type Scene, singableLines, type TimedLine, timeLines, type Word } from "./timing";
 
@@ -120,7 +121,9 @@ export async function runMusicVideo(
   await onStage("keyframes");
   const seed = req.character?.seed;
   const refs = req.character ? [req.character.referenceImageUrl] : [];
-  const frames = await mapLimit(prompts, 3, (p) => deps.image.generateKeyframe({ prompt: p.imagePrompt, referenceImageUrls: refs, seed }));
+  const frames = fillBlockedFrames(
+    await mapLimit(prompts, 3, (p) => generateKeyframeSafely(deps.image, { prompt: p.imagePrompt, referenceImageUrls: refs, seed })),
+  );
 
   await onStage("clips");
   const durations = scenes.map((s) => Math.round((s.end - s.start) * 100) / 100);

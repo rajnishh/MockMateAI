@@ -1,4 +1,5 @@
 import type { LocalMediaStore } from "@/lib/media";
+import { ImageSafetyError } from "./safety";
 import type { ImageProvider } from "./types";
 
 export const CLOUDFLARE_DEFAULTS = {
@@ -8,6 +9,15 @@ export const CLOUDFLARE_DEFAULTS = {
 
 export function cloudflareAiBase(accountId: string): string {
   return `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai`;
+}
+
+export function isCloudflareSafetyError(body: string): boolean {
+  try {
+    const { errors } = JSON.parse(body) as { errors?: { code?: number; message?: string }[] };
+    return (errors ?? []).some((e) => e.code === 8007 || /nsfw/i.test(e.message ?? ""));
+  } catch {
+    return /nsfw/i.test(body);
+  }
 }
 
 // Free-mode images: FLUX.1 [schnell] on Workers AI (10k free neurons/day,
@@ -34,7 +44,12 @@ export class CloudflareFluxImage implements ImageProvider {
         ...(input.seed !== undefined ? { seed: input.seed } : {}),
       }),
     });
-    if (!res.ok) throw new Error(`Cloudflare AI ${res.status}: ${await res.text()}`);
+    if (!res.ok) {
+      const body = await res.text();
+      // 8007: "Input prompt contains NSFW content", which also fires on innocent prompts.
+      if (isCloudflareSafetyError(body)) throw new ImageSafetyError(`Cloudflare AI ${res.status}: ${body}`);
+      throw new Error(`Cloudflare AI ${res.status}: ${body}`);
+    }
     const data = (await res.json()) as { result: { image: string } };
     return { url: await this.media.put(Buffer.from(data.result.image, "base64"), "jpg") };
   }

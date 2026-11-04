@@ -32,7 +32,7 @@ export default function Reels() {
       ) : list.length === 0 ? (
         <Empty title="Nothing here yet" text="Reels you make show up here." action={<Button label="Make a reel" icon="sparkle" onPress={() => router.push("/create")} />} />
       ) : (
-        <ReelGrid films={list} />
+        <ReelGrid films={list} onDeleted={films.reload} />
       )}
     </Screen>
   );

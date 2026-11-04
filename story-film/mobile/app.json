@@ -45,7 +45,22 @@
         }
       ],
       "expo-secure-store",
-      "expo-video",
+      [
+        "expo-video",
+        {
+          "supportsPictureInPicture": true,
+          "supportsBackgroundPlayback": true
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Reelkar opens your gallery so you can pick a video to edit.",
+          "savePhotosPermission": "Reelkar saves the reels you make to your Photos.",
+          "isAccessMediaLocationEnabled": false,
+          "granularPermissions": ["video"]
+        }
+      ],
       [
         "expo-image-picker",
         {

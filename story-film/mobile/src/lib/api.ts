@@ -12,7 +12,7 @@ export interface Film {
   stage: Stage | null;
   title: string | null;
   story: string;
-  quality: "standard" | "premium";
+  quality: Quality;
   credits: number;
   error: string | null;
   createdAt: string;
@@ -36,11 +36,17 @@ export interface Billing {
   freeVideosPerWeek: number;
   premiumAvailable: boolean;
   premiumCreditsPerShot: number;
+  // Hyper-real 1080p reels (Kling 3.0 or Veo 3.1); missing on older servers.
+  cinematicAvailable?: boolean;
+  cinematicCreditsPerShot?: number;
 }
 
 export interface Idea {
   title: string;
+  // The first spoken line; missing when the AI's hook was weak.
+  hook?: string;
   idea: string;
+  format?: "story" | "motion" | "dance";
 }
 
 export interface PostCopy {
@@ -97,7 +103,7 @@ export type Voice = "natural" | "clear" | "deeper";
 // Ask Reelkar, the built-in agent (mirrors story-film/src/lib/agent/cards.ts).
 export type PostingMode = "ask" | "auto_schedule" | "auto_now";
 export type AgentCard =
-  | { type: "ideas"; ideas: { title: string; idea: string }[]; format: "story" | "motion" | "dance"; language?: string }
+  | { type: "ideas"; ideas: { title: string; hook?: string; idea: string }[]; format: "story" | "motion" | "dance"; language?: string }
   | { type: "reel"; reelId: string; title: string; status: string; note?: string }
   | { type: "reels"; reels: { reelId: string; title: string; status: string; format: string }[] }
   | { type: "proposal"; actionId: string; text: string; status: "proposed" | "waiting" | "done" | "cancelled" | "failed" }
@@ -185,15 +191,21 @@ export interface EditUpload {
   brand?: { accent?: string; background?: "light" | "dark"; handle?: string };
 }
 
+export type Quality = "standard" | "premium" | "cinematic";
+
 export interface NewFilm {
   story: string;
   language: string;
   durationSec: number;
-  quality: "standard" | "premium";
+  quality: Quality;
   style: Style;
-  // "motion": animated text and graphics with a voice-over (no AI animation credits).
-  format?: "story" | "motion";
-  // Motion reels: how the reel ends, the comment keyword, and the creator's brand look.
+  // A photo from uploadPhoto: the reel's lead looks like this person. Needs photoConsent.
+  photo?: string;
+  photoConsent?: boolean;
+  // "motion": animated text and graphics with a voice-over; "dance": cartoon kids dance to a
+  // dhol beat with a chant. Both are drawn by Reelkar (no AI animation credits).
+  format?: "story" | "motion" | "dance";
+  // Motion and dance reels: how the reel ends (motion only), the comment keyword, and the brand look.
   ending?: "auto" | "none" | "follow" | "comment";
   keyword?: string;
   brand?: { accent?: string; background?: "light" | "dark"; handle?: string };
@@ -228,8 +240,8 @@ const real = {
   film: (id: string) => call<Film>(`/api/films/${id}`),
   createFilm: (input: NewFilm) => call<{ id: string; credits: number }>("/api/films", { method: "POST", body: JSON.stringify(input) }),
   billing: () => call<Billing>("/api/billing"),
-  ideas: async (niche: string, language: string) =>
-    (await call<{ ideas: Idea[] }>("/api/suggestions", { method: "POST", body: JSON.stringify({ niche, language }) })).ideas,
+  ideas: async (niche: string, language: string, more: { format?: Idea["format"]; avoid?: string[] } = {}) =>
+    (await call<{ ideas: Idea[] }>("/api/suggestions", { method: "POST", body: JSON.stringify({ niche, language, ...more }) })).ideas,
   caption: (id: string, platform: Platform) => call<PostCopy>(`/api/films/${id}/copy`, { method: "POST", body: JSON.stringify({ platform }) }),
   // "Edit my video": multipart upload; the server adds captions, zooms, cards, effects and sounds.
   uploadEdit: async (input: EditUpload) => {
@@ -251,6 +263,16 @@ const real = {
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new ApiError(body.error ?? `Upload failed (${res.status})`, res.status, Boolean(body.needCredits));
     return body as { id: string; credits: number };
+  },
+  // A photo for an AI-animated or Cinematic reel; returns the id the reel request names.
+  uploadPhoto: async (photo: { uri: string; name: string; type: string }) => {
+    const form = new FormData();
+    form.append("photo", photo as unknown as Blob);
+    const cookie = await authClient.getCookie();
+    const res = await fetch(`${API_URL}/api/photos`, { method: "POST", body: form, credentials: "omit", headers: cookie ? { Cookie: cookie } : {} });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new ApiError(body.error ?? `Upload failed (${res.status})`, res.status);
+    return (body as { photo: string }).photo;
   },
   editDraft: (id: string) => call<EditDraft>(`/api/edits/${id}`),
   previewUri: (draft: EditDraft) => (draft.previewUrl ? `${API_URL}${draft.previewUrl}` : null),
@@ -274,6 +296,14 @@ const real = {
   createPost: async (input: NewPost) => (await call<{ post: Post }>("/api/posts", { method: "POST", body: JSON.stringify(input) })).post,
   cancelPost: (id: string) => call<unknown>(`/api/posts/${id}`, { method: "DELETE" }),
   retryPost: (id: string) => call<unknown>(`/api/posts/${id}/retry`, { method: "POST" }),
+  deleteFilm: (id: string) => call<unknown>(`/api/films/${id}`, { method: "DELETE" }),
+  // A signed link that plays without signing in (for 2 hours): used to save and share the video.
+  // The server builds it on its public URL; the phone downloads through the address it already
+  // reaches (a LAN IP or tunnel in development, where the public URL is often localhost).
+  shareLink: async (id: string) => {
+    const { url } = await call<{ url: string }>(`/api/films/${id}/link`, { method: "POST" });
+    return `${API_URL}${new URL(url).pathname}`;
+  },
   videoUrl: (film: Film) => (film.videoUrl ? `${API_URL}${film.videoUrl}` : null),
   videoHeaders: async (): Promise<Record<string, string>> => {
     const cookie = await authClient.getCookie();
@@ -288,6 +318,7 @@ const demoFilms: Film[] = [
   sample("d1", "Mia and the rain", "completed", 2),
   sample("d2", "3 chai hacks nobody told you", "completed", 1),
   sample("d3", "Monsoon recipe in 10 minutes", "completed", 3),
+  { ...sample("d4", "Baarish dance: chham chham chham", "completed", 4), format: "dance" },
 ];
 let demoBalance = 20;
 const demoAccounts: Account[] = [];
@@ -350,8 +381,8 @@ const demoProposals = new Map<string, { reelId: string; text: string; status: "p
 function demoSay(role: "user" | "assistant", text: string, cards: AgentCard[] = []) {
   demoChat.push({ id: `m${demoChat.length}`, role, text, cards, createdAt: new Date().toISOString() });
 }
-function demoReel(title: string): AgentCard {
-  const f: Film = { ...sample(`d${Date.now()}${demoFilms.length}`, title, "queued", 0), format: "motion" };
+function demoReel(title: string, format: Film["format"] = "motion"): AgentCard {
+  const f: Film = { ...sample(`d${Date.now()}${demoFilms.length}`, title, "queued", 0), format };
   demoFilms.push(f);
   return { type: "reel", reelId: f.id, title, status: "queued" };
 }
@@ -389,10 +420,12 @@ const demo: typeof real = {
   },
   createFilm: async (input) => {
     await wait(400);
-    const cost = input.quality === "premium" && input.format !== "motion" ? Math.round(input.durationSec / 5) * 12 : 0;
-    if (cost > demoBalance) throw new ApiError(`AI animation needs ${cost} credits for this length.`, 402, true);
+    const drawn = input.format === "motion" || input.format === "dance";
+    const perShot = input.quality === "cinematic" ? 26 : input.quality === "premium" ? 12 : 0;
+    const cost = drawn ? 0 : Math.round(input.durationSec / 5) * perShot;
+    if (cost > demoBalance) throw new ApiError(`${input.quality === "cinematic" ? "A Cinematic video" : "AI animation"} needs ${cost} credits for this length.`, 402, true);
     demoBalance -= cost;
-    const f: Film = { ...sample(`d${Date.now()}`, input.story.slice(0, 40), "queued", 0), quality: input.quality, credits: cost, story: input.story };
+    const f: Film = { ...sample(`d${Date.now()}`, input.story.slice(0, 40), "queued", 0), quality: drawn ? "standard" : input.quality, credits: cost, story: input.story, format: input.format ?? "story" };
     demoFilms.push(f);
     return { id: f.id, credits: cost };
   },
@@ -403,6 +436,8 @@ const demo: typeof real = {
       freeVideosPerWeek: 3,
       premiumAvailable: true,
       premiumCreditsPerShot: 12,
+      cinematicAvailable: true,
+      cinematicCreditsPerShot: 26,
       // Mirrors story-film/src/lib/billing/catalog.ts.
       packs: [
         { id: "starter", name: "Starter", credits: 50, price: { INR: 24900, USD: 399, AED: 1500 } },
@@ -431,6 +466,7 @@ const demo: typeof real = {
     const tags = platform === "whatsapp" ? [] : ["#reels", "#hindistory", "#madewithai"];
     return { title, caption: `${title} 🎬 Save this for later! · Made with AI`, hashtags: tags };
   },
+  uploadPhoto: async () => (await wait(500), "00000000-0000-4000-8000-000000000000.jpg"),
   uploadEdit: async (input) => {
     await wait(800);
     const status = input.review ? "review" : "queued";
@@ -464,7 +500,19 @@ const demo: typeof real = {
     await wait(700);
     demoSay("user", text);
     const t = text.toLowerCase();
-    if (/idea|vichar|सुझाव/.test(t)) {
+    if (/dance|naach|नाच/.test(t)) {
+      demoSay("assistant", "Bachchon ke liye dance ideas, “Make this dance” dabao.", [
+        {
+          type: "ideas",
+          format: "dance",
+          ideas: [
+            { title: "Baarish dance", idea: "Kids splash and spin in the monsoon rain, chanting chham chham chham." },
+            { title: "Count to five", idea: "Clap and jump while counting ek, do, teen, char, paanch." },
+            { title: "Brush brush brush", idea: "A morning dance about brushing teeth, with a bouncy chant." },
+          ],
+        },
+      ]);
+    } else if (/idea|vichar|सुझाव/.test(t)) {
       demoSay("assistant", "Ye rahe kuch ideas, jo pasand aaye us par “Make this” dabao.", [
         {
           type: "ideas",
@@ -495,8 +543,8 @@ const demo: typeof real = {
     await wait(500);
     demoSay("user", label);
     if (name === "make_reel") {
-      const title = (input as { title?: string }).title ?? "New reel";
-      demoSay("assistant", "", [demoReel(title)]);
+      const { title = "New reel", format } = input as { title?: string; format?: Film["format"] };
+      demoSay("assistant", "", [demoReel(title, format)]);
     }
     return demoHistory();
   },
@@ -556,6 +604,14 @@ const demo: typeof real = {
     const p = demoPosts.find((x) => x.id === id);
     if (p) Object.assign(p, { status: "scheduled", error: null, scheduledAt: new Date().toISOString() });
     return {};
+  },
+  deleteFilm: async (id) => {
+    const i = demoFilms.findIndex((f) => f.id === id);
+    if (i >= 0) demoFilms.splice(i, 1);
+    return {};
+  },
+  shareLink: async () => {
+    throw new ApiError("Saving and sharing need the Reelkar server, not the demo", 503);
   },
   videoUrl: () => null,
   previewUri: () => null,

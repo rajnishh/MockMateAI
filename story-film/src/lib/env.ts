@@ -9,6 +9,9 @@ const schema = z.object({
   DATABASE_URL: z.string().default("postgres://postgres:postgres@localhost:5432/storyfilm"),
   BETTER_AUTH_URL: z.string().default("http://localhost:3000"),
   BETTER_AUTH_SECRET: z.string().optional(),
+  // Other public addresses that reach this app, comma separated (for example a named Cloudflare
+  // Tunnel while BETTER_AUTH_URL stays localhost). Sign-in and the connector's OAuth accept them.
+  PUBLIC_ORIGINS: z.string().optional(),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   // Instagram API with Instagram Login (Meta App Dashboard → Instagram → API setup).
@@ -27,14 +30,27 @@ const schema = z.object({
   SMS_PROVIDER: z.enum(["console", "msg91"]).default("console"),
   MSG91_AUTH_KEY: z.string().optional(),
   MSG91_OTP_TEMPLATE_ID: z.string().optional(),
+  // Email sign-in codes. "console" prints them in the server log.
+  EMAIL_PROVIDER: z.enum(["console", "resend"]).default("console"),
+  RESEND_API_KEY: z.string().optional(),
+  // Sender on a domain verified in Resend, e.g. "Reelkar <login@reelkar.app>".
+  EMAIL_FROM: z.string().optional(),
   OPENROUTER_API_KEY: z.string().optional(),
   OPENROUTER_MODEL: z.string().default("google/gemini-2.5-flash"),
+  // Ask Reelkar's brain: "free" (Workers AI / OpenRouter, one-shot plan) or "claude" (tool use, paid per message).
+  ASK_REELKAR_AI: z.enum(["free", "claude"]).default("free"),
+  ANTHROPIC_API_KEY: z.string().optional(),
+  ASK_REELKAR_CLAUDE_MODEL: z.string().default("claude-haiku-5-5"),
   FAL_KEY: z.string().optional(),
   VIDEO_MODEL: z.enum(["wan", "kling"]).default("wan"),
   FAL_IMAGE_MODEL_ID: z.string().optional(),
   FAL_IMAGE_EDIT_MODEL_ID: z.string().optional(),
   FAL_WAN_MODEL_ID: z.string().optional(),
   FAL_KLING_MODEL_ID: z.string().optional(),
+  // Cinematic quality: "kling" (Kling 3.0 Pro, best value) or "veo" (Veo 3.1, most realistic, twice the price).
+  CINEMATIC_VIDEO_MODEL: z.enum(["kling", "veo"]).default("kling"),
+  FAL_KLING3_MODEL_ID: z.string().optional(),
+  FAL_VEO_MODEL_ID: z.string().optional(),
   // Indian-language narration (Marathi, Bengali, Tamil, Telugu).
   SARVAM_API_KEY: z.string().optional(),
   SARVAM_TTS_MODEL: z.string().default("bulbul:v4-flash"),

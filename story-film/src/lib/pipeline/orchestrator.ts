@@ -15,6 +15,7 @@ import type {
   TtsProvider,
   VideoProvider,
 } from "@/lib/providers/types";
+import { cleanImagePrompt, fillBlockedFrames, generateKeyframeSafely } from "@/lib/providers/safety";
 import { CLIP_SECONDS, shotCountFor } from "@/lib/quota/plans";
 import { buildAssembleArgs } from "./assemble";
 import { buildCues, renderCaptionImages } from "./captions";
@@ -25,8 +26,12 @@ export interface FilmRequest {
   durationSec: number;
   resolution: Resolution;
   watermark: boolean;
+  // Show the visible "Created with AI" label (the creator's choice).
+  aiLabel?: boolean;
   referenceImageUrls: string[];
   character?: CharacterProfile;
+  // The creator's photo: every picture keeps this person's face and look.
+  photoUrl?: string;
   kidSafe?: boolean;
   language?: NarrationLanguage;
   captions?: boolean;
@@ -45,6 +50,9 @@ export interface PipelineDeps {
   probeDuration?: (file: string) => Promise<number>;
   fontsDir?: string;
 }
+
+// Added to every picture prompt when the creator gave a photo.
+export const PHOTO_LIKENESS = "The main person has exactly the face, skin tone, hair and build of the person in the first reference photo";
 
 export type Stage = "script" | "keyframes" | "clips" | "audio" | "assemble" | "done";
 
@@ -80,7 +88,7 @@ export async function runFilm(
   await mkdir(workDir, { recursive: true });
 
   await onStage("script");
-  const script = req.script ?? await deps.llm.writeScript({
+  let script = req.script ?? await deps.llm.writeScript({
     story: req.story,
     style: req.style,
     shotCount: shotCountFor(req.durationSec),
@@ -88,20 +96,30 @@ export async function runFilm(
     kidSafe: req.kidSafe,
     language: req.language,
   });
+  // Image filters often misread children's scenes (bath time, bedtime), so kids' prompts skip those words up front.
+  if (req.kidSafe) script = { ...script, shots: script.shots.map((s) => ({ ...s, imagePrompt: cleanImagePrompt(s.imagePrompt) })) };
   await writeFile(path.join(workDir, "script.json"), JSON.stringify(script, null, 2));
 
   // A saved character's reference image anchors identity; otherwise the
   // first keyframe does. The seed helps text-only image models stay on model.
   await onStage("keyframes");
   const seed = req.character?.seed;
-  const refs = [...(req.character ? [req.character.referenceImageUrl] : []), ...req.referenceImageUrls];
+  const refs = [
+    ...(req.photoUrl ? [req.photoUrl] : []),
+    ...(req.character ? [req.character.referenceImageUrl] : []),
+    ...req.referenceImageUrls,
+  ];
+  if (req.photoUrl) {
+    script = { ...script, shots: script.shots.map((s) => ({ ...s, imagePrompt: `${s.imagePrompt}. ${PHOTO_LIKENESS}` })) };
+  }
   const [first, ...rest] = script.shots;
-  const firstFrame = await deps.image.generateKeyframe({ prompt: first.imagePrompt, referenceImageUrls: refs, seed });
-  const anchors = req.character ? refs : [...refs, firstFrame.url].slice(-5);
+  // A shot the safety filter blocks twice reuses a neighbouring picture instead of failing the reel.
+  const firstFrame = await generateKeyframeSafely(deps.image, { prompt: first.imagePrompt, referenceImageUrls: refs, seed });
+  const anchors = req.character || !firstFrame ? refs : [...refs, firstFrame.url].slice(-5);
   const restFrames = await mapLimit(rest, 3, (shot) =>
-    deps.image.generateKeyframe({ prompt: shot.imagePrompt, referenceImageUrls: anchors, seed }),
+    generateKeyframeSafely(deps.image, { prompt: shot.imagePrompt, referenceImageUrls: anchors, seed }),
   );
-  const frames = [firstFrame, ...restFrames];
+  const frames = fillBlockedFrames([firstFrame, ...restFrames]);
 
   await onStage("clips");
   const clips = await mapLimit(script.shots, 3, async (shot, i) => {
@@ -142,6 +160,7 @@ export async function runFilm(
       clipSeconds: CLIP_SECONDS,
       resolution: req.resolution,
       watermark: req.watermark,
+      aiLabel: req.aiLabel,
       output,
       captions,
     }),

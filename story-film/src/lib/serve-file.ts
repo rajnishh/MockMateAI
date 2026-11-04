@@ -1,6 +1,5 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
-import { Readable } from "node:stream";
 
 // Parses a single "bytes=" range; null when absent or unusable (the whole file is sent).
 export function parseRange(header: string | null, size: number): { start: number; end: number } | "invalid" | null {
@@ -20,6 +19,39 @@ export function parseRange(header: string | null, size: number): { start: number
   return { start, end };
 }
 
+// A file as a web stream that stops reading the moment the player cancels. Node's Readable.toWeb
+// keeps pushing into the closed stream when a player gives up mid-download (inline players and
+// picture-in-picture do this all the time), which crashed the server with ERR_INVALID_STATE.
+export function fileStream(file: string, range?: { start: number; end: number }): ReadableStream<Uint8Array> {
+  const node = createReadStream(file, range);
+  let done = false;
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      node.on("data", (chunk) => {
+        if (done) return;
+        controller.enqueue(new Uint8Array(chunk as Buffer));
+        // Read only as fast as the player takes it.
+        if ((controller.desiredSize ?? 1) <= 0) node.pause();
+      });
+      node.on("end", () => {
+        if (!done) controller.close();
+        done = true;
+      });
+      node.on("error", (err) => {
+        if (!done) controller.error(err);
+        done = true;
+      });
+    },
+    pull() {
+      node.resume();
+    },
+    cancel() {
+      done = true;
+      node.destroy();
+    },
+  });
+}
+
 // Streams a file the server wrote, with byte ranges so players can seek (iOS needs them to play
 // MP4 over HTTP at all). Never pass a path taken from the request.
 export async function serveFile(req: Request, file: string, headers: Record<string, string>): Promise<Response> {
@@ -28,9 +60,9 @@ export async function serveFile(req: Request, file: string, headers: Record<stri
   const base = { ...headers, "Accept-Ranges": "bytes" };
   if (range === "invalid") return new Response(null, { status: 416, headers: { ...base, "Content-Range": `bytes */${size}` } });
   if (!range) {
-    return new Response(Readable.toWeb(createReadStream(file)) as ReadableStream, { headers: { ...base, "Content-Length": String(size) } });
+    return new Response(fileStream(file), { headers: { ...base, "Content-Length": String(size) } });
   }
-  return new Response(Readable.toWeb(createReadStream(file, { start: range.start, end: range.end })) as ReadableStream, {
+  return new Response(fileStream(file, range), {
     status: 206,
     headers: { ...base, "Content-Length": String(range.end - range.start + 1), "Content-Range": `bytes ${range.start}-${range.end}/${size}` },
   });

@@ -73,7 +73,7 @@ button.secondary:active:not(:disabled) { transform: scale(0.98); box-shadow: non
 a:has(> button) { display: inline-flex; text-decoration: none; }
 
 label { display: block; margin: 18px 0 6px; font-size: 13px; line-height: 18px; font-weight: 700; color: var(--ink-muted); }
-input[type="text"], input[type="tel"], input[type="datetime-local"], input:not([type]), textarea, select {
+input[type="text"], input[type="tel"], input[type="email"], input[type="datetime-local"], input:not([type]), textarea, select {
   font: inherit; font-size: 16px; line-height: 26px; width: 100%; min-height: 50px; padding: 11px 14px;
   border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface-sunken); color: var(--ink);
   transition: border-color .12s ease, background-color .12s ease;
@@ -107,6 +107,21 @@ video { width: 100%; max-width: 360px; border-radius: 16px; display: block; marg
 .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
 .actions > button, .actions > a > button { width: auto; }
 .actions > button[type="submit"]:only-child { width: 100%; }
+/* Create: "Make" stays the big button, "Build with Claude" sits beside it. */
+.make-actions { margin-top: 20px; }
+.create .make-actions > button[type="submit"] { flex: 1 1 200px; margin-top: 0; }
+.make-actions + .muted { margin-top: 8px; }
+/* Build with Claude: where to open Claude (Desktop, web or Claude in Chrome). */
+.claude-pick { flex: 1 1 200px; display: flex; flex-direction: column; gap: 6px; }
+.claude-pick > button.secondary { width: 100%; }
+.claude-pick .menu { left: 0; right: auto; top: auto; bottom: calc(100% + 8px); min-width: 280px; z-index: 20; }
+.claude-pick .menu button { min-height: 56px; text-align: left; }
+.claude-pick .menu button > span { display: flex; flex-direction: column; gap: 2px; }
+.claude-pick-help { font-size: 12.5px; font-weight: 500; }
+.claude-pick-remember { padding: 8px 12px 4px; margin: 4px 0 0; border-top: 1px solid var(--line); font-size: 13.5px; }
+.claude-pick-change { align-self: flex-start; background: none; border: 0; box-shadow: none; padding: 0; color: var(--ink-muted); font-size: 13px; text-decoration: underline; width: auto; min-height: 0; }
+.claude-pick > p { margin: 0; }
+.claude-pick-prompt { font-size: 13px; font-family: ui-monospace, monospace; }
 .split { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 24px; align-items: start; }
 .split > aside { position: sticky; top: 84px; display: flex; flex-direction: column; gap: 16px; }
 @media (max-width: 1099px) { .split { grid-template-columns: minmax(0, 1fr); } .split > aside { position: static; } }
@@ -161,6 +176,39 @@ header.top .post-actions { flex-wrap: wrap; justify-content: flex-start; }
 .ideas button:active:not(:disabled) { transform: scale(0.96); box-shadow: none; }
 .ideas button.chip[aria-pressed="true"], .chip[aria-pressed="true"] { background: var(--teal-tint); border-color: var(--teal-text); color: var(--ink); animation: pop .28s cubic-bezier(.3, 1.6, .5, 1); }
 .ideas button.chip[aria-pressed="true"]::before, .chip[aria-pressed="true"]::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--teal-text); }
+
+/* ---------- Idea cards ---------- */
+.idea-list { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 10px; }
+.idea-list li { display: grid; gap: 4px; padding: 14px 16px; background: var(--surface-raised); border: 1px solid var(--line); border-radius: 14px; }
+.idea-list strong { font-family: var(--font-display); font-size: 16px; }
+.idea-list .muted { font-size: 14px; line-height: 1.5; }
+.idea-list button { justify-self: start; width: auto; min-height: 36px; margin-top: 6px; padding: 0 14px; font-size: 14px; }
+.hook { color: var(--teal-text); font-weight: 700; line-height: 1.4; }
+.label-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.label-row button.small, button.small { width: auto; min-height: 34px; padding: 0 12px; font-size: 13.5px; }
+.hint { margin: 2px 0 8px; font-size: 14px; }
+
+/* ---------- Reel player, actions and delete ---------- */
+.reel-player { position: relative; width: 100%; max-width: 360px; }
+.reel-player video { width: 100%; aspect-ratio: 9 / 16; object-fit: cover; margin-top: 12px; }
+.reel-player .pip { position: absolute; top: 22px; right: 10px; min-height: 34px; padding: 0 12px; background: rgba(21, 10, 26, 0.72); color: #fff; border-color: transparent; backdrop-filter: blur(6px); }
+.reel-player .pip:hover:not(:disabled) { border-color: #fff; }
+button.ghost { width: auto; background: transparent; color: var(--ink-muted); border-color: transparent; box-shadow: none; padding: 0 10px; }
+button.ghost:hover:not(:disabled) { color: var(--ink); background: var(--surface-sunken); }
+button.ghost.danger:hover:not(:disabled) { color: var(--danger); background: var(--coral-tint); }
+button.danger-solid { width: auto; background: var(--danger); color: #fff; box-shadow: none; }
+.confirm { display: grid; gap: 8px; padding: 12px 14px; border-radius: 14px; background: var(--coral-tint); color: var(--ink); font-size: 14px; font-weight: 600; }
+.confirm-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.reel-item { display: grid; gap: 8px; }
+button.plain { width: auto; min-height: 0; padding: 0; background: none; border: 0; box-shadow: none; color: inherit; font-weight: 700; text-align: left; justify-content: flex-start; }
+button.plain:active:not(:disabled) { transform: none; box-shadow: none; }
+.reel-row .thumb:empty { background: var(--surface-sunken); }
+.reel-item .post { flex-wrap: wrap; }
+.reel-item .post-actions { align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.reel-item .post-actions:has(.confirm) { flex-basis: 100%; }
+.reel-item .post-actions .confirm { flex-basis: 100%; }
+.reel-open { padding: 4px 4px 12px; }
+.link-box { width: 100%; font-size: 13px; font-family: var(--font-mono); }
 
 /* ---------- Checkboxes as rows ---------- */
 .check + .muted, .check + p { margin-top: 14px; }
@@ -229,6 +277,7 @@ header.top .post-actions { flex-wrap: wrap; justify-content: flex-start; }
 .cc { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .cc-badge { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid currentColor; font-size: 10px; font-weight: 700; }
 .prefix { flex: 0 0 auto !important; display: flex; align-items: center; min-height: 50px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface-sunken); color: var(--ink); font-weight: 700; font-family: var(--font-mono); }
+select.prefix { width: auto; padding-right: 38px; background-position: right 12px center; }
 
 /* ---------- App shell ---------- */
 /* Deep-plum sidebar from 768px (icon rail below 1024px), floating plum tab bar on phones. */
@@ -556,3 +605,13 @@ main.home { max-width: 1200px; display: flex; flex-direction: column; gap: 22px;
 .split-list b { font-variant-numeric: tabular-nums; }
 @media (max-width: 1023px) { .insight-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 559px) { .bars { gap: 4px; } .bar-label { font-size: 10px; } .stat strong { font-size: 32px; line-height: 36px; } }
+
+/* ---------- Connector sign-in (OAuth consent) ---------- */
+.oauth { min-height: 100vh; display: flex; }
+.oauth .auth-form { flex: 1; max-width: none; }
+.oauth .side-brand { color: var(--ink); padding: 0 0 24px; }
+.oauth h2 { margin-top: 0; }
+.oauth-can { list-style: none; margin: 20px 0 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px; background: var(--surface-raised); border: 1px solid var(--line); border-radius: 16px; font-weight: 600; }
+.oauth-can li { display: flex; align-items: center; gap: 12px; }
+.oauth-can li::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--teal); flex: none; }
+.oauth .status { margin: 12px 0 0; }

@@ -18,9 +18,12 @@ export const FREE_PLAN: Plan = {
 export const CLIP_SECONDS = 5;
 
 // USD snapshot from docs/PLAN.md (fal.ai, 2026). Re-verify before pricing anything.
-const VIDEO_PRICE_PER_SEC: Record<string, Record<Resolution, number>> = {
+const VIDEO_PRICE_PER_SEC: Record<string, Partial<Record<Resolution, number>>> = {
   "wan-2.x": { "480p": 0.05, "720p": 0.1 },
   "kling-2.6": { "480p": 0.07, "720p": 0.07 },
+  // fal.ai, 2026-11-04, audio off.
+  "kling-3.0": { "1080p": 0.112 },
+  "veo-3.1": { "1080p": 0.2 },
 };
 const KEYFRAME_PRICE = 0.08;
 const LLM_PRICE = 0.2;
@@ -30,10 +33,10 @@ export function shotCountFor(durationSec: number): number {
 }
 
 export function estimateCostUsd(videoModel: string, resolution: Resolution, durationSec: number): number {
-  const prices = VIDEO_PRICE_PER_SEC[videoModel];
-  if (!prices) throw new Error(`No price for video model "${videoModel}"`);
+  const price = VIDEO_PRICE_PER_SEC[videoModel]?.[resolution];
+  if (price === undefined) throw new Error(`No price for video model "${videoModel}" at ${resolution}`);
   const shots = shotCountFor(durationSec);
-  const video = shots * CLIP_SECONDS * prices[resolution];
+  const video = shots * CLIP_SECONDS * price;
   // Voice (Kokoro) and music (ACE-Step) are self-hosted and treated as ~$0.
   return Math.round((video + shots * KEYFRAME_PRICE + LLM_PRICE) * 100) / 100;
 }

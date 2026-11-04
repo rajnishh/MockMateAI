@@ -3,6 +3,7 @@ import type { Resolution } from "@/lib/providers/types";
 export const FRAME_SIZE: Record<Resolution, { w: number; h: number }> = {
   "480p": { w: 480, h: 854 },
   "720p": { w: 720, h: 1280 },
+  "1080p": { w: 1080, h: 1920 },
 };
 
 export interface AssembleInput {
@@ -13,6 +14,9 @@ export interface AssembleInput {
   clipSeconds: number;
   resolution: Resolution;
   watermark: boolean;
+  // The creator may leave out the visible "Created with AI" label; the file's metadata and Content
+  // Credentials still say it's AI-made.
+  aiLabel?: boolean;
   output: string;
   // Pre-rendered caption images, each shown from start to end at height y.
   captions?: { file: string; start: number; end: number; y: number }[];
@@ -31,14 +35,17 @@ function normaliseClip(input: number, w: number, h: number, seconds: number): st
 }
 
 // Chains caption overlays (inputs from firstInput on) and burns the AI label last.
-function captionsAndLabel(filters: string[], video: string, firstInput: number, captions: CaptionOverlay[], h: number, watermark: boolean) {
+function captionsAndLabel(filters: string[], video: string, firstInput: number, captions: CaptionOverlay[], h: number, watermark: boolean, aiLabel = true) {
   captions.forEach((c, i) => {
     const out = `[cap${i}]`;
     filters.push(`${video}[${firstInput + i}:v]overlay=x=0:y=${c.y}:enable='between(t,${c.start},${c.end})'${out}`);
     video = out;
   });
-  // The AI label is always burned in (platform disclosure); the plan watermark is extra.
-  const label = watermark ? `${AI_LABEL} · free plan` : AI_LABEL;
+  const label = [aiLabel ? AI_LABEL : "", watermark ? "Made with Reelkar · free plan" : ""].filter(Boolean).join(" · ");
+  if (!label) {
+    filters.push(`${video}null[vout]`);
+    return;
+  }
   filters.push(
     `${video}drawtext=text='${label}':fontcolor=white@0.85:fontsize=${Math.round(h / 45)}:` +
       `box=1:boxcolor=black@0.35:boxborderw=8:x=(w-text_w)/2:y=h-text_h-${Math.round(h / 20)}[vout]`,
@@ -87,7 +94,7 @@ export function buildAssembleArgs(input: AssembleInput): string[] {
   );
   filters.push(`[narr][mus]amix=inputs=2:duration=first:normalize=0[aout]`);
   // Caption images are the inputs after music (index 2n + 1 onwards).
-  captionsAndLabel(filters, "[vcat]", 2 * n + 1, input.captions ?? [], h, input.watermark);
+  captionsAndLabel(filters, "[vcat]", 2 * n + 1, input.captions ?? [], h, input.watermark, input.aiLabel);
 
   return [
     "-y",

@@ -1,14 +1,17 @@
 import * as Clipboard from "expo-clipboard";
 import { router, useLocalSearchParams } from "expo-router";
-import { useVideoPlayer, VideoView } from "expo-video";
 import { useEffect, useState } from "react";
-import { Share, StyleSheet, View } from "react-native";
+import { Linking, StyleSheet, View } from "react-native";
 
 import { Celebrate } from "@/components/celebrate";
+import { confirmDelete } from "@/components/reel-grid";
 import { ReelThumb } from "@/components/reel-thumb";
+import { ReelVideo } from "@/components/reel-video";
 import { Banner, Button, Card, Chip, ChipRow, Header, Row, Screen, Skeleton, Txt } from "@/components/ui";
 import { api, type Account, type Film, type Platform, type PostCopy } from "@/lib/api";
 import { PLATFORM_LABEL } from "@/lib/connect";
+import { formatLabel } from "@/lib/formats";
+import { saveReelToPhotos, shareReel } from "@/lib/reel-file";
 import { useData } from "@/lib/use-data";
 import { radius } from "@/theme";
 
@@ -39,7 +42,10 @@ export default function Reel() {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [headers, setHeaders] = useState<Record<string, string> | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  // Said no to Photos before: only Settings can change it now.
+  const [photosBlocked, setPhotosBlocked] = useState(false);
   const accounts = useData(() => api.accounts());
   const [picked, setPicked] = useState<string[] | null>(null);
   const [options] = useState(() => whenOptions(new Date()));
@@ -48,14 +54,37 @@ export default function Reel() {
 
   useEffect(() => {
     api.film(id).then(setFilm, (e) => setError(e.message));
-    api.videoHeaders().then(setHeaders);
   }, [id]);
 
-  const url = film ? api.videoUrl(film) : null;
-  // The video needs the session cookie, so wait for it before creating the source.
-  const player = useVideoPlayer(url && headers ? { uri: url, headers } : null, (p) => {
-    p.loop = true;
-  });
+  async function save() {
+    setSaving(true);
+    setError(null);
+    setNote(null);
+    try {
+      const result = await saveReelToPhotos(id);
+      if (result === "saved") setNote("Saved to your Photos.");
+      else if (result === "denied") setError("Reelkar needs permission to save to Photos.");
+      else setPhotosBlocked(true);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function share() {
+    setSharing(true);
+    setError(null);
+    try {
+      // Instagram drops shared text, so the caption goes on the clipboard to paste.
+      if (text) await Clipboard.setStringAsync(text);
+      await shareReel(id, film?.title);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSharing(false);
+    }
+  }
 
   const connected: Account[] = (accounts.data?.accounts ?? []).filter((a) => !a.needsReconnect);
   const selected = picked ?? connected.map((a) => a.id);
@@ -110,18 +139,25 @@ export default function Reel() {
 
   return (
     <Screen>
-      <Header title={film?.title ?? "Your reel"} sub="Ready · Made with AI" back />
+      <Header title={film?.title ?? "Your reel"} sub={["Ready", formatLabel(film?.format), "Made with AI"].filter(Boolean).join(" · ")} back />
       <View style={styles.player}>
-        {url && headers ? <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="cover" nativeControls /> : film ? <ReelThumb seed={0} playable /> : <Skeleton height={420} />}
+        {film?.videoUrl ? <ReelVideo film={film} autoPlay={Boolean(fresh)} /> : film ? <ReelThumb seed={0} playable /> : <Skeleton height={420} />}
         {/* Straight from "Making your reel": celebrate once. */}
         {fresh && film ? <Celebrate /> : null}
       </View>
+      <Row style={{ justifyContent: "center" }}>
+        <Button label="Save to Photos" icon="download" kind="secondary" loading={saving} disabled={!film?.videoUrl} onPress={save} />
+        <Button label="Share" icon="share" loading={sharing} disabled={!film?.videoUrl} onPress={share} />
+      </Row>
       {error ? <Banner kind="error" text={error} /> : null}
+      {photosBlocked ? (
+        <Banner kind="warn" text="Allow Reelkar to add to Photos in Settings, then try again." action={<Button label="Settings" small kind="secondary" onPress={() => Linking.openSettings()} />} />
+      ) : null}
       {film?.error ? <Banner kind="warn" text={film.error} /> : null}
       {film?.format === "edit" ? (
         <Button label="Fine-tune effects" icon="edit" kind="secondary" block onPress={() => router.push(`/edit/${id}`)} />
       ) : null}
-      {note ? <Banner kind="info" text={note} action={<Button label="Calendar" small kind="secondary" onPress={() => router.push("/calendar")} />} /> : null}
+      {note ? <Banner kind="info" text={note} action={note.includes("Calendar") ? <Button label="Calendar" small kind="secondary" onPress={() => router.push("/calendar")} /> : undefined} /> : null}
 
       <Card>
         <Txt variant="md">Post it</Txt>
@@ -181,8 +217,8 @@ export default function Reel() {
           <Button label="Write my caption" icon="sparkle" kind="tweak" loading={busy} onPress={writeCaption} />
         )}
       </Card>
-      <Button label="Share" icon="send" kind="secondary" block onPress={() => Share.share({ message: [film?.title, text, url].filter(Boolean).join("\n\n") }).catch(() => undefined)} />
       <Button label="Make another reel" kind="ghost" style={{ alignSelf: "center" }} onPress={() => router.replace("/create")} />
+      <Button label="Delete reel" icon="trash" kind="danger" block onPress={() => confirmDelete(id, () => router.replace("/reels"), (m) => setError(m))} />
     </Screen>
   );
 }

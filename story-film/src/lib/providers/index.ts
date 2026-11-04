@@ -16,7 +16,8 @@ import { OpenAiCompatibleLlm } from "./llm";
 
 // standard: Cloudflare Workers AI images + local pan-and-zoom, ~$0 per video.
 // premium: fal.ai Nano Banana 2 images + Wan/Kling AI animation, paid with credits.
-export type Quality = "standard" | "premium";
+// cinematic: the same images + Kling 3.0 Pro or Veo 3.1, hyper-real at 1080p, paid with more credits.
+export type Quality = "standard" | "premium" | "cinematic";
 
 export function mediaStore(env: Env): LocalMediaStore {
   return new LocalMediaStore(path.resolve(env.OUTPUT_DIR, "media"));
@@ -26,11 +27,13 @@ export function premiumAvailable(env: Env): boolean {
   return Boolean(env.FAL_KEY);
 }
 
+export const cinematicAvailable = premiumAvailable;
+
 export function buildPipelineDeps(env: Env, quality: Quality = "standard"): PipelineDeps {
   return {
     llm: buildLlm(env),
     image: buildImage(env, quality),
-    video: quality === "premium" ? buildAiVideo(env) : new KenBurnsVideo(mediaStore(env), defaultFfmpeg),
+    video: quality === "standard" ? new KenBurnsVideo(mediaStore(env), defaultFfmpeg) : buildAiVideo(env, quality),
     tts: buildTts(env),
     music: buildMusic(env, quality),
   };
@@ -49,7 +52,7 @@ export function buildTts(env: Env): RoutedTts {
 // Self-hosted ACE-Step when configured; otherwise premium videos use ACE-Step on fal.
 function buildMusic(env: Env, quality: Quality) {
   if (env.ACESTEP_URL) return new AceStepMusic(env.ACESTEP_URL);
-  if (quality === "premium" && env.FAL_KEY) return new FalAceStep(new FalQueueClient(env.FAL_KEY));
+  if (quality !== "standard" && env.FAL_KEY) return new FalAceStep(new FalQueueClient(env.FAL_KEY));
   return undefined;
 }
 
@@ -112,17 +115,18 @@ export function buildLlm(env: Env): OpenAiCompatibleLlm {
     });
   }
   const accountId = requireKey(env.CLOUDFLARE_ACCOUNT_ID, "CLOUDFLARE_ACCOUNT_ID");
-  // Workers AI's OpenAI-compatible endpoint; JSON mode isn't relied on there.
+  // Workers AI's OpenAI-compatible endpoint. Every call wants JSON, and without JSON mode the free
+  // Llama sometimes sends broken JSON (an unquoted key, a stray quote), so it's on.
   return new OpenAiCompatibleLlm(
     `${cloudflareAiBase(accountId)}/v1`,
     requireKey(env.CLOUDFLARE_API_TOKEN, "CLOUDFLARE_API_TOKEN"),
     env.CF_LLM_MODEL ?? CLOUDFLARE_DEFAULTS.llmModel,
-    { licenseId: "llama-3.3-70b", jsonMode: false },
+    { licenseId: "llama-3.3-70b", jsonMode: true },
   );
 }
 
 export function buildImage(env: Env, quality: Quality = "standard") {
-  if (quality === "premium") {
+  if (quality !== "standard") {
     return new FalNanoBanana(
       new FalQueueClient(requireKey(env.FAL_KEY, "FAL_KEY")),
       env.FAL_IMAGE_MODEL_ID ?? DEFAULT_FAL_MODELS.image,
@@ -137,8 +141,13 @@ export function buildImage(env: Env, quality: Quality = "standard") {
   );
 }
 
-function buildAiVideo(env: Env) {
+function buildAiVideo(env: Env, quality: "premium" | "cinematic") {
   const fal = new FalQueueClient(requireKey(env.FAL_KEY, "FAL_KEY"));
+  if (quality === "cinematic") {
+    return env.CINEMATIC_VIDEO_MODEL === "veo"
+      ? new FalImageToVideo(fal, "veo-3.1", env.FAL_VEO_MODEL_ID ?? DEFAULT_FAL_MODELS.veo31)
+      : new FalImageToVideo(fal, "kling-3.0", env.FAL_KLING3_MODEL_ID ?? DEFAULT_FAL_MODELS.kling3);
+  }
   return env.VIDEO_MODEL === "kling"
     ? new FalImageToVideo(fal, "kling-2.6", env.FAL_KLING_MODEL_ID ?? DEFAULT_FAL_MODELS.kling)
     : new FalImageToVideo(fal, "wan-2.x", env.FAL_WAN_MODEL_ID ?? DEFAULT_FAL_MODELS.wan);

@@ -26,6 +26,11 @@ const ICONS = {
   out: <><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" /><path d="M10 17l-5-5 5-5M5 12h11" /></>,
   arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
   play: <path d="M9 7l8 5-8 5z" fill="currentColor" />,
+  download: <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />,
+  share: <><circle cx="18" cy="5" r="2.5" /><circle cx="6" cy="12" r="2.5" /><circle cx="18" cy="19" r="2.5" /><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4" /></>,
+  link: <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />,
+  pip: <><rect x="3" y="5" width="18" height="14" rx="2.5" /><rect x="12" y="11" width="7" height="6" rx="1.2" fill="currentColor" /></>,
+  trash: <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" />,
   bell: <path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 20a2 2 0 0 0 4 0" />,
   brand: <><circle cx="12" cy="12" r="9" /><circle cx="8.5" cy="10" r="1.2" /><circle cx="12" cy="7.5" r="1.2" /><circle cx="15.5" cy="10" r="1.2" /><path d="M12 21a3 3 0 0 1 0-6h2" /></>,
   insights: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
@@ -74,7 +79,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [billing, setBilling] = useState<Billing | null>(null);
   const [menu, setMenu] = useState(false);
   const acct = useRef<HTMLDivElement>(null);
-  const bare = path === "/login";
+  const bare = path === "/login" || path.startsWith("/oauth/");
 
   useEffect(() => {
     if (bare) return;

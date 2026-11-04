@@ -232,8 +232,8 @@ const VOICES: Voice[] = [
 ];
 
 // Sings one line: returns mono PCM at SING_RATE, SING_LEAD + melody.durationSec long plus a short tail.
-export function singLine(x: Float32Array, melody: Melody, sr = SING_RATE): Float32Array {
-  const track = trackPitch(x, sr);
+// Pass the line's pitch track if it's already known (tracking is the slow part).
+export function singLine(x: Float32Array, melody: Melody, sr = SING_RATE, track = trackPitch(x, sr)): Float32Array {
   const marks = pitchMarks(x, track);
   const energy = rmsFrames(x, track.hop);
   const periodAt = (i: number) => track.periods[Math.min(track.periods.length - 1, Math.max(0, Math.floor(i / track.hop)))] ?? 0;
@@ -345,7 +345,8 @@ export function decodePcm(audio: Buffer, sr = SING_RATE): Promise<Float32Array> 
 
 // Sings every chant line in one key, chosen from the voice's own pitch across all the lines.
 export function singChant(lines: Float32Array[], script: { bpm: number; lines: { text: string }[] }): { audio: Float32Array[]; melodies: Melody[] } {
-  const tonic = tonicFor(medianHz(lines.map((x) => trackPitch(x))));
+  const tracks = lines.map((x) => trackPitch(x));
+  const tonic = tonicFor(medianHz(tracks));
   const melodies = script.lines.map((l, i) => planMelody(l.text, script.bpm, i, script.lines.length, tonic));
-  return { audio: lines.map((x, i) => singLine(x, melodies[i])), melodies };
+  return { audio: lines.map((x, i) => singLine(x, melodies[i], SING_RATE, tracks[i])), melodies };
 }
