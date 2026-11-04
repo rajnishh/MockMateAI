@@ -3,11 +3,11 @@ import { getBalance, grantCredits, recentLedger, spendCredits } from "@/lib/bill
 import type { Db } from "@/lib/db";
 import { user } from "@/lib/db/schema";
 import { FalQueueClient } from "@/lib/providers/fal";
-import { FalAceStep } from "@/lib/providers/fal-music";
+import { FalAceStep, FalLyria, lyriaPrompt } from "@/lib/providers/fal-music";
 import type { LlmProvider } from "@/lib/providers/types";
 import { buildEnhancePrompt, draftLanguage, buildLyricsPrompt, cleanLyrics, enhanceLyrics, missingLines, targetLines, writeLyrics } from "@/lib/songs/lyrics";
 import { editedLength, isNoop, songEditArgs, songEditSchema } from "@/lib/songs/edit";
-import { lyricsRequestSchema, newSongSchema } from "@/lib/songs/request";
+import { lyricsRequestSchema, newSongSchema, songLength } from "@/lib/songs/request";
 import { buildStylePrompt, writeStyle } from "@/lib/songs/style-writer";
 import { assertNoRealArtists, findBlockedArtist, SongSafetyError } from "@/lib/songs/safety";
 import { createSong, getSong, listSongs, songView, takeCredits, updateSong } from "@/lib/songs/songs";
@@ -92,6 +92,34 @@ describe("ACE-Step on fal", () => {
     expect(JSON.parse(calls[0].body!)).toEqual({ prompt: "pop", lyrics: "[Verse]\nhi", duration: 60, vocal_language: "hi" });
     expect(audio.ext).toBe("mp3");
     expect(audio.data.toString()).toBe("mp3-bytes");
+  });
+});
+
+describe("short songs with Lyria on fal", () => {
+  it("puts the lyrics and language in the prompt, and keeps the mp3", async () => {
+    const calls: { url: string; body?: string }[] = [];
+    const fetchFn = (async (url: string, init?: RequestInit) => {
+      calls.push({ url, body: init?.body as string | undefined });
+      if (url === "https://queue.fal.run/fal-ai/lyria3") return Response.json({ request_id: "r", status_url: "s", response_url: "o" });
+      if (url === "s") return Response.json({ status: "COMPLETED" });
+      if (url === "o") return Response.json({ audio: { url: "https://cdn.test/out/a.mp3", content_type: "audio/mpeg" }, lyrics: "Caption: …" });
+      return new Response(Buffer.from("mp3-bytes"));
+    }) as unknown as typeof fetch;
+    const song = { style: "Bollywood ballad, soft female vocals", lyrics: "[Chorus]\nपापा की दुनिया", durationSec: 30, vocalLanguage: "hi" };
+
+    const audio = await new FalLyria(new FalQueueClient("k", fetchFn, 0), fetchFn).sing(song);
+
+    expect(JSON.parse(calls[0].body!)).toEqual({ prompt: lyriaPrompt(song) });
+    expect(lyriaPrompt(song)).toBe("Bollywood ballad, soft female vocals. A song sung in Hindi, with exactly these lyrics in this order (section tags in brackets are not sung):\n[Chorus]\nपापा की दुनिया");
+    expect(lyriaPrompt({ ...song, vocalLanguage: "unknown" })).toMatch(/^Bollywood ballad, soft female vocals\. A song, with exactly/);
+    expect(audio).toEqual({ data: Buffer.from("mp3-bytes"), ext: "mp3" });
+  });
+
+  it("makes full songs unless a short song is asked for, which is always 30 seconds", () => {
+    expect(newSongSchema.parse({ genre: "pop", title: "T", lyrics: "[Verse]\nla la la la la la la" }).model).toBe("ace-step");
+    expect(songLength("ace-step", 120)).toBe(120);
+    expect(songLength("lyria", 120)).toBe(30);
+    expect(newSongSchema.safeParse({ genre: "pop", title: "T", lyrics: "[Verse]\nla la la la la la la", model: "minimax" }).success).toBe(false);
   });
 });
 

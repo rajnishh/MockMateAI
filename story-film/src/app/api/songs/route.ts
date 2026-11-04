@@ -9,7 +9,7 @@ import { buildLlm, songsAvailable } from "@/lib/providers";
 import { getSongQueue } from "@/lib/queue/songs";
 import { getUserId, unauthorized } from "@/lib/session";
 import { cleanLyrics } from "@/lib/songs/lyrics";
-import { newSongSchema, vocalLanguage } from "@/lib/songs/request";
+import { newSongSchema, songLength, vocalLanguage } from "@/lib/songs/request";
 import { assertNoRealArtists, SongSafetyError } from "@/lib/songs/safety";
 import { createSong, listSongs, songView, takeCredits } from "@/lib/songs/songs";
 import { findGenre, stylePrompt } from "@/lib/songs/styles";
@@ -47,6 +47,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: `A song costs ${SONG_CREDITS} credits.`, needCredits: true }, { status: 402 });
   }
   const style = stylePrompt(genre, parsed.data.mood, parsed.data.vocal, parsed.data.style);
+  const { model } = parsed.data;
+  const durationSec = songLength(model, parsed.data.durationSec);
   try {
     for (const [i, songId] of ids.entries()) {
       const title = takes > 1 ? `${parsed.data.title} (v${i + 1})`.slice(0, 80) : parsed.data.title;
@@ -58,12 +60,12 @@ export async function POST(req: Request) {
         mood: parsed.data.mood,
         language: parsed.data.language,
         lyrics,
-        durationSec: parsed.data.durationSec,
+        durationSec,
         credits: shares[i],
       });
       await getSongQueue().add(
         "song",
-        { songId, userId, title, style, lyrics, durationSec: parsed.data.durationSec, vocalLanguage: vocalLanguage(parsed.data.language), credits: shares[i] },
+        { songId, userId, title, style, lyrics, durationSec, vocalLanguage: vocalLanguage(parsed.data.language), credits: shares[i], model },
         { jobId: songId },
       );
     }

@@ -3,6 +3,11 @@ import { LANGUAGE_CODES } from "@/lib/languages";
 import type { SongLanguage } from "./lyrics";
 import { MOODS, VOCALS } from "./styles";
 
+// "ace-step": full songs of any length (the default); "lyria": Google Lyria 3, always 30 seconds.
+export const SONG_MODELS = ["ace-step", "lyria"] as const;
+export type SongModel = (typeof SONG_MODELS)[number];
+export const SHORT_SONG_SEC = 30;
+
 export const songOptionsSchema = z.object({
   topic: z.string().trim().max(300).default(""),
   genre: z.string(),
@@ -30,7 +35,12 @@ export const newSongSchema = songOptionsSchema.extend({
   vocal: z.enum(VOCALS).default("auto"),
   // Like Suno, one Create makes two versions to choose from, for the price of one song.
   takes: z.union([z.literal(1), z.literal(2)]).default(2),
+  model: z.enum(SONG_MODELS).default("ace-step"),
 });
+
+export function songLength(model: SongModel, durationSec: number): number {
+  return model === "lyria" ? SHORT_SONG_SEC : durationSec;
+}
 
 // ACE-Step's vocal language: Hinglish lyrics are mostly Hindi words.
 export function vocalLanguage(language: SongLanguage): string {
