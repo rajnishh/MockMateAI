@@ -9,6 +9,8 @@ export interface ModelLicense {
 export const MODEL_LICENSES: Record<string, ModelLicense> = {
   "wan-2.x": { license: "Apache-2.0 (weights); fal.ai API terms", commercial: true },
   "kling-2.6": { license: "fal.ai API terms", commercial: true },
+  "kling-3.0": { license: "fal.ai API terms", commercial: true },
+  "veo-3.1": { license: "fal.ai / Google API terms", commercial: true, note: "SynthID stamped" },
   "nano-banana-2": { license: "fal.ai / Google API terms", commercial: true, note: "SynthID stamped" },
   "kokoro-82m": { license: "Apache-2.0", commercial: true },
   "routed-tts": { license: "Routes to the engines below; each is checked on its own", commercial: true },

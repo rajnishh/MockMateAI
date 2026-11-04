@@ -12,7 +12,7 @@ export interface Film {
   stage: Stage | null;
   title: string | null;
   story: string;
-  quality: "standard" | "premium";
+  quality: Quality;
   credits: number;
   error: string | null;
   createdAt: string;
@@ -36,6 +36,9 @@ export interface Billing {
   freeVideosPerWeek: number;
   premiumAvailable: boolean;
   premiumCreditsPerShot: number;
+  // Hyper-real 1080p reels (Kling 3.0 or Veo 3.1); missing on older servers.
+  cinematicAvailable?: boolean;
+  cinematicCreditsPerShot?: number;
 }
 
 export interface Idea {
@@ -188,12 +191,17 @@ export interface EditUpload {
   brand?: { accent?: string; background?: "light" | "dark"; handle?: string };
 }
 
+export type Quality = "standard" | "premium" | "cinematic";
+
 export interface NewFilm {
   story: string;
   language: string;
   durationSec: number;
-  quality: "standard" | "premium";
+  quality: Quality;
   style: Style;
+  // A photo from uploadPhoto: the reel's lead looks like this person. Needs photoConsent.
+  photo?: string;
+  photoConsent?: boolean;
   // "motion": animated text and graphics with a voice-over; "dance": cartoon kids dance to a
   // dhol beat with a chant. Both are drawn by Reelkar (no AI animation credits).
   format?: "story" | "motion" | "dance";
@@ -255,6 +263,16 @@ const real = {
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new ApiError(body.error ?? `Upload failed (${res.status})`, res.status, Boolean(body.needCredits));
     return body as { id: string; credits: number };
+  },
+  // A photo for an AI-animated or Cinematic reel; returns the id the reel request names.
+  uploadPhoto: async (photo: { uri: string; name: string; type: string }) => {
+    const form = new FormData();
+    form.append("photo", photo as unknown as Blob);
+    const cookie = await authClient.getCookie();
+    const res = await fetch(`${API_URL}/api/photos`, { method: "POST", body: form, credentials: "omit", headers: cookie ? { Cookie: cookie } : {} });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new ApiError(body.error ?? `Upload failed (${res.status})`, res.status);
+    return (body as { photo: string }).photo;
   },
   editDraft: (id: string) => call<EditDraft>(`/api/edits/${id}`),
   previewUri: (draft: EditDraft) => (draft.previewUrl ? `${API_URL}${draft.previewUrl}` : null),
@@ -403,8 +421,9 @@ const demo: typeof real = {
   createFilm: async (input) => {
     await wait(400);
     const drawn = input.format === "motion" || input.format === "dance";
-    const cost = input.quality === "premium" && !drawn ? Math.round(input.durationSec / 5) * 12 : 0;
-    if (cost > demoBalance) throw new ApiError(`AI animation needs ${cost} credits for this length.`, 402, true);
+    const perShot = input.quality === "cinematic" ? 26 : input.quality === "premium" ? 12 : 0;
+    const cost = drawn ? 0 : Math.round(input.durationSec / 5) * perShot;
+    if (cost > demoBalance) throw new ApiError(`${input.quality === "cinematic" ? "A Cinematic video" : "AI animation"} needs ${cost} credits for this length.`, 402, true);
     demoBalance -= cost;
     const f: Film = { ...sample(`d${Date.now()}`, input.story.slice(0, 40), "queued", 0), quality: drawn ? "standard" : input.quality, credits: cost, story: input.story, format: input.format ?? "story" };
     demoFilms.push(f);
@@ -417,6 +436,8 @@ const demo: typeof real = {
       freeVideosPerWeek: 3,
       premiumAvailable: true,
       premiumCreditsPerShot: 12,
+      cinematicAvailable: true,
+      cinematicCreditsPerShot: 26,
       // Mirrors story-film/src/lib/billing/catalog.ts.
       packs: [
         { id: "starter", name: "Starter", credits: 50, price: { INR: 24900, USD: 399, AED: 1500 } },
@@ -445,6 +466,7 @@ const demo: typeof real = {
     const tags = platform === "whatsapp" ? [] : ["#reels", "#hindistory", "#madewithai"];
     return { title, caption: `${title} 🎬 Save this for later! · Made with AI`, hashtags: tags };
   },
+  uploadPhoto: async () => (await wait(500), "00000000-0000-4000-8000-000000000000.jpg"),
   uploadEdit: async (input) => {
     await wait(800);
     const status = input.review ? "review" : "queued";

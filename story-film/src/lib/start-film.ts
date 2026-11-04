@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { DANCE_SONG_CREDITS, PREMIUM_CREDITS_PER_SHOT, STANDARD_CREDITS } from "@/lib/billing/catalog";
+import { CINEMATIC_CREDITS_PER_SHOT, DANCE_SONG_CREDITS, PREMIUM_CREDITS_PER_SHOT, STANDARD_CREDITS } from "@/lib/billing/catalog";
 import { spendCredits } from "@/lib/billing/credits";
 import { getCharacter } from "@/lib/characters";
 import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
 import { createFilm } from "@/lib/films";
 import { findLanguage, normaliseLanguage } from "@/lib/languages";
-import { buildTts, danceSongAvailable, premiumAvailable } from "@/lib/providers";
+import { photoUrl } from "@/lib/photos";
+import { buildTts, cinematicAvailable, danceSongAvailable, premiumAvailable } from "@/lib/providers";
 import { type FilmJob, filmJobSchema, getFilmQueue, getRedis } from "@/lib/queue/films";
 import { FREE_PLAN, isoWeekKey, shotCountFor } from "@/lib/quota/plans";
 import { RedisQuotaStore, reserveFilm } from "@/lib/quota/quota";
@@ -29,7 +30,9 @@ const FIELD_ERRORS: Record<string, string> = {
   style: "Pick a style from the list.",
   durationSec: "Pick a length between 10 and 60 seconds.",
   characterId: "Pick your character again.",
-  referenceImageUrls: "Add up to 4 pictures.",
+  referenceImageUrls: "Add up to 4 pictures, as https links.",
+  photo: "Upload your photo again.",
+  quality: "Pick Standard, AI animation or Cinematic.",
   brand: "Your Brand kit settings aren't valid. Open Brand kit and save them again.",
   script: "The script isn't valid: check each shot has narration, a picture and a motion description.",
   danceScript: "The dance script isn't valid: check the title, dancers and chant lines.",
@@ -61,9 +64,15 @@ export async function startFilm(userId: string, body: unknown): Promise<{ id: st
   const env = loadEnv();
   const db = getDb();
   // Motion and dance reels use no image or video models, so they are always priced as standard videos.
-  if (job.format === "motion" || job.format === "dance") job.quality = "standard";
+  if (job.format === "motion" || job.format === "dance") {
+    job.quality = "standard";
+    job.photo = undefined;
+  }
   const { quality, durationSec } = job;
   if (quality === "premium" && !premiumAvailable(env)) throw new StartError("AI animation isn't available yet");
+  if (quality === "cinematic" && !cinematicAvailable(env)) throw new StartError("Cinematic videos aren't available yet");
+
+  const photoFile = await resolvePhoto(job, env.OUTPUT_DIR);
   // An AI-sung dance reel is a paid song; the free sung and spoken chants are standard reels.
   const aiSong = job.format === "dance" && job.danceVoice === "ai_song";
   if (aiSong && !danceSongAvailable(env)) throw new StartError("AI singing isn't available yet");
@@ -84,7 +93,7 @@ export async function startFilm(userId: string, body: unknown): Promise<{ id: st
   const filmId = randomUUID();
   const plan = { ...FREE_PLAN, filmsPerWeek: env.FREE_FILMS_PER_WEEK };
   let quotaKey: string | undefined;
-  const paid = paidCredits(job);
+  const paid = paidCredits(job, env.CINEMATIC_VIDEO_MODEL);
   let credits = paid ?? 0;
   if (paid === undefined) {
     const quota = await reserveFilm(new RedisQuotaStore(getRedis()), userId, durationSec, plan);
@@ -97,7 +106,7 @@ export async function startFilm(userId: string, body: unknown): Promise<{ id: st
         ? `AI singing needs ${credits} credits.`
         : quality === "standard"
         ? `You've used this week's ${plan.filmsPerWeek} free videos. Buy credits to keep creating.`
-        : `AI animation needs ${credits} credits for this length.`,
+        : `${quality === "cinematic" ? "A Cinematic video" : "AI animation"} needs ${credits} credits for this length.`,
       402,
       true,
     );
@@ -114,15 +123,18 @@ export async function startFilm(userId: string, body: unknown): Promise<{ id: st
     kidSafe: job.kidSafe,
     quality,
     credits,
+    photoConsentAt: photoFile ? new Date() : undefined,
   });
   await getFilmQueue().add(
     "film",
     {
       ...job,
       character,
+      photoUrl: photoFile,
       // Paid videos have no watermark beyond the AI label.
-      resolution: plan.resolution,
-      watermark: credits === 0,
+      resolution: quality === "cinematic" ? "1080p" : plan.resolution,
+      watermark: credits === 0 && job.reelkarMark,
+      aiLabel: job.aiLabel,
       quotaKey,
       credits,
     },
@@ -131,11 +143,26 @@ export async function startFilm(userId: string, body: unknown): Promise<{ id: st
   return { id: film.id, credits };
 }
 
-// What a paid reel costs: AI animation per shot, an AI-sung dance reel a song's price. Undefined for
-// standard reels, which use the free weekly allowance first and then cost STANDARD_CREDITS.
-export function paidCredits(job: Pick<FilmJob, "format" | "quality" | "durationSec" | "danceVoice">): number | undefined {
+// The uploaded photo's file, checked before charging. A photo needs the paid image model, which keeps
+// the person's face, and the creator's word that the person in it agreed.
+export async function resolvePhoto(job: Pick<FilmJob, "userId" | "photo" | "photoConsent" | "quality">, outputDir: string): Promise<string | undefined> {
+  if (!job.photo) return undefined;
+  if (job.quality === "standard") throw new StartError("A photo needs AI animation or Cinematic quality.");
+  if (!job.photoConsent) throw new StartError("Confirm the photo is of you, or of someone who agreed to be in this video.");
+  const file = await photoUrl(outputDir, job.userId, job.photo);
+  if (!file) throw new StartError("Upload your photo again.", 404);
+  return file;
+}
+
+// What a paid reel costs: AI animation and Cinematic per shot, an AI-sung dance reel a song's price.
+// Undefined for standard reels, which use the free weekly allowance first and then cost STANDARD_CREDITS.
+export function paidCredits(
+  job: Pick<FilmJob, "format" | "quality" | "durationSec" | "danceVoice">,
+  cinematicModel: keyof typeof CINEMATIC_CREDITS_PER_SHOT = "kling",
+): number | undefined {
   if (job.format === "dance" && job.danceVoice === "ai_song") return DANCE_SONG_CREDITS;
   if (job.quality === "premium") return shotCountFor(job.durationSec) * PREMIUM_CREDITS_PER_SHOT;
+  if (job.quality === "cinematic") return shotCountFor(job.durationSec) * CINEMATIC_CREDITS_PER_SHOT[cinematicModel];
   return undefined;
 }
 

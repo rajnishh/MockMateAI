@@ -134,6 +134,13 @@
       "when": 1793739786465,
       "tag": "0018_dark_iron_monger",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793817970518,
+      "tag": "0019_majestic_jasper_sitwell",
+      "breakpoints": true
     }
   ]
 }
