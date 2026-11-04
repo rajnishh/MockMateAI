@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { Linking, Pressable, View } from "react-native";
 
+import { Icon } from "@/components/icon";
 import { Banner, Button, Card, ChipRow, Credits, Field, Header, ListRow, Row, Screen, Txt } from "@/components/ui";
 import { api, ApiError, type Idea, type Quality, type Voice } from "@/lib/api";
 import { buildClaudePrompt, claudeUrl } from "@/lib/claude-prompt";
@@ -12,6 +13,7 @@ import { LANGUAGES } from "@/lib/languages";
 import { useSession } from "@/lib/session";
 import { INDIAN_ART, LOOKS, type Style } from "@/lib/styles";
 import { useData } from "@/lib/use-data";
+import { useTheme } from "@/theme";
 
 type Kind = "story" | "motion" | "dance" | "edit";
 type Ending = "auto" | "none" | "follow" | "comment";
@@ -30,6 +32,7 @@ const IDEA_PLACEHOLDER: Record<Exclude<Kind, "edit">, string> = {
 
 export default function Create() {
   const { prefs } = useSession();
+  const { colors } = useTheme();
   const billing = useData(() => api.billing());
   const [kind, setKind] = useState<Kind>("story");
   const [ending, setEnding] = useState<Ending>("auto");
@@ -256,6 +259,16 @@ export default function Create() {
         {dance ? <Txt variant="cap">Cartoon kids dance to a dhol beat while a voice chants a catchy rhyme, with bouncing captions. Made for young children. Uses your free weekly reels.</Txt> : null}
         {editing ? <Txt variant="cap">Upload a video you filmed. We add captions in your language, zooms, cards for your main points, effects around you and sounds.</Txt> : null}
       </View>
+      <Card flat onPress={() => router.push("/songs")}>
+        <Row style={{ flexWrap: "nowrap" }}>
+          <Icon name="music" color={colors.tealText} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Txt variant="label">Make a song</Txt>
+            <Txt variant="cap">Song Studio · lyrics, style and voice, sung in 2 versions</Txt>
+          </View>
+          <Icon name="right" size={18} color={colors.inkMuted} />
+        </Row>
+      </Card>
 
       {editing ? (
         <>
