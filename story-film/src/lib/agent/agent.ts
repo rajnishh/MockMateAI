@@ -12,6 +12,7 @@ import { DEFAULT_STYLE, STYLE_HINTS } from "@/lib/styles";
 import { CLIP_SECONDS } from "@/lib/quota/plans";
 import type { AgentCard, PostingMode, ReelLinks } from "./cards";
 import type { ToolPlanner } from "./claude";
+import { keyProblem } from "./ai-choice";
 import { buildPlannerPrompt, contextLines, didSummary, planSchema, toolPlannerSystemPrompt } from "./planner";
 import { type AgentMessage, createAction, getAction, getPostingMode, moveAction, recentMessages, saveMessage, setPostingMode, waitingFor } from "./store";
 import { addDays, formatWhen, localNow, nextSlot, zonedToUtc } from "./time";
@@ -28,8 +29,11 @@ export interface AgentDeps {
   freeReelsLeft(userId: string): Promise<number>;
   // Links to a finished reel; left out where there's nowhere to link to.
   reelLinks?(filmId: string): ReelLinks;
-  // Calls actions as tools (Claude); without it the free model plans in one JSON reply.
+  // Calls actions as tools (Gemini, Claude, or the creator's own pick); without it the free model
+  // plans in one JSON reply.
   planner?: ToolPlanner;
+  // Set when the planner is the creator's own choice: if it fails, the free reply says why.
+  ownAi?: string;
   now?: () => Date;
 }
 
@@ -374,6 +378,7 @@ export async function handleMessage(deps: AgentDeps, turn: Turn, text: string) {
   const history = await recentMessages(deps.db, turn.userId, 12);
   const freeLeft = await deps.freeReelsLeft(turn.userId).catch(() => null);
   let user: AgentMessage | undefined;
+  let note = "";
   if (deps.planner) {
     user = await saveMessage(deps.db, turn.userId, "user", text);
     const cards: AgentCard[] = [];
@@ -394,6 +399,7 @@ export async function handleMessage(deps: AgentDeps, turn: Turn, text: string) {
       console.error(`[agent] ${deps.planner.modelId} failed:`, err);
       // Something already happened (a reel started): show it rather than planning it again.
       if (cards.length) return { user, assistant: await saveMessage(deps.db, turn.userId, "assistant", "Something went wrong partway, but here's what I did.", cards) };
+      if (deps.ownAi) note = `${keyProblem(err, deps.ownAi)} Reelkar free answered this one.`;
     }
   }
   const prompt = buildPlannerPrompt({ turn, state, history, freeLeft, text });
@@ -410,7 +416,7 @@ export async function handleMessage(deps: AgentDeps, turn: Turn, text: string) {
     if (!isAction(a.name) || isConnectorOnly(a.name)) continue;
     cards.push(...(await run(deps, turn, state, a.name, a.input)));
   }
-  const assistant = await saveMessage(deps.db, turn.userId, "assistant", plan.reply, cards);
+  const assistant = await saveMessage(deps.db, turn.userId, "assistant", [note, plan.reply].filter(Boolean).join("\n\n"), cards);
   return { user, assistant };
 }
 

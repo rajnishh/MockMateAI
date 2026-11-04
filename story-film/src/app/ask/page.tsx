@@ -6,6 +6,7 @@ import type { AgentCard, PostingMode } from "@/lib/agent/cards";
 import { loadBrand } from "@/lib/brand-prefs";
 import { ideaBrief } from "@/lib/suggestions";
 import { Loader, ReelLogo } from "../reel-logo";
+import { AiPicker } from "./ai-picker";
 
 type Message = { id: string; role: "user" | "assistant"; text: string; cards: AgentCard[]; createdAt: string };
 
@@ -250,6 +251,7 @@ export default function AskPage() {
         </div>
         <span className="muted">{MODES.find((m) => m.value === mode)?.help}</span>
       </fieldset>
+      <AiPicker />
 
       <div className="chat" aria-live="polite">
         {!loaded && !error && <Loader label="Loading your conversation…" />}

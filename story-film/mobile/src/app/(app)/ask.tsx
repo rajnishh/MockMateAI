@@ -1,5 +1,5 @@
 import * as Clipboard from "expo-clipboard";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import {
   type ComponentRef,
   useCallback,
@@ -23,6 +23,7 @@ import {
   Card,
   ChipRow,
   Header,
+  ListRow,
   Row,
   Status,
   Txt,
@@ -81,6 +82,20 @@ export default function Ask() {
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [mode, setMode] = useState<PostingMode>("ask");
   const [freeLeft, setFreeLeft] = useState<number | null>(null);
+  const [ai, setAi] = useState<string | null>(null);
+  // Which AI answers; refreshed when coming back from its settings screen.
+  useFocusEffect(
+    useCallback(() => {
+      api
+        .aiChoice()
+        .then((v) => {
+          const p = v.providers.find((x) => x.id === v.provider);
+          const m = p?.models.find((x) => x.id === v.model)?.label ?? v.model;
+          setAi([p?.name ?? "Reelkar free", v.provider !== "reelkar" ? m : null].filter(Boolean).join(" · "));
+        })
+        .catch(() => undefined);
+    }, []),
+  );
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -169,6 +184,7 @@ export default function Ask() {
             />
             <Txt variant="cap">{MODES.find((m) => m.value === mode)?.help}</Txt>
           </View>
+          {ai ? <ListRow icon="sparkle" title="Who answers you" sub={ai} onPress={() => router.push("/ai")} /> : null}
 
           {messages.length === 0 ? (
             <Card flat>
