@@ -21,9 +21,9 @@ export const CLIP_SECONDS = 5;
 const VIDEO_PRICE_PER_SEC: Record<string, Partial<Record<Resolution, number>>> = {
   "wan-2.x": { "480p": 0.05, "720p": 0.1 },
   "kling-2.6": { "480p": 0.07, "720p": 0.07 },
-  // fal.ai, 2026-11-04, audio off.
-  "kling-3.0": { "1080p": 0.112 },
-  "veo-3.1": { "1080p": 0.2 },
+  // fal.ai pricing API, 2026-11-05.
+  "kling-3.0": { "1080p": 0.14 },
+  "veo-3.1": { "1080p": 0.4 },
 };
 const KEYFRAME_PRICE = 0.08;
 const LLM_PRICE = 0.2;

@@ -3,6 +3,7 @@ import { getDb } from "@/lib/db";
 import { ConsoleEmail, type EmailSender, ResendEmail } from "@/lib/email";
 import { loadEnv } from "@/lib/env";
 import { parseOrigins } from "@/lib/oauth/origin";
+import { deletePhotos } from "@/lib/photos";
 import { ConsoleSms, Msg91Sms, type SmsSender } from "@/lib/sms";
 
 const env = loadEnv();
@@ -31,6 +32,7 @@ export const auth = createAuth({
   email: emailSender(),
   baseURL: env.BETTER_AUTH_URL,
   secret: env.BETTER_AUTH_SECRET,
+  onUserDeleted: (userId) => deletePhotos(env.OUTPUT_DIR, userId),
   google: googleEnabled ? { clientId: env.GOOGLE_CLIENT_ID!, clientSecret: env.GOOGLE_CLIENT_SECRET! } : undefined,
   // PUBLIC_ORIGINS: tunnels and domains that reach this app. In development, also quick tunnels,
   // and Expo Go and dev builds, which use exp:// URLs on the local network.

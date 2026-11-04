@@ -11,6 +11,9 @@ export const DEFAULT_FAL_MODELS = {
   // Cinematic quality, checked against fal's OpenAPI schemas on 2026-11-04.
   kling3: "fal-ai/kling-video/v3/pro/image-to-video",
   veo31: "fal-ai/veo3.1/image-to-video",
+  // "Sing it yourself" music videos: a picture lip-syncs to a stretch of the song.
+  avatar: "fal-ai/kling-video/ai-avatar/v2/standard",
+  avatarPro: "fal-ai/kling-video/ai-avatar/v2/pro",
 };
 
 const QUEUE_BASE = "https://queue.fal.run";
@@ -100,6 +103,26 @@ export class FalNanoBanana implements ImageProvider {
     // Nano Banana sometimes returns no image instead of an error when its filter trips.
     if (!out.images?.[0]?.url) throw new ImageSafetyError("fal returned no image");
     return { url: out.images[0].url };
+  }
+}
+
+// Kling AI Avatar v2: makes the person in a picture sing or speak the given audio. The video is as
+// long as the audio.
+export class FalAvatarSinger {
+  readonly modelId = "kling-avatar-2";
+
+  constructor(
+    private readonly client: FalQueueClient,
+    private readonly falModelId: string,
+  ) {}
+
+  async sing(input: { imageUrl: string; audioUrl: string; prompt: string }): Promise<{ url: string }> {
+    const out = await this.client.run<{ video: { url: string } }>(this.falModelId, {
+      image_url: input.imageUrl,
+      audio_url: input.audioUrl,
+      prompt: input.prompt,
+    });
+    return { url: out.video.url };
   }
 }
 

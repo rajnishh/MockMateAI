@@ -46,10 +46,14 @@ export function currencyForTimeZone(timeZone: string | undefined): Currency {
 // GST), so 12 credits per shot keeps a margin on every pack and plan.
 export const STANDARD_CREDITS = 1;
 export const PREMIUM_CREDITS_PER_SHOT = 12;
-// Cinematic (hyper-real, 1080p) per 5s shot, by video model: Kling 3.0 Pro is ~$0.56 plus a ~$0.08
-// keyframe (~₹55), Veo 3.1 ~$1.20 (a 6s clip) plus the keyframe (~₹113). At ₹3.1 a credit after GST
-// these keep the same ~30% worst-case margin as premium. Verify fal's prices before launch.
-export const CINEMATIC_CREDITS_PER_SHOT = { kling: 26, veo: 52 } as const;
+// Cinematic (hyper-real, 1080p) per 5s shot, by video model, from fal's pricing API on 2026-11-05:
+// Kling 3.0 Pro $0.14/s, so ~$0.70 plus a $0.08 keyframe (~₹69); Veo 3.1 $0.40/s for a 6s clip, so
+// ~$2.40 plus the keyframe (~₹218). fal lists one rate per model, which may be the audio-on rate, so
+// these are on the safe side. At ₹3.1 a credit after GST they keep the ~30% worst-case margin.
+export const CINEMATIC_CREDITS_PER_SHOT = { kling: 30, veo: 92 } as const;
+// "Sing it yourself" music videos: the star lip-syncs each scene with Kling AI Avatar v2 (standard
+// $0.0562/s for AI animation, pro $0.115/s for Cinematic) plus a keyframe, per 5s of song.
+export const SINGER_CREDITS_PER_SHOT = { premium: 16, cinematic: 30 } as const;
 // One song of up to 2 minutes (ACE-Step on fal.ai); verify fal's price before launch.
 export const SONG_CREDITS = 4;
 // A dance reel sung by ACE-Step instead of Reelkar's free sung chant: one short song, priced as one.
@@ -61,8 +65,20 @@ export const MUSIC_VIDEO_STANDARD_CREDITS = 2;
 // Re-singing a song in the user's voice: separation plus voice conversion.
 export const MY_VOICE_CREDITS = 4;
 
-export function musicVideoCredits(quality: "standard" | "premium", durationSec: number): number {
-  return quality === "standard" ? MUSIC_VIDEO_STANDARD_CREDITS : Math.ceil(durationSec / 5) * PREMIUM_CREDITS_PER_SHOT;
+// Paid music videos are priced per 5s of song: AI animation, Cinematic (by its video model), or the
+// star lip-syncing every scene ("sing it yourself").
+export function musicVideoCredits(
+  quality: "standard" | "premium" | "cinematic",
+  durationSec: number,
+  opts: { singer?: boolean; cinematicModel?: keyof typeof CINEMATIC_CREDITS_PER_SHOT } = {},
+): number {
+  if (quality === "standard") return MUSIC_VIDEO_STANDARD_CREDITS;
+  const perShot = opts.singer
+    ? SINGER_CREDITS_PER_SHOT[quality]
+    : quality === "cinematic"
+      ? CINEMATIC_CREDITS_PER_SHOT[opts.cinematicModel ?? "kling"]
+      : PREMIUM_CREDITS_PER_SHOT;
+  return Math.ceil(durationSec / 5) * perShot;
 }
 
 export function planEnvName(plan: Plan, currency: Currency): string {

@@ -421,7 +421,7 @@ const demo: typeof real = {
   createFilm: async (input) => {
     await wait(400);
     const drawn = input.format === "motion" || input.format === "dance";
-    const perShot = input.quality === "cinematic" ? 26 : input.quality === "premium" ? 12 : 0;
+    const perShot = input.quality === "cinematic" ? 30 : input.quality === "premium" ? 12 : 0;
     const cost = drawn ? 0 : Math.round(input.durationSec / 5) * perShot;
     if (cost > demoBalance) throw new ApiError(`${input.quality === "cinematic" ? "A Cinematic video" : "AI animation"} needs ${cost} credits for this length.`, 402, true);
     demoBalance -= cost;
@@ -437,7 +437,7 @@ const demo: typeof real = {
       premiumAvailable: true,
       premiumCreditsPerShot: 12,
       cinematicAvailable: true,
-      cinematicCreditsPerShot: 26,
+      cinematicCreditsPerShot: 30,
       // Mirrors story-film/src/lib/billing/catalog.ts.
       packs: [
         { id: "starter", name: "Starter", credits: 50, price: { INR: 24900, USD: 399, AED: 1500 } },

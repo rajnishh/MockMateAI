@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { CINEMATIC_CREDITS_PER_SHOT, PREMIUM_CREDITS_PER_SHOT } from "@/lib/billing/catalog";
-import { photoType, photoUrl, savePhoto } from "@/lib/photos";
+import { deletePhotos, photoType, photoUrl, savePhoto } from "@/lib/photos";
 import { PHOTO_LIKENESS, type PipelineDeps, runFilm } from "@/lib/pipeline/orchestrator";
 import { FalImageToVideo, FalQueueClient } from "@/lib/providers/fal";
 import { estimateCostUsd } from "@/lib/quota/plans";
@@ -46,13 +46,13 @@ describe("Cinematic video models", () => {
     expect(paidCredits(parseFilmRequest("u1", body), "veo")).toBe(6 * CINEMATIC_CREDITS_PER_SHOT.veo);
     expect(CINEMATIC_CREDITS_PER_SHOT.kling).toBeGreaterThan(PREMIUM_CREDITS_PER_SHOT);
     // A credit is worth at least ₹3.1 after GST; at ₹88 to the dollar each shot keeps a margin of 25% or more.
-    // fal's prices per second, audio off: Kling 3.0 Pro bills the 5s it makes, Veo 3.1 a 6s clip.
+    // fal's prices per second: Kling 3.0 Pro bills the 5s it makes, Veo 3.1 a 6s clip.
     // Plus a ~$0.08 Nano Banana keyframe per shot.
-    const shotUsd = { kling: 5 * 0.112 + 0.08, veo: 6 * 0.2 + 0.08 };
+    const shotUsd = { kling: 5 * 0.14 + 0.08, veo: 6 * 0.4 + 0.08 };
     for (const model of ["kling", "veo"] as const) {
       expect(CINEMATIC_CREDITS_PER_SHOT[model] * 3.1).toBeGreaterThan(shotUsd[model] * 88 * 1.25);
     }
-    expect(estimateCostUsd("kling-3.0", "1080p", 30)).toBeCloseTo(6 * (5 * 0.112 + 0.08) + 0.2, 2);
+    expect(estimateCostUsd("kling-3.0", "1080p", 30)).toBeCloseTo(6 * (5 * 0.14 + 0.08) + 0.2, 2);
   });
 });
 
@@ -81,6 +81,14 @@ describe("photos in reel requests", () => {
     await expect(resolvePhoto({ ...job, photoConsent: false }, dir)).rejects.toThrow(/agreed/);
     await expect(resolvePhoto({ ...job, quality: "standard" }, dir)).rejects.toThrow(/AI animation or Cinematic/);
     expect(await resolvePhoto({ ...job, photo: undefined }, dir)).toBeUndefined();
+  });
+
+  it("removes a user's photos, and only theirs, when their account is deleted", async () => {
+    const mine = await savePhoto(dir, "bob", JPEG);
+    const theirs = await savePhoto(dir, "carol", JPEG);
+    await deletePhotos(dir, "bob");
+    expect(await photoUrl(dir, "bob", mine!)).toBeUndefined();
+    expect(await photoUrl(dir, "carol", theirs!)).toBeDefined();
   });
 
   it("puts the photo first in every picture and asks for the person's likeness", async () => {

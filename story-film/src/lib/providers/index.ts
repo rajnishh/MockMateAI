@@ -5,7 +5,7 @@ import { defaultFfmpeg } from "@/lib/ffmpeg";
 import type { PipelineDeps } from "@/lib/pipeline/orchestrator";
 import { AceStepMusic } from "./acestep";
 import { CLOUDFLARE_DEFAULTS, cloudflareAiBase, CloudflareFluxImage } from "./cloudflare";
-import { DEFAULT_FAL_MODELS, FalImageToVideo, FalNanoBanana, FalQueueClient } from "./fal";
+import { DEFAULT_FAL_MODELS, FalAvatarSinger, FalImageToVideo, FalNanoBanana, FalQueueClient } from "./fal";
 import { FalAceStep } from "./fal-music";
 import { FalChatterboxVc, FalDemucs, SeedVcServer } from "./voice";
 import { CloudflareTranscriber, CloudflareWhisper } from "./whisper";
@@ -139,6 +139,12 @@ export function buildImage(env: Env, quality: Quality = "standard") {
     mediaStore(env),
     env.CF_IMAGE_MODEL ?? CLOUDFLARE_DEFAULTS.imageModel,
   );
+}
+
+// "Sing it yourself" music videos: Kling AI Avatar standard for AI animation, pro for Cinematic.
+export function buildSinger(env: Env, quality: "premium" | "cinematic"): FalAvatarSinger {
+  const fal = new FalQueueClient(requireKey(env.FAL_KEY, "FAL_KEY"));
+  return new FalAvatarSinger(fal, quality === "cinematic" ? DEFAULT_FAL_MODELS.avatarPro : DEFAULT_FAL_MODELS.avatar);
 }
 
 function buildAiVideo(env: Env, quality: "premium" | "cinematic") {

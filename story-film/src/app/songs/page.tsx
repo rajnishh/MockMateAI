@@ -2,7 +2,7 @@
 
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { LANGUAGES } from "@/lib/languages";
-import { MusicVideoPanel } from "./music-video-panel";
+import { MusicVideoPanel, type MusicVideoPrices } from "./music-video-panel";
 import { MyVoices, type Voice } from "./my-voice";
 
 type Song = {
@@ -60,7 +60,7 @@ export default function SongsPage() {
   const [voiceFor, setVoiceFor] = useState<string | null>(null);
   const [voiceId, setVoiceId] = useState("");
   const [characters, setCharacters] = useState<{ id: string; name: string; imageUrl: string }[]>([]);
-  const [billing, setBilling] = useState({ premiumAvailable: false, premiumCreditsPerShot: 8 });
+  const [billing, setBilling] = useState<MusicVideoPrices>({ premiumAvailable: false, premiumCreditsPerShot: 12 });
 
   const load = useCallback(async () => {
     const res = await fetch("/api/songs");
@@ -237,8 +237,7 @@ export default function SongsPage() {
                         songId={s.id}
                         durationSec={s.durationSec}
                         characters={characters}
-                        premiumAvailable={billing.premiumAvailable}
-                        premiumCreditsPerShot={billing.premiumCreditsPerShot}
+                        prices={billing}
                       />
                     ) : (
                       <button type="button" className="secondary" onClick={() => setVideoFor(s.id)}>🎬 Make music video</button>

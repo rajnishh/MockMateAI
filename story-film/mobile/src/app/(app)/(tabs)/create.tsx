@@ -56,7 +56,7 @@ export default function Create() {
   const durationSec = Number(length);
   const perShot = billing.data?.premiumCreditsPerShot ?? 12;
   const premiumCost = Math.round(durationSec / 5) * perShot;
-  const cinematicCost = Math.round(durationSec / 5) * (billing.data?.cinematicCreditsPerShot ?? 26);
+  const cinematicCost = Math.round(durationSec / 5) * (billing.data?.cinematicCreditsPerShot ?? 30);
   const motion = kind === "motion";
   const dance = kind === "dance";
   // Motion and dance reels are drawn by Reelkar: free weekly reels, no AI animation choice.

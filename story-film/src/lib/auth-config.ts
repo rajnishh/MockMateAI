@@ -21,6 +21,8 @@ export interface AuthOptions {
   google?: { clientId: string; clientSecret: string };
   // Extra trusted origins, e.g. Expo's exp:// URLs in development.
   trustedOrigins?: string[];
+  // Removes files kept outside the database (uploaded photos) once an account is deleted.
+  onUserDeleted?: (userId: string) => Promise<void>;
 }
 
 // Deep-link scheme of the Reelkar mobile app (mobile/app.json "scheme").
@@ -56,7 +58,7 @@ export function createAuth(opts: AuthOptions) {
     },
     // People can delete their account from the app (an App Store and Play Store requirement).
     // Their reels, voices, songs and connected accounts go with it (ON DELETE CASCADE).
-    user: { deleteUser: { enabled: true } },
+    user: { deleteUser: { enabled: true, afterDelete: async (user) => opts.onUserDeleted?.(user.id) } },
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
         if (!isEmailOtpRoute(ctx.path)) return;
