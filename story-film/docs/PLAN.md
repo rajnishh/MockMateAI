@@ -432,3 +432,10 @@ Prices move monthly; waoowaoo and several other licenses unverified; EvoLink is 
     - **Safety fix:** picture links in reel requests must now be https. Before, a `file://` link would have been read from the server's disk and sent to fal.
     - **Open items:** check fal's prices again before launch; run real Cinematic reels with a `FAL_KEY`; detect famous faces automatically, beyond the creator's word; delete photos when an account is deleted; consider lip-sync for song videos.
     - **Done 2026-11-05:** prices checked against fal's pricing API (Kling 3.0 Pro $0.14/s, Veo 3.1 $0.40/s), so Cinematic is now **30 credits per shot with Kling and 92 with Veo**; uploaded photos are deleted with the account; music videos take Cinematic quality and a star photo; and **"Sing it yourself"** music videos lip-sync the star to each scene's stretch of the song with Kling AI Avatar v2 (standard for AI animation, 16 credits per 5s; pro for Cinematic, 30). Famous-face detection is left out on purpose: this is a learning project for now.
+
+37. **Ask Reelkar can also run on Gemini Flash, free (2026-11-05).**
+    - **Why:** the same tool-calling Ask Reelkar as decision 34, but at no cost with a free Google AI Studio key, so decision 31 (the built-in agent is free) holds.
+    - **How:** `src/lib/agent/gemini.ts` calls Gemini's REST API directly (no new package) and runs the tool loop itself: the same actions, rules, 5-action limit and history as on Claude (`plannerTools`, `limitedActions`, `chatHistory` in `claude.ts`). Actions run one at a time in Gemini's order.
+    - **Limits:** the free tier has per-minute and per-day caps; when one is hit (429), the free Llama planner answers that message. Google may use free-tier prompts to improve its products, and EEA/UK/Swiss users need the paid tier.
+    - **Switch:** `ASK_REELKAR_AI=gemini` plus `GEMINI_API_KEY` (optional `ASK_REELKAR_GEMINI_MODEL`, default `gemini-2.5-flash`, on the model allowlist). Not yet tried against the real API.
+
