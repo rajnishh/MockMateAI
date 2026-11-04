@@ -55,6 +55,8 @@ export default function SongsPage() {
   const [style, setStyle] = useState("");
   const [vocal, setVocal] = useState("auto");
   const [twoTakes, setTwoTakes] = useState(true);
+  // "ace-step": a full song; "lyria": a 30-second song (Google Lyria 3).
+  const [model, setModel] = useState<"ace-step" | "lyria">("ace-step");
 
   const [songs, setSongs] = useState<Song[]>([]);
   const [credits, setCredits] = useState(4);
@@ -97,7 +99,8 @@ export default function SongsPage() {
     return () => clearTimeout(t);
   }, [songs, load]);
 
-  const options = { topic, genre, mood, language, durationSec, kidSafe };
+  const length = model === "lyria" ? 30 : durationSec;
+  const options = { topic, genre, mood, language, durationSec: length, kidSafe };
 
   // With lines already in the box, AI grows them into a full song and keeps them; otherwise it writes from the topic.
   async function writeWithAi(enhance: boolean) {
@@ -140,7 +143,7 @@ export default function SongsPage() {
     setSubmitting(true);
     setError(null);
     setNeedCredits(false);
-    const { ok, data } = await postJson<{ id: string }>("/api/songs", { ...options, title, lyrics, style, vocal, takes: twoTakes ? 2 : 1 });
+    const { ok, data } = await postJson<{ id: string }>("/api/songs", { ...options, title, lyrics, style, vocal, takes: twoTakes ? 2 : 1, model });
     setSubmitting(false);
     if (!ok) {
       setNeedCredits(Boolean(data.needCredits));
@@ -162,6 +165,13 @@ export default function SongsPage() {
       <form onSubmit={makeSong}>
         <label htmlFor="topic">What is the song about?</label>
         <input id="topic" type="text" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="e.g. my grandmother's kitchen on a rainy day" />
+
+        <label>Song</label>
+        <div className="ideas">
+          <button type="button" className="chip" aria-pressed={model === "ace-step"} onClick={() => setModel("ace-step")}>🎵 Full song</button>
+          <button type="button" className="chip" aria-pressed={model === "lyria"} onClick={() => setModel("lyria")}>⚡ Short song · 30 s</button>
+        </div>
+        {model === "lyria" && <p className="muted">A 30-second song for a reel or a hook, made with Google Lyria. Keep the lyrics short: about 6–8 lines.</p>}
 
         <label>Style</label>
         <div className="ideas">
@@ -186,7 +196,7 @@ export default function SongsPage() {
           </div>
           <div>
             <label htmlFor="len">Length</label>
-            <select id="len" value={durationSec} onChange={(e) => setDurationSec(Number(e.target.value))}>
+            <select id="len" value={length} onChange={(e) => setDurationSec(Number(e.target.value))} disabled={model === "lyria"}>
               <option value={30}>30 s</option>
               <option value={60}>1 min</option>
               <option value={120}>2 min</option>

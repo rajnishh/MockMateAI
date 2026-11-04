@@ -11,7 +11,7 @@ import { pendingPosts, publishPost } from "@/lib/posts";
 import { provenanceFromEnv, trySign } from "@/lib/provenance";
 import { grantCredits } from "@/lib/billing/credits";
 import { creatorMessage } from "@/lib/creator-errors";
-import { buildDanceSinger, buildPipelineDeps, buildSingDeps, buildSongEditor, buildSongProvider, buildTranscriber, type Quality, songsAvailable } from "@/lib/providers";
+import { buildDanceSinger, buildPipelineDeps, buildSingDeps, buildShortSongProvider, buildSongEditor, buildSongProvider, buildTranscriber, type Quality, songsAvailable } from "@/lib/providers";
 import { type MyVoiceJob, type RemixJob, SONG_QUEUE, type SongJob, type SongQueueJob } from "@/lib/queue/songs";
 import { singInMyVoice } from "@/lib/voice/sing";
 import { runRemix } from "@/lib/songs/remix";
@@ -146,6 +146,7 @@ if (songsAvailable(env)) {
   const singer = buildSongProvider(env);
   const singDeps = buildSingDeps(env);
   const songEditor = buildSongEditor(env);
+  const shortSinger = buildShortSongProvider(env);
   const songWorker = new Worker<SongQueueJob>(
     SONG_QUEUE,
     async (job) => {
@@ -165,7 +166,8 @@ if (songsAvailable(env)) {
         outputPath = path.join(dir, `${songId}.${audio.ext}`);
         await writeFile(outputPath, audio.data);
       } else {
-        const audio = await singer.sing(job.data as SongJob);
+        const d = job.data as SongJob;
+        const audio = await (d.model === "lyria" ? shortSinger : singer).sing(d);
         outputPath = path.join(dir, `${songId}.${audio.ext}`);
         await writeFile(outputPath, audio.data);
       }

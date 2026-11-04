@@ -6,7 +6,7 @@ import type { PipelineDeps } from "@/lib/pipeline/orchestrator";
 import { AceStepMusic } from "./acestep";
 import { CLOUDFLARE_DEFAULTS, cloudflareAiBase, CloudflareFluxImage } from "./cloudflare";
 import { DEFAULT_FAL_MODELS, FalImageToVideo, FalNanoBanana, FalQueueClient } from "./fal";
-import { FalAceStep } from "./fal-music";
+import { FalAceStep, FalLyria } from "./fal-music";
 import { FalSongEditor } from "./fal-song-edit";
 import { FalChatterboxVc, FalDemucs, SeedVcServer } from "./voice";
 import { CloudflareTranscriber, CloudflareWhisper } from "./whisper";
@@ -72,6 +72,11 @@ export function songsAvailable(env: Env): boolean {
 
 export function buildSongProvider(env: Env): FalAceStep {
   return new FalAceStep(new FalQueueClient(requireKey(env.FAL_KEY, "FAL_KEY")));
+}
+
+// Short songs (30 s) with Google Lyria 3 on fal.
+export function buildShortSongProvider(env: Env): FalLyria {
+  return new FalLyria(new FalQueueClient(requireKey(env.FAL_KEY, "FAL_KEY")));
 }
 
 // Remix (cover, extend, replace a part): ACE-Step's edit endpoints on fal, like songs.
