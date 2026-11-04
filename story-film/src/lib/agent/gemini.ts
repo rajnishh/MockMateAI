@@ -85,7 +85,7 @@ export class GeminiToolPlanner implements ToolPlanner {
       if (res.ok) return (await res.json()) as Reply;
       const detail = (await res.text()).slice(0, 500);
       if (res.status >= 500 && attempt < 1) continue;
-      throw new Error(`Gemini ${res.status}: ${detail}`);
+      throw Object.assign(new Error(`Gemini ${res.status}: ${detail}`), { status: res.status });
     }
   }
 }

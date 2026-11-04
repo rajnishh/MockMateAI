@@ -235,6 +235,24 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
+// Which AI answers in Ask Reelkar (mirrors AiChoiceView in the web app's src/lib/agent/ai-choice.ts).
+export interface AiProvider {
+  id: string;
+  name: string;
+  price: string;
+  keyUrl?: string;
+  models: { id: string; label: string }[];
+  anyModel: boolean;
+}
+export interface AiChoice {
+  provider: string;
+  model: string | null;
+  keyHint: string | null;
+  providers: AiProvider[];
+  ownKeys: boolean;
+}
+export const aiNeedsKey = (id: string) => id !== "reelkar" && id !== "ollama";
+
 const real = {
   films: async () => (await call<{ films: Film[] }>("/api/films")).films,
   film: (id: string) => call<Film>(`/api/films/${id}`),
@@ -286,6 +304,9 @@ const real = {
     (await call<{ messages: AgentMessage[] }>("/api/agent/actions", { method: "POST", body: JSON.stringify({ ...turn, name, input, label }) })).messages,
   agentDecide: async (actionId: string, approve: boolean, turn: AgentTurn) =>
     (await call<{ messages: AgentMessage[] }>(`/api/agent/actions/${actionId}`, { method: "POST", body: JSON.stringify({ ...turn, approve }) })).messages,
+  aiChoice: () => call<AiChoice>("/api/agent/ai"),
+  // Checked with one tiny message on the server before it's saved; a wrong key comes back as an error.
+  setAiChoice: (choice: { provider: string; model?: string; key?: string }) => call<AiChoice>("/api/agent/ai", { method: "PUT", body: JSON.stringify(choice) }),
   setPostingMode: (postingMode: PostingMode) => call<{ postingMode: PostingMode }>("/api/agent/settings", { method: "PUT", body: JSON.stringify({ postingMode }) }),
   accounts: () => call<Accounts>("/api/accounts"),
   // Returns the provider's sign-in page; the app opens it in the in-app browser.
@@ -403,6 +424,13 @@ function demoHistory(): AgentMessage[] {
 }
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+let demoAi: Pick<AiChoice, "provider" | "model" | "keyHint"> = { provider: "reelkar", model: null, keyHint: null };
+const DEMO_AI_PROVIDERS: AiProvider[] = [
+  { id: "reelkar", name: "Reelkar free", price: "Free, no key needed", models: [], anyModel: false },
+  { id: "gemini", name: "Google Gemini", price: "Free key, within Google's daily limits", keyUrl: "https://aistudio.google.com/apikey", models: [{ id: "gemini-2.5-flash", label: "Gemini 2.5 Flash · fast, free" }], anyModel: false },
+  { id: "openrouter", name: "OpenRouter", price: "One key for hundreds of models", keyUrl: "https://openrouter.ai/keys", models: [{ id: "meta-llama/llama-3.3-70b-instruct:free", label: "Llama 3.3 70B · free" }], anyModel: true },
+];
 
 const demo: typeof real = {
   films: async () => (await wait(300), [...demoFilms].sort((a, b) => b.createdAt.localeCompare(a.createdAt))),
@@ -556,6 +584,12 @@ const demo: typeof real = {
       demoSay("assistant", approve ? "" : "Okay, I won't post it.", approve ? [{ type: "post", reelId: p.reelId, status: "scheduled", at: null, text: p.text.replace(/^Post/, "Scheduled") }] : []);
     }
     return demoHistory();
+  },
+  aiChoice: async () => (await wait(200), { ...demoAi, providers: DEMO_AI_PROVIDERS, ownKeys: true }),
+  setAiChoice: async ({ provider, model }) => {
+    await wait(600);
+    demoAi = { provider, model: provider === "reelkar" ? null : (model ?? null), keyHint: aiNeedsKey(provider) ? "…demo" : null };
+    return { ...demoAi, providers: DEMO_AI_PROVIDERS, ownKeys: true };
   },
   setPostingMode: async (postingMode) => {
     await wait(200);
