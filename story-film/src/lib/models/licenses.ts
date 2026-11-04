@@ -30,6 +30,7 @@ export const MODEL_LICENSES: Record<string, ModelLicense> = {
   "llama-3.3-70b": { license: "Llama 3.3 Community License", commercial: true, note: "attribution; >700M MAU needs a Meta license" },
   "claude-haiku-5-5": { license: "Anthropic Commercial Terms of Service (API)", commercial: true },
   "claude-sonnet-5-5": { license: "Anthropic Commercial Terms of Service (API)", commercial: true },
+  "gemini-2.5-flash": { license: "Gemini API Additional Terms of Service", commercial: true, note: "free tier: Google may use prompts to improve its products, and EEA/UK/Swiss users need the paid tier" },
   "openrouter": { license: "Per routed model; check the chosen model's terms", commercial: true },
 
   "xtts-v2": { license: "CPML", commercial: false, note: "Coqui defunct; no commercial license available" },
