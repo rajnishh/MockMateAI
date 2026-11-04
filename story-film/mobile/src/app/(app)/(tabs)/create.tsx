@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Linking, Pressable, View } from "react-native";
 
 import { Banner, Button, Card, ChipRow, Credits, Field, Header, ListRow, Row, Screen, Txt } from "@/components/ui";
-import { api, ApiError, type Idea, type Voice } from "@/lib/api";
+import { api, ApiError, type Idea, type Quality, type Voice } from "@/lib/api";
 import { buildClaudePrompt, claudeUrl } from "@/lib/claude-prompt";
 import { API_URL } from "@/lib/config";
 import { ideaBrief } from "@/lib/formats";
@@ -38,7 +38,9 @@ export default function Create() {
   const [story, setStory] = useState("");
   const [language, setLanguage] = useState(prefs?.language ?? "hi");
   const [length, setLength] = useState("30");
-  const [quality, setQuality] = useState<"standard" | "premium">("standard");
+  const [quality, setQuality] = useState<Quality>("standard");
+  const [photo, setPhoto] = useState<{ uri: string; name: string; type: string } | null>(null);
+  const [photoConsent, setPhotoConsent] = useState<"no" | "yes">("no");
   const [ideas, setIdeas] = useState<Idea[] | null>(null);
   const [ideasBusy, setIdeasBusy] = useState(false);
   const [video, setVideo] = useState<Picked | null>(null);
@@ -54,13 +56,16 @@ export default function Create() {
   const durationSec = Number(length);
   const perShot = billing.data?.premiumCreditsPerShot ?? 12;
   const premiumCost = Math.round(durationSec / 5) * perShot;
+  const cinematicCost = Math.round(durationSec / 5) * (billing.data?.cinematicCreditsPerShot ?? 26);
   const motion = kind === "motion";
   const dance = kind === "dance";
   // Motion and dance reels are drawn by Reelkar: free weekly reels, no AI animation choice.
   const drawn = motion || dance;
   const editing = kind === "edit";
+  // Only story reels in AI animation or Cinematic use a photo.
+  const usesPhoto = kind === "story" && quality !== "standard";
   const tooLong = Boolean(video?.seconds && video.seconds > MAX_EDIT_SEC + 0.5);
-  const blocked = editing ? !video || tooLong : story.trim().length < 20;
+  const blocked = editing ? !video || tooLong : story.trim().length < 20 || (usesPhoto && photo !== null && photoConsent !== "yes");
   const keywordValue = ending === "comment" && keyword.trim() ? keyword.trim().toUpperCase() : undefined;
 
   async function getIdeas() {
@@ -89,6 +94,22 @@ export default function Create() {
     });
   }
 
+  async function pickPhoto() {
+    setError(null);
+    // iPhone photos are HEIC, which the server doesn't take; "compatible" hands over a JPEG copy.
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: false,
+      quality: 0.9,
+      preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+    });
+    if (result.canceled || !result.assets.length) return;
+    const a = result.assets[0];
+    const type = a.mimeType ?? "image/jpeg";
+    setPhoto({ uri: a.uri, name: a.fileName ?? `photo-${Date.now()}.${type === "image/png" ? "png" : "jpg"}`, type });
+    setPhotoConsent("no");
+  }
+
   async function make() {
     setBusy(true);
     setError(null);
@@ -109,6 +130,7 @@ export default function Create() {
           })
         : await api.createFilm({
             story: story.trim(),
+            ...(usesPhoto && photo ? { photo: await api.uploadPhoto(photo), photoConsent: photoConsent === "yes" } : {}),
             language,
             durationSec,
             quality: drawn ? "standard" : quality,
@@ -119,6 +141,7 @@ export default function Create() {
           });
       setStory("");
       setVideo(null);
+      setPhoto(null);
       router.push(`/making/${id}`);
     } catch (err) {
       setError({ text: (err as Error).message, credits: err instanceof ApiError && err.needCredits });
@@ -178,7 +201,7 @@ export default function Create() {
       footer={
         <>
           <Button
-            label={editing ? (busy ? "Uploading…" : "Edit my video") : dance ? "Make the dance" : quality === "premium" && !drawn ? `Make my reel · ${premiumCost} credits` : "Make my reel"}
+            label={editing ? (busy ? "Uploading…" : "Edit my video") : dance ? "Make the dance" : quality !== "standard" && !drawn ? `Make my reel · ${quality === "cinematic" ? cinematicCost : premiumCost} credits` : "Make my reel"}
             icon="sparkle"
             block
             disabled={blocked}
@@ -388,16 +411,40 @@ export default function Create() {
           {drawn ? null : (
             <View style={{ gap: 6 }}>
               <Txt variant="cap">Quality</Txt>
-              <ChipRow<"standard" | "premium">
+              <ChipRow<Quality>
                 options={[
                   { value: "standard", label: `Standard · free (${billing.data?.freeVideosPerWeek ?? 3} a week)` },
                   ...(billing.data?.premiumAvailable === false ? [] : [{ value: "premium" as const, label: `Premium AI animation · ${premiumCost} credits` }]),
+                  ...(billing.data?.cinematicAvailable ? [{ value: "cinematic" as const, label: `Cinematic hyper-real 1080p · ${cinematicCost} credits` }] : []),
                 ]}
                 value={quality}
                 onChange={setQuality}
               />
             </View>
           )}
+          {usesPhoto ? (
+            <View style={{ gap: 6 }}>
+              <Txt variant="cap">Star in it (optional)</Txt>
+              <Txt variant="cap">Add a clear photo of one face. The reel&apos;s lead will look like this person.</Txt>
+              <Row style={{ gap: 8 }}>
+                <Button label={photo ? "Change photo" : "Add a photo"} kind="secondary" small icon="user" onPress={pickPhoto} />
+                {photo ? <Button label="Remove" kind="ghost" small onPress={() => setPhoto(null)} /> : null}
+              </Row>
+              {photo ? (
+                <>
+                  <Txt variant="cap">Is this you, or did this person agree to be in your video? Famous people aren&apos;t allowed.</Txt>
+                  <ChipRow<"no" | "yes">
+                    options={[
+                      { value: "no", label: "Not yet" },
+                      { value: "yes", label: "Yes, they agreed" },
+                    ]}
+                    value={photoConsent}
+                    onChange={setPhotoConsent}
+                  />
+                </>
+              ) : null}
+            </View>
+          ) : null}
         </>
       )}
     </Screen>

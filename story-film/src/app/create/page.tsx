@@ -76,6 +76,10 @@ export default function CreatePage() {
   );
   const [captions, setCaptions] = useState(true);
   const [quality, setQuality] = useState("standard");
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [photoConsent, setPhotoConsent] = useState(false);
+  const [aiLabel, setAiLabel] = useState(true);
+  const [reelkarMark, setReelkarMark] = useState(true);
   const [ending, setEnding] = useState("auto");
   const [keyword, setKeyword] = useState("");
   const [video, setVideo] = useState<File | null>(null);
@@ -87,7 +91,7 @@ export default function CreatePage() {
   const [fineTune, setFineTune] = useState(false);
   // Bumped to restart polling after an edit is sent to render again.
   const [pollKey, setPollKey] = useState(0);
-  const [billing, setBilling] = useState<{ balance: number; premiumAvailable: boolean; premiumCreditsPerShot: number; freeLeft?: number; freeVideosPerWeek?: number } | null>(null);
+  const [billing, setBilling] = useState<{ balance: number; premiumAvailable: boolean; premiumCreditsPerShot: number; cinematicAvailable?: boolean; cinematicCreditsPerShot?: number; freeLeft?: number; freeVideosPerWeek?: number } | null>(null);
   const [needCredits, setNeedCredits] = useState(false);
 
   const [characters, setCharacters] = useState<Character[]>([]);
@@ -220,9 +224,13 @@ export default function CreatePage() {
     setStory(ideaBrief(data.ideas[0]));
   }
 
+  // Only film reels in AI animation or Cinematic use a photo; switching away leaves it unused.
+  const usesPhoto = mode === "film" && quality !== "standard";
+
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (mode === "cartoon" && !characterId) return setError("Create or pick a character first");
+    if (usesPhoto && photo && !photoConsent) return setError("Tick the box to confirm the person in the photo agreed.");
     setSubmitting(true);
     setError(null);
     setNeedCredits(false);
@@ -257,12 +265,28 @@ export default function CreatePage() {
       if (body.credits && billing) setBilling({ ...billing, balance: billing.balance - body.credits });
       return setJobId(body.id);
     }
+    // The photo goes up first; the reel request names it.
+    let photoId: string | undefined;
+    if (usesPhoto && photo) {
+      const form = new FormData();
+      form.append("photo", photo);
+      const res = await fetch("/api/photos", { method: "POST", body: form });
+      const body = (await res.json().catch(() => ({}))) as { photo?: string; error?: string };
+      if (!res.ok || !body.photo) {
+        setSubmitting(false);
+        return setError(body.error ?? "Couldn't upload your photo");
+      }
+      photoId = body.photo;
+    }
     const { ok, data } = await postJson<{ id: string; credits: number; needCredits?: boolean }>("/api/films", {
       story,
+      ...(photoId ? { photo: photoId, photoConsent } : {}),
       durationSec,
       language,
       captions,
       quality,
+      aiLabel,
+      reelkarMark,
       ...(mode === "cartoon" ? { style: "animated", characterId, kidSafe } : mode === "motion" ? { style: "animated", format: "motion", ending, keyword: ending === "comment" && keyword ? keyword : undefined, brand: loadBrand() } : mode === "dance" ? { style: "animated", format: "dance", kidSafe: true, brand: loadBrand() } : { style }),
     });
     setSubmitting(false);
@@ -519,15 +543,59 @@ export default function CreatePage() {
                   <option value="premium">
                     AI animation: {Math.round(durationSec / 5) * billing.premiumCreditsPerShot} credits
                   </option>
+                  {billing.cinematicAvailable && billing.cinematicCreditsPerShot && (
+                    <option value="cinematic">
+                      Cinematic, hyper-real 1080p: {Math.round(durationSec / 5) * billing.cinematicCreditsPerShot} credits
+                    </option>
+                  )}
                 </select>
               </>
+            )}
+            {mode === "film" && quality !== "standard" && (
+              <div className="photo-pick">
+                <label htmlFor="photo">Star in it (optional)</label>
+                <input
+                  id="photo"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(e) => {
+                    setPhoto(e.target.files?.[0] ?? null);
+                    setPhotoConsent(false);
+                  }}
+                />
+                <p className="muted">Add a clear photo of one face. The reel&apos;s lead will look like this person.</p>
+                {photo && (
+                  <label className="check">
+                    <input type="checkbox" checked={photoConsent} onChange={(e) => setPhotoConsent(e.target.checked)} /> This is me, or this
+                    person agreed to be in my video. It isn&apos;t a famous person.
+                  </label>
+                )}
+              </div>
             )}
             {mode !== "motion" && (
               <label className="check">
                 <input type="checkbox" checked={captions} onChange={(e) => setCaptions(e.target.checked)} /> Captions on video
               </label>
             )}
-            <p className="muted">Free plan: a few videos per week, 720p, labelled “Created with AI”.</p>
+            {mode !== "motion" && mode !== "dance" && mode !== "edit" && (
+              <>
+                <label className="check">
+                  <input type="checkbox" checked={aiLabel} onChange={(e) => setAiLabel(e.target.checked)} /> Show &ldquo;Created with AI&rdquo;
+                  on the video (the file always records it&apos;s AI-made)
+                </label>
+                {quality === "standard" && (
+                  <label className="check">
+                    <input type="checkbox" checked={reelkarMark} onChange={(e) => setReelkarMark(e.target.checked)} /> Show the Reelkar
+                    mark on free reels
+                  </label>
+                )}
+              </>
+            )}
+            <p className="muted">
+              {quality === "cinematic" && mode === "film"
+                ? "Cinematic: 1080p, no watermark. Takes a few minutes."
+                : "Free plan: a few videos per week, 720p, labelled “Created with AI”."}
+            </p>
             <div className="actions make-actions">
               <button type="submit" disabled={busy}>{busy ? "Working…" : mode === "cartoon" ? "Make episode" : mode === "motion" ? "Make my reel" : mode === "dance" ? "Make the dance" : mode === "edit" ? "Edit my video" : "Make my film"}</button>
               {mode !== "edit" && (
@@ -551,8 +619,8 @@ export default function CreatePage() {
                 <div>
                   <dt>Cost</dt>
                   <dd>
-                    {quality === "premium" && mode !== "motion" && mode !== "dance" && mode !== "edit" && billing
-                      ? `${Math.round(durationSec / 5) * billing.premiumCreditsPerShot} credits`
+                    {quality !== "standard" && mode !== "motion" && mode !== "dance" && mode !== "edit" && billing
+                      ? `${Math.round(durationSec / 5) * ((quality === "cinematic" ? billing.cinematicCreditsPerShot : undefined) ?? billing.premiumCreditsPerShot)} credits`
                       : billing?.freeLeft === 0
                         ? "1 credit (free reels used)"
                         : billing?.freeLeft !== undefined

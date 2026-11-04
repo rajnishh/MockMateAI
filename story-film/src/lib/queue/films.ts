@@ -9,7 +9,8 @@ import { Redis } from "ioredis";
 import { z } from "zod";
 import { loadEnv } from "@/lib/env";
 import { LANGUAGE_CODES } from "@/lib/languages";
-import type { CharacterProfile } from "@/lib/providers/types";
+import { PHOTO_ID } from "@/lib/photos";
+import type { CharacterProfile, Resolution } from "@/lib/providers/types";
 
 export const FILM_QUEUE = "films";
 
@@ -18,12 +19,21 @@ export const filmJobSchema = z.object({
   story: z.string().min(20).max(8000),
   style: z.enum(STYLE_IDS),
   durationSec: z.number().int().min(10).max(60),
-  referenceImageUrls: z.array(z.url()).max(4).default([]),
+  // Public pictures only: a file:// or internal address would let a request read the server's files.
+  referenceImageUrls: z.array(z.url({ protocol: /^https$/ })).max(4).default([]),
+  // A photo the creator uploaded (POST /api/photos): the reel's lead looks like the person in it.
+  photo: z.string().regex(PHOTO_ID).optional(),
+  // The creator confirmed the photo is of them, or of someone who agreed to be in the reel.
+  photoConsent: z.boolean().default(false),
   characterId: z.uuid().optional(),
   kidSafe: z.boolean().default(false),
   language: z.enum(["auto", ...LANGUAGE_CODES]).default("auto"),
   captions: z.boolean().default(true),
-  quality: z.enum(["standard", "premium"]).default("standard"),
+  // The visible "Created with AI" label and, on free reels, the Reelkar "free plan" mark. Both are the
+  // creator's choice for now; a later admin dashboard decides whether to require them.
+  aiLabel: z.boolean().default(true),
+  reelkarMark: z.boolean().default(true),
+  quality: z.enum(["standard", "premium", "cinematic"]).default("standard"),
   // "motion" reels are animated text slides with a voice-over, "dance" reels cartoon kids dancing to a
   // dhol beat with a chant: both drawn by Reelkar, so always standard quality.
   format: z.enum(["story", "motion", "dance"]).default("story"),
@@ -49,7 +59,9 @@ export const filmJobSchema = z.object({
 
 export type FilmJob = z.infer<typeof filmJobSchema> & {
   character?: CharacterProfile;
-  resolution: "480p" | "720p";
+  // The uploaded photo's file, resolved for this user when the reel started.
+  photoUrl?: string;
+  resolution: Resolution;
   watermark: boolean;
   // If the film ultimately fails: the free weekly slot is released, credits refunded.
   quotaKey?: string;
@@ -74,7 +86,7 @@ export type MusicVideoJob = z.infer<typeof musicVideoRequestSchema> & {
   genre: string;
   mood: string;
   character?: CharacterProfile;
-  resolution: "480p" | "720p";
+  resolution: Resolution;
   watermark: boolean;
   credits: number;
 };

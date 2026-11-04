@@ -46,6 +46,10 @@ export function currencyForTimeZone(timeZone: string | undefined): Currency {
 // GST), so 12 credits per shot keeps a margin on every pack and plan.
 export const STANDARD_CREDITS = 1;
 export const PREMIUM_CREDITS_PER_SHOT = 12;
+// Cinematic (hyper-real, 1080p) per 5s shot, by video model: Kling 3.0 Pro is ~$0.56 plus a ~$0.08
+// keyframe (~₹55), Veo 3.1 ~$1.20 (a 6s clip) plus the keyframe (~₹113). At ₹3.1 a credit after GST
+// these keep the same ~30% worst-case margin as premium. Verify fal's prices before launch.
+export const CINEMATIC_CREDITS_PER_SHOT = { kling: 26, veo: 52 } as const;
 // One song of up to 2 minutes (ACE-Step on fal.ai); verify fal's price before launch.
 export const SONG_CREDITS = 4;
 // A dance reel sung by ACE-Step instead of Reelkar's free sung chant: one short song, priced as one.

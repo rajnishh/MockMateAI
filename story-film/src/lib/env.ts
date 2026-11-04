@@ -47,6 +47,10 @@ const schema = z.object({
   FAL_IMAGE_EDIT_MODEL_ID: z.string().optional(),
   FAL_WAN_MODEL_ID: z.string().optional(),
   FAL_KLING_MODEL_ID: z.string().optional(),
+  // Cinematic quality: "kling" (Kling 3.0 Pro, best value) or "veo" (Veo 3.1, most realistic, twice the price).
+  CINEMATIC_VIDEO_MODEL: z.enum(["kling", "veo"]).default("kling"),
+  FAL_KLING3_MODEL_ID: z.string().optional(),
+  FAL_VEO_MODEL_ID: z.string().optional(),
   // Indian-language narration (Marathi, Bengali, Tamil, Telugu).
   SARVAM_API_KEY: z.string().optional(),
   SARVAM_TTS_MODEL: z.string().default("bulbul:v4-flash"),

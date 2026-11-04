@@ -2,7 +2,7 @@ import type { LanguageCode } from "@/lib/languages";
 import type { FilmStyle } from "@/lib/styles";
 
 export type { FilmStyle };
-export type Resolution = "480p" | "720p";
+export type Resolution = "480p" | "720p" | "1080p";
 // "auto" keeps the language the user wrote in.
 export type NarrationLanguage = "auto" | LanguageCode;
 

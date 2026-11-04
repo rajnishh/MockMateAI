@@ -26,8 +26,12 @@ export interface FilmRequest {
   durationSec: number;
   resolution: Resolution;
   watermark: boolean;
+  // Show the visible "Created with AI" label (the creator's choice).
+  aiLabel?: boolean;
   referenceImageUrls: string[];
   character?: CharacterProfile;
+  // The creator's photo: every picture keeps this person's face and look.
+  photoUrl?: string;
   kidSafe?: boolean;
   language?: NarrationLanguage;
   captions?: boolean;
@@ -46,6 +50,9 @@ export interface PipelineDeps {
   probeDuration?: (file: string) => Promise<number>;
   fontsDir?: string;
 }
+
+// Added to every picture prompt when the creator gave a photo.
+export const PHOTO_LIKENESS = "The main person has exactly the face, skin tone, hair and build of the person in the first reference photo";
 
 export type Stage = "script" | "keyframes" | "clips" | "audio" | "assemble" | "done";
 
@@ -97,7 +104,14 @@ export async function runFilm(
   // first keyframe does. The seed helps text-only image models stay on model.
   await onStage("keyframes");
   const seed = req.character?.seed;
-  const refs = [...(req.character ? [req.character.referenceImageUrl] : []), ...req.referenceImageUrls];
+  const refs = [
+    ...(req.photoUrl ? [req.photoUrl] : []),
+    ...(req.character ? [req.character.referenceImageUrl] : []),
+    ...req.referenceImageUrls,
+  ];
+  if (req.photoUrl) {
+    script = { ...script, shots: script.shots.map((s) => ({ ...s, imagePrompt: `${s.imagePrompt}. ${PHOTO_LIKENESS}` })) };
+  }
   const [first, ...rest] = script.shots;
   // A shot the safety filter blocks twice reuses a neighbouring picture instead of failing the reel.
   const firstFrame = await generateKeyframeSafely(deps.image, { prompt: first.imagePrompt, referenceImageUrls: refs, seed });
@@ -146,6 +160,7 @@ export async function runFilm(
       clipSeconds: CLIP_SECONDS,
       resolution: req.resolution,
       watermark: req.watermark,
+      aiLabel: req.aiLabel,
       output,
       captions,
     }),
