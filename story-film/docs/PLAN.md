@@ -424,3 +424,9 @@ Prices move monthly; waoowaoo and several other licenses unverified; EvoLink is 
     - **Cost:** roughly $0.001 per message with Haiku (about 10k input and 800 output tokens over two calls); at most 40 messages a day per creator. Not yet tried against the real API.
     - **Next:** decide who gets Claude (everyone, paid creators only, or a daily Claude allowance), then run it against real chats in Hindi, Hinglish and English before switching it on.
 
+35. **Ask Reelkar can also run on Gemini Flash, free (2026-11-05).**
+    - **Why:** the same tool-calling Ask Reelkar as decision 34, but at no cost with a free Google AI Studio key, so decision 31 (the built-in agent is free) holds.
+    - **How:** `src/lib/agent/gemini.ts` calls Gemini's REST API directly (no new package) and runs the tool loop itself: the same actions, rules, 5-action limit and history as on Claude (`plannerTools`, `limitedActions`, `chatHistory` in `claude.ts`). Actions run one at a time in Gemini's order.
+    - **Limits:** the free tier has per-minute and per-day caps; when one is hit (429), the free Llama planner answers that message. Google may use free-tier prompts to improve its products, and EEA/UK/Swiss users need the paid tier.
+    - **Switch:** `ASK_REELKAR_AI=gemini` plus `GEMINI_API_KEY` (optional `ASK_REELKAR_GEMINI_MODEL`, default `gemini-2.5-flash`, on the model allowlist). Not yet tried against the real API.
+
