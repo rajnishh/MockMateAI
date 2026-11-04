@@ -83,6 +83,16 @@ export default function Home() {
               <Icon name="right" color={colors.inkMuted} size={18} />
             </Row>
           </Card>
+          <Card onPress={() => router.push("/songs")}>
+            <Row style={{ alignItems: "center" }}>
+              <Icon name="music" color={colors.tealText} />
+              <View style={{ flex: 1, gap: 2 }}>
+                <Txt variant="label">Song Studio</Txt>
+                <Txt variant="cap">Write a song about anything and hear it sung, in Hindi, Hinglish and more.</Txt>
+              </View>
+              <Icon name="right" color={colors.inkMuted} size={18} />
+            </Row>
+          </Card>
           {toCheck ? (
             <Banner kind="info" title="Your video is ready to check" text="Look over its effects, then render it." action={<Button label="Check" small onPress={() => router.push(`/edit/${toCheck.id}`)} />} />
           ) : null}
