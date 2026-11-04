@@ -439,3 +439,12 @@ Prices move monthly; waoowaoo and several other licenses unverified; EvoLink is 
     - **Limits:** the free tier has per-minute and per-day caps; when one is hit (429), the free Llama planner answers that message. Google may use free-tier prompts to improve its products, and EEA/UK/Swiss users need the paid tier.
     - **Switch:** `ASK_REELKAR_AI=gemini` plus `GEMINI_API_KEY` (optional `ASK_REELKAR_GEMINI_MODEL`, default `gemini-2.5-flash`, on the model allowlist). Not yet tried against the real API.
 
+38. **Creators can pick Ask Reelkar's AI in the app, with their own key (2026-11-05).**
+    - **Why:** creators can choose free or better models themselves, instead of the owner setting one for everyone in `.env`.
+    - **Choices:** Reelkar free (the default, no key), Google Gemini, Groq, OpenRouter (hundreds of models, `:free` ones included), Anthropic Claude, and Ollama when the owner sets `OLLAMA_URL`. Each comes with a short model list; Groq, OpenRouter and Ollama also take any model id. The catalog is `src/lib/agent/ai-choice.ts`.
+    - **How:** the choice lives on `agent_settings` (`ai_provider`, `ai_model`, `ai_key`, `ai_key_hint`). Keys are encrypted with `TOKEN_ENCRYPTION_KEY`, never sent back (only "…a1b2"), and own keys aren't offered without it. Saving checks the choice with one tiny message first, so a wrong key or model fails on the settings screen. OpenRouter, Groq and Ollama share one OpenAI-style tool planner (`openai-tools.ts`).
+    - **Fallback:** if the creator's AI fails before doing anything, Reelkar free answers and the reply starts with why ("This Google Gemini key has hit its limit for now…").
+    - **Limits:** 40 messages a day on Reelkar free (and Ollama, which runs on the owner's server); 300 with the creator's own key, only to stop runaway use.
+    - **Safety:** the Ollama address comes only from the server's `.env`, never from creators, so the server can't be pointed at other addresses. Only chat changes; reels are still made the usual way.
+    - **Where:** web Ask Reelkar page ("Who answers you"), mobile Ask Reelkar → "Who answers you" screen. Not yet tried against the real APIs.
+

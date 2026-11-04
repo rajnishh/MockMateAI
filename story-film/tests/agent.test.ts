@@ -260,6 +260,15 @@ describe("Ask Reelkar", { timeout: 30_000 }, () => {
       expect((await recentMessages(db, "u1", 10)).map((m) => m.role)).toEqual(["user", "assistant"]);
     });
 
+    it("says why when the creator's own AI fails, and the free planner answers", async () => {
+      const { planner } = scripted(async () => {
+        throw Object.assign(new Error("Gemini 429: quota"), { status: 429 });
+      });
+      plans.push({ reply: "Ideas!", actions: [] });
+      const { assistant } = await handleMessage({ ...deps, planner, ownAi: "Google Gemini" }, turn, "ideas do");
+      expect(assistant.text).toBe("This Google Gemini key has hit its limit for now. Try again later. Reelkar free answered this one.\n\nIdeas!");
+    });
+
     it("keeps what was done when Claude fails partway, without doing it twice", async () => {
       const { planner } = scripted(async ({ act }) => {
         await act("make_reel", { idea: "Three chai hacks for rainy mornings in Mumbai.", format: "motion" });
