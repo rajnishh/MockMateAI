@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { SONG_CREDITS } from "@/lib/billing/catalog";
+import { REMIX_CREDITS, SONG_CREDITS } from "@/lib/billing/catalog";
 import { grantCredits, spendCredits } from "@/lib/billing/credits";
 import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
@@ -17,7 +17,7 @@ import { findGenre, stylePrompt } from "@/lib/songs/styles";
 export async function GET() {
   const userId = await getUserId();
   if (!userId) return unauthorized();
-  return NextResponse.json({ songs: (await listSongs(getDb(), userId)).map(songView), credits: SONG_CREDITS, available: songsAvailable(loadEnv()) });
+  return NextResponse.json({ songs: (await listSongs(getDb(), userId)).map(songView), credits: SONG_CREDITS, remixCredits: REMIX_CREDITS, available: songsAvailable(loadEnv()) });
 }
 
 export async function POST(req: Request) {

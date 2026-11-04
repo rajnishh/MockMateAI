@@ -10,9 +10,10 @@ import { pendingPosts, publishPost } from "@/lib/posts";
 import { provenanceFromEnv, trySign } from "@/lib/provenance";
 import { grantCredits } from "@/lib/billing/credits";
 import { creatorMessage } from "@/lib/creator-errors";
-import { buildDanceSinger, buildPipelineDeps, buildSinger, buildSingDeps, buildSongProvider, buildTranscriber, type Quality, songsAvailable } from "@/lib/providers";
-import { type MyVoiceJob, SONG_QUEUE, type SongJob, type SongQueueJob } from "@/lib/queue/songs";
+import { buildDanceSinger, buildPipelineDeps, buildSinger, buildSingDeps, buildSongEditor, buildSongProvider, buildTranscriber, type Quality, songsAvailable } from "@/lib/providers";
+import { type MyVoiceJob, type RemixJob, SONG_QUEUE, type SongJob, type SongQueueJob } from "@/lib/queue/songs";
 import { singInMyVoice } from "@/lib/voice/sing";
+import { runRemix } from "@/lib/songs/remix";
 import { updateSong } from "@/lib/songs/songs";
 import { type EditJob, type EditRenderJob, FILM_QUEUE, type FilmJob, type FilmQueueJob, getRedis, type MusicVideoJob } from "@/lib/queue/films";
 import { onReelFinished } from "@/lib/agent/agent";
@@ -143,6 +144,7 @@ filmWorker.on("failed", async (job, err) => {
 if (songsAvailable(env)) {
   const singer = buildSongProvider(env);
   const singDeps = buildSingDeps(env);
+  const songEditor = buildSongEditor(env);
   const songWorker = new Worker<SongQueueJob>(
     SONG_QUEUE,
     async (job) => {
@@ -157,6 +159,10 @@ if (songsAvailable(env)) {
         outputPath = path.join(dir, `${songId}.mp3`);
         await rename(mixed, outputPath);
         await rm(path.join(dir, `${songId}-work`), { recursive: true, force: true });
+      } else if (job.name === "remix") {
+        const audio = await runRemix(songEditor, (job.data as RemixJob).call);
+        outputPath = path.join(dir, `${songId}.${audio.ext}`);
+        await writeFile(outputPath, audio.data);
       } else {
         const audio = await singer.sing(job.data as SongJob);
         outputPath = path.join(dir, `${songId}.${audio.ext}`);
@@ -167,7 +173,9 @@ if (songsAvailable(env)) {
         description:
           job.name === "my-voice"
             ? "AI-generated song, re-sung with AI voice conversion in the account holder's own consented voice"
-            : "AI-generated song: lyrics, music and vocals made with generative AI models",
+            : job.name === "remix"
+              ? "AI-generated song, remixed with generative AI (ACE-Step)"
+              : "AI-generated song: lyrics, music and vocals made with generative AI models",
       });
       await updateSong(db, songId, { status: "completed", outputPath, contentCredentials, completedAt: new Date() });
     },
