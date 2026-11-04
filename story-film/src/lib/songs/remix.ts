@@ -1,10 +1,13 @@
+import { randomUUID } from "node:crypto";
+import { rm } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { z } from "zod";
 import { REMIX_CREDITS } from "@/lib/billing/catalog";
 import type { SongAudio } from "@/lib/providers/fal-music";
 import {
   FAL_MAX_INPAINT_SEC,
   type CoverInput,
-  type ExtendInput,
   type FalSongEditor,
   type ReplaceSectionInput,
 } from "@/lib/providers/fal-song-edit";
@@ -69,9 +72,25 @@ export interface RemixSource {
   durationSec: number;
 }
 
+// fal's outpaint re-generates the whole song, so the original part no longer sounds the same (checked
+// 2026-11-05). Instead the song is lengthened with a copy of its last seconds and that copy is repainted:
+// repainting keeps everything outside the part, and the copy gives the model music to continue from
+// (repainting silence stays silent). Songs often fade out, so the last few seconds are cut first and the
+// copy comes from just before them; the repaint starts slightly before the cut to hide the join.
+export const EXTEND_CUT_SEC = 5;
+export const EXTEND_BLEND_SEC = 2;
+
+export interface ExtendByRepaintInput {
+  // A local file:// song.
+  audioUrl: string;
+  style: string;
+  lyrics: string;
+  extendSec: number;
+}
+
 export type RemixCall =
   | { kind: "cover"; input: CoverInput }
-  | { kind: "extend"; input: ExtendInput }
+  | { kind: "extend"; input: ExtendByRepaintInput }
   | { kind: "replace"; input: ReplaceSectionInput };
 
 export function remixCall(req: RemixRequest, song: RemixSource): RemixCall {
@@ -81,20 +100,59 @@ export function remixCall(req: RemixRequest, song: RemixSource): RemixCall {
     case "cover":
       return { kind: "cover", input: { audioUrl: song.audioUrl, style, originalStyle: song.style, lyrics, originalLyrics: song.lyrics } };
     case "extend":
-      return { kind: "extend", input: { audioUrl: song.audioUrl, style, lyrics, extendBeforeSec: 0, extendAfterSec: req.extendSec ?? EXTEND_SEC.default } };
+      return { kind: "extend", input: { audioUrl: song.audioUrl, style, lyrics, extendSec: req.extendSec ?? EXTEND_SEC.default } };
     case "replace":
       return { kind: "replace", input: { audioUrl: song.audioUrl, style, lyrics, startSec: req.startSec!, endSec: req.endSec! } };
   }
 }
 
-export function runRemix(editor: Pick<FalSongEditor, "cover" | "extend" | "replaceSection">, call: RemixCall): Promise<SongAudio> {
+export interface RemixTools {
+  // Where extend writes its lengthened copy (deleted afterwards).
+  workDir: string;
+  ffmpeg: (args: string[]) => Promise<void>;
+  probeDuration: (file: string) => Promise<number>;
+}
+
+// Where the original ends in the lengthened song (its fade-out is dropped).
+export function extendCutSec(songSec: number): number {
+  return Math.max(songSec / 2, songSec - EXTEND_CUT_SEC);
+}
+
+// The lengthened song, songSec + extendSec long: the original up to the cut, then the seconds before
+// the cut copied (looped if the song is short) to fill the rest.
+export function loopPadArgs(input: string, output: string, songSec: number, extendSec: number): string[] {
+  const cut = extendCutSec(songSec);
+  const fill = songSec + extendSec - cut;
+  const from = Math.max(0, cut - fill);
+  const head = `[a]atrim=end=${cut.toFixed(3)},asetpts=PTS-STARTPTS[h]`;
+  const tail = `[b]atrim=start=${from.toFixed(3)}:end=${cut.toFixed(3)},asetpts=PTS-STARTPTS,aloop=loop=-1:size=${Math.round((cut - from) * 48000)},atrim=end=${fill.toFixed(3)}[t]`;
+  return ["-y", "-i", input, "-filter_complex", `[0:a]aresample=48000,asplit[a][b];${head};${tail};[h][t]concat=n=2:v=0:a=1`, "-b:a", "192k", output];
+}
+
+export async function runRemix(editor: Pick<FalSongEditor, "cover" | "replaceSection">, call: RemixCall, tools: RemixTools): Promise<SongAudio> {
   switch (call.kind) {
     case "cover":
       return editor.cover(call.input);
-    case "extend":
-      return editor.extend(call.input);
     case "replace":
       return editor.replaceSection(call.input);
+    case "extend": {
+      const { audioUrl, extendSec, style, lyrics } = call.input;
+      const source = fileURLToPath(audioUrl);
+      const songSec = await tools.probeDuration(source);
+      const padded = path.join(tools.workDir, `${randomUUID()}-extend.mp3`);
+      try {
+        await tools.ffmpeg(loopPadArgs(source, padded, songSec, extendSec));
+        return await editor.replaceSection({
+          audioUrl: pathToFileURL(padded).href,
+          startSec: Math.max(0, extendCutSec(songSec) - EXTEND_BLEND_SEC),
+          endSec: songSec + extendSec,
+          style,
+          lyrics,
+        });
+      } finally {
+        await rm(padded, { force: true });
+      }
+    }
   }
 }
 
