@@ -256,6 +256,12 @@ export const agentSettings = pgTable("agent_settings", {
     .primaryKey()
     .references(() => user.id, { onDelete: "cascade" }),
   postingMode: postingMode("posting_mode").notNull().default("ask"),
+  // The AI the creator chose for chat ("reelkar" is the free default), and their own key for it,
+  // encrypted like OAuth tokens. Only the last 4 characters are ever shown back.
+  aiProvider: text("ai_provider").notNull().default("reelkar"),
+  aiModel: text("ai_model"),
+  aiKey: text("ai_key"),
+  aiKeyHint: text("ai_key_hint"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

@@ -18,6 +18,27 @@ export async function setPostingMode(db: Db, userId: string, mode: PostingMode):
     .onConflictDoUpdate({ target: agentSettings.userId, set: { postingMode: mode, updatedAt: new Date() } });
 }
 
+// The AI the creator picked for chat; the key stays encrypted here.
+export interface StoredAiChoice {
+  provider: string;
+  model: string | null;
+  key: string | null;
+  keyHint: string | null;
+}
+
+export async function getAiChoice(db: Db, userId: string): Promise<StoredAiChoice> {
+  const [row] = await db.select().from(agentSettings).where(eq(agentSettings.userId, userId));
+  return { provider: row?.aiProvider ?? "reelkar", model: row?.aiModel ?? null, key: row?.aiKey ?? null, keyHint: row?.aiKeyHint ?? null };
+}
+
+export async function setAiChoice(db: Db, userId: string, c: StoredAiChoice): Promise<void> {
+  const set = { aiProvider: c.provider, aiModel: c.model, aiKey: c.key, aiKeyHint: c.keyHint };
+  await db
+    .insert(agentSettings)
+    .values({ userId, ...set })
+    .onConflictDoUpdate({ target: agentSettings.userId, set: { ...set, updatedAt: new Date() } });
+}
+
 export async function saveMessage(db: Db, userId: string, role: "user" | "assistant", text: string, cards: AgentCard[] = []): Promise<AgentMessage> {
   const [row] = await db.insert(agentMessage).values({ userId, role, text, cards }).returning();
   return row;

@@ -43,6 +43,8 @@ const schema = z.object({
   ANTHROPIC_API_KEY: z.string().optional(),
   ASK_REELKAR_CLAUDE_MODEL: z.string().default("claude-haiku-5-5"),
   GEMINI_API_KEY: z.string().optional(),
+  // Optional: an Ollama server creators can pick for Ask Reelkar (e.g. http://localhost:11434).
+  OLLAMA_URL: z.string().url().optional(),
   ASK_REELKAR_GEMINI_MODEL: z.string().default("gemini-2.5-flash"),
   FAL_KEY: z.string().optional(),
   VIDEO_MODEL: z.enum(["wan", "kling"]).default("wan"),
