@@ -76,3 +76,8 @@ export function findPack(id: string): Pack | undefined {
 export function findPlan(id: string): Plan | undefined {
   return PLANS.find((p) => p.id === id);
 }
+
+// Song remixes (ACE-Step edit endpoints on fal, ~$0.0002 per second of audio, so a 2-minute
+// song costs under 3 cents): a cover or extension regenerates the whole song, a replaced part
+// only a slice of it. Verify fal's prices before launch.
+export const REMIX_CREDITS = { cover: 2, extend: 2, replace: 1 } as const;
