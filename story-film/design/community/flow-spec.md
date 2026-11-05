@@ -70,8 +70,9 @@ Layout (`Screen` with footer, `Header title="Make it a gift" back`):
 3. **Occasion** `ChipRow` (single): Birthday · Wedding · Eid · Diwali · Anniversary · Rakhi · Just because. Pre-selected from the song's topic when the AI can tell ("a birthday song for my sister" → Birthday). Wraps to two rows in Hindi/Arabic.
 4. **Note** `Field multiline` "Add a note (optional)", 200 chars, counter `ink-muted`.
 5. **Cover** three 72 pt tiles in a row: **Song cover** (default, the AI art already made) · **My photo** (photo picker, cropped 1:1) · **AI cover** (made from the occasion + name, e.g. diyas and marigolds for Diwali). AI cover shows `ReelLogo loop` in the tile while making (~8 s). Selected tile: 3 pt `action` ring + check badge (never colour alone).
-6. Caption: "Free · anyone with the link can play it. You can stop sharing any time."
-7. Voice line (only if the song is in the sender's own voice): `Status kind="ok"` "Sung in your own voice. People can play it, but nobody can re-sing in your voice."
+6. **Arabic only: how to address them** `ChipRow` (single): **لها** (her) · **له** (him) · **بلا تحديد** (not set). Helper: "Changes the words on the gift page, like «افتحي هديتك»." Not set = neutral wording (see Language rules). Shown when the app or the gift is in Arabic; Hindi copy uses आप forms, which don't change.
+7. Caption: "Free · anyone with the link can play it. You can stop sharing any time."
+8. Voice line (only if the song is in the sender's own voice): `Status kind="ok"` "Sung in your own voice. People can play it, but nobody can re-sing in your voice."
 
 Footer primary: **Create gift link** (disabled until To is filled; disabled label stays readable).
 
@@ -121,8 +122,8 @@ The gift page tells the recipient this plainly (see R1).
 
 `Header title="Birthday song for Priya" back`. A vertical thread, oldest first:
 1. Your gift card: cover, player (`SongPlayerRow`), note, "Opened · 2 plays".
-2. Reply card(s): "From Priya · Hum it · 0:42", player, her note, "Made with AI".
-3. Footer primary: **Reply again** (same reply chooser, recipient = Priya). Secondary row: **Share** (her reply goes on WhatsApp as its own gift link) · **Stop sharing** (with a confirm: "Stop sharing this gift? The link will stop working. You can share it again later.").
+2. Reply card(s): "From Priya · Hum it · 0:42", player, Priya's note, "Made with AI".
+3. Footer primary: **Reply again** (same reply chooser, recipient = Priya). Secondary row: **Share** (the reply goes on WhatsApp as its own gift link) · **Stop sharing** (with a confirm: "Stop sharing this gift? The link will stop working. You can share it again later.").
 
 Each reply is its own gift (own token, own page) with `replyToGiftId` linking them; the public page of a reply shows "A reply to your birthday song" and a link back to the original.
 
@@ -171,7 +172,7 @@ Opened from **Reply with your own song**. One screen, no steps to scroll:
 - **Continue with Apple** · **Continue with Google** (secondary, 52 pt each).
 - "or" divider; phone `Field` with country code chip (+91 default, +971 when the browser locale is Arabic/UAE); **Send code**. The 6-digit code field appears in place under it (same screen), auto-filled from SMS where the OS allows; **Verify** becomes the primary.
 - Small print: "By continuing you agree to the Terms. We'll never post without asking."
-- New accounts get the existing welcome credits (enough for one Hum it song).
+- New accounts get the existing 20 welcome credits (`WELCOME_CREDITS`); the first reply to a gift is free on top of them.
 - After sign-in: on a phone with the app installed, a universal link opens `reelkar://gifts/reply?to={token}`; otherwise the web reply chooser (`/create/song` and `/create/hum` on web) with the same prefill. App install is offered, not required.
 
 ### R3. How do you want to reply?
@@ -180,7 +181,7 @@ Opened from **Reply with your own song**. One screen, no steps to scroll:
 Two big cards (`Card onPress`, 96 pt each):
 - **Hum it**, "Hum, sing or just say it" (mic icon on `deep`).
 - **Describe it**, "Write one line, AI does the rest" (Simple song, `songs/new?mode=simple`).
-Caption: "Hum it · 2 credits · you have 6 free credits" (placeholder numbers follow the live prices).
+Caption: "**Your first reply is free.** Your 20 welcome credits stay untouched." One free reply per gift per person (Hum it or Describe it); a second reply costs the normal price (Hum it 2, song 4). Owner decision 2026-11-06.
 Voice note (always): "You can sing it in an AI voice or your own voice. Rajnish's voice can't be used."
 
 ### R4–R6. Reply making
@@ -208,7 +209,7 @@ Voice note (always): "You can sing it in an AI voice or your own voice. Rajnish'
 
 ### Name
 
-Keep **Jugalbandi** (जुगलबंदी) for English and Indic UIs: it's the Hindustani word for two musicians trading lines, and it says "duet with a friend" better than "Duet". Arabic UI: **دويتو** (duet), with "Jugalbandi" not shown, because the word means nothing in the Gulf. Owner decision (see open questions).
+Keep **Jugalbandi** (जुगलबंदी) for English and Indic UIs: it's the Hindustani word for two musicians trading lines, and it says "duet with a friend" better than "Duet". Arabic UI: **دويتو** (duet) as the name on buttons and titles, with **جوجالباندي** as a small subtitle on the Start screen and the invite ("دويتو · جوجالباندي") so the feature has one identity across languages. Not مناظرة موسيقية: it means a contest, and this is two friends making one song. Owner decision 2026-11-06.
 
 ### Flow
 
@@ -228,7 +229,8 @@ A (starter)
 B (partner)
   push / Inbox card / WhatsApp link (reelkar.app/j/{token})
    ├─ has app → D5 Invite: hear A's part · Sing your part · Not this time · offer to split
-   └─ no app → web invite page (W3) → install or sign up (one screen) → D5 (deep link)
+   └─ no app → web invite page (W3) → sings right there (W4) → one-screen sign-in → part sent
+       (app optional: same account, so the duet is already in their Inbox if they install later)
        └─ D6 Record your part (A's part in earphones) → Use this → D7 Joining → D8 Preview → approve
            └─ gets the Instagram collab invite in Instagram → accepts there
 ```
@@ -249,6 +251,8 @@ B (partner)
 | D10 | No answer / declined | `duets/[id]` state `expired` / `declined` | `Card`, `ListRow` |
 | D11 | Posted | `duets/[id]` state `posted` | `Win` |
 | W3 | Web invite page | web `/j/{token}` (new) | gift page layout |
+| W4 | Sing your part on the web | web `/j/{token}/sing` (new) | `my-voice.tsx` recorder, Hum it API |
+| W5 | Reply on the web | web `/g/{token}/reply` (new) | W4 page with gift prefill |
 
 ### D1. Start a Jugalbandi
 
@@ -281,13 +285,13 @@ Hum it Record, unchanged, plus:
 
 ### D4. Waiting (A)
 
-- Hero: "Waiting for Sana" / "She has 47 hours to sing her part." `ProgressBar` of the 48 h window (`onBrand`), status chips "Your part ✓ recorded" · "Sana's part · not yet" (icon + text, not colour only).
+- Hero: "Waiting for Sana" / "Sana has 47 hours to sing their part." `ProgressBar` of the 48 h window (`onBrand`), status chips "Your part ✓ recorded" · "Sana's part · not yet" (icon + text, not colour only).
 - Card actions: **Remind Sana** (enabled after 12 h, once; "Reminder sent" after) · **Send link again** · **Cancel Jugalbandi** (ghost, confirm: "Cancel? Your 6 credits come back.").
-- Status changes to "Sana opened the invite" and "Sana is recording" (from her app) so A isn't waiting blind.
+- Status changes to "Sana opened the invite" and "Sana is recording" (from Sana's phone) so A isn't waiting blind.
 
 ### D5. Invite (B)
 
-Delivered three ways: push "Arjun wants a Jugalbandi with you" / "Hear his part and sing yours"; **Inbox** card (Gifts and duets section) with play button; WhatsApp link.
+Delivered three ways: push "Arjun wants a Jugalbandi with you" / "Hear Arjun's part and sing yours"; **Inbox** card (Gifts and duets section) with play button; WhatsApp link.
 Screen:
 - Hero: "Arjun wants to sing with you" / topic in quotes / style chip / "Open for 47 more hours".
 - A's part card with player (0:28) and "Arjun's voice · AI singer" (or "Arjun's own voice", which B can hear but never use).
@@ -312,7 +316,7 @@ Both phones: Hero "Joining your parts" / "About 2 minutes. You can leave; we'll 
 ### D9. Post as a Collab (reuse `reel/[id]`)
 
 Reuses the existing "Post it" card (account picker, Post now / Schedule) and "Caption" card (AI caption per platform). Changes:
-- Instagram row shows a locked toggle **Collab with @sana.sings** (on). Under it: "Sana gets an invite in Instagram. Once she accepts, it shows on both profiles."
+- Instagram row shows a locked toggle **Collab with @sana.sings** (on). Under it: "Sana gets an invite in Instagram. Once Sana accepts, it shows on both profiles."
 - B's Instagram handle comes from B's connected account, or B types it on D5 ("Your Instagram @"), stored on the duet.
 - Caption is written with both handles: "Chai vs coffee, settled in song ☕ with @sana.sings · Made with AI on Reelkar" and the platform's AI label; YouTube optional (same caption; YouTube has no co-authors, so B is credited in the description).
 - Post goes from A's account through the Graph API `collaborators` field on the Reel container.
@@ -321,13 +325,13 @@ Reuses the existing "Post it" card (account picker, Post now / Schedule) and "Ca
 
 ### D10. No answer / declined
 
-Hero (no gradient; `deep` alert card): "Sana didn't answer" (or "Sana can't join this time" + her note).
+Hero (no gradient; `deep` alert card): "Sana didn't answer" (or "Sana can't join this time" + Sana's note).
 Three `ListRow` options, primary first:
 1. **Invite someone else** → D3 (your part kept, new 48 h clock).
 2. **Finish it solo** → becomes a normal Hum it song from your part: "Uses 2 credits. The other 4 come back." *(placeholder numbers)*
 3. **Give Sana 24 more hours** (only for no answer, once).
 Ghost: **Cancel and get all 6 credits back**.
-Timeline: 0 h invite → 24 h auto reminder to B ("Arjun's Jugalbandi closes tomorrow") → 48 h close; A gets push "Sana didn't sing her part. Choose what's next." If A does nothing for 7 days, the hold is released automatically (all credits back) and the part is kept as a draft.
+Timeline: 0 h invite → 24 h auto reminder to B ("Arjun's Jugalbandi closes tomorrow") → 48 h close; A gets push "Sana didn't sing a part. Choose what's next." If A does nothing for 7 days, the hold is released automatically (all credits back) and the part is kept as a draft.
 
 ### Credits and refunds
 
@@ -342,15 +346,34 @@ Timeline: 0 h invite → 24 h auto reminder to B ("Arjun's Jugalbandi closes tom
 | Retake beyond the free one | the retaker pays 1 | the retaker pays 1 |
 | Music video | whoever taps it, normal price | — |
 
-All placeholders. "Held" = shown in the credits screen as "Held for Jugalbandi · 6", not spendable, never silently charged.
+Prices follow `src/lib/billing/catalog.ts`: 6 = `SONG_CREDITS` (4) + `TUNE_SONG_CREDITS` (2), so they move together if those change. Owner agreed 6 / split 3·3 / one free retake each on 2026-11-06; extra retakes stay 1 credit (a re-join costs us cents). "Held" = shown in the credits screen as "Held for Jugalbandi · 6", not spendable, never silently charged.
 
 ### Voice rule (Jugalbandi)
 
 Each part is sung by an AI singer or **its own author's** consented voice. The server checks `part.voiceId.ownerId === part.userId`. A's voice never appears in B's picker. Retakes keep that rule. The joined song's page and post say "Made with AI"; if a real voice is used, "Sung in Arjun's own voice" is added.
 
+### No-install path (how B gets in without the app)
+
+Owner asked how other apps do this. Today's options:
+- **Deep-link vendors** (Branch, AppsFlyer OneLink, Adjust) guess that the person who installed is the person who tapped the link, by matching device signals. Since iOS 14.5 (App Tracking Transparency) that guess is weaker, and Firebase Dynamic Links, the free option, shut down in August 2025. It's also a third party seeing every invite.
+- **Universal links** open the app straight on the invite when it's already installed. Free, exact, and we need them anyway.
+- **Smule-style duet apps** make you install first. That's the step where most invitees drop off.
+
+Our choice: **B never has to install.** B sings on the invite page itself (W4; the browser mic works in Safari, Chrome and WhatsApp's in-app browser), then signs in on one screen. Because the invite is attached to B's account at sign-in, it's already in B's Inbox if B installs later. No vendor, no guessing. Installed app + universal link → D5 directly.
+The gift reply uses the same idea: R2's sign-in leads to a web Hum it page (W5, same recorder as W4) when there's no app.
+
 ### W3. Web invite page (`/j/{token}`)
 
-Same shell as the gift page: hero "Arjun wants to sing a Jugalbandi with you", A's part player, topic, style, "Open for 47 more hours", primary **Sing your part** → one-screen sign-up (R2 pattern) → "Get the app to record" with App Store button + QR on desktop; the invite token travels through sign-in (stored server-side against the new account), so the app opens straight on D5 after install. Expired: "This invite has closed. Ask Arjun to send a new one." Made with AI + Report in the footer.
+Same shell as the gift page: hero "Arjun wants to sing a Jugalbandi with you", A's part player, topic, style, "Open for 47 more hours", primary **Sing your part here** → W4. Line under it: "No app needed: sing in this page, about 30 seconds." Desktop shows a QR too: "You can sing here with your computer's mic, or scan to sing on your phone." Expired: "This invite has closed. Ask Arjun to send a new one." Made with AI + Report in the footer.
+
+### W4. Sing your part on the web (`/j/{token}/sing`)
+
+- Hero: "Your part · Jugalbandi with Arjun", timer "0:12 / 0:30", "Arjun's part plays in your earphones. Answer Arjun in your own words, or just hum."
+- A's part plays while B records (same as D6; it isn't recorded). **Stop** (`deep`), then listen back: **Send my part** / **Sing again**.
+- Then the one-screen sign-in (R2 pattern), so A knows who sang. Then "Sent to Arjun. We'll tell you when it's joined." Approve (D8) on `/j/{token}` or in the app.
+- Mic denied: "Your browser blocked the mic. Allow it in the address bar, or open this link in Safari/Chrome."
+- Voice: an AI singer or B's own consented voice (only if B already has one); never A's.
+- Reuses the web recorder in `src/app/songs/my-voice.tsx` (MediaRecorder) and the Hum it analysis API. W5 (gift reply on the web) is the same page with gift prefill.
 
 ---
 
@@ -387,7 +410,7 @@ ICU message format; `{n}` plurals use ICU `plural` (Arabic needs zero/one/two/fe
 | `gift.og.desc` | Tap to open your gift. Made with AI on Reelkar. | अपना तोहफ़ा खोलने के लिए टैप करें। Reelkar पर AI से बना। | اضغط لفتح هديتك. صُنعت بالذكاء الاصطناعي على Reelkar. |
 | `page.overline` | A song for you | आपके लिए एक गाना | أغنية لك |
 | `page.headline` | {to}, {from} made you a song | {to}, {from} ने आपके लिए एक गाना बनाया है | {to}، صنع لك {from} أغنية |
-| `page.open` | Open your gift | अपना तोहफ़ा खोलें | افتح هديتك |
+| `page.open` | Open your gift | अपना तोहफ़ा खोलें | فتح الهدية (not set) · افتحي هديتك (لها) · افتح هديتك (له) |
 | `page.sound` | Plays with sound | आवाज़ के साथ चलेगा | يعمل مع الصوت |
 | `page.note.by` | {from} wrote: | {from} ने लिखा: | كتب {from}: |
 | `page.reply` | Reply with your own song | अपने गाने से जवाब दें | ردّ بأغنية من صنعك |
@@ -453,7 +476,8 @@ ICU message format; `{n}` plurals use ICU `plural` (Arabic needs zero/one/two/fe
   - **Mirror:** reading order, text alignment, back chevrons and "next" arrows, list rows (icon on the right), chip rows, the share sheet order, the gift preview card and og image (cover on the right), step progress, the D8 approval row.
   - **Don't mirror:** play/pause and skip icons, the scrubber and buffered bar (time runs left to right), waveforms and the D8 part strip, timecodes (`0:42 / 1:48`), phone numbers, @handles, URLs, logos and the reel mark, the WhatsApp/Instagram glyphs. Wrap the player in `dir="ltr"`.
   - **Karaoke:** the fill runs in reading direction per word (right to left in Arabic) because highlighting is per word span, not a gradient across the line. Line-level fallback fills the whole line at once.
-  - **Digits:** Western digits (`ar-AE` with `nu-latn`) for times, prices and counts, matching Gulf app norms. Owner may switch to Arabic-Indic.
+  - **Digits:** follow the phone. iOS has a setting (Language & Region › Numbers) for Western (0123) or Arabic-Indic (٠١٢٣); the app formats numbers with the device locale, and the web uses the browser's. Default when nothing is set: Western (`nu-latn`), the Gulf app norm. Timecodes, @handles and phone numbers always stay Western.
+  - **Address (gender):** Arabic verbs change for him/her. Default copy uses neutral forms, mostly verbal nouns on buttons ("فتح الهدية", "تسجيل جزئي"). When the sender picks **لها** or **له** on G2, the gift page uses the matching form ("افتحي هديتك" / "افتح هديتك"). In the app, copy addressed to the user stays neutral; no gender question at sign-up.
   - **Mixed scripts:** names, handles and URLs inside bidi isolates.
   - Placeholder default country code +971 when the locale is `ar`.
 
@@ -484,7 +508,7 @@ Jugalbandi
 - B records but A cancels during joining: cancel is disabled while joining; after ready, either can remove their part.
 - B has no Instagram connected: D5 asks for the handle (optional); without it, the post is a normal post crediting "with Sana on Reelkar" in the caption.
 - B's Instagram is private or declines the collab: the post stays on A's profile only; Reelkar shows "Sana didn't accept the Instagram collab" on A's duet card. Nothing to retry.
-- Instagram API rejects collaborators (account type, region): fall back to caption credit and tell A before posting ("Instagram won't add Sana as co-author on this account. We'll tag her in the caption instead.").
+- Instagram API rejects collaborators (account type, region): fall back to caption credit and tell A before posting ("Instagram won't add Sana as co-author on this account. We'll name Sana in the caption instead.").
 - Both record before either opens the app again: notifications batch; joining starts automatically when B taps Use this.
 - B invited by @handle and also by WhatsApp link: same invite, same token.
 - A invites themselves (second account on same phone): allowed; we don't police it.
@@ -496,7 +520,7 @@ Jugalbandi
 ### Data
 
 New tables (Drizzle, `src/lib/db/app-schema.ts`, then `npm run db:generate`):
-- `share_link`: `id`, `token` (22-char random, unique), `kind` (`gift` | `duet_invite`), `ownerId`, `songId` or `duetId`, `createdAt`, `revokedAt`, `takenDownAt`. Lasting, revocable (PLAN 43 open item: this answers it with a table).
+- `share_link`: `id`, `token` (10 chars from a 56-letter alphabet without look-alikes like 0/O and 1/l: ~58 bits, unguessable with rate limiting, short in a WhatsApp message), `kind` (`gift` | `duet_invite`), `ownerId`, `songId` or `duetId`, `createdAt`, `revokedAt`, `takenDownAt`. Lasting, revocable (PLAN 43 open item: this answers it with a table).
 - `gift`: `id`, `shareLinkId`, `songId`, `senderId`, `toName`, `occasion` (enum), `note`, `coverKind` (`song` | `photo` | `ai`), `coverPath`, `ogImagePath`, `replyToGiftId` (nullable, self-ref), `openedAt`, `playCount`, `lastPlayedAt`.
 - `gift_event`: `giftId`, `kind` (`open` | `play`), `day`, `visitorHash` (salted hash of a first-party cookie; never IP), unique on (`giftId`, `kind`, `day`, `visitorHash`), for dedup only, deleted after 30 days.
 - `duet`: `id`, `starterId`, `partnerId` (nullable until accepted), `topic`, `genre`, `status` (`recording_a` | `inviting` | `waiting` | `recording_b` | `joining` | `review` | `posted` | `declined` | `expired` | `solo` | `cancelled`), `inviteExpiresAt`, `remindedAt`, `extendedAt`, `songId` (joined), `aApprovedAt`, `bApprovedAt`, `partnerIgHandle`, `heldStarter`, `heldPartner`.
@@ -539,13 +563,13 @@ New tables (Drizzle, `src/lib/db/app-schema.ts`, then `npm run db:generate`):
 - `(tabs)/inbox.tsx`: replace `ComingSoon` with a "Gifts and duets" list on top, keeping the comments coming-soon card below.
 - Web gift page: new `src/app/g/[token]/page.tsx`, using `globals.css` tokens and the audio bits from `reel-player.tsx`.
 
-## Open questions for the owner
+## Owner decisions (2026-11-06)
 
-1. **First reply free?** A new user's welcome credits cover one Hum it reply. Should replies to gifts be free (one per gift) to maximise the loop? My pick: yes, first reply free.
-2. **Arabic name for Jugalbandi:** "دويتو" (my pick) or keep "Jugalbandi" everywhere as a brand word.
-3. **Placeholder prices:** 6 credits per Jugalbandi (song 4 + tune 2), split 3/3, 1 free retake each. Confirm or set real numbers.
-4. **Should the sender see the recipient's name as "Opened by Priya"?** I wrote "Opened · 2 plays" in the status and keep "Priya" in the card title, because we can't verify who opened it. Your brief's "Opened by Priya" reads as verified; confirm which you prefer.
-5. **Deferred deep link for B without the app:** server-side token-on-account (my pick, no third party) vs a deep-link vendor (Branch/Adjust).
-6. **Arabic-Indic vs Western digits** in the Arabic UI (I picked Western).
-7. **Gift page domain:** `reelkar.app/g/…` assumed; short domain (e.g. `rlkr.in`) would make WhatsApp messages tidier.
-8. **Arabic gendered address:** the gift page and message use the generic masculine imperative ("افتح هديتك"). Should the sender pick the recipient's gender in Arabic so the page can say "افتحي هديتك"? My pick: add it as an optional Arabic-only chip on the gift step later, not in v1.
+1. **First reply is free:** one per gift per person, on top of the 20 welcome credits.
+2. **Arabic name:** دويتو, with جوجالباندي as a subtitle.
+3. **Prices:** 6 credits (song 4 + tune 2, tied to the catalog), split 3/3 when B offers, one free retake each, then 1 credit. Gifts are free.
+4. **What the sender sees:** "Opened · 2 plays", with the name in the card title ("Birthday song for Priya"), not "Opened by Priya". A gift link gets forwarded to family groups, so "Opened by Priya" would often be wrong, and the only way to make it true is tracking who opens it. Accurate and private point the same way. Identity shows only when someone replies.
+5. **People without the app:** they sing and reply on the web (W4, W5), then sign in on one screen; no deep-link vendor. Universal links when the app is installed.
+6. **Digits in Arabic:** follow the phone's setting, Western by default.
+7. **Links:** `reelkar.app/g/{token}` and `/j/{token}` on the main domain with a 10-character token. A separate short domain saves only a few characters, and WhatsApp shows the preview card, not the URL. Unknown short domains look like spam to people and to WhatsApp's link checks, and it's one more domain to buy and keep. The domain is a placeholder until the real one is set.
+8. **Arabic address:** optional لها / له / not set on the gift step; neutral wording everywhere else.
