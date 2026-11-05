@@ -1,6 +1,6 @@
 import { readMedia } from "@/lib/media";
 import type { FalQueueClient } from "./fal";
-import type { SongAudio } from "./fal-music";
+import { AUDIO_TYPES, audioExt, fetchFalAudio, type SongAudio } from "./fal-music";
 
 // ACE-Step (v1) edit endpoints on fal, checked against fal's OpenAPI schemas on 2026-11-05.
 // All three need `tags` and `audio_url`; audio-to-audio also needs `original_tags`.
@@ -43,13 +43,6 @@ export interface ReplaceSectionInput {
 
 interface AceEditOutput {
   audio: { url: string; content_type?: string | null; file_name?: string | null };
-}
-
-function audioType(url: string): string {
-  if (/\.mp3$/i.test(url)) return "audio/mpeg";
-  if (/\.flac$/i.test(url)) return "audio/flac";
-  if (/\.ogg$/i.test(url)) return "audio/ogg";
-  return "audio/wav";
 }
 
 // Suno-style remixing: restyle a song, make it longer, or redo one part.
@@ -98,15 +91,16 @@ export class FalSongEditor {
     return this.fetchAudio(out);
   }
 
-  // fal can't fetch local files, so locally stored songs are sent inline as data URIs.
+  // fal can't fetch local files, so locally stored songs are sent inline as data URIs, typed by their
+  // contents: songs saved before 2026-11-05 can be FLAC in a file named ".wav".
   private async audioRef(url: string): Promise<string> {
     if (!url.startsWith("file://")) return url;
-    return `data:${audioType(url)};base64,${(await readMedia(url)).toString("base64")}`;
+    const data = await readMedia(url);
+    const named = /\.(mp3|wav|flac|ogg)$/i.exec(url)?.[1].toLowerCase() ?? "wav";
+    return `data:${AUDIO_TYPES[audioExt(data, named)]};base64,${data.toString("base64")}`;
   }
 
-  private async fetchAudio(out: AceEditOutput): Promise<SongAudio> {
-    const name = out.audio.file_name ?? new URL(out.audio.url).pathname;
-    const ext = /\.(mp3|wav|flac|ogg)$/i.exec(name)?.[1].toLowerCase() ?? (out.audio.content_type?.includes("mpeg") ? "mp3" : "wav");
-    return { data: await readMedia(out.audio.url, this.fetchFn), ext };
+  private fetchAudio(out: AceEditOutput): Promise<SongAudio> {
+    return fetchFalAudio(out.audio, this.fetchFn, out.audio.content_type?.includes("mpeg") ? "mp3" : "wav");
   }
 }
