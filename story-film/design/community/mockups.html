@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Gifts and Jugalbandi</title>
+<meta name="description" content="Reelkar community features 1 and 2: song gifts with Reply with your own song, and Jugalbandi two-creator duets. Clickable iPhone mockups and the public web gift page, in light and dark, English, Hindi and Arabic." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Inter:wght@400..700&family=Hind:wght@400;600;700&family=Noto+Sans+Arabic:wght@400..800&display=swap" rel="stylesheet" />
+<style>
+/* Masala Pop tokens (design/v3.0/tokens.json), by name */
+.t-light{--surface:#fff7ee;--surface-raised:#fff;--surface-sunken:#fbebdb;--surface-overlay:#fff;--line:#f0ddcb;--line-strong:#9a7f8c;--ink:#2a1235;--ink-muted:#6e5866;
+ --brand:#ff7a1a;--on-brand:#2a1235;--on-brand-muted:#47243d;--hero:linear-gradient(135deg,#ffb21a 0%,#ff7a1a 100%);--hero-ring:rgba(255,255,255,.22);--chip:rgba(42,18,53,.12);
+ --deep:#2a1235;--on-deep:#fff;--deep-muted:#cdb7c4;--action:#d9381c;--on-action:#fff;--teal:#14d9a0;--on-teal:#062b22;--teal-text:#0a7a58;--teal-tint:#ddf8ee;
+ --coral:#ff4d2e;--coral-text:#c2330f;--coral-tint:#ffe4da;--pop:#ffb21a;--on-pop:#2a1235;--success:#1e7a4c;--warning:#8a5a00;--danger:#b42318;--focus-ring:#2a1235;--scrim:rgba(42,18,53,.55);
+ --e1:0 1px 2px rgba(17,24,39,.08),0 4px 12px rgba(17,24,39,.06);}
+.t-dark{--surface:#150a1a;--surface-raised:#24142b;--surface-sunken:#0e0611;--surface-overlay:#2e1a36;--line:#3a2443;--line-strong:#7a5f86;--ink:#fff1e6;--ink-muted:#c2a9b8;
+ --brand:#ff7a1a;--on-brand:#2a1235;--on-brand-muted:#47243d;--hero:linear-gradient(135deg,#ffb21a 0%,#ff7a1a 100%);--hero-ring:rgba(255,255,255,.2);--chip:rgba(42,18,53,.14);
+ --deep:#0b050d;--on-deep:#fff1e6;--deep-muted:#a993a2;--action:#ff5a3c;--on-action:#150a1a;--teal:#2bf0b5;--on-teal:#062b22;--teal-text:#2bf0b5;--teal-tint:#0e2a24;
+ --coral:#ff5a3c;--coral-text:#ff8a6b;--coral-tint:#2e1218;--pop:#ffc23d;--on-pop:#2a1235;--success:#5fd39a;--warning:#f6c454;--danger:#ff8b7e;--focus-ring:#2bf0b5;--scrim:rgba(0,0,0,.65);
+ --e1:0 1px 2px rgba(0,0,0,.4),0 6px 16px rgba(0,0,0,.35);}
+:root{--page:#ece6df;--page-ink:#2a1235;--page-muted:#6e5866;--page-line:rgba(42,18,53,.16)}
+:root[data-theme="dark"]{--page:#060308;--page-ink:#fff1e6;--page-muted:#c2a9b8;--page-line:rgba(255,241,230,.16)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--page:#060308;--page-ink:#fff1e6;--page-muted:#c2a9b8;--page-line:rgba(255,241,230,.16)}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--page);color:var(--page-ink);font:15px/1.5 Inter,system-ui,sans-serif}
+button{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--focus-ring,#2a1235);outline-offset:2px}
+.sr{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.wrap{max-width:1360px;margin:0 auto;padding:28px 16px 64px}
+h1.pg{font:800 clamp(28px,4vw,40px)/1.1 "Bricolage Grotesque",sans-serif;margin:0 0 6px;letter-spacing:-.02em}
+.lede{color:var(--page-muted);margin:0 0 16px;max-width:820px}
+.bar{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:24px;align-items:center}
+.seg{display:inline-flex;gap:4px;flex-wrap:wrap;align-items:center}
+.seg>span{font:700 12px Inter,sans-serif;color:var(--page-muted);margin-inline-end:4px}
+.seg button{font:600 14px Inter,Hind,"Noto Sans Arabic",sans-serif;min-height:40px;padding:6px 14px;border-radius:999px;border:1px solid var(--page-line);background:transparent;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--page-ink);color:var(--page);border-color:var(--page-ink)}
+h2.sec{font:800 24px "Bricolage Grotesque",sans-serif;margin:40px 0 4px}
+.cap{color:var(--page-muted);font-size:14px;margin:0 0 14px;max-width:860px}
+.ph-row{display:grid;grid-template-columns:230px 395px minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:1180px){.ph-row{grid-template-columns:1fr}.stage{justify-self:center}}
+.idx{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;padding-inline-end:4px}
+@media (max-width:1180px){.idx{position:static;max-height:none;display:flex;flex-wrap:wrap;gap:6px}.idx h4{width:100%}}
+.idx h4{font:700 11px Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--page-muted);margin:14px 0 4px}
+.idx button{display:flex;gap:8px;align-items:center;width:100%;text-align:start;min-height:36px;padding:6px 10px;border:0;border-radius:10px;background:transparent;cursor:pointer;font-size:14px}
+@media (max-width:1180px){.idx button{width:auto;border:1px solid var(--page-line)}}
+.idx button b{font:700 11px "JetBrains Mono",ui-monospace,monospace;color:var(--page-muted);min-width:26px}
+.idx button[aria-current="true"]{background:var(--page-ink);color:var(--page)}
+.idx button[aria-current="true"] b{color:inherit}
+.stage{display:flex;flex-direction:column;align-items:center;gap:10px}
+.pn{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--page-muted)}
+.pn button{min-width:44px;min-height:44px;border-radius:999px;border:1px solid var(--page-line);background:transparent;cursor:pointer;display:grid;place-items:center}
+.notes{background:color-mix(in srgb,var(--page-ink) 5%,transparent);border:1px solid var(--page-line);border-radius:20px;padding:18px 20px;font-size:14px}
+.notes h3{font:800 20px "Bricolage Grotesque",sans-serif;margin:0 0 4px}
+.notes .rt{font:12px "JetBrains Mono",ui-monospace,monospace;color:var(--page-muted);margin:0 0 10px;word-break:break-word}
+.notes ul{margin:0;padding-inline-start:18px}.notes li{margin:0 0 6px}
+.notes .re{margin:10px 0 0;color:var(--page-muted)}
+.tag{display:inline-block;font:700 10px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:6px;background:var(--pop,#ffb21a);color:#2a1235;vertical-align:middle}
+
+/* iPhone frame */
+.ph{width:375px;height:800px;border-radius:52px;border:11px solid #0b0b0e;box-shadow:0 30px 70px -28px rgba(0,0,0,.5);position:relative;overflow:hidden;background:var(--surface);color:var(--ink);flex:none}
+@media (max-width:420px){.ph{zoom:.86}}
+.island{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:112px;height:32px;border-radius:20px;background:#000;z-index:30}
+.sbar{position:absolute;top:0;inset-inline:0;height:50px;display:flex;justify-content:space-between;align-items:center;padding:6px 30px 0;font:600 15px Inter,sans-serif;z-index:25;direction:ltr;pointer-events:none}
+.sbar .r{display:flex;gap:5px;align-items:center}.sbar .r i{display:block;width:24px;height:11px;border:1.5px solid currentColor;border-radius:4px;position:relative}.sbar .r i::after{content:"";position:absolute;inset:1.5px;width:60%;background:currentColor;border-radius:1px}
+.homei{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:130px;height:5px;border-radius:5px;background:var(--ink);opacity:.85;z-index:30;pointer-events:none}
+.scr{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;padding-top:50px;scrollbar-width:none;font-family:Inter,system-ui,sans-serif}
+.scr::-webkit-scrollbar{display:none}
+.bd{padding:6px 16px 16px;display:flex;flex-direction:column;gap:14px}
+.l-hi{font-family:Inter,Hind,sans-serif;line-height:1.6}
+.l-hi .disp,.l-hi h3,.l-hi .hd{font-family:"Bricolage Grotesque",Hind,sans-serif;line-height:1.3!important;letter-spacing:0!important}
+.l-ar,.l-ar *{font-family:"Noto Sans Arabic",system-ui,sans-serif!important;letter-spacing:0!important}
+.l-ar{line-height:1.6}.l-ar .disp,.l-ar .hd,.l-ar h3{line-height:1.35!important}
+.ltr{direction:ltr}
+
+/* app parts */
+.hdr{display:flex;align-items:center;gap:10px;padding:6px 12px 6px}
+.hdr .tt{flex:1;min-width:0}.hdr .tt b{display:block;font:800 22px/1.2 "Bricolage Grotesque",sans-serif}.hdr .tt small{display:block;color:var(--ink-muted);font-size:13px}
+.ib{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;border:0;background:transparent;cursor:pointer;color:var(--ink);flex:none}
+[dir="rtl"] .flip{transform:scaleX(-1)}
+.cr{display:inline-flex;align-items:center;gap:6px;font:700 13px Inter,sans-serif;padding:6px 12px;border-radius:99px;background:var(--surface-raised);border:1px solid var(--line);white-space:nowrap}
+.cr svg.i{width:16px;height:16px;color:var(--coral-text)}
+.hero{background:var(--hero);color:var(--on-brand);position:relative;overflow:hidden;border-radius:28px;padding:18px}
+.hero::after{content:"";position:absolute;inset-inline-end:-70px;top:-60px;width:220px;height:220px;border-radius:50%;border:26px solid var(--hero-ring);pointer-events:none}
+.hero>*{position:relative;z-index:1}
+.hero .ov{font:700 12px Inter,sans-serif;color:var(--on-brand-muted)}
+.hd{font:800 26px/1.15 "Bricolage Grotesque",sans-serif;letter-spacing:-.01em;margin:4px 0}
+.hero p{margin:0;color:var(--on-brand-muted);font-size:14px}
+.card{background:var(--surface-raised);border:1px solid var(--line);border-radius:22px;padding:14px}
+.card.flat{background:var(--surface-sunken);border-color:transparent}
+.alert{background:var(--deep);color:var(--on-deep);border-radius:22px;padding:16px}
+.alert p{color:var(--deep-muted);margin:4px 0 0;font-size:14px}
+.b{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:8px 22px;border-radius:999px;border:0;cursor:pointer;font:700 15px/1.25 Inter,sans-serif;background:var(--action);color:var(--on-action);box-shadow:0 3px 0 color-mix(in srgb,var(--action) 55%,#000);text-align:center}
+.b.block{width:100%}
+.b.sm{min-height:44px;padding:6px 16px;font-size:14px}
+.b.sec{background:var(--surface-raised);color:var(--ink);border:1.5px solid var(--line-strong);box-shadow:none}
+.b.ghost{background:transparent;color:var(--ink);box-shadow:none}
+.b.deep{background:var(--deep);color:var(--on-deep);box-shadow:0 3px 0 rgba(0,0,0,.35)}
+.b.mint{background:var(--teal);color:var(--on-teal);box-shadow:0 3px 0 color-mix(in srgb,var(--teal) 55%,#000)}
+.b[disabled]{opacity:1;background:var(--surface-sunken);color:var(--ink-muted);box-shadow:none;border:1.5px dashed var(--line-strong);cursor:not-allowed}
+.new{outline:3px dashed var(--teal-text);outline-offset:3px}
+.pill{display:inline-flex;align-items:center;gap:5px;font:700 12px Inter,sans-serif;padding:5px 10px;border-radius:99px;background:var(--chip);white-space:nowrap}
+.pill svg.i{width:14px;height:14px}
+.pill.mint{background:var(--teal);color:var(--on-teal)}
+.pill.tint{background:var(--teal-tint);color:var(--teal-text)}
+.pill.raised{background:var(--surface-raised);color:var(--ink);border:1px solid var(--line)}
+.pill.ai{background:var(--deep);color:var(--on-deep)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.ch{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:6px 14px;border-radius:999px;border:1.5px solid var(--line-strong);background:transparent;font:600 14px Inter,sans-serif;cursor:pointer;color:var(--ink)}
+.ch.on{background:var(--deep);color:var(--on-deep);border-color:var(--deep)}
+.ch svg.i{width:16px;height:16px}
+.lb{display:block;font:700 13px Inter,sans-serif;margin:0 0 6px}
+.in{min-height:48px;border-radius:14px;border:1.5px solid var(--line-strong);background:var(--surface-raised);padding:12px 14px;font-size:15px;display:flex;align-items:center;gap:8px}
+.in.ta{align-items:flex-start;min-height:84px}
+.in .ph-t{color:var(--ink-muted)}
+.cnt{font-size:12px;color:var(--ink-muted);text-align:end;margin-top:4px}
+.capn{font-size:13px;color:var(--ink-muted);margin:0}
+.ft{position:sticky;bottom:0;margin-top:auto;padding:12px 16px 30px;background:linear-gradient(to top,var(--surface) 75%,transparent);display:flex;flex-direction:column;gap:8px;z-index:5}
+.win{display:flex;align-items:center;gap:10px;background:var(--teal-tint);color:var(--teal-text);border-radius:16px;padding:12px 14px;font-weight:700}
+.win i{width:28px;height:28px;border-radius:50%;background:var(--teal);color:var(--on-teal);display:grid;place-items:center;flex:none}
+.win i svg.i{width:16px;height:16px}
+.ban{display:flex;gap:10px;align-items:flex-start;border-radius:16px;padding:12px 14px;font-size:14px;background:var(--teal-tint);color:var(--ink)}
+.ban.err{background:var(--coral-tint)}
+.ban.err svg.i{color:var(--danger)}
+.ban div{flex:1}
+.row{display:flex;align-items:center;gap:12px}
+.row>div{flex:1;min-width:0}
+.row small{display:block;color:var(--ink-muted);font-size:13px}
+.lr{display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer;background:none;border-inline:0;border-top:0;width:100%;text-align:start}
+.lr:last-child{border-bottom:0}
+.lr .ico{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:var(--coral-tint);color:var(--coral-text);flex:none}
+.lr div{flex:1;min-width:0}.lr b{display:block;font-size:15px}.lr small{display:block;color:var(--ink-muted);font-size:13px}
+.av{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font:800 15px Inter,sans-serif;flex:none;color:#2a1235}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.tl{display:flex;flex-direction:column;align-items:center;gap:6px;font:600 12px/1.3 Inter,sans-serif;text-align:center;background:none;border:0;cursor:pointer;color:var(--ink);padding:0}
+.tl i{width:56px;height:56px;border-radius:18px;display:grid;place-items:center;background:var(--surface-raised);border:1px solid var(--line);color:var(--coral-text)}
+.pl{display:flex;align-items:center;gap:12px;direction:ltr}
+.pbtn{width:56px;height:56px;border-radius:50%;border:0;display:grid;place-items:center;background:var(--deep);color:var(--on-deep);cursor:pointer;flex:none}
+.pbtn.sm{width:44px;height:44px}
+.t-dark .pbtn{background:var(--ink);color:var(--surface)}
+.pbtn svg.i{width:22px;height:22px}
+.trk{flex:1;height:6px;border-radius:99px;background:var(--surface-sunken);position:relative;overflow:hidden}
+.trk i{position:absolute;inset-block:0;left:0;background:var(--action);border-radius:99px}
+.trk u{position:absolute;inset-block:0;left:0;background:color-mix(in srgb,var(--ink) 18%,transparent);border-radius:99px}
+.tc{font:600 12px "JetBrains Mono",ui-monospace,monospace;color:var(--ink-muted);white-space:nowrap}
+.cov{border-radius:18px;overflow:hidden;flex:none;position:relative}
+.cov svg{display:block;width:100%;height:100%}
+.tabbar{position:sticky;bottom:12px;margin:auto 12px 12px;background:var(--deep);color:var(--on-deep);border-radius:24px;display:flex;justify-content:space-around;align-items:center;padding:8px 4px;font:600 10px Inter,sans-serif;z-index:6}
+.tabbar span{display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--deep-muted);min-width:48px}
+.tabbar span.on{color:var(--teal)}
+.tabbar .plus{width:46px;height:46px;border-radius:50%;background:var(--action);color:var(--on-action);display:grid;place-items:center}
+.sheet{background:var(--surface-overlay);border-radius:28px 28px 0 0;padding:10px 16px 30px;box-shadow:0 -12px 32px rgba(0,0,0,.18);display:flex;flex-direction:column;gap:14px}
+.grab{width:40px;height:5px;border-radius:5px;background:var(--line-strong);margin:0 auto 4px;opacity:.6}
+.mic{width:112px;height:112px;border-radius:50%;background:var(--deep);color:var(--on-deep);display:grid;place-items:center;border:0;margin:6px auto 0;box-shadow:0 4px 0 rgba(0,0,0,.3);cursor:pointer}
+.mic svg.i{width:44px;height:44px}
+.meter{display:flex;gap:3px;align-items:center;height:36px;justify-content:center;direction:ltr}
+.meter i{width:4px;border-radius:3px;background:var(--on-brand);opacity:.8}
+.tgl{display:flex;align-items:center;gap:12px;min-height:52px}
+.tgl div{flex:1}
+.sw{width:51px;height:31px;border-radius:99px;background:var(--line-strong);position:relative;flex:none;border:0;cursor:pointer}
+.sw::after{content:"";position:absolute;top:2px;inset-inline-start:2px;width:27px;height:27px;border-radius:50%;background:#fff;transition:inset-inline-start .2s}
+.sw[aria-checked="true"]{background:var(--teal-text)}
+.sw[aria-checked="true"]::after{inset-inline-start:22px}
+.sw.lock{opacity:.85}
+.strip{display:flex;height:28px;border-radius:8px;overflow:hidden;font:700 11px Inter,sans-serif;direction:ltr}
+.strip span{display:flex;align-items:center;padding:0 8px;gap:4px}
+.ok{color:var(--success)}
+.ph-lock .sbar{color:#fff}.ph-lock .homei{background:#fff}
+.ph-lock .scr{background:linear-gradient(180deg,#2a1235 0%,#4a1f3f 55%,#ff7a1a 140%);color:#fff}
+.notif{background:rgba(255,255,255,.18);border-radius:22px;padding:12px 14px;display:flex;gap:10px;cursor:pointer;border:0;color:#fff;text-align:start;width:100%}
+.notif .lg{width:38px;height:38px;border-radius:10px;flex:none}
+.notif div{flex:1}.notif b{display:block;font-size:15px}.notif small{opacity:.85}
+/* WhatsApp mock (their colours, it is WhatsApp) */
+.wa{display:flex;flex-direction:column;flex:1}
+.wa-h{display:flex;align-items:center;gap:10px;padding:6px 10px 10px;background:#f0f2f5;color:#111b21;border-bottom:1px solid #e1e4e6}
+.t-dark .wa-h{background:#1f2c34;color:#e9edef;border-color:#2a3942}
+.wa-h b{display:block;font-size:16px}.wa-h small{color:#667781;font-size:12px}
+.wa-bg{flex:1;background:#efeae2;padding:14px 10px;display:flex;flex-direction:column;gap:8px}
+.t-dark .wa-bg{background:#0b141a}
+.wa-day{align-self:center;font-size:12px;background:#fff;color:#54656f;padding:4px 10px;border-radius:8px}
+.t-dark .wa-day{background:#182229;color:#8696a0}
+.bub{max-width:88%;background:#fff;color:#111b21;border-radius:12px;padding:4px;box-shadow:0 1px .5px rgba(0,0,0,.13);align-self:flex-start;font-size:14px}
+.t-dark .bub{background:#202c33;color:#e9edef}
+.bub.me{align-self:flex-end;background:#d9fdd3}
+.t-dark .bub.me{background:#005c4b}
+.bub .og{border-radius:9px;overflow:hidden;background:#f5f6f6;cursor:pointer;display:block;border:0;padding:0;width:100%;text-align:start;color:inherit}
+.t-dark .bub .og{background:#1d282f}
+.bub .og .tx{padding:8px 10px}
+.bub .og b{display:block;font-size:14px}.bub .og small{display:block;color:#667781;font-size:12.5px}
+.bub .msg{padding:6px 8px 2px}
+.bub .msg a{color:#027eb5}
+.bub time{display:block;text-align:end;font-size:11px;color:#667781;padding:0 6px 2px}
+/* og card 1200x630 */
+.ogc{aspect-ratio:1200/630;display:flex;width:100%;overflow:hidden;background:#2a1235;container-type:inline-size}
+.ogc .cv{aspect-ratio:1;height:100%}
+.ogc .tx2{flex:1;background:linear-gradient(135deg,#ffb21a,#ff7a1a);color:#2a1235;padding:5cqw 4.5cqw;display:flex;flex-direction:column;justify-content:center;position:relative;min-width:0}
+.ogc .tx2 .a{font:800 5.3cqw/1.1 "Bricolage Grotesque",Hind,"Noto Sans Arabic",sans-serif}
+.ogc .tx2 .f{font:800 7.4cqw/1.15 "Bricolage Grotesque",Hind,"Noto Sans Arabic",sans-serif;margin:.6cqw 0 1.6cqw}
+.ogc .tx2 .s{font:600 3cqw Inter,Hind,"Noto Sans Arabic",sans-serif;color:#47243d}
+.ogc .tx2 .m{position:absolute;bottom:3.5cqw;inset-inline-end:3.5cqw;font:700 2.4cqw Inter,Hind,"Noto Sans Arabic",sans-serif;background:#2a1235;color:#fff;border-radius:99px;padding:.8cqw 2cqw}
+.ogc .tx2 .lgm{position:absolute;bottom:3.2cqw;inset-inline-start:4.5cqw;width:5.5cqw;height:5.5cqw}
+
+/* Public gift page */
+.gp{background:var(--surface);color:var(--ink);position:relative;min-height:100%;display:flex;flex-direction:column}
+.gph{display:flex;align-items:center;gap:10px;padding:12px 16px}
+.gph .wm{font:800 18px "Bricolage Grotesque",sans-serif;flex:1;display:flex;align-items:center;gap:8px}
+.gbody{padding:4px 16px 16px;display:flex;flex-direction:column;gap:14px;flex:1}
+.gseal{border-radius:28px;padding:22px 18px 20px;display:flex;flex-direction:column;gap:12px;text-align:center;align-items:center}
+.gseal .hd{font-size:30px}
+.box{width:190px;height:190px;position:relative;margin:6px auto 4px}
+.box .cov{width:100%;height:100%;border-radius:22px;box-shadow:0 10px 24px -10px rgba(42,18,53,.5)}
+.box .rb1,.box .rb2{position:absolute;background:var(--action);z-index:2}
+.box .rb1{inset-block:0;left:calc(50% - 14px);width:28px}
+.box .rb2{inset-inline:0;top:calc(50% - 14px);height:28px}
+.box .bow{position:absolute;top:calc(50% - 26px);left:calc(50% - 26px);width:52px;height:52px;border-radius:50%;background:var(--action);z-index:3;border:6px solid color-mix(in srgb,var(--action) 70%,#000)}
+.gmain{display:flex;flex-direction:column;gap:12px}
+.gcov{width:100%;max-width:320px;aspect-ratio:1;margin:0 auto;border-radius:24px}
+.reveal .gcov{animation:pop .4s ease-out both}
+.reveal .petals i{animation:fall 1.6s ease-in forwards}
+@keyframes pop{from{transform:scale(.82);opacity:.2}to{transform:none;opacity:1}}
+@keyframes fall{from{transform:translateY(-30px) rotate(0);opacity:1}to{transform:translateY(520px) rotate(300deg);opacity:0}}
+.petals{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:8}
+.petals i{position:absolute;top:0;width:12px;height:12px;border-radius:60% 0 60% 0;background:#ffb21a;opacity:0}
+.petals i:nth-child(3n){background:#ff7a1a}.petals i:nth-child(4n){background:#ff4d2e}
+.rm .reveal .gcov{animation:fade .15s both}.rm .petals{display:none}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.reveal .gcov{animation:fade .15s both}.petals{display:none}.sw::after{transition:none}}
+.gtitle{font:800 24px/1.2 "Bricolage Grotesque",sans-serif;margin:0}
+.kwell{background:var(--surface-sunken);border-radius:20px;padding:6px 0;max-height:220px;overflow-y:auto;position:relative}
+.kar{list-style:none;margin:0;padding:6px 16px}
+.kar li{padding:6px 0;font-size:17px;line-height:1.5;color:var(--ink);cursor:pointer}
+.l-hi .kar li,.l-ar .kar li{line-height:1.7}
+.kar li.past{color:var(--ink-muted)}
+.kar li.cur{font-weight:700}
+.kar .w{border-radius:6px;padding:0 2px;margin:0 -2px}
+.kar li.cur .w.on{background:var(--action);color:var(--on-action)}
+.knote{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0 4px}
+.qnote{background:var(--surface-raised);border:1px solid var(--line);border-radius:20px;padding:14px 16px;position:relative}
+.qnote::before{content:"\201C";position:absolute;top:-8px;inset-inline-start:12px;font:800 44px/1 "Bricolage Grotesque",serif;color:var(--brand)}
+.qnote small{display:block;color:var(--ink-muted);font-weight:700;margin-bottom:2px}
+.gfoot{padding:14px 16px 20px;font-size:13px;color:var(--ink-muted);display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line)}
+.gfoot .lk{display:flex;gap:16px;flex-wrap:wrap}
+.gfoot a{color:var(--ink);font-weight:700;min-height:44px;display:inline-flex;align-items:center;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.stick{position:sticky;bottom:0;padding:10px 16px 14px;background:linear-gradient(to top,var(--surface) 70%,transparent);z-index:5;display:flex;flex-direction:column;gap:4px;align-items:stretch;text-align:center}
+.stick small{color:var(--ink-muted);font-size:12px}
+.ovl{position:absolute;inset:0;background:var(--scrim);z-index:20;display:flex;flex-direction:column;justify-content:flex-end}
+.ovl .sheet{max-height:92%;overflow:auto}
+.radio{display:flex;align-items:center;gap:12px;min-height:48px;font-size:14px}
+.radio i{width:22px;height:22px;border-radius:50%;border:2px solid var(--line-strong);flex:none;display:grid;place-items:center}
+.radio.on i::after{content:"";width:12px;height:12px;border-radius:50%;background:var(--ink)}
+.ring{width:22px;height:22px;border-radius:50%;border:3px solid color-mix(in srgb,var(--on-deep) 30%,transparent);border-top-color:var(--on-deep);animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.rm .ring{animation:none;border-top-color:color-mix(in srgb,var(--on-deep) 30%,transparent);border-right-color:var(--on-deep)}
+.reel{width:56px;height:56px;animation:spin 2.4s linear infinite}
+.rm .reel{animation:none}
+@media (prefers-reduced-motion:reduce){.reel,.ring{animation:none}}
+.blk{display:grid;place-items:center;color:#fff;font-size:13px;font-weight:600}
+/* wide (desktop) gift page */
+.wide .gph{padding:18px 32px}
+.wide .gbody{padding:8px 32px 28px}
+.wide .gseal{flex-direction:row;text-align:start;padding:36px 40px;gap:40px;align-items:center}
+.wide .gseal>div{flex:1}
+.wide .gseal .hd{font-size:46px}
+.wide .box{width:280px;height:280px;margin:0}
+.wide .gcols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:28px;align-items:start}
+.wide .kwell{max-height:300px}
+.wide .stick{position:static;background:none;padding:0}
+.wide .gfoot{padding:16px 32px 24px;flex-direction:row;justify-content:space-between;align-items:center}
+.wide .ovl{justify-content:center;align-items:center}
+.wide .ovl .sheet{border-radius:28px;width:440px;max-width:92%}
+/* desktop frame */
+.desk{border-radius:16px;overflow:hidden;box-shadow:0 30px 70px -30px rgba(0,0,0,.45);border:1px solid var(--page-line);max-width:1040px}
+.chrome{height:36px;background:#1b1b1f;display:flex;align-items:center;gap:6px;padding:0 12px;direction:ltr}
+.chrome i{width:11px;height:11px;border-radius:50%;background:#555}
+.chrome span{margin-left:14px;font:12px Inter,sans-serif;color:#bbb;background:#2a2a30;padding:3px 16px;border-radius:6px}
+.dview{height:700px;overflow:auto;position:relative}
+.webrow{display:grid;grid-template-columns:minmax(0,1fr) 395px;gap:24px;align-items:start}
+@media (max-width:1180px){.webrow{grid-template-columns:1fr}.webrow .ph{justify-self:center}}
+.deskscroll{overflow-x:auto}
+.deskscroll .desk{min-width:900px}
+.safari{display:flex;align-items:center;gap:8px;padding:2px 12px 8px;direction:ltr;color:var(--ink)}
+.safari span{flex:1;background:var(--surface-sunken);border-radius:12px;min-height:36px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px}
+.note{margin-top:40px;color:var(--page-muted);font-size:14px;max-width:900px;border-top:1px solid var(--page-line);padding-top:18px}
+.note b{color:var(--page-ink)}
+.ogwrap{max-width:720px;border-radius:12px;overflow:hidden;box-shadow:0 20px 50px -25px rgba(0,0,0,.5)}
+.meta{font:13px/1.7 "JetBrains Mono",ui-monospace,monospace;background:color-mix(in srgb,var(--page-ink) 5%,transparent);border:1px solid var(--page-line);border-radius:14px;padding:14px 16px;margin-top:16px;max-width:720px;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="pg">Gifts and Jugalbandi</h1>
+  <p class="lede">Reelkar community features 1 and 2, on Masala Pop v3.0. Tap inside a phone to move through the flow, or pick a screen from the index. Spec: <code>design/community/flow-spec.md</code>. Prices marked <span class="tag">placeholder</span> are not decided.</p>
+  <div class="bar">
+    <div class="seg" role="group" aria-label="Theme"><span>Theme</span><button type="button" data-theme-btn="light">Light</button><button type="button" data-theme-btn="dark">Dark</button></div>
+    <div class="seg" role="group" aria-label="Language"><span>Language</span><button type="button" data-lang-btn="en">English</button><button type="button" data-lang-btn="hi">हिन्दी</button><button type="button" data-lang-btn="ar">العربية · RTL</button></div>
+    <div class="seg" role="group" aria-label="Motion"><span>Motion</span><button type="button" data-rm-btn="0">Full</button><button type="button" data-rm-btn="1">Reduced</button></div>
+  </div>
+  <p class="cap">Language switches the gift step, share sheet, WhatsApp preview, sign-up and the public gift page (marked <b>EN·HI·AR</b> in the index). The other screens are shown in English.</p>
+
+  <h2 class="sec">iPhone screens</h2>
+  <p class="cap">Gift (sender), gift (recipient and reply), Jugalbandi (starter A and partner B). Dashed mint outlines mark what is new on an existing screen.</p>
+  <div class="ph-row">
+    <nav class="idx" id="idx" aria-label="Screen index"></nav>
+    <div class="stage">
+      <div id="phone"></div>
+      <div class="pn"><button type="button" id="prev" aria-label="Previous screen"><svg class="i" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button><span id="pos" aria-live="polite"></span><button type="button" id="next" aria-label="Next screen"><svg class="i" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button></div>
+    </div>
+    <aside class="notes" id="notes" aria-live="polite"></aside>
+  </div>
+
+  <h2 class="sec">Public gift page on the web</h2>
+  <p class="cap">No sign-in. One hero card: the gift. Pick a state; desktop and phone width show the same state. Media controls and the scrubber stay left-to-right in Arabic.</p>
+  <div class="seg" role="group" aria-label="Gift page state" id="wstates" style="margin-bottom:16px"></div>
+  <div class="webrow">
+    <div class="deskscroll"><div class="desk"><div class="chrome"><i></i><i></i><i></i><span>reelkar.app/g/x7Kp2</span></div><div class="dview" id="wdesk"></div></div></div>
+    <div id="wphone"></div>
+  </div>
+
+  <div class="note">
+    <p><b>Decisions in these mocks.</b> The gift page’s only primary is <b>Reply with your own song</b>; opening the gift is a <code>deep</code> button on the saffron hero (chilli on saffron fails 3:1, same rule as the Hum it mic). The tap that opens the gift starts the audio, so there is no autoplay trick. The sender sees opened, play count and last played; never who, where or which device. The note is kept out of the WhatsApp preview to keep the surprise.</p>
+    <p><b>Voice rule.</b> A song in someone’s own cloned voice plays for everyone, but the reply and each Jugalbandi part can only be sung by an AI singer or the person’s own consented voice.</p>
+    <p><b>Legally required only.</b> Every public page has Report in the footer; pages, previews and posts carry “Made with AI”. No other gates.</p>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const I={
+back:'<path d="M15 18l-6-6 6-6"/>',chev:'<path d="M9 6l6 6-6 6"/>',gift:'<rect x="3" y="8" width="18" height="13" rx="2"/><path d="M12 8v13M3 12h18M12 8c-2-4-6-4-6-1.5S10 8 12 8zM12 8c2-4 6-4 6-1.5S14 8 12 8z"/>',
+music:'<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',mic:'<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+play:'<path d="M8 5.5v13l11-6.5z" fill="currentColor"/>',pause:'<path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor" stroke="none"/>',stop:'<rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" stroke="none"/>',
+share:'<path d="M12 3v12M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/>',link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+dots:'<circle cx="5" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="19" cy="12" r="1.3" fill="currentColor"/>',check:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+wa:'<path d="M4 20l1.3-4.2A8.5 8.5 0 1 1 8.4 19z"/><path d="M9.2 8.6c-.4 2.8 3 6.4 6 6l.8-1.6-2-1-1 .9a4 4 0 0 1-1.9-1.9l.9-1-1-2z" fill="currentColor" stroke="none"/>',
+ig:'<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.3" cy="6.7" r="1" fill="currentColor"/>',yt:'<rect x="2" y="5" width="20" height="14" rx="4"/><path d="M10 9l5 3-5 3z" fill="currentColor"/>',
+photo:'<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>',spark:'<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>',
+clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 20a2 2 0 0 0 4 0"/>',flag:'<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
+user:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',users:'<circle cx="9" cy="8" r="3.5"/><path d="M2 20a7 7 0 0 1 14 0M16 4.5a3.5 3.5 0 0 1 0 7M22 20a7 7 0 0 0-4-6.3"/>',
+search:'<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',refresh:'<path d="M20 11a8 8 0 0 0-14.6-4.6L4 8M4 4v4h4M4 13a8 8 0 0 0 14.6 4.6L20 16M20 20v-4h-4"/>',film:'<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>',
+x:'<path d="M6 6l12 12M18 6L6 18"/>',inbox:'<path d="M3 13l3-8h12l3 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M3 13h5l1 2h6l1-2h5"/>',home:'<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>',
+plus:'<path d="M12 5v14M5 12h14"/>',reels:'<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M10 9l5 3-5 3z"/>',you:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+lock:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',phone:'<rect x="7" y="2" width="10" height="20" rx="3"/><path d="M11 18h2"/>',coin:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 9.5c0-1.4 1.3-2.5 3-2.5s3 1 3 2.3c0 2.9-6 1.8-6 4.9 0 1.3 1.3 2.3 3 2.3s3-1.1 3-2.5"/>',
+head:'<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="7" rx="2"/><rect x="17" y="14" width="4" height="7" rx="2"/>',download:'<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>',
+apple:'<path d="M16.4 12.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9s-1.8-.9-3-.8c-1.6 0-3 .9-3.8 2.3-1.6 2.8-.4 6.9 1.2 9.1.8 1.1 1.7 2.3 2.8 2.3 1.1 0 1.6-.7 3-.7s1.8.7 3 .7 2-1.1 2.7-2.2c.9-1.3 1.2-2.5 1.2-2.6 0 0-2.3-.9-2.2-3.7zM14.2 5.8c.6-.7 1-1.7.9-2.8-.9 0-2 .6-2.6 1.3-.6.6-1.1 1.7-.9 2.7 1 .1 2-.5 2.6-1.2z" fill="currentColor" stroke="none"/>',
+quote:'<path d="M7 7h4v4H8a3 3 0 0 0 3 3v2a5 5 0 0 1-5-5zM15 7h4v4h-3a3 3 0 0 0 3 3v2a5 5 0 0 1-5-5z"/>',heart:'<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/>'
+};
+const ic=(n,c='')=>`<svg class="i ${c}" viewBox="0 0 24 24" aria-hidden="true">${I[n]||''}</svg>`;
+const logo=(s=28)=>`<svg width="${s}" height="${s}" viewBox="0 0 40 40" aria-hidden="true" style="flex:none"><rect width="40" height="40" rx="11" fill="#2a1235"/><circle cx="20" cy="20" r="11" fill="#ffb21a"/><g fill="#2a1235"><circle cx="20" cy="13.5" r="2.6"/><circle cx="26.2" cy="18" r="2.6"/><circle cx="23.8" cy="25.3" r="2.6"/><circle cx="16.2" cy="25.3" r="2.6"/><circle cx="13.8" cy="18" r="2.6"/><circle cx="20" cy="20" r="1.4"/></g></svg>`;
+const reelLoop=()=>`<svg class="reel" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="16" fill="#2a1235"/><g fill="#ffb21a"><circle cx="20" cy="11" r="3.4"/><circle cx="28.5" cy="17.2" r="3.4"/><circle cx="25.3" cy="27.2" r="3.4"/><circle cx="14.7" cy="27.2" r="3.4"/><circle cx="11.5" cy="17.2" r="3.4"/></g></svg>`;
+/* Covers: flat shapes, no images, no gradients needing ids */
+function cover(k,st=''){
+ const A={
+ bday:`<rect width="100" height="100" fill="#2a1235"/><circle cx="82" cy="18" r="30" fill="#ff7a1a" opacity=".9"/><circle cx="20" cy="86" r="26" fill="#ffb21a" opacity=".85"/><rect x="30" y="52" width="40" height="26" rx="4" fill="#fff1e6"/><rect x="30" y="62" width="40" height="5" fill="#ff4d2e"/><rect x="38" y="38" width="4" height="14" fill="#14d9a0"/><rect x="48" y="36" width="4" height="16" fill="#ffb21a"/><rect x="58" y="38" width="4" height="14" fill="#14d9a0"/><path d="M40 31c2 3 2 5 0 6-2-1-2-3 0-6zM50 29c2 3 2 5 0 6-2-1-2-3 0-6zM60 31c2 3 2 5 0 6-2-1-2-3 0-6z" fill="#ffb21a"/>`,
+ ai:`<rect width="100" height="100" fill="#3a1640"/><g fill="#ffb21a" opacity=".7"><circle cx="18" cy="20" r="2"/><circle cx="80" cy="14" r="1.6"/><circle cx="70" cy="34" r="1.2"/><circle cx="30" cy="40" r="1.2"/></g><circle cx="50" cy="96" r="44" fill="#ff7a1a" opacity=".35"/><path d="M24 64h52c-3 14-13 20-26 20S27 78 24 64z" fill="#ff7a1a"/><path d="M24 64h52" stroke="#ffb21a" stroke-width="3"/><path d="M50 36c7 9 7 17 0 22-7-5-7-13 0-22z" fill="#ffb21a"/><path d="M50 46c3 4 3 8 0 10-3-2-3-6 0-10z" fill="#fff1e6"/>`,
+ photo:`<rect width="100" height="100" fill="#b5552e"/><rect y="62" width="100" height="38" fill="#6b2f4f"/><circle cx="50" cy="42" r="17" fill="#f3c9a8"/><path d="M50 22c-12 0-19 9-17 22 3-8 9-12 17-12s14 4 17 12c2-13-5-22-17-22z" fill="#2a1235"/><path d="M20 100c2-20 14-30 30-30s28 10 30 30z" fill="#ffb21a"/>`,
+ reply:`<rect width="100" height="100" fill="#ff4d2e"/><circle cx="50" cy="50" r="34" fill="#2a1235"/><circle cx="50" cy="50" r="8" fill="#ffb21a"/><path d="M58 30v32" stroke="#fff1e6" stroke-width="5" stroke-linecap="round"/><circle cx="52" cy="64" r="7" fill="#fff1e6"/>`,
+ duet:`<rect width="100" height="100" fill="#14d9a0"/><circle cx="0" cy="100" r="60" fill="#ffb21a"/><rect x="24" y="22" width="18" height="32" rx="9" fill="#2a1235"/><rect x="58" y="30" width="18" height="32" rx="9" fill="#2a1235"/><path d="M33 54v18M67 62v14" stroke="#2a1235" stroke-width="4"/><path d="M44 40c6-6 10-6 14 0" stroke="#2a1235" stroke-width="3" fill="none"/>`,
+ eid:`<rect width="100" height="100" fill="#0e2a24"/><circle cx="56" cy="40" r="22" fill="#ffb21a"/><circle cx="66" cy="34" r="20" fill="#0e2a24"/><path d="M20 100V70l10-10 10 10v30M60 100V74l10-8 10 8v26" fill="#2bf0b5" opacity=".7"/>`,
+ anniv:`<rect width="100" height="100" fill="#ffe4da"/><path d="M50 78s-24-14-24-32a12 12 0 0 1 24-6 12 12 0 0 1 24 6c0 18-24 32-24 32z" fill="#d9381c"/>`
+ };
+ return `<div class="cov" style="${st}"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${A[k]||A.bday}</svg></div>`;
+}
+
+/* ---------- strings (gift step, share, WhatsApp, sign-up, gift page) ---------- */
+const T={
+en:{to:'Priya',from:'Rajnish',make:'Make it a gift',toL:'Who is it for?',occL:'Occasion',occ:['Birthday','Wedding','Eid','Diwali','Anniversary','Rakhi','Just because'],
+ noteL:'Add a note (optional)',note:'Happy birthday, chhoti! I made this one just for you. Play it loud.',coverL:'Cover picture',cv:['Song cover','My photo','AI cover'],making:'Making…',
+ free:'Free · anyone with the link can play it. You can stop sharing any time.',create:'Create gift link',pTitle:'A birthday song for Priya',pFrom:'From Rajnish',
+ ready:'Your gift is ready',sendT:'Send your gift',wa:'Send on WhatsApp',waS:'WhatsApp status',copy:'Copy link',more:'More',seeInbox:'You’ll see in Inbox when it’s opened.',
+ waMsg:'Priya, I made you a birthday song 🎂 Open it here:',ogT:'A birthday song for Priya, from Rajnish',ogD:'Tap to open your gift. Made with AI on Reelkar.',ogA:'A birthday song',ogFor:'for Priya',
+ over:'A song for you',head:'Priya, Rajnish made you a song',open:'Open your gift',sound:'Plays with sound',noteBy:'Rajnish wrote:',reply:'Reply with your own song',replySub:'Free to start · takes about a minute',
+ ai:'Made with AI',aiOn:'Made with AI on Reelkar',privacy:'Rajnish sees that this was opened and how often it played. Nothing else.',report:'Report',terms:'Terms',follow:'Follow along',
+ procT:'Your song is almost ready',procX:'It’s still being made. This page checks again by itself.',err:'The song didn’t load. Check your internet and tap to try again.',retry:'Try again',loading:'Loading…',
+ removed:'This gift isn’t available any more',removedX:'The person who sent it stopped sharing it.',makeOwn:'Make your own song',
+ joinT:'Reply to Rajnish',joinSub:'Make a song back. Free to start.',apple:'Continue with Apple',google:'Continue with Google',or:'or',phone:'Mobile number',dial:'+91',send:'Send code',code:'6-digit code',verify:'Verify',
+ fine:'By continuing you agree to the Terms. We’ll never post without asking.',repT:'Report this gift',reasons:['It uses my voice or face without consent','Copyright','Hateful or abusive','Sexual content involving a minor','Something else'],
+ details:'Details (optional)',sendRep:'Send report',close:'Close',meta:'From Rajnish · Birthday · 1:48',playL:'Play the birthday song for Priya, 1 minute 48 seconds',pauseL:'Pause',lyricsL:'Lyrics',
+ picLoading:'Loading picture',chats:'Chats',online:'online',today:'Today',
+ lyr:['Priya, the candles are waiting','Your laugh is the song of our house','Another year of you, another year of light','Happy birthday, little sister','Make a wish and make it loud','We will sing it all night long']},
+hi:{to:'प्रिया',from:'रजनीश',make:'इसे तोहफ़ा बनाएँ',toL:'यह किसके लिए है?',occL:'मौक़ा',occ:['जन्मदिन','शादी','ईद','दिवाली','सालगिरह','राखी','बस यूँ ही'],
+ noteL:'संदेश लिखें (चाहें तो)',note:'जन्मदिन मुबारक छोटी! ये गाना सिर्फ़ तुम्हारे लिए बनाया है। ज़ोर से बजाना।',coverL:'कवर फ़ोटो',cv:['गाने का कवर','मेरी फ़ोटो','AI कवर'],making:'बन रहा है…',
+ free:'मुफ़्त · लिंक वाला कोई भी इसे सुन सकता है। आप कभी भी शेयर करना बंद कर सकते हैं।',create:'तोहफ़े का लिंक बनाएँ',pTitle:'प्रिया के लिए जन्मदिन का गाना',pFrom:'रजनीश की ओर से',
+ ready:'आपका तोहफ़ा तैयार है',sendT:'अपना तोहफ़ा भेजें',wa:'WhatsApp पर भेजें',waS:'WhatsApp स्टेटस',copy:'लिंक कॉपी करें',more:'और',seeInbox:'तोहफ़ा खुलते ही Inbox में दिखेगा।',
+ waMsg:'प्रिया, मैंने तुम्हारे लिए जन्मदिन का गाना बनाया है 🎂 यहाँ खोलो:',ogT:'रजनीश की ओर से प्रिया के लिए जन्मदिन का गाना',ogD:'अपना तोहफ़ा खोलने के लिए टैप करें। Reelkar पर AI से बना।',ogA:'जन्मदिन का गाना',ogFor:'प्रिया के लिए',
+ over:'आपके लिए एक गाना',head:'प्रिया, रजनीश ने आपके लिए एक गाना बनाया है',open:'अपना तोहफ़ा खोलें',sound:'आवाज़ के साथ चलेगा',noteBy:'रजनीश ने लिखा:',reply:'अपने गाने से जवाब दें',replySub:'शुरू करना मुफ़्त · लगभग एक मिनट',
+ ai:'AI से बना',aiOn:'Reelkar पर AI से बना',privacy:'रजनीश को सिर्फ़ इतना दिखेगा कि यह खुला और कितनी बार चला।',report:'शिकायत करें',terms:'नियम',follow:'साथ-साथ पढ़ें',
+ procT:'आपका गाना लगभग तैयार है',procX:'यह अभी बन रहा है। यह पेज खुद दोबारा देखेगा।',err:'गाना लोड नहीं हुआ। इंटरनेट देखें और फिर से टैप करें।',retry:'फिर से कोशिश करें',loading:'लोड हो रहा है…',
+ removed:'यह तोहफ़ा अब उपलब्ध नहीं है',removedX:'भेजने वाले ने इसे शेयर करना बंद कर दिया है।',makeOwn:'अपना गाना बनाएँ',
+ joinT:'रजनीश को जवाब दें',joinSub:'बदले में एक गाना बनाएँ। शुरू करना मुफ़्त।',apple:'Apple से जारी रखें',google:'Google से जारी रखें',or:'या',phone:'मोबाइल नंबर',dial:'+91',send:'कोड भेजें',code:'6 अंकों का कोड',verify:'पुष्टि करें',
+ fine:'जारी रखकर आप नियमों से सहमत हैं। बिना पूछे हम कभी कुछ पोस्ट नहीं करेंगे।',repT:'इस तोहफ़े की शिकायत करें',reasons:['इसमें बिना इजाज़त मेरी आवाज़ या चेहरा है','कॉपीराइट','नफ़रत या गाली-गलौज','नाबालिग से जुड़ी यौन सामग्री','कुछ और'],
+ details:'जानकारी (चाहें तो)',sendRep:'शिकायत भेजें',close:'बंद करें',meta:'रजनीश की ओर से · जन्मदिन · 1:48',playL:'प्रिया के लिए जन्मदिन का गाना चलाएँ, 1 मिनट 48 सेकंड',pauseL:'रोकें',lyricsL:'गाने के बोल',
+ picLoading:'तस्वीर लोड हो रही है',chats:'चैट',online:'ऑनलाइन',today:'आज',
+ lyr:['प्रिया, मोमबत्तियाँ इंतज़ार में हैं','तेरी हँसी से घर गूँजे','एक और साल, एक और रोशनी','जन्मदिन मुबारक, छोटी बहना','दिल से माँग ले कोई दुआ','हम गाएँगे सारी रात']},
+ar:{to:'مريم',from:'عمر',make:'اجعلها هدية',toL:'لمن هذه الهدية؟',occL:'المناسبة',occ:['عيد ميلاد','زفاف','العيد','ديوالي','ذكرى سنوية','راخي','بلا مناسبة'],
+ noteL:'أضف رسالة (اختياري)',note:'كل عام وأنتِ بخير يا مريم! صنعت هذه الأغنية لكِ وحدك. شغّليها بصوت عالٍ.',coverL:'صورة الغلاف',cv:['غلاف الأغنية','صورتي','غلاف بالذكاء الاصطناعي'],making:'جارٍ الإنشاء…',
+ free:'مجانًا · يمكن لأي شخص لديه الرابط تشغيلها. يمكنك إيقاف المشاركة في أي وقت.',create:'أنشئ رابط الهدية',pTitle:'أغنية عيد ميلاد إلى مريم',pFrom:'من عمر',
+ ready:'هديتك جاهزة',sendT:'أرسل هديتك',wa:'أرسلها عبر واتساب',waS:'حالة واتساب',copy:'انسخ الرابط',more:'المزيد',seeInbox:'سترى في صندوق الوارد عندما تُفتح.',
+ waMsg:'مريم، صنعتُ لكِ أغنية عيد ميلاد 🎂 افتحيها من هنا:',ogT:'أغنية عيد ميلاد إلى مريم من عمر',ogD:'اضغط لفتح هديتك. صُنعت بالذكاء الاصطناعي على Reelkar.',ogA:'أغنية عيد ميلاد',ogFor:'إلى مريم',
+ over:'أغنية لك',head:'مريم، صنع لك عمر أغنية',open:'افتح هديتك',sound:'يعمل مع الصوت',noteBy:'كتب عمر:',reply:'ردّ بأغنية من صنعك',replySub:'البدء مجاني · يستغرق دقيقة تقريبًا',
+ ai:'صُنع بالذكاء الاصطناعي',aiOn:'صُنع بالذكاء الاصطناعي على Reelkar',privacy:'سيرى عمر فقط أنها فُتحت وكم مرة شُغّلت. لا شيء غير ذلك.',report:'إبلاغ',terms:'الشروط',follow:'تابع الكلمات',
+ procT:'أغنيتك على وشك أن تجهز',procX:'ما زالت قيد الإعداد. ستتحقق هذه الصفحة تلقائيًا.',err:'لم تُحمَّل الأغنية. تحقّق من الإنترنت واضغط للمحاولة مجددًا.',retry:'حاول مجددًا',loading:'جارٍ التحميل…',
+ removed:'هذه الهدية لم تعد متاحة',removedX:'أوقف المُرسِل مشاركتها.',makeOwn:'اصنع أغنيتك',
+ joinT:'ردّ على عمر',joinSub:'اصنع أغنية في المقابل. البدء مجاني.',apple:'المتابعة باستخدام Apple',google:'المتابعة باستخدام Google',or:'أو',phone:'رقم الجوال',dial:'+971',send:'أرسل الرمز',code:'رمز من 6 أرقام',verify:'تحقّق',
+ fine:'بالمتابعة، أنت توافق على الشروط. لن ننشر أي شيء دون إذنك.',repT:'الإبلاغ عن هذه الهدية',reasons:['تستخدم صوتي أو وجهي دون موافقتي','حقوق النشر','محتوى مسيء أو يحض على الكراهية','محتوى جنسي يتعلق بقاصر','سبب آخر'],
+ details:'تفاصيل (اختياري)',sendRep:'أرسل البلاغ',close:'إغلاق',meta:'من عمر · عيد ميلاد · 1:48',playL:'شغّل أغنية عيد الميلاد إلى مريم، دقيقة و48 ثانية',pauseL:'إيقاف مؤقت',lyricsL:'كلمات الأغنية',
+ picLoading:'جارٍ تحميل الصورة',chats:'الدردشات',online:'متصل الآن',today:'اليوم',
+ lyr:['يا مريم، الشموع بانتظارك','ضحكتك أغنية بيتنا','سنة أخرى معك، سنة من نور','عيد ميلاد سعيد يا أختي الصغيرة','تمنّي أمنية بصوت عالٍ','سنغني طوال الليل']}
+};
+
+/* ---------- state ---------- */
+const sysDark=matchMedia('(prefers-color-scheme: dark)').matches;
+const S={screen:'g1',theme:sysDark?'dark':'light',lang:'en',rm:matchMedia('(prefers-reduced-motion: reduce)').matches,web:'sealed',r1:'sealed',cover:0,aiCover:'idle',approved:false,d10:'none',split:false,listen:true,follow:true,reveal:{}};
+const K={w:-1,playing:false,timer:null};
+const L=()=>T[S.lang];
+const tcls=()=>S.theme==='dark'?'t-dark':'t-light';
+const langAttrs=(on)=>{const l=on?S.lang:'en';return `lang="${l}" dir="${l==='ar'?'rtl':'ltr'}" class="${l==='hi'?'l-hi':l==='ar'?'l-ar':''}"`;};
+
+/* ---------- small builders ---------- */
+const hdr=(t,sub,back,right='')=>`<div class="hdr">${back?`<button class="ib" data-go="${back}" aria-label="Back">${ic('back','flip')}</button>`:''}<div class="tt"><b class="disp">${t}</b>${sub?`<small>${sub}</small>`:''}</div>${right}</div>`;
+const btn=(l,o={})=>`<button type="button" class="b ${o.k||''} ${o.block===false?'':'block'} ${o.sm?'sm':''} ${o.cls||''}" ${o.go?`data-go="${o.go}"`:''} ${o.act?`data-act="${o.act}"`:''} ${o.dis?'disabled':''} ${o.al?`aria-label="${o.al}"`:''}>${o.ic?ic(o.ic):''}<span>${l}</span></button>`;
+const credits=(n=12)=>`<span class="cr" aria-label="${n} credits">${ic('coin')}${n}</span>`;
+const fakeTrk=(p,c='')=>`<div class="trk" role="presentation"><i style="width:${p}%"></i></div>`;
+const player=(o={})=>`<div class="pl"><button type="button" class="pbtn ${o.sm?'sm':''}" aria-label="${o.al||'Play'}" ${o.go?`data-go="${o.go}"`:''}>${ic(o.playing?'pause':'play')}</button>${fakeTrk(o.p??0)}<span class="tc">${o.t||'0:00 / 1:48'}</span></div>`;
+const tabbar=(on)=>`<div class="tabbar" role="tablist" aria-label="Tabs">${[['home','Home'],['reels','Reels'],['plus',''],['inbox','Inbox'],['you','You']].map(([i,l])=>i==='plus'?`<span><i class="plus" aria-label="Make">${ic('plus')}</i></span>`:`<span role="tab" aria-selected="${on===i}" class="${on===i?'on':''}">${ic(i)}${l}</span>`).join('')}</div>`;
+const ft=(h)=>`<div class="ft">${h}</div>`;
+const ph=(n)=>`<span class="tag">placeholder</span>`;
+
+/* ---------- gift preview card ---------- */
+function giftCard(l,c){const ck=['bday','photo','ai'][c];return `<div class="hero" style="display:flex;gap:14px;align-items:center;padding:14px"><div style="width:92px;height:92px">${cover(ck,'width:92px;height:92px')}</div><div style="flex:1;min-width:0"><div class="ov">${l.occ[0]}</div><div class="hd" style="font-size:20px">${l.pTitle}</div><p>${l.pFrom}</p><span class="pill ai" style="margin-top:6px">${l.ai}</span></div></div>`;}
+
+/* ---------- karaoke ---------- */
+function words(l){const out=[];let n=0;l.lyr.forEach((line,li)=>{const ws=line.split(' ');out.push({li,a:n,b:n+ws.length-1,ws,line});n+=ws.length;});return {lines:out,N:n};}
+function karaoke(l,scope){const {lines}=words(l);return `<div class="kwell" data-follow-well><ol class="kar" aria-label="${l.lyricsL}">${lines.map(x=>`<li data-a="${x.a}" data-b="${x.b}" data-seek="${x.a}"><span class="sr">${x.line}</span><span aria-hidden="true">${x.ws.map((w,i)=>`<span class="w" data-i="${x.a+i}">${w}</span>`).join(' ')}</span></li>`).join('')}</ol></div>`;}
+function updK(){
+ const l=L();const {N}=words(l);const sec=Math.round((K.w+1)/N*108);const tt=`${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')} / 1:48`;
+ $$('.kar').forEach(ol=>{let cur=null;$$('li',ol).forEach(li=>{const a=+li.dataset.a,b=+li.dataset.b;const c=K.w>=a&&K.w<=b;li.className=b<K.w?'past':c?'cur':'';if(c){li.setAttribute('aria-current','true');cur=li}else li.removeAttribute('aria-current');});
+  $$('.w',ol).forEach(w=>w.classList.toggle('on',+w.dataset.i<=K.w));
+  const well=ol.parentElement;if(cur&&S.follow&&K.playing){well.scrollTo({top:cur.offsetTop-well.clientHeight/3,behavior:S.rm?'auto':'smooth'})}});
+ $$('.kt').forEach(e=>e.textContent=tt);$$('.kp').forEach(e=>e.style.width=Math.max(0,(K.w+1)/N*100)+'%');
+ $$('.kplay').forEach(b=>{b.innerHTML=ic(K.playing?'pause':'play');b.setAttribute('aria-label',K.playing?l.pauseL:l.playL)});
+}
+function kPlay(on){K.playing=on;clearInterval(K.timer);if(on){const {N}=words(L());if(K.w>=N-1)K.w=-1;K.timer=setInterval(()=>{K.w++;if(K.w>=N-1){K.w=N-1;kPlay(false)}updK()},520)}updK();}
+
+/* ---------- public gift page ---------- */
+function giftPage(st,wide,scope){
+ const l=L();const reveal=S.reveal[scope];S.reveal[scope]=false;
+ const head=`<div class="gph"><span class="wm">${logo(28)}Reelkar</span><span class="pill ai">${l.ai}</span></div>`;
+ const foot=`<div class="gfoot"><span>${l.aiOn} · ${l.privacy}</span><span class="lk"><a data-act="wstate:report:${scope}" role="button" tabindex="0">${ic('flag')} ${l.report}</a><a role="button" tabindex="0">${l.terms}</a></span></div>`;
+ const petals=reveal?`<div class="petals" aria-hidden="true">${Array.from({length:12},(_,i)=>`<i style="left:${6+i*8}%;animation-delay:${(i%5)*.12}s"></i>`).join('')}</div>`:'';
+ let body='';
+ if(st==='sealed'||st==='processing'){
+  const proc=st==='processing';
+  body=`<section class="hero gseal" aria-labelledby="gh-${scope}"><div><div class="ov">${l.over}</div><div class="hd" id="gh-${scope}">${proc?l.procT:l.head}</div>${proc?`<p>${l.procX}</p>`:`<div class="chips" style="justify-content:${wide?'flex-start':'center'};margin:6px 0 14px"><span class="pill">${ic('gift')}${l.occ[0]}</span><span class="pill">${ic('music')}${S.lang==='en'?'Hindi pop':S.lang==='hi'?'हिंदी पॉप':'بوب خليجي'}</span></div>`}
+   ${proc?`<div style="display:flex;gap:10px;align-items:center;justify-content:${wide?'flex-start':'center'};margin-top:14px">${reelLoop()}<span class="ov">${l.loading}</span></div>`:`${btn(l.open,{k:'deep',ic:'gift',act:'open:'+scope,cls:'',block:!wide})}<p style="margin-top:10px;font-size:13px">${l.sound}</p>`}</div>
+   <div class="box">${cover('bday')}${proc?'':'<i class="rb1"></i><i class="rb2"></i><i class="bow"></i>'}</div></section>`;
+ } else if(st==='removed'){
+  body=`<section class="card" style="text-align:center;padding:28px 18px;display:flex;flex-direction:column;gap:12px;align-items:center;${wide?'max-width:560px;margin:40px auto':''}"><div style="width:120px;height:120px;border-radius:24px;background:var(--surface-sunken);display:grid;place-items:center;color:var(--ink-muted)">${ic('gift')}</div><div class="hd" style="font-size:24px">${l.removed}</div><p class="capn" style="font-size:15px">${l.removedX}</p>${btn(l.makeOwn,{k:'sec',block:false})}</section>`;
+ } else {
+  const fail=st==='audio',slow=st==='slow';
+  const cov=slow?`<div class="gcov blk" style="background:#6b2f4f"><span>${l.picLoading}</span></div>`:cover('bday','')
+   .replace('class="cov"','class="cov gcov"');
+  const pl=`<div class="pl">${fail?`<button type="button" class="pbtn" aria-label="${l.retry}" data-act="wstate:playing:${scope}">${ic('refresh')}</button>`:slow?`<button type="button" class="pbtn" aria-label="${l.loading}" aria-busy="true"><span class="ring"></span></button>`:`<button type="button" class="pbtn kplay" data-act="kplay" aria-label="${l.playL}">${ic('play')}</button>`}<div class="trk"><i class="${fail||slow?'':'kp'}" style="width:${fail?'0':slow?'0':'0'}%"></i>${slow?'<u style="width:12%"></u>':''}</div><span class="tc ${fail||slow?'':'kt'}">0:00 / 1:48</span></div>`;
+  const main=`<section class="gmain ${reveal?'reveal':''}">${cov}<div><h2 class="gtitle disp">${l.pTitle}</h2><p class="capn" style="font-size:14px">${l.meta}</p></div>${pl}${fail?`<div class="ban err" role="alert">${ic('x')}<div>${l.err}</div></div>`:''}${slow?`<p class="capn" role="status">${l.loading}</p>`:''}</section>`;
+  const side=`<section style="display:flex;flex-direction:column;gap:14px"><div class="knote"><b>${l.lyricsL}</b><button type="button" class="ch ${S.follow?'on':''}" data-act="follow" aria-pressed="${S.follow}">${S.follow?ic('check'):''}${l.follow}</button></div>${karaoke(l,scope)}<div class="qnote"><small>${l.noteBy}</small>${l.note}</div><div class="stick">${btn(l.reply,{ic:'mic',act:'wstate:join:'+scope})}<small>${l.replySub}</small></div></section>`;
+  body=wide?`<div class="gcols">${main}${side}</div>`:main+side;
+ }
+ let sheet='';
+ if(st==='report'||st==='join'){
+  const base=giftPage('playing',wide,scope); // background page
+  sheet=st==='report'?`<div class="ovl"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="rp-${scope}"><div class="grab"></div><div class="row"><div><b class="hd" style="font-size:20px" id="rp-${scope}">${l.repT}</b></div><button class="ib" aria-label="${l.close}" data-act="wstate:playing:${scope}">${ic('x')}</button></div><div role="radiogroup">${l.reasons.map((r,i)=>`<div class="radio ${i===0?'on':''}" role="radio" aria-checked="${i===0}" tabindex="0"><i></i>${r}</div>`).join('')}</div><div><span class="lb">${l.details}</span><div class="in ta"></div></div>${btn(l.sendRep,{act:'wstate:playing:'+scope})}<p class="capn">Grievance officer: grievance@reelkar.app</p></div></div>`
+  :`<div class="ovl"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="jn-${scope}"><div class="grab"></div><div class="row"><div style="width:52px;height:52px">${cover('bday','width:52px;height:52px;border-radius:14px')}</div><div><b class="hd" style="font-size:22px;margin:0" id="jn-${scope}">${l.joinT}</b><small>${l.joinSub}</small></div><button class="ib" aria-label="${l.close}" data-act="wstate:playing:${scope}">${ic('x')}</button></div>${btn(l.apple,{k:'sec',ic:'apple'})}${btn(l.google,{k:'sec',ic:'search'})}<div style="display:flex;align-items:center;gap:10px;color:var(--ink-muted);font-size:13px"><hr style="flex:1;border:0;border-top:1px solid var(--line)">${l.or}<hr style="flex:1;border:0;border-top:1px solid var(--line)"></div><div><span class="lb">${l.phone}</span><div class="in"><span class="pill raised ltr">${l.dial}</span><span class="ltr" style="unicode-bidi:isolate">98765 43210</span></div></div><div><span class="lb">${l.code}</span><div class="in ltr" style="letter-spacing:.4em;font-family:'JetBrains Mono',monospace;justify-content:center">4 8 2 _ _ _</div></div>${btn(l.verify,{go:scope.startsWith('web')?'':'r3',act:scope.startsWith('web')?'gotoR3':''})}<p class="capn">${l.fine}</p></div></div>`;
+  return base.replace(/<\/div>$/,sheet+'</div>');
+ }
+ return `<div class="gp ${wide?'wide':''}" ${langAttrs(true).replace('class="','data-x="')} >${petals}${head}<div class="gbody">${body}</div>${foot}</div>`;
+}
+function wrapGP(html,wide){/* apply lang class on gp root */const l=S.lang;const cls=l==='hi'?'l-hi':l==='ar'?'l-ar':'';return html.replace('<div class="gp ','<div class="'+cls+' gp ');}
+
+/* ---------- web duet invite (W3, English) ---------- */
+function duetWeb(wide){return `<div class="gp ${wide?'wide':''}" lang="en" dir="ltr"><div class="gph"><span class="wm">${logo(28)}Reelkar</span><span class="pill ai">Made with AI</span></div><div class="gbody"><section class="hero gseal" style="${wide?'':'text-align:start;align-items:stretch'}"><div><div class="ov">Jugalbandi invite · open for 47 more hours</div><div class="hd">Arjun wants to sing a Jugalbandi with you</div><p>“Chai vs coffee, settled in song” · Bollywood pop</p><div class="card" style="margin:14px 0;color:var(--ink)">${player({al:'Play Arjun’s part, 28 seconds',t:'0:00 / 0:28'})}<p class="capn" style="margin-top:8px">Arjun’s part · AI singer</p></div>${btn('Sing your part',{k:'deep',ic:'mic',block:!wide})}<p style="margin-top:10px;font-size:13px">Free for you. Arjun pays unless you offer to split. You record in the Reelkar app; we’ll bring you straight back here.</p></div>${wide?`<div class="box">${cover('duet')}</div>`:''}</section>${wide?`<div class="card row" style="gap:16px"><div style="width:96px;height:96px;background:#fff;border-radius:12px;display:grid;place-items:center;color:#2a1235;font:700 11px Inter">QR</div><div><b>On a computer?</b><small>Scan to open the invite on your phone. Your invite stays linked to your account after you sign up.</small></div></div>`:''}</div><div class="gfoot"><span>Made with AI on Reelkar · Expired invites say “This invite has closed. Ask Arjun to send a new one.”</span><span class="lk"><a role="button" tabindex="0">${ic('flag')} Report</a><a role="button" tabindex="0">Terms</a></span></div></div>`;}
+
+/* ---------- OG preview ---------- */
+function ogCard(){const l=L();const rtl=S.lang==='ar';return `<div class="ogc" dir="${rtl?'rtl':'ltr'}"><div class="cv">${cover('bday','width:100%;height:100%;border-radius:0')}</div><div class="tx2"><div class="a">${l.ogA}</div><div class="f">${l.ogFor}</div><div class="s">${l.pFrom}</div><span class="lgm">${logo(40).replace('width="40" height="40"','width="100%" height="100%"')}</span><span class="m">${l.ai}</span></div></div>`;}
+
+/* ---------- screens ---------- */
+const SCR=[
+{id:'g1',g:'Gift · sender',t:'Song ready',route:'hum/[id] (and songs/[id])',reuse:'Existing Ready screen; one new button',notes:['“Make it a gift” is a secondary button after “Mix and save” (Mix stays the one primary here).','Shown only when the song is completed. Instrumentals can be gifts too.','Same button in Song Studio, above “Make music video”.'],
+ r:()=>`${hdr('Didi’s birthday song','Hum it','g1')}<div class="bd"><div class="win" role="status"><i>${ic('check')}</i>Your song is ready</div><div style="display:flex;justify-content:center">${cover('bday','width:220px;height:220px;border-radius:24px')}</div><div class="card">${player({t:'0:00 / 1:48',al:'Play Didi’s birthday song'})}</div>${btn('Mix and save',{ic:'music'})}${btn('Make it a gift',{k:'sec',ic:'gift',go:'g2',cls:'new'})}${btn('Open in Song Studio',{k:'sec',ic:'music'})}<div style="display:flex;justify-content:center">${btn('Share',{k:'ghost',ic:'share',block:false,sm:true})}</div></div>`},
+{id:'g2',g:'Gift · sender',t:'Make it a gift',i18n:1,route:'songs/[id]/gift (new)',reuse:'Field, ChipRow, SongCover, Screen footer',notes:['Live preview card at the top: the gift as the recipient will see it.','Occasion is pre-picked from the song’s topic when the AI can tell.','Cover: song cover (default), my photo, or a free AI cover made from the occasion. Tap the tiles.','Selected tile has a ring and a check badge, never colour alone.','Create stays disabled until “Who is it for?” is filled.'],
+ r:(o={})=>{const l=o.reply?T.en:L();const tiles=['bday','photo','ai'];const making=S.aiCover==='making';return `${hdr(o.reply?'Send it back':l.make,o.reply?'Reply gift':'',o.reply?'r6':'g1')}<div class="bd">${giftCard(o.reply?{...l,pTitle:'A thank-you song for Rajnish',pFrom:'From Priya'}:l,o.reply?2:S.cover)}<div><span class="lb">${l.toL}</span><div class="in">${o.reply?`${ic('lock')}<span>Rajnish</span>`:`<span>${l.to}</span>`}</div>${o.reply?'<p class="capn" style="margin-top:4px">Replies always go back to the person who sent you the gift.</p>':''}</div><div><span class="lb">${l.occL}</span><div class="chips" role="radiogroup">${l.occ.map((x,i)=>`<button type="button" class="ch ${i===0?'on':''}" role="radio" aria-checked="${i===0}">${i===0?ic('check'):''}${x}</button>`).join('')}</div></div><div><span class="lb">${l.noteL}</span><div class="in ta">${o.reply?'<span class="ph-t">Thank you, bhaiya…</span>':l.note}</div><div class="cnt"><span class="ltr" style="unicode-bidi:isolate;display:inline-block">${o.reply?'0':l.note.length} / 200</span></div></div><div><span class="lb">${l.coverL}</span><div class="tiles" role="radiogroup" aria-label="${l.coverL}">${tiles.map((k,i)=>{const on=(o.reply?2:S.cover)===i;return `<button type="button" class="tl" role="radio" aria-checked="${on}" data-act="cover:${i}"><span style="position:relative;display:block;width:72px;height:72px;border-radius:18px;${on?'box-shadow:0 0 0 3px var(--action)':''}">${i===2&&making?`<span style="display:grid;place-items:center;width:72px;height:72px;border-radius:18px;background:var(--surface-sunken)">${reelLoop()}</span>`:cover(k,'width:72px;height:72px')}${on?`<span style="position:absolute;top:-6px;inset-inline-end:-6px;width:24px;height:24px;border-radius:50%;background:var(--action);color:var(--on-action);display:grid;place-items:center">${ic('check')}</span>`:''}</span>${i===2&&making?l.making:l.cv[i]}${i===2?'<span class="pill tint" style="font-size:10px;padding:2px 8px">AI</span>':''}</button>`}).join('')}</div></div><p class="capn">${l.free}</p></div>${ft(btn(l.create,{ic:'link',go:'g3'}))}`}},
+{id:'g3',g:'Gift · sender',t:'Gift ready + share',i18n:1,route:'songs/[id]/gift · ready',reuse:'Win; new ShareSheet (used again by Jugalbandi invites)',notes:['Our own sheet, because the iOS share sheet can’t put WhatsApp first.','“Send on WhatsApp” is the chilli primary with the WhatsApp glyph (one brand primary per screen).','More opens the system sheet: Instagram DM, Telegram, SMS, Botim.','Link never expires; “Stop sharing” lives on the gift thread.'],
+ r:()=>{const l=L();return `${hdr(l.make,'','g2')}<div class="bd"><div class="win" role="status"><i>${ic('check')}</i>${l.ready}</div>${giftCard(l,S.cover)}<div class="in ltr" style="justify-content:space-between"><span>reelkar.app/g/x7Kp2</span>${ic('link')}</div></div><div class="sheet" style="margin-top:auto" role="dialog" aria-label="${l.sendT}"><div class="grab"></div><b class="hd" style="font-size:20px;margin:0">${l.sendT}</b>${btn(l.wa,{ic:'wa',go:'g4'})}<div class="tiles"><button type="button" class="tl"><i>${ic('wa')}</i>${l.waS}</button><button type="button" class="tl"><i>${ic('link')}</i>${l.copy}</button><button type="button" class="tl"><i>${ic('dots')}</i>${l.more}</button></div><p class="capn" style="text-align:center">${l.seeInbox}</p></div>`}},
+{id:'g4',g:'Gift · sender',t:'WhatsApp preview',i18n:1,route:'(WhatsApp, Priya’s phone)',reuse:'og:image rendered server-side (Skia), 1200×630',notes:['What Priya sees. Tap the card to open the gift page.','og:title “A birthday song for Priya, from Rajnish”; og:description “Tap to open your gift. Made with AI on Reelkar.”','The note is never in the preview, to keep the surprise.','Arabic gifts flip the card: cover on the right.','Emoji only inside the outgoing message text, never as UI icons.'],
+ r:()=>{const l=L();return `<div class="wa"><div class="wa-h"><button class="ib" aria-label="${l.chats}" style="color:inherit">${ic('back','flip')}</button><span class="av" style="background:#ffb21a">${l.from[0]}</span><div style="flex:1"><b>${l.from}</b><small>${l.online}</small></div></div><div class="wa-bg"><span class="wa-day">${l.today}</span><div class="bub"><button type="button" class="og" data-go="r1" aria-label="${l.ogT}">${ogCard()}<div class="tx"><b>${l.ogT}</b><small>${l.ogD}</small><small class="ltr" style="text-align:start">reelkar.app</small></div></button><div class="msg">${l.waMsg} <a class="ltr" style="unicode-bidi:isolate">reelkar.app/g/x7Kp2</a></div><time class="ltr">9:41</time></div><div class="bub me"><div class="msg">${S.lang==='ar'?'ما هذا؟؟ 😍':S.lang==='hi'?'ये क्या है?? 😍':'What is this?? 😍'}</div><time class="ltr">9:42 ✓✓</time></div></div></div>`}},
+{id:'g5',g:'Gift · sender',t:'Inbox: gift status',route:'(tabs)/inbox',reuse:'Card, Status, tab bar; replaces the Inbox “coming soon” screen',notes:['New section “Gifts and duets” on top; the comments coming-soon card moves below.','Privacy: opened, play count, last played. Never who, where or which device. Identity only when someone replies (they sign in to reply).','“Priya” is the name the sender typed; the card says “Opened”, not “Opened by Priya”.','Also listed under My songs › Gifts.'],
+ r:()=>`${hdr('Inbox','Gifts and duets',null)}<div class="bd"><button type="button" class="card" data-go="g7" style="text-align:start;cursor:pointer;display:flex;flex-direction:column;gap:10px;width:100%;color:inherit"><div class="row"><div style="width:52px;height:52px;flex:none">${cover('bday','width:52px;height:52px;border-radius:14px')}</div><div><b>Birthday song for Priya</b><small>Priya sent you a song back · 2 min ago</small></div><span class="pill mint">New</span></div><span class="b sm mint" style="align-self:flex-start">${ic('play')}Play reply</span></button>
+ <div class="card row"><div style="width:52px;height:52px;flex:none">${cover('eid','width:52px;height:52px;border-radius:14px')}</div><div><b>Eid song for Imran chacha</b><small>${ic('check','ok')} Opened · 2 plays · last 3 h ago</small></div>${ic('chev','flip')}</div>
+ <div class="card row"><div style="width:52px;height:52px;flex:none">${cover('anniv','width:52px;height:52px;border-radius:14px')}</div><div><b>Anniversary song for Mummy-Papa</b><small>${ic('clock')} Sent · not opened yet</small></div><button class="b sm sec" style="min-height:44px">Send again</button></div>
+ <button type="button" class="card row" data-go="d4" style="text-align:start;cursor:pointer;width:100%;color:inherit"><div style="width:52px;height:52px;flex:none">${cover('duet','width:52px;height:52px;border-radius:14px')}</div><div><b>Jugalbandi with Sana</b><small>Waiting for Sana · 47 h left</small></div>${ic('chev','flip')}</button>
+ <div class="card flat"><b>Comments from every platform</b><p class="capn">Coming in the next beta.</p></div></div>${tabbar('inbox')}`},
+{id:'g6',g:'Gift · sender',t:'Notifications',route:'Expo push (new dependency)',reuse:'—',notes:['First open only (not every play). Reply push always.','More than 3 opens in an hour batch into one push.','Both deep-link into the gift thread.'],
+ lock:1,r:()=>`<div style="text-align:center;padding:30px 0 20px"><div style="font:600 18px Inter">Thursday 13 November</div><div style="font:700 84px/1 Inter;letter-spacing:-.03em">9:41</div></div><div class="bd"><button type="button" class="notif" data-go="g7"><span class="lg">${logo(38)}</span><div><b>Priya sent you a song back</b><small>Tap to play it.</small></div><small>now</small></button><button type="button" class="notif" data-go="g5"><span class="lg">${logo(38)}</span><div><b>Priya opened your gift</b><small>Your birthday song has been played.</small></div><small>2h</small></button></div>`},
+{id:'g7',g:'Gift · sender',t:'Gift thread',route:'gifts/[id] (new)',reuse:'SongPlayerRow, Card, ShareSheet',notes:['Oldest first: your gift, then each reply (a family group may send several).','Each reply is its own gift with its own link; it can be shared on.','Stop sharing asks first: “The link will stop working. You can share it again later.”','Reply again opens the same reply chooser with Priya as recipient.'],
+ r:()=>`${hdr('Birthday song for Priya','2 songs','g5')}<div class="bd"><div class="card" style="display:flex;flex-direction:column;gap:10px"><div class="row"><div style="width:56px;height:56px;flex:none">${cover('bday','width:56px;height:56px;border-radius:14px')}</div><div><b>Your gift</b><small>12 Nov · ${ic('check','ok')} Opened · 2 plays</small></div></div>${player({sm:true,t:'0:00 / 1:48'})}<p class="capn">“Happy birthday, chhoti! I made this one just for you.”</p></div>
+ <div class="card" style="display:flex;flex-direction:column;gap:10px;border-color:var(--teal-text)"><div class="row"><div style="width:56px;height:56px;flex:none">${cover('reply','width:56px;height:56px;border-radius:14px')}</div><div><b>From Priya</b><small>Hum it · 0:42 · just now</small></div><span class="pill ai">Made with AI</span></div>${player({sm:true,playing:true,p:38,t:'0:16 / 0:42',al:'Pause Priya’s reply'})}<p style="margin:0">“Bhaiya!! I can’t stop crying. Here’s mine for you.”</p></div></div>${ft(btn('Reply again',{ic:'mic',go:'r3'})+`<div style="display:flex;gap:8px">${btn('Share',{k:'sec',ic:'share',sm:true})}${btn('Stop sharing',{k:'ghost',sm:true})}</div>`)}`},
+{id:'r1',g:'Gift · recipient',t:'Gift page (phone)',i18n:1,web:1,route:'web /g/[token]',reuse:'globals.css tokens; audio bits of reel-player.tsx',notes:['Sealed: “Open your gift” is a deep button on the saffron hero; the tap starts the audio.','Reveal: ribbon off, cover scales up, petals fall once. Reduced motion: 150 ms fade only.','Karaoke: tap play. The current line is bold, sung words fill chilli; tap a line to seek; “Follow along” turns auto-scroll off.','Screen readers get a plain list with aria-current on the sung line, no live announcements.','“Reply with your own song” is the one primary, sticky at the bottom.'],
+ r:()=>`<div class="safari"><span>${ic('lock')}reelkar.app</span></div>${wrapGP(giftPage(S.r1,false,'r1'),false)}`},
+{id:'r2',g:'Gift · recipient',t:'One-screen sign-up',i18n:1,web:1,route:'web /g/[token]/join · app (auth)/sign-in variant',reuse:'login-form.tsx (web); sign-in.tsx + otp.tsx merged (app)',notes:['One screen: Apple, Google, or phone. The code field appears in place, auto-filled from SMS where possible.','+971 is the default when the browser is in Arabic.','New accounts get the usual welcome credits (covers one Hum it reply).','After sign-in: the app opens via universal link, or the web create flow carries the same prefill.'],
+ r:()=>`<div class="safari"><span>${ic('lock')}reelkar.app</span></div>${wrapGP(giftPage('join',false,'r2'),false)}`},
+{id:'r3',g:'Gift · recipient',t:'How to reply',route:'gifts/reply?to={token} (new)',reuse:'Card, ListRow, Credits',notes:['Prefilled chips: For Rajnish · Birthday · Reply (tap to change).','Two ways in, both existing flows: Hum it, or Simple song (“Describe it”).','Voice rule spelled out: AI voice or your own; Rajnish’s voice can’t be used.'],
+ r:()=>`${hdr('Reply to Rajnish','Birthday song','r2',credits(6))}<div class="bd"><div class="chips"><span class="pill raised">${ic('user')}For Rajnish</span><span class="pill raised">${ic('gift')}Birthday</span><span class="pill raised">${ic('refresh')}Reply</span></div><button type="button" class="card row" data-go="r4" style="text-align:start;cursor:pointer;min-height:96px;width:100%;color:inherit"><span class="av" style="width:56px;height:56px;border-radius:18px;background:var(--deep);color:var(--on-deep)">${ic('mic')}</span><div><b class="disp" style="font-size:18px">Hum it</b><small>Hum, sing or just say it</small></div>${ic('chev','flip')}</button><button type="button" class="card row" style="text-align:start;cursor:pointer;min-height:96px;width:100%;color:inherit"><span class="av" style="width:56px;height:56px;border-radius:18px;background:var(--teal);color:var(--on-teal)">${ic('spark')}</span><div><b class="disp" style="font-size:18px">Describe it</b><small>Write one line, AI does the rest</small></div>${ic('chev','flip')}</button><p class="capn">Hum it · 2 credits · you have 6 free credits</p><div class="ban">${ic('mic')}<div>You can sing it in an AI voice or your own voice. Rajnish’s voice can’t be used.</div></div></div>`},
+{id:'r4',g:'Gift · recipient',t:'Hum it (reply mode)',route:'hum/index?gift={token}',reuse:'Hum it Record, unchanged + reply banner',notes:['Only addition: a banner with “Play theirs” so she can hum along to the same tune.','Everything else is the existing Record screen (states, permissions, 1-minute limit).'],
+ r:()=>`${hdr('Hum it','Reply to Rajnish','r3',credits(6))}<div class="bd" style="flex:1"><div class="ban row">${ic('gift')}<div>Replying to Rajnish’s birthday song</div><button class="b sm sec" style="min-height:44px">${ic('play')}Play theirs</button></div><div class="hero" style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;min-height:360px;text-align:center"><div class="hd">Hum, sing or just say it</div><p>“A thank-you song for bhaiya”</p><button type="button" class="mic" data-go="r5" aria-label="Record. Hum, sing or say what you want">${ic('mic')}</button><b style="margin-top:8px">Tap to start</b></div><div style="display:flex;gap:8px">${btn('Film yourself',{k:'sec',ic:'film',sm:true})}${btn('Import a file',{k:'sec',ic:'download',sm:true})}</div></div>`},
+{id:'r5',g:'Gift · recipient',t:'Confirm (reply mode)',route:'hum/confirm',reuse:'Hum it Confirm; topic + occasion prefilled',notes:['Topic is prefilled and editable.','“Sing in” lists AI singers and her own consented voices only. There is no option for the sender’s voice, and the API refuses a voice the caller doesn’t own.','Price on the button, as today.'],
+ r:()=>`${hdr('Here’s what I heard','','r4',credits(6))}<div class="bd"><div class="card" style="display:flex;flex-direction:column;gap:12px"><div class="chips">${['Humming','Singing','Asking'].map((x,i)=>`<span class="ch ${i===0?'on':''}">${i===0?ic('check'):''}${x}${i===0?' · heard':''}</span>`).join('')}</div><div><span class="lb">About</span><div class="in ta">A thank-you song for Rajnish bhaiya, for my birthday</div></div><div><span class="lb">Style</span><div class="chips"><span class="ch on">${ic('check')}Bollywood pop</span><span class="ch">Sufi</span><span class="ch">Indie</span></div></div><div><span class="lb">Sing in</span><div class="chips"><span class="ch on">${ic('check')}AI singer ♀</span><span class="ch">AI singer ♂</span><span class="ch">${ic('plus')}My voice</span></div><p class="capn" style="margin-top:6px">Only AI singers and your own voice.</p></div><div><span class="lb">Title</span><div class="in">Thank you, bhaiya</div></div></div></div>${ft(btn('Make it · 2 credits',{ic:'spark',go:'r6'})+'<p class="capn" style="text-align:center">About a minute · you can leave this screen</p>')}`},
+{id:'r6',g:'Gift · recipient',t:'Reply ready',route:'hum/[id] (reply mode)',reuse:'Hum it Ready',notes:['Primary becomes “Send it back to Rajnish”; Mix and save drops to secondary.','Rajnish also gets it in the Reelkar app automatically; the thread knows him.'],
+ r:()=>`${hdr('Thank you, bhaiya','Hum it','r5')}<div class="bd"><div class="win" role="status"><i>${ic('check')}</i>Your song is ready</div><div style="display:flex;justify-content:center">${cover('reply','width:220px;height:220px;border-radius:24px')}</div><div class="card">${player({t:'0:00 / 0:42'})}</div>${btn('Send it back to Rajnish',{ic:'gift',go:'r7',cls:'new'})}${btn('Mix and save',{k:'sec',ic:'music'})}</div>`},
+{id:'r7',g:'Gift · recipient',t:'Send it back',route:'songs/[id]/gift?replyTo={giftId}',reuse:'Gift step (G2) with the recipient locked',notes:['Same gift step; “To” is locked to the original sender.','Occasion kept, note empty, AI cover pre-picked.','Then the same share sheet (G3), plus delivery into Rajnish’s gift thread.'],
+ r:()=>SCR.find(s=>s.id==='g2').r({reply:true}).replace('data-go="g3"','data-go="g7"')},
+{id:'d1',g:'Jugalbandi · A',t:'Start a Jugalbandi',route:'duets/new (new)',reuse:'Field, ChipRow (Song Studio genres), Credits',notes:['Entry: Create tab tile “Jugalbandi”, or “Sing with a friend” on Hum it Record.','Price up front. Credits are held, not spent, until the song is joined.','6 credits = a song (4) + a song on your tune (2). Placeholder.'],
+ r:()=>`${hdr('Jugalbandi','Make','g5',credits(12))}<div class="bd"><div class="hero"><div class="hd" style="font-size:24px">Make a song with a friend</div><p>You sing one part, they sing the other. AI joins them into one song.</p></div><div><span class="lb">What’s it about?</span><div class="in ta">Two friends arguing about chai vs coffee</div></div><div><span class="lb">Style</span><div class="chips">${['Bollywood pop','Punjabi','Sufi','Indie','Khaleeji','Rap'].map((x,i)=>`<span class="ch ${i===0?'on':''}">${i===0?ic('check'):''}${x}</span>`).join('')}</div></div><div class="card" style="display:flex;flex-direction:column;gap:6px"><div class="row">${ic('coin')}<div><b>You pay 6 credits ${ph()}</b><small>Your partner can offer to pay half.</small></div></div><p class="capn">Held now, spent only when the song is joined. Not joined, not spent.</p></div></div>${ft(btn('Record my part',{ic:'mic',go:'d2'})+'<p class="capn" style="text-align:center">About 30 seconds each · you both approve before anything is posted</p>')}`},
+{id:'d2',g:'Jugalbandi · A',t:'Record your part',route:'hum/index?duet={id}&part=a',reuse:'Hum it Record (review state)',notes:['Part chip tells A what to sing: first verse and chorus. Limit 30 s, warning at 0:25.','“Sing in” appears only if A has a consented voice; it lists only A’s own voices.','“Use this” goes to Invite.'],
+ r:()=>`${hdr('Your part','Jugalbandi · Chai vs coffee','d1',credits(12))}<div class="bd" style="flex:1"><div class="hero" style="flex:1;display:flex;flex-direction:column;gap:10px;justify-content:flex-end;min-height:330px;text-align:center"><span class="pill" style="align-self:center">Part 1 · first verse and chorus</span><div class="hd">Got it · 0:28</div><p>Play it back, or use it</p><div class="meter" aria-hidden="true">${[10,18,26,14,30,22,12,28,20,16,24,12,8,18,26,14].map(h=>`<i style="height:${h}px"></i>`).join('')}</div><div style="display:flex;gap:12px;justify-content:center;align-items:center"><button class="pbtn" aria-label="Play your part, 28 seconds">${ic('play')}</button>${btn('Record again',{k:'sec',ic:'refresh',sm:true,block:false})}</div></div><div><span class="lb">Sing in</span><div class="chips"><span class="ch on">${ic('check')}AI singer ♂</span><span class="ch">My voice</span></div></div></div>${ft(btn('Use this',{ic:'check',go:'d3'}))}`},
+{id:'d3',g:'Jugalbandi · A',t:'Invite your partner',route:'duets/[id]/invite (new)',reuse:'Field (search), ListRow, ShareSheet from gifts',notes:['Find by name or @handle, or send a link (WhatsApp first).','One partner at a time; the invite is open 48 hours.','Message: “Sing a Jugalbandi with me on Reelkar. Hear my part: reelkar.app/j/r4Qm”.'],
+ r:()=>`${hdr('Invite your partner','','d2')}<div class="bd"><div class="card row"><div style="width:48px;height:48px;flex:none">${cover('duet','width:48px;height:48px;border-radius:12px')}</div><div><b>Your part</b><small>0:28 · ${ic('check','ok')} ready</small></div><button class="pbtn sm" aria-label="Play your part">${ic('play')}</button></div><div><span class="lb">Find on Reelkar</span><div class="in">${ic('search')}<span>san</span></div></div><div class="card" style="padding:4px 14px">${[['S','Sana Mirza','@sana.sings','#14d9a0'],['S','Sanjay K','@sanjaybeats','#ffb21a']].map(([a,n,h,c])=>`<div class="lr"><span class="av" style="background:${c}">${a}</span><div><b>${n}</b><small class="ltr" style="text-align:start">${h}</small></div><button class="b sm sec" data-go="d4" style="min-height:44px">Invite</button></div>`).join('')}</div><div style="display:flex;align-items:center;gap:10px;color:var(--ink-muted);font-size:13px"><hr style="flex:1;border:0;border-top:1px solid var(--line)">or send a link<hr style="flex:1;border:0;border-top:1px solid var(--line)"></div>${btn('Send invite on WhatsApp',{ic:'wa',go:'d4'})}<div class="tiles"><button class="tl"><i>${ic('link')}</i>Copy link</button><button class="tl"><i>${ic('ig')}</i>Instagram DM</button><button class="tl"><i>${ic('dots')}</i>More</button></div><p class="capn" style="text-align:center">The invite is open for 48 hours. One partner at a time.</p></div>`},
+{id:'d4',g:'Jugalbandi · A',t:'Waiting for B',route:'duets/[id] · waiting',reuse:'Hero, ProgressBar, Status',notes:['A is never waiting blind: “Sana opened the invite”, “Sana is recording”.','Remind unlocks after 12 h, once. Reelkar also reminds Sana at 24 h.','Cancel returns all held credits.','Demo links below: jump to Sana’s side, or 48 hours later.'],
+ r:()=>`${hdr('Jugalbandi','Chai vs coffee','d3')}<div class="bd"><div class="hero"><div class="ov">${ic('clock')} 47 hours left</div><div class="hd">Waiting for Sana</div><p>She has 47 hours to sing her part.</p><div style="height:8px;border-radius:99px;background:var(--chip);margin:12px 0;overflow:hidden;direction:ltr"><i style="display:block;height:100%;width:3%;background:var(--deep)"></i></div><div class="chips"><span class="pill">${ic('check')}Your part · recorded</span><span class="pill">${ic('clock')}Sana’s part · not yet</span></div></div><div class="ban">${ic('bell')}<div><b>Sana opened the invite</b><br><small class="capn">10 minutes ago</small></div></div><div class="card" style="display:flex;flex-direction:column;gap:8px">${btn('Remind Sana · in 11 h',{k:'sec',ic:'bell',dis:true})}${btn('Send link again',{k:'sec',ic:'wa'})}${btn('Cancel Jugalbandi',{k:'ghost'})}<p class="capn" style="text-align:center">Cancel and your 6 credits come back.</p></div><div style="display:flex;gap:8px">${btn('See Sana’s side',{k:'ghost',sm:true,go:'d5i'})}${btn('48 hours later',{k:'ghost',sm:true,go:'d10'})}</div></div>`},
+{id:'d10',g:'Jugalbandi · A',t:'No answer / declined',route:'duets/[id] · expired | declined',reuse:'Card, ListRow',notes:['Timeline: invite → 24 h automatic reminder to B → 48 h close, push to A.','Options, best first: invite someone else (part kept), finish solo (normal Hum it price, rest back), or 24 more hours (no-answer only, once).','If A does nothing for 7 days, the hold is released automatically.','Toggle the variant with the buttons at the bottom.'],
+ r:()=>{const dec=S.d10==='declined';return `${hdr('Jugalbandi','Chai vs coffee','d4')}<div class="bd"><div class="alert"><b class="hd" style="font-size:22px">${dec?'Sana can’t join this time':'Sana didn’t answer'}</b><p>${dec?'“Exams this week, next time pakka!”':'The invite closed after 48 hours.'}</p></div><div class="card" style="padding:4px 14px"><button type="button" class="lr" data-go="d3"><span class="ico">${ic('users')}</span><div><b>Invite someone else</b><small>Your part is kept · new 48 h</small></div>${ic('chev','flip')}</button><button type="button" class="lr"><span class="ico">${ic('mic')}</span><div><b>Finish it solo</b><small>A normal Hum it song: uses 2 credits, 4 come back ${ph()}</small></div>${ic('chev','flip')}</button>${dec?'':`<button type="button" class="lr"><span class="ico">${ic('clock')}</span><div><b>Give Sana 24 more hours</b><small>Once only</small></div>${ic('chev','flip')}</button>`}</div>${btn('Cancel and get all 6 credits back',{k:'ghost'})}<div style="display:flex;gap:8px">${btn('No answer',{k:S.d10==='none'?'':'sec',sm:true,act:'d10:none'})}${btn('Declined',{k:dec?'':'sec',sm:true,act:'d10:declined'})}</div></div>`}},
+{id:'d5i',g:'Jugalbandi · B',t:'B: push + Inbox card',route:'(tabs)/inbox',reuse:'Inbox “Gifts and duets” section',notes:['Three ways in: push, this Inbox card, or the WhatsApp link (web page W3 below for people without the app).','The card plays A’s part right here.'],
+ r:()=>`<div style="padding:4px 10px 0"><button type="button" class="notif" data-go="d5" style="background:var(--deep);color:var(--on-deep)"><span class="lg">${logo(38)}</span><div><b>Arjun wants a Jugalbandi with you</b><small>Hear his part and sing yours</small></div><small>now</small></button></div>${hdr('Inbox','Gifts and duets',null)}<div class="bd"><div class="card" style="display:flex;flex-direction:column;gap:10px"><div class="row"><span class="av" style="background:#ffb21a">A</span><div><b>Arjun invited you to a Jugalbandi</b><small>“Chai vs coffee” · Bollywood pop · 47 h left</small></div></div>${player({sm:true,t:'0:00 / 0:28',al:'Play Arjun’s part'})}${btn('Open invite',{sm:true,go:'d5'})}</div><div class="card flat"><b>Comments from every platform</b><p class="capn">Coming in the next beta.</p></div></div>${tabbar('inbox')}`},
+{id:'d5',g:'Jugalbandi · B',t:'B: the invite',route:'duets/[id] · invited',reuse:'SongPlayerRow, Card, Field',notes:['B hears A’s part first. If A used his own voice, B can listen but never use it.','Split is B’s choice, off by default. Placeholder: 3 credits.','Instagram handle is asked here so the Collab post can name her.','“Not this time” sends an optional one-line note to A.'],
+ r:()=>`${hdr('Jugalbandi','From Arjun','d5i')}<div class="bd"><div class="hero"><div class="ov">Open for 47 more hours</div><div class="hd">Arjun wants to sing with you</div><p>“Chai vs coffee, settled in song”</p><span class="pill" style="margin-top:8px">${ic('music')}Bollywood pop</span></div><div class="card" style="display:flex;flex-direction:column;gap:8px"><b>Arjun’s part</b>${player({t:'0:00 / 0:28',al:'Play Arjun’s part, 28 seconds'})}<small class="capn">Sung by an AI singer</small></div><div class="card"><div class="tgl"><div><b>Offer to pay half (3 credits) ${ph()}</b><small class="capn" style="display:block">Arjun pays unless you offer.</small></div><button class="sw" role="switch" aria-checked="${S.split}" aria-label="Offer to pay half" data-act="split"></button></div></div><div><span class="lb">Your Instagram (for the Collab post)</span><div class="in ltr">${ic('ig')}@sana.sings</div></div><p class="capn">Posted as an Instagram Collab from Arjun’s account. You both approve it first.</p></div>${ft(btn('Sing your part',{ic:'mic',go:'d6'})+btn('Not this time',{k:'ghost',act:'declined'}))}`},
+{id:'d6',g:'Jugalbandi · B',t:'B: record with A’s part',route:'hum/index?duet={id}&part=b',reuse:'Hum it Record (recording state)',notes:['“Play Arjun’s part while I record” is on by default when headphones are connected; off otherwise.','Helper: “Wear earphones so it isn’t recorded too.”','Part 2 chip: second verse, answer him. 30 s limit.','Tap stop to finish (demo goes to Joining).'],
+ r:()=>`${hdr('Your part','Jugalbandi with Arjun','d5')}<div class="bd" style="flex:1"><div class="hero" style="flex:1;display:flex;flex-direction:column;gap:8px;justify-content:flex-end;min-height:320px;text-align:center"><span class="pill" style="align-self:center">Part 2 · second verse, answer him</span><div class="hd">Listening…</div><p class="ltr" style="font:600 15px 'JetBrains Mono',monospace">0:12 / 0:30</p><div class="meter" aria-hidden="true">${[8,20,28,16,30,24,10,26,22,18,28,14,10,20,24,12].map(h=>`<i style="height:${h}px"></i>`).join('')}</div><button type="button" class="mic" data-go="d7" aria-label="Stop recording, 12 seconds">${ic('stop')}</button><b>Tap to stop</b></div><div class="card"><div class="tgl"><span style="color:var(--teal-text)">${ic('head')}</span><div><b>Play Arjun’s part while I record</b><small class="capn" style="display:block">Wear earphones so it isn’t recorded too. AirPods connected.</small></div><button class="sw" role="switch" aria-checked="${S.listen}" aria-label="Play Arjun’s part while I record" data-act="listen"></button></div></div><div><span class="lb">Sing in</span><div class="chips"><span class="ch on">${ic('check')}AI singer ♀</span><span class="ch">My voice</span></div><p class="capn" style="margin-top:6px">Only your own voices are listed.</p></div></div>`},
+{id:'d7',g:'Jugalbandi · finish',t:'Joining',route:'duets/[id] · joining',reuse:'making/[id] progress pattern, CheckRow',notes:['Both phones show this. Both get a push when it’s ready.','If it fails: “That didn’t work. Nothing was spent.” with Try again.'],
+ r:()=>`${hdr('Jugalbandi','Chai vs coffee','d6')}<div class="bd"><div class="hero" style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;padding:28px 18px">${reelLoop()}<div class="hd">Joining your parts</div><p>About 2 minutes. You can leave; we’ll tell you both.</p></div><div class="card">${[['Matching the tune',1],['Singing both parts',0],['Mixing',0]].map(([t,d])=>`<div class="lr" style="cursor:default"><span class="av" style="width:32px;height:32px;background:${d?'var(--teal)':'var(--surface-sunken)'};color:${d?'var(--on-teal)':'var(--ink-muted)'}">${d?ic('check'):ic('clock')}</span><div><b style="font-size:14px">${t}</b><small>${d?'Done':'Waiting'}</small></div></div>`).join('')}</div>${btn('Go to Home',{k:'sec'})}${btn('Skip to ready (demo)',{k:'ghost',go:'d8'})}</div>`},
+{id:'d8',g:'Jugalbandi · finish',t:'Preview + approve',route:'duets/[id] · review',reuse:'SongPlayerRow, waveform, songs/video/[id]',notes:['Part strip under the player: each band carries the singer’s name (not colour alone). Tap a band to play that part. Not mirrored in Arabic.','Both must approve before Post appears. Any retake resets both approvals.','One free retake each, then 1 credit. Placeholder.','Only A posts; B gets the Instagram collab invite.'],
+ r:()=>`${hdr('Chai vs coffee','Jugalbandi · 1:02','d7')}<div class="bd"><div style="display:flex;justify-content:center">${cover('duet','width:180px;height:180px;border-radius:24px')}</div><div class="card" style="display:flex;flex-direction:column;gap:10px">${player({p:30,playing:true,t:'0:19 / 1:02',al:'Pause'})}<div class="strip" role="group" aria-label="Parts"><span style="flex:28;background:var(--pop);color:var(--on-pop)">${ic('mic')}Arjun</span><span style="flex:30;background:var(--teal);color:var(--on-teal)">${ic('mic')}Sana</span><span style="flex:10;background:var(--deep);color:var(--on-deep)">Both</span></div></div><div class="card"><div class="row" style="gap:16px">${[['A','You',S.approved],['S','Sana',false]].map(([a,n,ok])=>`<div class="row" style="gap:8px"><span class="av" style="width:32px;height:32px;background:${a==='A'?'#ffb21a':'#14d9a0'}">${a}</span><div><b style="font-size:14px">${n}</b><small>${ok?`${ic('check','ok')} approved`:'not yet'}</small></div></div>`).join('')}</div></div><div style="display:flex;gap:8px">${btn('Retake my part',{k:'sec',sm:true,ic:'refresh',go:'d2'})}${btn('Ask Sana to retake',{k:'sec',sm:true})}</div>${btn('Make a music video · 3 credits',{k:'ghost',ic:'film',sm:true})}</div>${ft(S.approved?btn('Waiting for Sana to approve',{dis:true})+btn('She approved (demo): Post it',{k:'ghost',sm:true,go:'d9'}):btn('Looks good, approve',{ic:'check',act:'approve'}))}`},
+{id:'d9',g:'Jugalbandi · finish',t:'Post as a Collab',route:'duets/[id]/post → reel/[id] post + caption cards',reuse:'reel/[id].tsx “Post it” and “Caption” cards (extract to components)',notes:['Instagram row has a locked “Collab with @sana.sings” (Graph API collaborators).','YouTube is optional; it has no co-authors, so Sana is credited in the caption.','“Made with AI” is always on (legally required); not a toggle.','If Instagram refuses collaborators for this account, we say so before posting and tag her in the caption instead.'],
+ r:()=>`${hdr('Post it','Chai vs coffee','d8')}<div class="bd"><div class="card" style="display:flex;flex-direction:column;gap:4px"><b>Post to</b><div class="lr" style="cursor:default"><span class="ico" style="background:#fde7ef;color:#c13584">${ic('ig')}</span><div><b>Instagram Reels</b><small class="ltr" style="text-align:start">@arjun.sings</small></div><span class="ok">${ic('check')}</span></div><div class="tgl" style="padding-inline-start:56px"><div><b style="font-size:14px">Collab with <span class="ltr" style="unicode-bidi:isolate">@sana.sings</span></b><small class="capn" style="display:block">Sana gets an invite in Instagram. Once she accepts, it shows on both profiles.</small></div><button class="sw lock" role="switch" aria-checked="true" aria-label="Collab with sana.sings, required" disabled></button></div><div class="lr" style="cursor:default"><span class="ico" style="background:#ffe4e4;color:#cc0000">${ic('yt')}</span><div><b>YouTube Shorts</b><small>Arjun Music · optional</small></div><button class="sw" role="switch" aria-checked="false" aria-label="Also post to YouTube"></button></div></div><div class="card" style="display:flex;flex-direction:column;gap:8px"><b>Caption</b><p style="margin:0">Chai vs coffee, settled in song ☕ with <span class="ltr" style="unicode-bidi:isolate">@sana.sings</span> #jugalbandi #chai</p><span class="pill ai" style="align-self:flex-start">Made with AI · always on</span><div style="display:flex;gap:8px">${btn('Copy caption',{k:'sec',sm:true,ic:'link'})}${btn('Write again',{k:'ghost',sm:true,ic:'refresh'})}</div></div><div class="chips"><span class="ch on">${ic('check')}Post now</span><span class="ch">Schedule</span></div></div>${ft(btn('Post now',{ic:'share',go:'d11'}))}`},
+{id:'d11',g:'Jugalbandi · finish',t:'Posted',route:'duets/[id] · posted',reuse:'Win, Card',notes:['Both are credited in Reelkar: the duet sits in both people’s My songs as “Jugalbandi with …”.','If Sana doesn’t accept in Instagram, A’s card says so; nothing to retry.','Sana can save or share the video herself too.'],
+ r:()=>`${hdr('Jugalbandi','Chai vs coffee','d9')}<div class="bd"><div class="win" role="status"><i>${ic('check')}</i>Posted on Instagram</div><div class="hero" style="display:flex;gap:14px;align-items:center"><div style="width:84px;height:120px;flex:none">${cover('duet','width:84px;height:120px')}</div><div><div class="hd" style="font-size:20px">Chai vs coffee</div><p>Arjun × Sana · Jugalbandi</p><span class="pill ai" style="margin-top:6px">Made with AI</span></div></div><div class="card" style="display:flex;flex-direction:column;gap:6px"><div class="row">${ic('clock')}<div><b>Waiting for Sana to accept the Collab</b><small>She accepts it inside Instagram.</small></div></div><div class="row">${ic('coin')}<div><b>6 credits spent ${ph()}</b><small>3 from you, 3 from Sana (she offered to split)</small></div></div></div>${btn('View on Instagram',{k:'sec',ic:'ig'})}${btn('Make another Jugalbandi',{k:'ghost',go:'d1'})}</div>`}
+];
+const WSTATES=[['sealed','Sealed'],['playing','Playing + karaoke'],['processing','Still processing'],['audio','Audio failed'],['slow','Slow network'],['removed','Removed'],['report','Report'],['join','Reply sign-up'],['duet','Duet invite (W3)'],['og','Link preview image']];
+
+/* ---------- render ---------- */
+function renderIdx(){let g='',h='';SCR.forEach((s,i)=>{if(s.g!==g){g=s.g;h+=`<h4>${g}</h4>`}h+=`<button type="button" data-go="${s.id}" aria-current="${S.screen===s.id}"><b>${s.id.toUpperCase()}</b>${s.t}${s.i18n?' <span class="tag" style="background:var(--page-line);color:inherit">EN·HI·AR</span>':''}</button>`});$('#idx').innerHTML=h;}
+function renderPhone(){
+ const s=SCR.find(x=>x.id===S.screen);const i18=!!s.i18n;
+ const la=langAttrs(i18);
+ const lc=(la.match(/class="([^"]*)"/)||[])[1]||'';
+ $('#phone').innerHTML=`<div class="ph ${tcls()} ${s.lock?'ph-lock':''} ${S.rm?'rm':''}"><div class="island"></div><div class="sbar"><span>9:41</span><span class="r">●●●● <i></i></span></div><div class="scr ${lc}" ${la.replace(/class="[^"]*"/,'')} aria-label="${s.t}">${s.r()}</div><div class="homei"></div></div>`;
+ const idx=SCR.indexOf(s);$('#pos').textContent=`${idx+1} / ${SCR.length} · ${s.t}`;
+ $('#notes').innerHTML=`<h3>${s.id.toUpperCase()} · ${s.t}</h3><p class="rt">${s.route}</p><ul>${s.notes.map(n=>`<li>${n}</li>`).join('')}</ul><p class="re"><b>Reuses:</b> ${s.reuse}</p>${s.i18n&&S.lang!=='en'?`<p class="re">Showing ${S.lang==='ar'?'Arabic, right-to-left. Layout, chevrons and lists mirror; play buttons, scrubbers, timecodes, URLs and handles stay left-to-right.':'Hindi in Hind, line height 1.6 for body and 1.3 for headings so matras don’t clip.'}</p>`:''}`;
+}
+function renderWeb(){
+ $('#wstates').innerHTML='<span>State</span>'+WSTATES.map(([k,l])=>`<button type="button" data-act="wstate:${k}:web" aria-pressed="${S.web===k}">${l}</button>`).join('');
+ const thm=tcls()+(S.rm?' rm':'');
+ if(S.web==='og'){const l=L();$('#wdesk').innerHTML=`<div class="${thm}" style="background:var(--surface);color:var(--ink);min-height:100%;padding:28px"><h3 style="font:800 20px 'Bricolage Grotesque';margin:0 0 12px">og:image · 1200 × 630</h3><div class="ogwrap">${ogCard()}</div><div class="meta">og:title       ${l.ogT}\nog:description ${l.ogD}\nog:site_name   Reelkar\nog:type        music.song\nog:image       https://reelkar.app/g/x7Kp2/og.png (≈60 KB PNG)\n(no og:audio, no note in the preview)</div></div>`;$('#wphone').innerHTML=phoneWrap(SCR.find(s=>s.id==='g4').r(),true);return;}
+ if(S.web==='duet'){$('#wdesk').innerHTML=`<div class="${thm}" style="min-height:100%">${duetWeb(true)}</div>`;$('#wphone').innerHTML=phoneWrap(`<div class="safari"><span>${ic('lock')}reelkar.app</span></div>${duetWeb(false)}`,false);return;}
+ $('#wdesk').innerHTML=`<div class="${thm}" style="min-height:100%;position:relative">${wrapGP(giftPage(S.web,true,'web'),true)}</div>`;
+ $('#wphone').innerHTML=phoneWrap(`<div class="safari"><span>${ic('lock')}reelkar.app</span></div>${wrapGP(giftPage(S.web,false,'webp'),false)}`,true);
+}
+function phoneWrap(inner,i18){const la=langAttrs(i18);const cls=(la.match(/class="([^"]*)"/)||[])[1]||'';return `<div class="ph ${tcls()} ${S.rm?'rm':''}"><div class="island"></div><div class="sbar"><span>9:41</span><span class="r">●●●● <i></i></span></div><div class="scr ${cls}" ${la.replace(/class="[^"]*"/,'')}>${inner}</div><div class="homei"></div></div>`;}
+function render(){
+ document.documentElement.setAttribute('data-theme',S.theme);
+ $$('[data-theme-btn]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.themeBtn===S.theme));
+ $$('[data-lang-btn]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.langBtn===S.lang));
+ $$('[data-rm-btn]').forEach(b=>b.setAttribute('aria-pressed',String(S.rm?'1':'0')===b.dataset.rmBtn));
+ renderIdx();renderPhone();renderWeb();updK();
+}
+function go(id){if(!id||!SCR.find(s=>s.id===id))return;S.screen=id;renderIdx();renderPhone();updK();const sc=$('#phone .scr');if(sc)sc.scrollTop=0;}
+
+document.addEventListener('click',e=>{
+ const t=e.target.closest('[data-theme-btn],[data-lang-btn],[data-rm-btn],[data-go],[data-act],[data-seek]');if(!t)return;
+ if(t.dataset.themeBtn){S.theme=t.dataset.themeBtn;return render()}
+ if(t.dataset.langBtn){S.lang=t.dataset.langBtn;K.w=-1;kPlay(false);return render()}
+ if(t.dataset.rmBtn){S.rm=t.dataset.rmBtn==='1';return render()}
+ const a=t.dataset.act;
+ if(a){const [k,v,sc]=a.split(':');
+  if(k==='open'){S.reveal[v]=true;if(v==='r1'){S.r1='playing'}else{S.web='playing';S.reveal.web=S.reveal.webp=true}render();kPlay(true);return}
+  if(k==='kplay'){kPlay(!K.playing);return}
+  if(k==='follow'){S.follow=!S.follow;renderPhone();renderWeb();updK();return}
+  if(k==='wstate'){if(sc==='r2'){S.r1=v;go('r1');return}if(sc==='r1')S.r1=v;else S.web=v;if(v!=='playing'&&v!=='join'&&v!=='report')kPlay(false);renderPhone();renderWeb();updK();return}
+  if(k==='gotoR3'){S.screen='r3';render();$('#phone').scrollIntoView({behavior:S.rm?'auto':'smooth',block:'center'});return}
+  if(k==='cover'){const i=+v;if(i===2&&S.aiCover!=='done'){S.aiCover='making';S.cover=2;renderPhone();setTimeout(()=>{S.aiCover='done';if(S.screen==='g2')renderPhone()},1600);return}S.cover=i;renderPhone();return}
+  if(k==='split'){S.split=!S.split;renderPhone();return}
+  if(k==='listen'){S.listen=!S.listen;renderPhone();return}
+  if(k==='approve'){S.approved=true;renderPhone();return}
+  if(k==='declined'){S.d10='declined';go('d10');return}
+  if(k==='d10'){S.d10=v;renderPhone();return}
+  return;
+ }
+ if(t.dataset.go!==undefined&&t.dataset.go!==''){go(t.dataset.go);return}
+ if(t.dataset.seek!==undefined){K.w=+t.dataset.seek-1;updK();if(!K.playing)kPlay(true)}
+});
+document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches('a[role="button"],[role="radio"][tabindex]')){e.preventDefault();e.target.click()}});
+$('#prev').onclick=()=>{const i=SCR.findIndex(s=>s.id===S.screen);go(SCR[(i-1+SCR.length)%SCR.length].id)};
+$('#next').onclick=()=>{const i=SCR.findIndex(s=>s.id===S.screen);go(SCR[(i+1)%SCR.length].id)};
+render();
+})();
+</script>
+</body>
+</html>
