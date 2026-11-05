@@ -1,11 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { postJson, type SongAudio, type StudioSong } from "./studio-types";
+import { type Range, Waveform } from "./waveform";
 
-// Crop, fade and speed for a finished song. Free; saves a new copy.
-export function SongEditor({ songId, durationSec, onDone }: { songId: string; durationSec: number; onDone: () => void }) {
-  const [startSec, setStartSec] = useState(0);
-  const [endSec, setEndSec] = useState(durationSec);
+const SPEEDS = [0.8, 0.9, 1, 1.1, 1.25];
+const FADES = [0, 1, 3, 5];
+
+// Trim on the waveform, fade and speed for a finished song. Free; saves a new copy.
+export function SongEditor({ song, peaks, audio, onDone }: { song: StudioSong; peaks: number[] | null; audio: SongAudio; onDone: (id: string) => void }) {
+  const [keep, setKeep] = useState<Range>({ start: 0, end: song.durationSec });
   const [fadeInSec, setFadeInSec] = useState(0);
   const [fadeOutSec, setFadeOutSec] = useState(3);
   const [speed, setSpeed] = useState(1);
@@ -15,47 +19,44 @@ export function SongEditor({ songId, durationSec, onDone }: { songId: string; du
   async function save() {
     setSaving(true);
     setError(null);
-    const res = await fetch(`/api/songs/${songId}/edit`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ startSec, endSec: endSec < durationSec ? endSec : undefined, fadeInSec, fadeOutSec, speed }),
+    const { ok, data } = await postJson<{ id: string }>(`/api/songs/${song.id}/edit`, {
+      startSec: keep.start,
+      endSec: keep.end < song.durationSec ? keep.end : undefined,
+      fadeInSec,
+      fadeOutSec,
+      speed,
     });
     setSaving(false);
-    if (!res.ok) return setError((await res.json().catch(() => ({}))).error ?? "Couldn't edit the song");
-    onDone();
+    if (!ok) return setError(data.error ?? "Couldn't edit the song");
+    onDone(data.id);
   }
 
-  const num = (set: (n: number) => void) => (e: React.ChangeEvent<HTMLInputElement>) => set(Number(e.target.value));
-  return (
-    <div className="panel">
-      <div className="row">
-        <div>
-          <label htmlFor={`start-${songId}`}>Start (s)</label>
-          <input id={`start-${songId}`} type="number" min={0} max={durationSec} step={0.5} value={startSec} onChange={num(setStartSec)} />
-        </div>
-        <div>
-          <label htmlFor={`end-${songId}`}>End (s)</label>
-          <input id={`end-${songId}`} type="number" min={1} max={durationSec} step={0.5} value={endSec} onChange={num(setEndSec)} />
-        </div>
-        <div>
-          <label htmlFor={`speed-${songId}`}>Speed</label>
-          <select id={`speed-${songId}`} value={speed} onChange={(e) => setSpeed(Number(e.target.value))}>
-            {[0.8, 0.9, 1, 1.1, 1.25].map((s) => <option key={s} value={s}>{s === 1 ? "Normal" : `${s}×`}</option>)}
-          </select>
-        </div>
-      </div>
-      <div className="row">
-        <div>
-          <label htmlFor={`fin-${songId}`}>Fade in (s)</label>
-          <input id={`fin-${songId}`} type="number" min={0} max={10} step={0.5} value={fadeInSec} onChange={num(setFadeInSec)} />
-        </div>
-        <div>
-          <label htmlFor={`fout-${songId}`}>Fade out (s)</label>
-          <input id={`fout-${songId}`} type="number" min={0} max={10} step={0.5} value={fadeOutSec} onChange={num(setFadeOutSec)} />
-        </div>
-      </div>
-      <button type="button" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save as new copy · free"}</button>
-      {error && <span className="muted">{error}</span>}
+  const chips = (values: number[], value: number, set: (n: number) => void, label: (n: number) => string, name: string) => (
+    <div className="ideas" role="radiogroup" aria-label={name}>
+      {values.map((v) => (
+        <button type="button" key={v} role="radio" className="chip" aria-checked={value === v} aria-pressed={value === v} onClick={() => set(v)}>{label(v)}</button>
+      ))}
     </div>
+  );
+
+  return (
+    <section className="card st-panel" aria-label="Edit">
+      <div className="st-section-head">
+        <h3>Trim</h3>
+        <button type="button" className="secondary st-small" onClick={() => (audio.playing ? audio.pause() : audio.playPart(keep.start, keep.end))}>
+          {audio.playing ? "❚❚ Stop" : "▶ Play"}
+        </button>
+      </div>
+      <Waveform peaks={peaks} durationSec={song.durationSec} position={audio.position} range={keep} onRange={setKeep} minSec={1} label="Keep" />
+      <p className="muted">Drag the edges to keep just the part you want, like a 30-second hook for a reel.</p>
+      <h3 className="st-sub">Fade in</h3>
+      {chips(FADES, fadeInSec, setFadeInSec, (v) => (v ? `${v} s` : "None"), "Fade in")}
+      <h3 className="st-sub">Fade out</h3>
+      {chips(FADES, fadeOutSec, setFadeOutSec, (v) => (v ? `${v} s` : "None"), "Fade out")}
+      <h3 className="st-sub">Speed</h3>
+      {chips(SPEEDS, speed, setSpeed, (v) => (v === 1 ? "Normal" : `${v}×`), "Speed")}
+      {error && <p className="st-error">{error}</p>}
+      <button type="button" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save as new copy · free"}</button>
+    </section>
   );
 }

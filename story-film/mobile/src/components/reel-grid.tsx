@@ -7,13 +7,14 @@ import { formatLabel } from "@/lib/formats";
 import { radius, useTheme } from "@/theme";
 import { Icon } from "./icon";
 import { ReelThumb } from "./reel-thumb";
+import { reviewHref } from "@/lib/music-video";
 import { ReelVideo } from "./reel-video";
 import { Status, Txt } from "./ui";
 
 export function filmStatus(f: Film) {
   if (f.status === "completed") return <Status kind="ok" text="Ready" />;
   if (f.status === "failed") return <Status kind="error" text="Failed" />;
-  if (f.status === "review") return <Status kind="warn" text="Check effects" />;
+  if (f.status === "review") return <Status kind="warn" text={f.songId ? "Check storyboard" : "Check effects"} />;
   return <Status kind="making" text="Making" />;
 }
 
@@ -40,7 +41,7 @@ export function ReelGrid({ films, columns = 2, onDeleted }: { films: Film[]; col
   const [playing, setPlaying] = useState<string | null>(null);
   // Tabs and pushed screens stay mounted, so stop the inline video when this screen loses focus.
   useFocusEffect(useCallback(() => () => setPlaying(null), []));
-  const open = (f: Film) => router.push(f.status === "completed" ? `/reel/${f.id}` : f.status === "review" ? `/edit/${f.id}` : `/making/${f.id}`);
+  const open = (f: Film) => router.push(f.status === "completed" ? `/reel/${f.id}` : f.status === "review" ? reviewHref(f) : `/making/${f.id}`);
   const remove = (f: Film) =>
     confirmDelete(
       f.id,

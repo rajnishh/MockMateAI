@@ -8,6 +8,7 @@ import { CLOUDFLARE_DEFAULTS, cloudflareAiBase, CloudflareFluxImage } from "./cl
 import { DEFAULT_FAL_MODELS, FalAvatarSinger, FalImageToVideo, FalNanoBanana, FalQueueClient } from "./fal";
 import { FalAceStep, FalLyria } from "./fal-music";
 import { FalSongEditor } from "./fal-song-edit";
+import { RunwareSongEditor } from "./runware-song-edit";
 import { FalChatterboxVc, FalDemucs, SeedVcServer } from "./voice";
 import { CloudflareTranscriber, CloudflareWhisper } from "./whisper";
 import { KenBurnsVideo } from "./kenburns";
@@ -63,25 +64,47 @@ export function danceSongAvailable(env: Env): boolean {
 }
 
 export function buildDanceSinger(env: Env): AceStepMusic | FalAceStep {
-  return env.ACESTEP_URL ? new AceStepMusic(env.ACESTEP_URL) : buildSongProvider(env);
+  return buildSongProvider(env);
 }
 
+// Song Studio runs on the free self-hosted ACE-Step when ACESTEP_URL is set, otherwise on fal.
 export function songsAvailable(env: Env): boolean {
-  return Boolean(env.FAL_KEY);
+  return Boolean(env.ACESTEP_URL || env.FAL_KEY);
 }
 
-export function buildSongProvider(env: Env): FalAceStep {
+export function buildSongProvider(env: Env): AceStepMusic | FalAceStep {
+  if (env.ACESTEP_URL) return new AceStepMusic(env.ACESTEP_URL);
   return new FalAceStep(new FalQueueClient(requireKey(env.FAL_KEY, "FAL_KEY")));
 }
 
-// Short songs (30 s) with Google Lyria 3 on fal.
-export function buildShortSongProvider(env: Env): FalLyria {
-  return new FalLyria(new FalQueueClient(requireKey(env.FAL_KEY, "FAL_KEY")));
+// Short songs (30 s) with Google Lyria 3 on fal; only fal has Lyria, so without FAL_KEY they use ACE-Step.
+export function buildShortSongProvider(env: Env): AceStepMusic | FalLyria {
+  if (!env.FAL_KEY) return buildSongProvider(env) as AceStepMusic;
+  return new FalLyria(new FalQueueClient(env.FAL_KEY));
 }
 
 // Remix (cover, extend, replace a part): ACE-Step's edit endpoints on fal, like songs.
-export function buildSongEditor(env: Env): FalSongEditor {
+export function buildSongEditor(env: Env): AceStepMusic | FalSongEditor {
+  if (env.ACESTEP_URL) return new AceStepMusic(env.ACESTEP_URL);
   return new FalSongEditor(new FalQueueClient(requireKey(env.FAL_KEY, "FAL_KEY")));
+}
+
+// Pro remixes (ACE-Step 1.5 on Runware) need Runware, plus fal for songs and stem separation.
+export function proRemixAvailable(env: Env): boolean {
+  return Boolean(env.RUNWARE_API_KEY && env.FAL_KEY);
+}
+
+export function buildProSongEditor(env: Env): RunwareSongEditor {
+  return new RunwareSongEditor(requireKey(env.RUNWARE_API_KEY, "RUNWARE_API_KEY"));
+}
+
+// The Studio's stems: Demucs on fal, so they need fal even when songs are made locally.
+export function stemsAvailable(env: Env): boolean {
+  return Boolean(env.FAL_KEY);
+}
+
+export function buildStemSeparator(env: Env): FalDemucs {
+  return new FalDemucs(new FalQueueClient(requireKey(env.FAL_KEY, "FAL_KEY")));
 }
 
 // "Sing in my voice" needs fal (separation) and Whisper (consent check).
