@@ -97,3 +97,7 @@ export function findPlan(id: string): Plan | undefined {
 // song costs under 3 cents): a cover or extension regenerates the whole song, a replaced part
 // only a slice of it. Verify fal's prices before launch.
 export const REMIX_CREDITS = { cover: 2, extend: 2, replace: 1 } as const;
+
+// "Hum it": a song on the creator's own hummed or sung tune (ACE-Step audio-to-audio on fal, $0.0002 per
+// second of audio from fal's pricing API on 2026-11-05, so a 60 s take is ~1 cent), priced like a cover.
+export const TUNE_SONG_CREDITS = REMIX_CREDITS.cover;
