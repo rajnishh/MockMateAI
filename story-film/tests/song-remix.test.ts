@@ -10,14 +10,14 @@ import { defaultFfmpeg, probeDuration } from "@/lib/ffmpeg";
 import { EXTEND_BLEND_SEC, EXTEND_CUT_SEC, remixCall, remixCredits, remixedDurationSec, remixRequestSchema, remixSchemaFor, runRemix } from "@/lib/songs/remix";
 
 // A fake fal queue plus CDN: records what was sent and answers every request locally.
-function fakeFal(outUrl = "https://cdn.test/out/remix.mp3") {
+function fakeFal(outUrl = "https://cdn.test/out/remix.mp3", outBytes = Buffer.from("remixed-bytes")) {
   const calls: { url: string; body?: Record<string, unknown> }[] = [];
   const fetchFn = (async (url: string, init?: RequestInit) => {
     calls.push({ url, body: init?.body ? JSON.parse(init.body as string) : undefined });
     if (url.startsWith("https://queue.fal.run/")) return Response.json({ request_id: "r", status_url: "s", response_url: "o" });
     if (url === "s") return Response.json({ status: "COMPLETED" });
     if (url === "o") return Response.json({ audio: { url: outUrl, content_type: "audio/mpeg" }, seed: 1, tags: "", lyrics: "" });
-    if (url === outUrl) return new Response(Buffer.from("remixed-bytes"));
+    if (url === outUrl) return new Response(outBytes);
     throw new Error(`unexpected fetch ${url}`);
   }) as unknown as typeof fetch;
   const editor = new FalSongEditor(new FalQueueClient("k", fetchFn, 0), fetchFn);
@@ -77,6 +77,23 @@ describe("FalSongEditor", () => {
     await editor.replaceSection({ audioUrl: pathToFileURL(file).href, startSec: 0, endSec: 10, style: "pop" });
 
     expect(calls[0].body!.audio_url).toBe(`data:audio/mpeg;base64,${Buffer.from("local-mp3").toString("base64")}`);
+  });
+
+  it("types a local song by its contents: FLAC saved as .wav goes to fal as FLAC", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "remix-"));
+    const file = path.join(dir, "song.wav");
+    const flac = Buffer.concat([Buffer.from("fLaC"), Buffer.alloc(8)]);
+    await writeFile(file, flac);
+    const { calls, editor } = fakeFal();
+    await editor.replaceSection({ audioUrl: pathToFileURL(file).href, startSec: 0, endSec: 10, style: "pop" });
+
+    expect(calls[0].body!.audio_url).toBe(`data:audio/flac;base64,${flac.toString("base64")}`);
+  });
+
+  it("names fal's output by its contents, not its file name", async () => {
+    const { editor } = fakeFal("https://cdn.test/out/part.wav", Buffer.concat([Buffer.from("fLaC"), Buffer.alloc(8)]));
+    const audio = await editor.replaceSection({ audioUrl: song.audioUrl, startSec: 0, endSec: 10, style: "pop" });
+    expect(audio.ext).toBe("flac");
   });
 
   it("surfaces fal errors", async () => {

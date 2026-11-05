@@ -19,6 +19,27 @@ export interface SongAudio {
   ext: string;
 }
 
+// What an audio file really is, from its first bytes: fal names ACE-Step's FLAC output ".wav"
+// (checked 2026-11-05), and sending it on labelled as WAV makes fal's edit endpoints fail with a 500.
+export function audioExt(data: Buffer, fallback: string): string {
+  const head = data.subarray(0, 12).toString("latin1");
+  if (head.startsWith("fLaC")) return "flac";
+  if (head.startsWith("RIFF") && head.slice(8, 12) === "WAVE") return "wav";
+  if (head.startsWith("OggS")) return "ogg";
+  if (head.startsWith("ID3") || (data[0] === 0xff && (data[1] & 0xe0) === 0xe0)) return "mp3";
+  return fallback;
+}
+
+export const AUDIO_TYPES: Record<string, string> = { mp3: "audio/mpeg", wav: "audio/wav", flac: "audio/flac", ogg: "audio/ogg" };
+
+// Downloads fal's output and names it by its contents.
+export async function fetchFalAudio(audio: { url: string; content_type?: string | null; file_name?: string | null }, fetchFn: typeof fetch, fallback: string): Promise<SongAudio> {
+  const name = audio.file_name ?? new URL(audio.url).pathname;
+  const named = /\.(mp3|wav|flac|ogg)$/i.exec(name)?.[1].toLowerCase() ?? fallback;
+  const data = await readMedia(audio.url, fetchFn);
+  return { data, ext: audioExt(data, named) };
+}
+
 interface AceOutput {
   audio: { url: string; content_type?: string; file_name?: string };
 }
@@ -53,10 +74,8 @@ export class FalAceStep implements MusicProvider {
     return (await this.fetchAudio(out)).data;
   }
 
-  private async fetchAudio(out: AceOutput): Promise<SongAudio> {
-    const name = out.audio.file_name ?? new URL(out.audio.url).pathname;
-    const ext = /\.(mp3|wav|flac|ogg)$/i.exec(name)?.[1].toLowerCase() ?? (out.audio.content_type?.includes("mpeg") ? "mp3" : "wav");
-    return { data: await readMedia(out.audio.url, this.fetchFn), ext };
+  private fetchAudio(out: AceOutput): Promise<SongAudio> {
+    return fetchFalAudio(out.audio, this.fetchFn, out.audio.content_type?.includes("mpeg") ? "mp3" : "wav");
   }
 }
 
@@ -81,8 +100,6 @@ export class FalLyria {
 
   async sing(input: SongInput): Promise<SongAudio> {
     const out = await this.client.run<AceOutput>(FAL_LYRIA, { prompt: lyriaPrompt(input) });
-    const name = out.audio.file_name ?? new URL(out.audio.url).pathname;
-    const ext = /\.(mp3|wav|flac|ogg)$/i.exec(name)?.[1].toLowerCase() ?? "mp3";
-    return { data: await readMedia(out.audio.url, this.fetchFn), ext };
+    return fetchFalAudio(out.audio, this.fetchFn, "mp3");
   }
 }
