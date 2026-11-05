@@ -27,14 +27,14 @@ export async function singDuetVoices(
 // After a duet's song is made: tell both people it's ready to hear and approve.
 export async function duetSongDone(db: Db, songId: string): Promise<void> {
   const [d] = await db.select().from(duet).where(eq(duet.songId, songId));
-  if (d && d.status === "joining") notify(db, [d.starterId, d.partnerId], { title: "Your Jugalbandi is ready", body: `“${d.topic}” · listen and approve`, path: `/duets/${d.id}` });
+  if (d && d.status === "joining") notify(db, [d.starterId, d.partnerId], { title: "Your Jugalbandi is ready", body: `“${d.topic}” · listen and approve`, kind: "gifts", path: `/duets/${d.id}` });
 }
 
 // The 24-hour reminder, run by the worker every 15 minutes.
 export async function sendDuetReminders(db: Db, now = new Date()): Promise<number> {
   const due = await dueReminders(db, now);
   for (const d of due) {
-    notify(db, [d.partnerId ?? d.invitedUserId], { title: `${d.starterName}'s Jugalbandi closes tomorrow`, body: `“${d.topic}” · sing your part`, path: `/duets/${d.id}` });
+    notify(db, [d.partnerId ?? d.invitedUserId], { title: `${d.starterName}'s Jugalbandi closes tomorrow`, body: `“${d.topic}” · sing your part`, kind: "gifts", path: `/duets/${d.id}` });
   }
   return due.length;
 }

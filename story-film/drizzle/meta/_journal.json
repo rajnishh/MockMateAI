@@ -183,6 +183,13 @@
       "when": 1793917919324,
       "tag": "0025_medical_mercury",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1793919737848,
+      "tag": "0026_new_swarm",
+      "breakpoints": true
     }
   ]
 }

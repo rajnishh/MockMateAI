@@ -59,6 +59,9 @@ const schema = z.object({
   // Gemini's model in Reelkar's own AI lane.
   GEMINI_LLM_MODEL: z.string().default("gemini-3.5-flash"),
   FAL_KEY: z.string().optional(),
+  // Optional: an Expo access token, needed only once "Enhanced security for push notifications" is on
+  // in the Expo project. Pushes work without it (src/lib/push.ts reads it from the environment).
+  EXPO_ACCESS_TOKEN: z.string().optional(),
   // Optional: ACE-Step 1.5 on Runware for pro remixes (cover strength, add vocals, add music).
   RUNWARE_API_KEY: z.string().optional(),
   VIDEO_MODEL: z.enum(["wan", "kling"]).default("wan"),

@@ -9,6 +9,7 @@ import { type PipelineDeps, runFilm } from "@/lib/pipeline/orchestrator";
 import { instagramAvailable, instagramClient, youtubeAvailable } from "@/lib/connect";
 import { pendingPosts, publishPost } from "@/lib/posts";
 import { provenanceFromEnv, trySign } from "@/lib/provenance";
+import { notifyReel, notifySong } from "@/lib/push";
 import { grantCredits } from "@/lib/billing/credits";
 import { creatorMessage } from "@/lib/creator-errors";
 import { buildDanceSinger, buildImage, buildPipelineDeps, buildProSongEditor, buildShortSongProvider, buildSinger, buildSingDeps, buildSongEditor, buildSongProvider, buildStemSeparator, buildTranscriber, proRemixAvailable, type Quality, songsAvailable, stemsAvailable } from "@/lib/providers";
@@ -129,6 +130,8 @@ const filmWorker = new Worker<FilmQueueJob>(
     });
     // Posts Ask Reelkar promised for this reel go out now.
     await onReelFinished(agentDeps(), filmId).catch((err) => console.error(`agent posts for ${filmId} failed:`, err));
+    // "Your reel is ready"; a push never fails the job.
+    await notifyReel(db, filmId);
     return result;
   },
   // Each film fans out its own parallel API calls; keep films per worker low.
@@ -147,6 +150,7 @@ filmWorker.on("failed", async (job, err) => {
     // The raw provider error stays in the log above; the creator gets a plain sentence.
     await updateFilm(db, filmIdOf(job), { status: "failed", error: creatorMessage(err) });
     await onReelFinished(agentDeps(), filmIdOf(job)).catch(() => undefined);
+    await notifyReel(db, filmIdOf(job));
     if ("quotaKey" in job.data && job.data.quotaKey) await new RedisQuotaStore(getRedis()).decrement(job.data.quotaKey);
     if (job.data.credits > 0) await grantCredits(db, job.data.userId, job.data.credits, "refund", job.id!);
   }
@@ -213,7 +217,9 @@ if (songsAvailable(env)) {
               : "AI-generated song: lyrics, music and vocals made with generative AI models",
       });
       await updateSong(db, songId, { status: "completed", outputPath, contentCredentials, completedAt: new Date() });
+      // A Jugalbandi tells both singers itself; other songs get "Your song is ready" before the cover is drawn.
       if ((job.data as RemixJob).duet) await duetSongDone(db, songId);
+      else await notifySong(db, songId);
       // Cover art comes after the song is playable, and a failed picture never fails the song.
       const made = coverImage ? await getSongById(db, songId) : undefined;
       const coverPath = made
@@ -230,6 +236,7 @@ if (songsAvailable(env)) {
     console.error(`song ${job?.data.songId} failed:`, err.message);
     if (job && job.attemptsMade >= (job.opts.attempts ?? 1)) {
       await updateSong(db, job.data.songId, { status: "failed", error: creatorMessage(err) });
+      if (!(job.data as RemixJob).duet) await notifySong(db, job.data.songId);
       // A free song (the first reply to a gift) has nothing to give back.
       if (job.data.credits > 0) await grantCredits(db, job.data.userId, job.data.credits, "refund", `song:${job.data.songId}`);
     }

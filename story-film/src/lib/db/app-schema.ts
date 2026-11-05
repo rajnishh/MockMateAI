@@ -572,7 +572,12 @@ export const duetReport = pgTable(
   (t) => [index("duet_report_duet_idx").on(t.duetId)],
 );
 
+export const pushPlatform = pgEnum("push_platform", ["ios", "android"]);
+// The language pushes are written in: the phone's own, when it's one Reelkar writes.
+export const pushLang = pgEnum("push_lang", ["en", "hi", "ar"]);
+
 // Expo push tokens, one row per phone; a token moves to whoever signs in on that phone last.
+// Deleted on sign-out, or when Expo says the phone no longer takes pushes.
 export const pushToken = pgTable(
   "push_token",
   {
@@ -580,7 +585,23 @@ export const pushToken = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    // Null for phones that registered before the app sent it.
+    platform: pushPlatform("platform"),
+    lang: pushLang("lang").notNull().default("en"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (t) => [index("push_token_user_idx").on(t.userId)],
 );
+
+// Which pushes a creator wants (Account › Notifications). No row means all are on.
+export const pushPrefs = pgTable("push_prefs", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  songs: boolean("songs").notNull().default(true),
+  reels: boolean("reels").notNull().default(true),
+  // Gifts and Jugalbandis.
+  gifts: boolean("gifts").notNull().default(true),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});

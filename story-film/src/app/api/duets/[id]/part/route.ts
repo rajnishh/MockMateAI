@@ -34,7 +34,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         return row;
       });
     }
-    if (role === "b") notify(db, [row.starterId], { title: `${row.partnerName} sang their part`, body: `“${row.topic}” · joining it into one song now`, path: `/duets/${row.id}` });
+    if (role === "b") notify(db, [row.starterId], { title: `${row.partnerName} sang their part`, body: `“${row.topic}” · joining it into one song now`, kind: "gifts", path: `/duets/${row.id}` });
     return NextResponse.json(duetView(row, role, await songStatusOf(db, row), env.BETTER_AUTH_URL));
   } catch (err) {
     return duetErrorResponse(err);

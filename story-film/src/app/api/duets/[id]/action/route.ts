@@ -71,7 +71,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
     const me = role === "a" ? row.starterName : row.partnerName;
     const other = role === "a" ? row.partnerId : row.starterId;
-    const open = { path: `/duets/${row.id}` };
+    const open = { kind: "gifts" as const, path: `/duets/${row.id}` };
     if (action === "approve") notify(db, [other], { title: `${me} approved your Jugalbandi`, body: row.approvedA && row.approvedB ? "You both said yes. It's ready to post." : "Listen and approve it too.", ...open });
     if (action === "ask_retake") notify(db, [other], { title: `${me} asked you to sing your part again`, body: `“${row.topic}”`, ...open });
     if (action === "invite_handle") notify(db, [row.invitedUserId], { title: `${row.starterName} wants to sing a Jugalbandi with you`, body: `“${row.topic}” · hear their part and sing yours`, ...open });

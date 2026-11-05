@@ -2,6 +2,7 @@ import { createContext, type ReactNode, useCallback, useContext, useEffect, useS
 
 import { authClient } from "./auth-client";
 import { DEMO } from "./config";
+import { unregisterForPush } from "./push";
 import { getItem, setItem } from "./storage";
 
 export interface Brand {
@@ -110,6 +111,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setOnboarded(true);
     },
     signOut: async () => {
+      // While the session still works, so the server lets this phone's push token go.
+      await unregisterForPush().catch(() => undefined);
       await setItem(ONBOARDED_KEY, null);
       setOnboarded(false);
       if (DEMO) {

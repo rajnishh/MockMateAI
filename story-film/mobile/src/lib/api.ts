@@ -447,6 +447,10 @@ export interface SongRemix {
   strength?: number;
 }
 
+// "gifts" covers gifts and Jugalbandis.
+export type PushKind = "songs" | "reels" | "gifts";
+export type PushPrefs = Record<PushKind, boolean>;
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -612,7 +616,11 @@ const real = {
   joinDuet: (token: string, input: { name: string; ig: string; split: boolean }) => call<Duet>(`/api/j/${token}/join`, { method: "POST", body: JSON.stringify(input) }),
   declineDuet: (token: string, note: string) => call<unknown>(`/api/j/${token}/decline`, { method: "POST", body: JSON.stringify({ note }) }),
   myVoices: async () => (await call<{ voices: MyVoice[] }>("/api/voices")).voices,
-  savePushToken: (token: string) => call<unknown>("/api/push-tokens", { method: "POST", body: JSON.stringify({ token }) }),
+  savePushToken: (token: string, platform: "ios" | "android", lang: "en" | "hi" | "ar") => call<unknown>("/api/push-tokens", { method: "POST", body: JSON.stringify({ token, platform, lang }) }),
+  deletePushToken: (token: string) => call<unknown>("/api/push-tokens", { method: "DELETE", body: JSON.stringify({ token }) }),
+  // Account › Notifications: which pushes the creator wants (mirrors story-film/src/lib/push.ts).
+  pushPrefs: () => call<PushPrefs>("/api/push-settings"),
+  setPushPrefs: (change: Partial<PushPrefs>) => call<PushPrefs>("/api/push-settings", { method: "PUT", body: JSON.stringify(change) }),
   duetAudioUrl: (path: string) => `${API_URL}${path}`,
   replyInfo: (token: string) => call<{ toName: string; occasion: Occasion; free: boolean }>(`/api/gifts/reply?to=${encodeURIComponent(token)}`),
   // "✨ Write a rap verse": rap bars for the song's [Rap] block.
@@ -665,6 +673,7 @@ const demoGifts: SentGift[] = [
 const demoReplies: ReceivedReply[] = [
   { id: "g2", url: "https://reelkar.app/g/demoReply1", token: "demoReply1", toName: "You", occasion: "birthday", note: "", songId: "s2", songTitle: "Thank you bhaiya", songReady: true, isReply: true, opened: false, playCount: 0, lastPlayedAt: null, sharing: true, takenDown: false, createdAt: new Date(Date.now() - 3600_000).toISOString(), fromName: "Priya", replyToGiftId: "g1" },
 ];
+const demoPush: PushPrefs = { songs: true, reels: true, gifts: true };
 const demoAccounts: Account[] = [];
 const at = (days: number, h: number, m = 0) => {
   const d = new Date();
@@ -1152,6 +1161,9 @@ const demo: typeof real = {
   declineDuet: async () => (await wait(200), {}),
   myVoices: async () => (await wait(200), [{ id: "00000000-0000-4000-8000-000000000001", name: "My voice" }]),
   savePushToken: async () => ({}),
+  deletePushToken: async () => ({}),
+  pushPrefs: async () => (await wait(200), { ...demoPush }),
+  setPushPrefs: async (change) => (await wait(200), Object.assign(demoPush, change), { ...demoPush }),
   replyInfo: async () => (await wait(200), { toName: "Priya", occasion: "birthday" as const, free: true }),
   setGiftSharing: async (id, sharing) => {
     await wait(200);

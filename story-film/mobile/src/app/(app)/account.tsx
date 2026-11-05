@@ -1,17 +1,82 @@
 import Constants from "expo-constants";
 import { router } from "expo-router";
-import { useState } from "react";
-import { Linking, Pressable, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Linking, Pressable, Switch, View } from "react-native";
 
 import { Banner, Button, Card, ChipRow, Field, Header, ListRow, Row, Screen, Txt } from "@/components/ui";
+import { api, type PushKind, type PushPrefs } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import { DEMO, PRIVACY_URL, SUPPORT_EMAIL } from "@/lib/config";
 import { LANGUAGES } from "@/lib/languages";
+import { type PushPermission, pushPermission, registerForPush } from "@/lib/push";
 import { type Brand, useSession } from "@/lib/session";
 import { useTheme, type Mode } from "@/theme";
 
 // Brand colours offered for motion reels; "" lets the AI pick a theme per reel.
 const BRAND_COLOURS = ["", "#e0198a", "#c2410c", "#0a756b", "#2563eb", "#7c3aed", "#111827"];
+
+const PUSH_KINDS: { kind: PushKind; title: string; sub: string }[] = [
+  { kind: "songs", title: "Songs", sub: "When a song is ready, or didn't work" },
+  { kind: "reels", title: "Reels", sub: "When a reel is ready, or didn't work" },
+  { kind: "gifts", title: "Gifts and Jugalbandis", sub: "When someone opens or answers a song you sent, or sings with you" },
+];
+
+// Account › Notifications: each kind on or off, saved on the server so every phone follows it.
+function NotificationSettings() {
+  const { colors } = useTheme();
+  const [permission, setPermission] = useState<PushPermission | null>(null);
+  const [prefs, setPrefs] = useState<PushPrefs | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    pushPermission().then(setPermission, () => setPermission("off"));
+    api.pushPrefs().then(setPrefs, (e) => setError((e as Error).message));
+  }, []);
+
+  async function toggle(kind: PushKind, on: boolean) {
+    if (!prefs) return;
+    setError(null);
+    setPrefs({ ...prefs, [kind]: on });
+    try {
+      setPrefs(await api.setPushPrefs({ [kind]: on }));
+    } catch (err) {
+      setPrefs(prefs);
+      setError((err as Error).message);
+    }
+  }
+
+  return (
+    <Card>
+      <Txt variant="md">Notifications</Txt>
+      {permission === "off" ? (
+        <Banner kind="warn" text="Notifications are off for Reelkar in iPhone Settings." action={<Button label="Settings" small kind="secondary" onPress={() => Linking.openSettings()} />} />
+      ) : permission === "ask" ? (
+        <Banner
+          kind="info"
+          text="Get a notification when a song or reel is ready."
+          action={<Button label="Turn on" small kind="secondary" onPress={() => registerForPush(true).catch(() => false).then(() => pushPermission().then(setPermission))} />}
+        />
+      ) : null}
+      {error ? <Banner kind="error" text={error} /> : null}
+      {PUSH_KINDS.map((k) => (
+        <ListRow
+          key={k.kind}
+          title={k.title}
+          sub={k.sub}
+          right={
+            <Switch
+              accessibilityLabel={`${k.title} notifications`}
+              value={prefs?.[k.kind] ?? true}
+              disabled={!prefs}
+              onValueChange={(on) => toggle(k.kind, on)}
+              trackColor={{ true: colors.tealText, false: colors.lineStrong }}
+            />
+          }
+        />
+      ))}
+    </Card>
+  );
+}
 
 export default function Account() {
   const { user, prefs, savePrefs, signOut } = useSession();
@@ -118,6 +183,8 @@ export default function Account() {
           autoCapitalize="none"
         />
       </Card>
+
+      <NotificationSettings />
 
       <Card>
         <ListRow icon="link" title="Connected accounts" sub="Instagram, YouTube" onPress={() => router.push("/connections")} />
