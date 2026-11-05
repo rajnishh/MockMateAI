@@ -17,6 +17,8 @@ export interface Film {
   error: string | null;
   createdAt: string;
   videoUrl: string | null;
+  // Set for music videos: their storyboard is checked on the song's music video screen.
+  songId?: string | null;
   format?: "story" | "motion" | "dance" | "edit" | "music";
 }
 

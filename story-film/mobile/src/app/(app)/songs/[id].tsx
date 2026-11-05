@@ -59,6 +59,7 @@ export default function SongScreen() {
             Save to Files, or send it on WhatsApp and Instagram.
           </Txt>
           {error ? <Banner kind="error" text={error} /> : null}
+          <Button label="Make music video" icon="film" kind="secondary" block disabled={s.status !== "completed"} onPress={() => router.push(`/songs/video/${s.id}`)} />
 
           <Card>
             <Pressable accessibilityRole="button" accessibilityState={{ expanded: panel === "edit" }} onPress={() => setPanel(panel === "edit" ? null : "edit")} style={styles.panelHead}>
