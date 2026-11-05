@@ -170,6 +170,8 @@ export function reelkarLane(env: Env, fetchFn: typeof fetch = fetch): Link<LlmPr
     const llm = new OpenAiCompatibleLlm("https://api.groq.com/openai/v1", env.GROQ_API_KEY, "llama-3.3-70b-versatile", { licenseId: "groq", jsonMode: true }, fetchFn);
     links.push({ id: "lane:groq", name: "Reelkar (Groq)", engine: llm });
   }
+  // Last: a model on the owner's own computer. It never runs out, only slower.
+  if (env.OLLAMA_URL) links.push({ id: "lane:ollama", name: "Reelkar (this computer)", engine: ollamaLlm(env.OLLAMA_URL, env.OLLAMA_LLM_MODEL, fetchFn) });
   if (!links.length) requireKey(undefined, "CLOUDFLARE_ACCOUNT_ID");
   return links;
 }
@@ -191,6 +193,13 @@ export function geminiLlm(apiKey: string, model: string, fetchFn: typeof fetch =
     jsonMode: true,
     ...(model.includes("flash") ? { extraBody: { reasoning_effort: "low" } } : {}),
   }, fetchFn);
+}
+
+// Ollama's OpenAI-compatible endpoint; it needs no key, but the header must hold something.
+// gemma3:12b on an M3 Pro writes about 15 tokens a second: a 60-second reel script takes about 85 s and
+// the 4096-token cap about 270 s, inside Node fetch's 300 s wait for a reply, so no timeout is added.
+export function ollamaLlm(url: string, model: string, fetchFn: typeof fetch = fetch): OpenAiCompatibleLlm {
+  return new OpenAiCompatibleLlm(`${url.replace(/\/$/, "")}/v1`, "ollama", model, { licenseId: "ollama", jsonMode: true }, fetchFn);
 }
 
 export function buildImage(env: Env, quality: Quality = "standard") {

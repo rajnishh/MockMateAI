@@ -8,7 +8,7 @@ import { decrypt, encrypt } from "@/lib/crypto";
 import type { Db } from "@/lib/db";
 import { aiEngine } from "@/lib/db/app-schema";
 import type { Env } from "@/lib/env";
-import { aiRests, geminiLlm, reelkarLane } from "@/lib/providers";
+import { aiRests, geminiLlm, ollamaLlm, reelkarLane } from "@/lib/providers";
 import { cloudflareAiBase } from "@/lib/providers/cloudflare";
 import { OpenAiCompatibleLlm } from "@/lib/providers/llm";
 import type { LlmProvider } from "@/lib/providers/types";
@@ -45,7 +45,7 @@ export function textEngine(env: Env, e: Engine, fetchFn: typeof fetch = fetch): 
       return new OpenAiCompatibleLlm(`${cloudflareAiBase(e.extra)}/v1`, key!, model, { licenseId: "cloudflare-workers-ai", jsonMode: true }, fetchFn);
     case "ollama":
       if (!env.OLLAMA_URL) throw new Error("Ollama isn't set up on this server.");
-      return new OpenAiCompatibleLlm(`${env.OLLAMA_URL.replace(/\/$/, "")}/v1`, "ollama", model, { licenseId: "ollama", jsonMode: true }, fetchFn);
+      return ollamaLlm(env.OLLAMA_URL, model, fetchFn);
     case "claude":
       // Claude's OpenAI-compatible endpoint ignores JSON mode; the prompts ask for JSON anyway.
       return new OpenAiCompatibleLlm(TEXT_BASES.claude!, key!, model, { licenseId: model, jsonMode: false }, fetchFn);

@@ -6,7 +6,7 @@ import type { Db } from "@/lib/db";
 import { aiEngine } from "@/lib/db/app-schema";
 import { user } from "@/lib/db/schema";
 import type { Env } from "@/lib/env";
-import { buildLlm } from "@/lib/providers";
+import { buildLlm, reelkarLane } from "@/lib/providers";
 import type { LlmProvider } from "@/lib/providers/types";
 import { testDb } from "./helpers/db";
 
@@ -104,6 +104,30 @@ describe("auto-switching between AI engines", () => {
     expect(lane.links.map((l) => l.id)).toEqual(["lane:cloudflare", "lane:gemini"]);
     expect((buildLlm({ ...ENV, GROQ_API_KEY: "g" }, new MemoryRestStore()) as ChainLlm).links.map((l) => l.id)).toContain("lane:groq");
   });
+
+  it("puts the owner's Ollama last in Reelkar's lane, and it works on its own", async () => {
+    const ollama = { OLLAMA_URL: "http://127.0.0.1:11434/", OLLAMA_LLM_MODEL: "gemma3:12b" };
+    const ids = (buildLlm({ ...ENV, GROQ_API_KEY: "g", ...ollama }, new MemoryRestStore()) as ChainLlm).links.map((l) => l.id);
+    expect(ids).toEqual(["lane:cloudflare", "lane:gemini", "lane:groq", "lane:ollama"]);
+
+    const { fetchFn, requests } = fakeApi();
+    const lane = reelkarLane(ollama as Env, fetchFn);
+    expect(lane.map((l) => l.name)).toEqual(["Reelkar (this computer)"]);
+    expect(lane[0].engine.modelId).toBe("ollama");
+    expect(await lane[0].engine.completeJson("hi")).toEqual({ ok: true });
+    expect(requests[0].url).toBe("http://127.0.0.1:11434/v1/chat/completions");
+    expect(requests[0].body).toMatchObject({ model: "gemma3:12b", response_format: { type: "json_object" } });
+  });
+
+  it("falls back to the owner's Ollama when every key in the lane has run out", async () => {
+    const rests = new MemoryRestStore();
+    const tomorrow = Date.now() + 3_600_000;
+    for (const id of ["lane:cloudflare", "lane:gemini"]) await rests.set(id, { reason: "limit", until: tomorrow });
+    const { fetchFn, requests } = fakeApi();
+    const chain = new ChainLlm(reelkarLane({ ...ENV, OLLAMA_URL: "http://127.0.0.1:11434", OLLAMA_LLM_MODEL: "gemma3:12b" }, fetchFn), rests);
+    expect(await chain.completeJson("lyrics please")).toEqual({ ok: true });
+    expect(requests.map((r) => r.url)).toEqual(["http://127.0.0.1:11434/v1/chat/completions"]);
+  });
 });
 
 describe("a creator's own AI engines", { timeout: 30_000 }, () => {
@@ -116,7 +140,9 @@ describe("a creator's own AI engines", { timeout: 30_000 }, () => {
 
   it("offers Ollama only when the server runs one, and own keys only when they can be encrypted", () => {
     expect(offeredProviders(ENV).map((p) => p.id)).toEqual(["gemini", "groq", "cerebras", "mistral", "cloudflare", "openrouter", "claude"]);
-    expect(offeredProviders({ ...ENV, OLLAMA_URL: "http://localhost:11434" }).map((p) => p.id)).toContain("ollama");
+    const withOllama = offeredProviders({ ...ENV, OLLAMA_URL: "http://localhost:11434" });
+    expect(withOllama.map((p) => p.id)).toContain("ollama");
+    expect(withOllama.find((p) => p.id === "ollama")?.models[0].id).toBe("gemma3:12b");
     expect(offeredProviders({} as Env)).toEqual([]);
   });
 
