@@ -5,7 +5,7 @@ import { getDb } from "@/lib/db";
 import { user } from "@/lib/db/schema";
 import { OCCASION_LABEL, replyTarget } from "@/lib/gifts";
 import { getUserId } from "@/lib/session";
-import { SONG_CREDITS } from "@/lib/billing/catalog";
+import { songCredits } from "@/lib/billing/catalog";
 import { pickLang } from "../copy";
 import s from "../gift.module.css";
 import { ReplyForm } from "./reply-form";
@@ -42,7 +42,7 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
       occasion={OCCASION_LABEL[target.original.occasion]}
       free={target.free}
       myName={myName}
-      price={SONG_CREDITS}
+      price={songCredits("ace-step", 1)}
       language={lang === "en" ? "hinglish" : lang}
     />
   );

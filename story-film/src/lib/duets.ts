@@ -21,7 +21,8 @@ export type Viewer = Role | "invited";
 
 // A song plus a song on your tune (placeholder price, owner decision 2026-11-06), so they move together.
 export const DUET_CREDITS = SONG_CREDITS + TUNE_SONG_CREDITS;
-export const HALF_CREDITS = Math.ceil(DUET_CREDITS / 2);
+// The partner's half rounds down: the starter pays any odd credit.
+export const HALF_CREDITS = Math.max(1, Math.floor(DUET_CREDITS / 2));
 // Finishing alone is just a song on A's tune.
 export const SOLO_CREDITS = TUNE_SONG_CREDITS;
 // One free retake each, then this per retake.

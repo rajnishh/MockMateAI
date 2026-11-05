@@ -260,3 +260,12 @@ describe("crop, fade and speed", () => {
     }
   });
 });
+
+describe("song prices", () => {
+  it("charges per take, by model", async () => {
+    const { songCredits, SONG_CREDITS, DANCE_SONG_CREDITS } = await import("@/lib/billing/catalog");
+    expect([songCredits("ace-step", 1), songCredits("ace-step", 2), songCredits("lyria", 2)]).toEqual([1, 2, 4]);
+    expect(SONG_CREDITS).toBe(2);
+    expect(DANCE_SONG_CREDITS).toBe(1);
+  });
+});

@@ -13,6 +13,8 @@ import {
   declineDuet,
   DUET_CREDITS,
   type Duet,
+  HALF_CREDITS,
+  SOLO_CREDITS,
   duetView,
   extendDuet,
   dueReminders,
@@ -95,8 +97,7 @@ describe("starting and inviting", () => {
     const d = await start(db);
     expect(await getBalance(db, "arjun")).toBe(20 - DUET_CREDITS);
     expect(phaseOf(d, null)).toBe("recording_a");
-    await start(db);
-    await start(db);
+    for (let left = 20 - DUET_CREDITS; left >= DUET_CREDITS; left -= DUET_CREDITS) await start(db);
     await expect(start(db)).rejects.toMatchObject({ status: 402, needCredits: true });
   });
 
@@ -143,9 +144,9 @@ describe("joining the two parts", () => {
   it("splits the price when the partner offers half", async () => {
     const db = await setup();
     const { d } = await bothIn(db, { split: true });
-    expect(await getBalance(db, "sana")).toBe(20 - 3);
-    expect(await getBalance(db, "arjun")).toBe(20 - 3);
-    expect(d).toMatchObject({ paidA: 3, paidB: 3 });
+    expect(await getBalance(db, "sana")).toBe(20 - HALF_CREDITS);
+    expect(await getBalance(db, "arjun")).toBe(20 - (DUET_CREDITS - HALF_CREDITS));
+    expect(d).toMatchObject({ paidA: DUET_CREDITS - HALF_CREDITS, paidB: HALF_CREDITS });
   });
 
   it("joins the parts back to back with ffmpeg", () => {
@@ -216,7 +217,7 @@ describe("no answer, declined or cancelled", () => {
     const db = await setup();
     let d = await savePart(db, dir, await start(db), "a", part("hum"));
     d = await joinDuet(db, d, "sana", { name: "Sana", ig: "", split: true });
-    expect(await getBalance(db, "sana")).toBe(17);
+    expect(await getBalance(db, "sana")).toBe(20 - HALF_CREDITS);
     const again = await reinviteDuet(db, d);
     expect(again.token).not.toBe(d.token);
     expect(again).toMatchObject({ partnerId: null, paidB: 0 });
@@ -240,8 +241,8 @@ describe("no answer, declined or cancelled", () => {
     let d = await savePart(db, dir, await start(db), "a", part("hum"), new Date(Date.now() - 49 * HOUR));
     d = await finishSolo(db, deps(jobs), d);
     expect(d.status).toBe("solo");
-    expect(jobs[0].credits).toBe(2);
-    expect(await getBalance(db, "arjun")).toBe(20 - 2);
+    expect(jobs[0].credits).toBe(SOLO_CREDITS);
+    expect(await getBalance(db, "arjun")).toBe(20 - SOLO_CREDITS);
   });
 
   it("cancelling gives everyone everything back", async () => {

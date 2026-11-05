@@ -43,7 +43,11 @@ const SINGER_LABEL: Record<Singer, string> = { male: "♂ Male", female: "♀ Fe
 const NEXT_SINGER: Record<string, Singer | null> = { none: "male", male: "female", female: "both", both: null };
 
 // Song Studio's Create: Simple (one sentence), Custom (every control) or Instrumental.
-export function CreateForm({ credits, available, onCreated }: { credits: number; available: boolean; onCreated: () => void }) {
+// Credits per take, by model (GET /api/songs sends the catalog's).
+export type SongPrices = { "ace-step": number; lyria: number };
+export const SONG_PRICES_FALLBACK: SongPrices = { "ace-step": 1, lyria: 2 };
+
+export function CreateForm({ perTake, available, onCreated }: { perTake: SongPrices; available: boolean; onCreated: () => void }) {
   const [mode, setMode] = useState<Mode>("simple");
   const [topic, setTopic] = useState("");
   const [genre, setGenre] = useState<string>("desi-hip-hop");
@@ -71,6 +75,7 @@ export function CreateForm({ credits, available, onCreated }: { credits: number;
   const [made, setMade] = useState<string | null>(null);
 
   const short = model === "lyria";
+  const credits = perTake[model] * (twoTakes ? 2 : 1);
   const length = short ? 30 : durationSec;
   const options = { topic, genre, mood, language, durationSec: length, kidSafe };
   const blocks = blocksOf(lyrics);
@@ -408,11 +413,11 @@ export function CreateForm({ credits, available, onCreated }: { credits: number;
         </label>
       )}
       <label className="check">
-        <input type="checkbox" checked={twoTakes} onChange={(e) => setTwoTakes(e.target.checked)} /> Make 2 versions to choose from (same price)
+        <input type="checkbox" checked={twoTakes} onChange={(e) => setTwoTakes(e.target.checked)} /> Make 2 versions to choose from
       </label>
 
       <button type="submit" className={css.make} disabled={busy !== null || !canMake}>
-        {busy === "make" ? (mode === "simple" ? "Writing your song…" : "Starting…") : `${twoTakes ? "Make 2 versions" : "Make song"} · ${credits} credits`}
+        {busy === "make" ? (mode === "simple" ? "Writing your song…" : "Starting…") : `${twoTakes ? "Make 2 versions" : "Make song"} · ${credits} ${credits === 1 ? "credit" : "credits"}`}
       </button>
       <p className="muted">Songs can&apos;t name or imitate real singers or bands. Every song gets AI cover art and is marked as made with AI.</p>
 

@@ -262,7 +262,7 @@ export default function HumRecord() {
           </>
         ) : (
           <Txt variant="cap" style={{ textAlign: "center" }}>
-            2 credits for a song on your tune · you&apos;ll see the price before anything is made
+            1 credit for a song on your tune · you&apos;ll see the price before anything is made
           </Txt>
         )
       }>

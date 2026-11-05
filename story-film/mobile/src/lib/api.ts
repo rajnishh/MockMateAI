@@ -280,8 +280,10 @@ export interface SongAnalysis {
 }
 export interface SongStudio {
   songs: Song[];
-  // What one Create costs, and each kind of remix.
+  // What the usual Create (two ACE-Step takes) costs, and each kind of remix.
   credits: number;
+  // Credits per take, by model. Missing on servers from before per-take prices.
+  creditsPerTake?: Record<SongModel, number>;
   remixCredits: Record<RemixKind, number>;
   // Missing on servers from before the Studio.
   remixKinds?: RemixKindInfo[];
@@ -653,7 +655,7 @@ let demoBalance = 20;
 const demoDuetBase: Duet = {
   id: "d1", role: "a", token: "demoDuet01", invitedIg: "", myVoiceId: null, voiceCredits: 4, partAOwnVoice: false, partBOwnVoice: false, phase: "waiting", url: "https://reelkar.app/j/demoDuet01", topic: "Chai vs coffee, settled in song", genre: "bollywood-romantic", language: "hinglish",
   starterName: "Arjun", partnerName: "", starterIg: "arjun.sings", partnerIg: "", partA: { kind: "hum", sec: 28, audioUrl: "/demo" }, partB: null, songId: null, songAudioUrl: null,
-  price: 6, half: 3, paidA: 6, paidB: 0, freeRetake: true, retakeCredits: 1, approvedA: false, approvedB: false, askedToRetake: false,
+  price: 3, half: 1, paidA: 3, paidB: 0, freeRetake: true, retakeCredits: 1, approvedA: false, approvedB: false, askedToRetake: false,
   expiresAt: new Date(Date.now() + 47 * 3600_000).toISOString(), canExtend: false, declineNote: "", createdAt: new Date().toISOString(),
 };
 const demoDuets: Duet[] = [{ ...demoDuetBase }];
@@ -1068,7 +1070,7 @@ const demo: typeof real = {
   shareLink: async () => {
     throw new ApiError("Saving and sharing need the Reelkar server, not the demo", 503);
   },
-  songs: async () => (await wait(300), { songs: [...demoSongs], credits: 4, remixCredits: { cover: 2, extend: 2, replace: 1, rap: 1 }, available: true }),
+  songs: async () => (await wait(300), { songs: [...demoSongs], credits: 2, creditsPerTake: { "ace-step": 1, lyria: 2 }, remixCredits: { cover: 1, extend: 1, replace: 1, rap: 1 }, available: true }),
   song: async (id) => {
     await wait(200);
     const s = demoSongs.find((x) => x.id === id);
