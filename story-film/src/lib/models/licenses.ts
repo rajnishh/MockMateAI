@@ -11,6 +11,8 @@ export const MODEL_LICENSES: Record<string, ModelLicense> = {
   "kling-2.6": { license: "fal.ai API terms", commercial: true },
   "kling-3.0": { license: "fal.ai API terms", commercial: true },
   "kling-avatar-2": { license: "fal.ai API terms", commercial: true },
+  "kling-3.0-motion": { license: "fal.ai API terms", commercial: true, note: "reference clips: our AI-made library or the creator's own, with consent" },
+  "omnihuman-1.5": { license: "fal.ai / ByteDance API terms", commercial: true },
   "veo-3.1": { license: "fal.ai / Google API terms", commercial: true, note: "SynthID stamped" },
   "nano-banana-2": { license: "fal.ai / Google API terms", commercial: true, note: "SynthID stamped" },
   "kokoro-82m": { license: "Apache-2.0", commercial: true },

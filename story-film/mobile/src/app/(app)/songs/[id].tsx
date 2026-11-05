@@ -123,6 +123,7 @@ export default function SongScreen() {
           </Card>
           <Button label="Save or share" icon="share" kind="secondary" block loading={sharing} disabled={!s.audioUrl} onPress={share} />
           {error ? <Banner kind="error" text={error} /> : null}
+          <Button label="Make music video" icon="film" kind="secondary" block disabled={s.status !== "completed"} onPress={() => router.push(`/songs/video/${s.id}`)} />
 
           <View style={[styles.tabs, { backgroundColor: colors.surfaceSunken }]} accessibilityRole="tablist">
             {TABS.map((t) => {

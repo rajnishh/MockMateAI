@@ -10,6 +10,9 @@ import { z } from "zod";
 import { loadEnv } from "@/lib/env";
 import { LANGUAGE_CODES } from "@/lib/languages";
 import { PHOTO_ID } from "@/lib/photos";
+import { DANCE_CLIP_ID } from "@/lib/music-video/dance";
+import type { MusicVideoPhase } from "@/lib/music-video/pipeline";
+import { DANCE_STYLES, MUSIC_VIDEO_KINDS, type MusicVideoKind } from "@/lib/music-video/shots";
 import type { CharacterProfile, Resolution } from "@/lib/providers/types";
 
 export const FILM_QUEUE = "films";
@@ -69,20 +72,44 @@ export type FilmJob = z.infer<typeof filmJobSchema> & {
 };
 
 export const musicVideoRequestSchema = z.object({
+  // Lyric video, story video, performance (the star sings, lip-synced) or the full music video.
+  // Older clients send only quality and singer; musicVideoKind() maps those.
+  kind: z.enum(MUSIC_VIDEO_KINDS).optional(),
   style: z.enum(STYLE_IDS).default("animated"),
   quality: z.enum(["standard", "premium", "cinematic"]).default("standard"),
   // The star is the person in this uploaded photo (POST /api/photos), with the creator's consent.
   photo: z.string().regex(PHOTO_ID).optional(),
   photoConsent: z.boolean().default(false),
-  // "Sing it yourself": the star lip-syncs the song in every scene (AI animation or Cinematic only).
+  // Older clients' "Sing it yourself": now the performance kind.
   singer: z.boolean().default(false),
   characterId: z.uuid().optional(),
   kidSafe: z.boolean().default(false),
   captions: z.boolean().default(true),
+  danceStyle: z.enum(DANCE_STYLES).default("bollywood"),
+  // A clip of the creator dancing (POST /api/songs/[id]/music-video/dance-clip), with their consent.
+  danceClip: z.string().regex(DANCE_CLIP_ID).optional(),
+  danceClipConsent: z.boolean().default(false),
+  // Only this part of the song, in seconds.
+  range: z
+    .object({ start: z.number().finite().min(0), end: z.number().finite().positive() })
+    .refine((r) => r.end - r.start >= 3, "Pick at least 3 seconds of the song")
+    .optional(),
+  // Plan the shots and draw them first (free), then wait for the creator to check them.
+  storyboard: z.boolean().default(false),
 });
 
-// Music videos share the films queue (job name "music-video") and the film table.
-export type MusicVideoJob = z.infer<typeof musicVideoRequestSchema> & {
+export type MusicVideoRequestBody = z.infer<typeof musicVideoRequestSchema>;
+
+export function musicVideoKind(body: Pick<MusicVideoRequestBody, "kind" | "quality" | "singer">): MusicVideoKind {
+  return body.kind ?? (body.singer ? "performance" : body.quality === "standard" ? "lyric" : "story");
+}
+
+// Music videos share the films queue (job name "music-video") and the film table. A storyboard
+// job plans the shots and stops at "review"; its render job carries filmId, as its job id differs.
+export type MusicVideoJob = MusicVideoRequestBody & {
+  kind: MusicVideoKind;
+  phase: MusicVideoPhase;
+  filmId?: string;
   userId: string;
   songId: string;
   songFile: string;
@@ -92,6 +119,7 @@ export type MusicVideoJob = z.infer<typeof musicVideoRequestSchema> & {
   mood: string;
   character?: CharacterProfile;
   photoUrl?: string;
+  danceClipFile?: string;
   resolution: Resolution;
   watermark: boolean;
   credits: number;

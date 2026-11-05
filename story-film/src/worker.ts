@@ -20,13 +20,14 @@ import { singInMyVoice } from "@/lib/voice/sing";
 import { makeCover } from "@/lib/songs/cover";
 import { runRemix } from "@/lib/songs/remix";
 import { getSongById, updateSong } from "@/lib/songs/songs";
-import { type EditJob, type EditRenderJob, FILM_QUEUE, type FilmJob, type FilmQueueJob, getRedis, type MusicVideoJob } from "@/lib/queue/films";
+import { type EditJob, type EditRenderJob, FILM_QUEUE, type FilmJob, type FilmQueueJob, getRedis, type MusicVideoJob, musicVideoKind } from "@/lib/queue/films";
 import { onReelFinished } from "@/lib/agent/agent";
 import { agentDeps } from "@/lib/agent/deps";
 import { loadEditState, planEdit, renderPlannedEdit } from "@/lib/edit/pipeline";
 import { runDanceReel } from "@/lib/dance/pipeline";
 import { runMotionReel } from "@/lib/motion/pipeline";
 import { runMusicVideo } from "@/lib/music-video/pipeline";
+import { musicVideoDeps } from "@/lib/music-video/deps";
 import { CloudflareWhisper } from "@/lib/providers/whisper";
 import { enqueuePost, getPublishQueue, PUBLISH_QUEUE, type PublishJob } from "@/lib/queue/publish";
 import { RedisQuotaStore } from "@/lib/quota/quota";
@@ -59,7 +60,7 @@ function isMusicVideo(job: Job<FilmQueueJob>): job is Job<MusicVideoJob> {
 }
 
 // Job ids are film row ids (except edit re-renders, which name their film), so progress is written straight to the film.
-const filmIdOf = (job: Job<FilmQueueJob>) => (isEditRender(job) ? job.data.filmId : job.id!);
+const filmIdOf = (job: Job<FilmQueueJob>) => (isEditRender(job) ? job.data.filmId : isMusicVideo(job) && job.data.filmId ? job.data.filmId : job.id!);
 
 const filmWorker = new Worker<FilmQueueJob>(
   FILM_QUEUE,
@@ -82,14 +83,16 @@ const filmWorker = new Worker<FilmQueueJob>(
     } else if (isEditRender(job)) {
       result = await renderPlannedEdit({ fontsDir: env.FONTS_DIR }, await loadEditState(workDir), workDir, onStage);
     } else if (isMusicVideo(job)) {
-      const d = job.data;
-      result = await runMusicVideo(
-        { ...depsFor(d.quality), whisper, ...(d.singer && d.quality !== "standard" ? { singer: buildSinger(env, d.quality) } : {}) },
-        { ...d, sceneSec: d.quality === "standard" ? { min: 4, max: 7 } : { min: 3, max: 5 } },
-        workDir,
-        onStage,
-      );
-      description = "AI-generated music video: song, scenes and motion made with generative AI models";
+      // Jobs queued before music video kinds existed carry only quality and singer.
+      const d = { ...job.data, kind: musicVideoKind(job.data) };
+      const mv = await runMusicVideo(musicVideoDeps(d.kind), d, workDir, onStage, d.phase ?? "all");
+      if (mv.output === null) {
+        // The storyboard waits for the creator; POST /api/songs/[id]/music-video/[filmId] renders it.
+        await updateFilm(db, filmId, { status: "review", stage: null, title: mv.title });
+        return mv;
+      }
+      result = { output: mv.output, title: mv.title };
+      description = "AI-generated music video: song, scenes, singing and dancing made with generative AI models";
     } else if ((job.data as FilmJob).format === "dance") {
       const d = job.data as FilmJob;
       const { llm, tts } = depsFor("standard");
