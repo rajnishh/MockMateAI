@@ -4,7 +4,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 import { AceStepMusic } from "@/lib/providers/acestep";
-import { buildShortSongProvider, buildSongEditor, buildSongProvider, songsAvailable } from "@/lib/providers";
+import { buildShortSongProvider, buildSongEditor, buildSongProvider, songsAvailable, stemsAvailable } from "@/lib/providers";
 import { FalLyria } from "@/lib/providers/fal-music";
 import type { Env } from "@/lib/env";
 
@@ -47,6 +47,12 @@ describe("AceStepMusic (self-hosted ACE-Step 1.5)", () => {
     expect(calls[0].body).not.toHaveProperty("vocal_language");
   });
 
+  it("passes Create's tempo, key and dials", async () => {
+    const { calls, ace } = fakeServer();
+    await ace.sing({ style: "pop", lyrics: "la", durationSec: 30, vocalLanguage: "en", controls: { bpm: 96, keyScale: "A minor", lmTemperature: 1.1, inferMethod: "sde" } });
+    expect(calls[0].body).toMatchObject({ bpm: 96, key_scale: "A minor", lm_temperature: 1.1, infer_method: "sde" });
+  });
+
   it("redoes one part of a local song by uploading it", async () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), "ace-"));
     const file = path.join(dir, "song.mp3");
@@ -76,9 +82,10 @@ describe("song providers", () => {
     expect(buildShortSongProvider(e)).toBeInstanceOf(FalLyria);
   });
 
-  it("works with no fal key at all", () => {
+  it("works with no fal key at all, without stems", () => {
     const e = env({ ACESTEP_URL: "http://localhost:8001" });
     expect(songsAvailable(e)).toBe(true);
+    expect(stemsAvailable(e)).toBe(false);
     expect(buildShortSongProvider(e)).toBeInstanceOf(AceStepMusic);
   });
 });

@@ -4,7 +4,7 @@ import { STEMS_CREDITS } from "@/lib/billing/catalog";
 import { grantCredits, spendCredits } from "@/lib/billing/credits";
 import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
-import { songsAvailable } from "@/lib/providers";
+import { stemsAvailable } from "@/lib/providers";
 import { getSongStemsQueue } from "@/lib/queue/song-stems";
 import { getUserId, unauthorized } from "@/lib/session";
 import { clearStems, readStemsState, STEMS, stemsDir, writeStemsState } from "@/lib/songs/mix";
@@ -39,7 +39,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const { id } = await params;
   const found = await completedSong(id);
   if ("error" in found) return found.error;
-  if (!songsAvailable(loadEnv())) return NextResponse.json({ error: "Song Studio isn't available yet" }, { status: 503 });
+  if (!stemsAvailable(loadEnv())) return NextResponse.json({ error: "Separating stems isn't available yet" }, { status: 503 });
   // The folder comes from the worker-written song path, never from the request.
   const dir = stemsDir(found.outputPath, id);
   const state = await readStemsState(dir);

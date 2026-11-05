@@ -98,7 +98,11 @@ export function buildProSongEditor(env: Env): RunwareSongEditor {
   return new RunwareSongEditor(requireKey(env.RUNWARE_API_KEY, "RUNWARE_API_KEY"));
 }
 
-// The Studio's stems: Demucs on fal.
+// The Studio's stems: Demucs on fal, so they need fal even when songs are made locally.
+export function stemsAvailable(env: Env): boolean {
+  return Boolean(env.FAL_KEY);
+}
+
 export function buildStemSeparator(env: Env): FalDemucs {
   return new FalDemucs(new FalQueueClient(requireKey(env.FAL_KEY, "FAL_KEY")));
 }

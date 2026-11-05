@@ -11,7 +11,7 @@ import { pendingPosts, publishPost } from "@/lib/posts";
 import { provenanceFromEnv, trySign } from "@/lib/provenance";
 import { grantCredits } from "@/lib/billing/credits";
 import { creatorMessage } from "@/lib/creator-errors";
-import { buildDanceSinger, buildImage, buildPipelineDeps, buildProSongEditor, buildShortSongProvider, buildSinger, buildSingDeps, buildSongEditor, buildSongProvider, buildStemSeparator, buildTranscriber, proRemixAvailable, type Quality, songsAvailable } from "@/lib/providers";
+import { buildDanceSinger, buildImage, buildPipelineDeps, buildProSongEditor, buildShortSongProvider, buildSinger, buildSingDeps, buildSongEditor, buildSongProvider, buildStemSeparator, buildTranscriber, proRemixAvailable, type Quality, songsAvailable, stemsAvailable } from "@/lib/providers";
 import { type MyVoiceJob, type RemixJob, SONG_QUEUE, type SongJob, type SongQueueJob, type StudioJob } from "@/lib/queue/songs";
 import { SONG_STEMS_QUEUE, type StemsJob } from "@/lib/queue/song-stems";
 import { mixArgs, writeStemsState } from "@/lib/songs/mix";
@@ -148,10 +148,11 @@ filmWorker.on("failed", async (job, err) => {
   }
 });
 
-// Songs run only when fal.ai is configured.
+// Songs run on the self-hosted ACE-Step or on fal.ai.
 if (songsAvailable(env)) {
   const singer = buildSongProvider(env);
-  const singDeps = buildSingDeps(env);
+  // Voice conversion and stem separation are on fal; free local songs work without them.
+  const singDeps = env.FAL_KEY ? buildSingDeps(env) : undefined;
   const songEditor = buildSongEditor(env);
   const proSongEditor = proRemixAvailable(env) ? buildProSongEditor(env) : undefined;
   const shortSinger = buildShortSongProvider(env);
@@ -167,6 +168,7 @@ if (songsAvailable(env)) {
       let outputPath: string;
       if (job.name === "my-voice") {
         const d = job.data as MyVoiceJob;
+        if (!singDeps) throw new Error("Singing in your own voice needs fal");
         const mixed = await singInMyVoice(singDeps, d.parentSongFile, d.sampleFile, path.join(dir, `${songId}-work`));
         outputPath = path.join(dir, `${songId}.mp3`);
         await rename(mixed, outputPath);
@@ -176,7 +178,7 @@ if (songsAvailable(env)) {
         await defaultFfmpeg(mixArgs({ ...(job.data as StudioJob).mix, output: outputPath }));
         await updateSong(db, songId, { durationSec: Math.round(await probeDuration(outputPath)) });
       } else if (job.name === "remix") {
-        const audio = await runRemix(songEditor, (job.data as RemixJob).call, { workDir: dir, ffmpeg: defaultFfmpeg, probeDuration, pro: proSongEditor, separator: singDeps.separator });
+        const audio = await runRemix(songEditor, (job.data as RemixJob).call, { workDir: dir, ffmpeg: defaultFfmpeg, probeDuration, pro: proSongEditor, separator: singDeps?.separator });
         outputPath = path.join(dir, `${songId}.${audio.ext}`);
         await writeFile(outputPath, audio.data);
       } else {
@@ -219,18 +221,20 @@ if (songsAvailable(env)) {
   console.log(`song worker listening on queue "${SONG_QUEUE}"`);
 
   // The Studio's stems, made once per song on demand and saved next to it.
-  const stemSeparator = buildStemSeparator(env);
-  const stemsWorker = new Worker<StemsJob>(
-    SONG_STEMS_QUEUE,
-    async (job) => separateSongStems(stemSeparator, job.data.songFile, job.data.dir, { ffmpeg: defaultFfmpeg }),
-    { connection: getRedis(), concurrency: 2 },
-  );
-  stemsWorker.on("failed", async (job, err) => {
-    console.error(`stems for song ${job?.data.songId} failed:`, err.message);
-    if (!job) return;
-    await writeStemsState(job.data.dir, { status: "failed", error: creatorMessage(err) });
-    if (job.data.credits > 0) await grantCredits(db, job.data.userId, job.data.credits, "refund", job.data.ref);
-  });
+  if (stemsAvailable(env)) {
+    const stemSeparator = buildStemSeparator(env);
+    const stemsWorker = new Worker<StemsJob>(
+      SONG_STEMS_QUEUE,
+      async (job) => separateSongStems(stemSeparator, job.data.songFile, job.data.dir, { ffmpeg: defaultFfmpeg }),
+      { connection: getRedis(), concurrency: 2 },
+    );
+    stemsWorker.on("failed", async (job, err) => {
+      console.error(`stems for song ${job?.data.songId} failed:`, err.message);
+      if (!job) return;
+      await writeStemsState(job.data.dir, { status: "failed", error: creatorMessage(err) });
+      if (job.data.credits > 0) await grantCredits(db, job.data.userId, job.data.credits, "refund", job.data.ref);
+    });
+  }
 }
 
 // Publishing runs when YouTube and/or Instagram is configured.
