@@ -8,6 +8,7 @@ import { CLOUDFLARE_DEFAULTS, cloudflareAiBase, CloudflareFluxImage } from "./cl
 import { DEFAULT_FAL_MODELS, FalAvatarSinger, FalImageToVideo, FalNanoBanana, FalQueueClient } from "./fal";
 import { FalAceStep, FalLyria } from "./fal-music";
 import { FalSongEditor } from "./fal-song-edit";
+import { RunwareSongEditor } from "./runware-song-edit";
 import { FalChatterboxVc, FalDemucs, SeedVcServer } from "./voice";
 import { CloudflareTranscriber, CloudflareWhisper } from "./whisper";
 import { KenBurnsVideo } from "./kenburns";
@@ -82,6 +83,15 @@ export function buildShortSongProvider(env: Env): FalLyria {
 // Remix (cover, extend, replace a part): ACE-Step's edit endpoints on fal, like songs.
 export function buildSongEditor(env: Env): FalSongEditor {
   return new FalSongEditor(new FalQueueClient(requireKey(env.FAL_KEY, "FAL_KEY")));
+}
+
+// Pro remixes (ACE-Step 1.5 on Runware) need Runware, plus fal for songs and stem separation.
+export function proRemixAvailable(env: Env): boolean {
+  return Boolean(env.RUNWARE_API_KEY && env.FAL_KEY);
+}
+
+export function buildProSongEditor(env: Env): RunwareSongEditor {
+  return new RunwareSongEditor(requireKey(env.RUNWARE_API_KEY, "RUNWARE_API_KEY"));
 }
 
 // "Sing in my voice" needs fal (separation) and Whisper (consent check).

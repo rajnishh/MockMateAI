@@ -5,19 +5,29 @@ import { REMIX_CREDITS, SONG_CREDITS } from "@/lib/billing/catalog";
 import { grantCredits, spendCredits } from "@/lib/billing/credits";
 import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
-import { buildLlm, songsAvailable } from "@/lib/providers";
+import { buildLlm, proRemixAvailable, songsAvailable } from "@/lib/providers";
 import { getSongQueue } from "@/lib/queue/songs";
 import { getUserId, unauthorized } from "@/lib/session";
 import { cleanLyrics } from "@/lib/songs/lyrics";
 import { newSongSchema, songLength, vocalLanguage } from "@/lib/songs/request";
 import { assertNoRealArtists, SongSafetyError } from "@/lib/songs/safety";
+import { remixKinds } from "@/lib/songs/remix";
 import { createSong, listSongs, songView, takeCredits } from "@/lib/songs/songs";
 import { findGenre, stylePrompt } from "@/lib/songs/styles";
 
 export async function GET() {
   const userId = await getUserId();
   if (!userId) return unauthorized();
-  return NextResponse.json({ songs: (await listSongs(getDb(), userId)).map(songView), credits: SONG_CREDITS, remixCredits: REMIX_CREDITS, available: songsAvailable(loadEnv()) });
+  const env = loadEnv();
+  return NextResponse.json({
+    songs: (await listSongs(getDb(), userId)).map(songView),
+    credits: SONG_CREDITS,
+    remixCredits: REMIX_CREDITS,
+    available: songsAvailable(env),
+    // Remix kinds this server can run, and whether covers take a strength (both need Runware for the pro ones).
+    remixKinds: remixKinds(proRemixAvailable(env)),
+    coverStrength: proRemixAvailable(env),
+  });
 }
 
 export async function POST(req: Request) {

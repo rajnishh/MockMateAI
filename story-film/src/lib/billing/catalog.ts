@@ -96,4 +96,7 @@ export function findPlan(id: string): Plan | undefined {
 // Song remixes (ACE-Step edit endpoints on fal, ~$0.0002 per second of audio, so a 2-minute
 // song costs under 3 cents): a cover or extension regenerates the whole song, a replaced part
 // only a slice of it. Verify fal's prices before launch.
-export const REMIX_CREDITS = { cover: 2, extend: 2, replace: 1 } as const;
+// Adding vocals or music (ACE-Step 1.5 on Runware, ~$0.01 a call, plus two Demucs splits on fal,
+// ~$0.04 a minute each, so ~$0.2 for a 2-minute song) costs more. Covers, extensions and replaced
+// parts on Runware cost about the same as on fal.
+export const REMIX_CREDITS = { cover: 2, extend: 2, replace: 1, "add-vocals": 6, "add-instrumental": 6 } as const;
