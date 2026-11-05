@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
+import { llmForUser } from "@/lib/ai/engines";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { REMIX_CREDITS, SONG_CREDITS, STEMS_CREDITS } from "@/lib/billing/catalog";
 import { grantCredits, spendCredits } from "@/lib/billing/credits";
 import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
-import { buildLlm, proRemixAvailable, songsAvailable } from "@/lib/providers";
+import { proRemixAvailable, songsAvailable } from "@/lib/providers";
 import { getSongQueue } from "@/lib/queue/songs";
 import { getUserId, unauthorized } from "@/lib/session";
 import { prepareSong } from "@/lib/songs/create";
@@ -44,7 +45,7 @@ export async function POST(req: Request) {
 
   // Simple mode writes the title, lyrics and style with AI first. User-edited lyrics and titles,
   // and AI-written ones, are checked before anything is generated.
-  const llm = buildLlm(env);
+  const llm = await llmForUser(getDb(), env, userId);
   let prepared: Awaited<ReturnType<typeof prepareSong>>;
   try {
     await assertNoRealArtists(llm, [parsed.data.topic, parsed.data.title, parsed.data.lyrics, parsed.data.style ?? ""]);

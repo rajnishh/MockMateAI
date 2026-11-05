@@ -32,6 +32,7 @@ import {
   type AgentCard,
   type AgentMessage,
   type AgentTurn,
+  aiNeedsKey,
   api,
   type PostingMode,
 } from "@/lib/api";
@@ -83,15 +84,14 @@ export default function Ask() {
   const [mode, setMode] = useState<PostingMode>("ask");
   const [freeLeft, setFreeLeft] = useState<number | null>(null);
   const [ai, setAi] = useState<string | null>(null);
-  // Which AI answers; refreshed when coming back from its settings screen.
+  // The creator's AI engines in the order they're tried; refreshed when coming back from their screen.
   useFocusEffect(
     useCallback(() => {
       api
-        .aiChoice()
+        .aiEngines()
         .then((v) => {
-          const p = v.providers.find((x) => x.id === v.provider);
-          const m = p?.models.find((x) => x.id === v.model)?.label ?? v.model;
-          setAi([p?.name ?? "Reelkar free", v.provider !== "reelkar" ? m : null].filter(Boolean).join(" · "));
+          const names = v.engines.filter((e) => e.enabled && (v.ownKeys || !aiNeedsKey(e.provider))).map((e) => e.name);
+          setAi(names.length ? `${names.join(", ")}, then Reelkar free` : "Reelkar free · add your own free AI");
         })
         .catch(() => undefined);
     }, []),
@@ -184,7 +184,7 @@ export default function Ask() {
             />
             <Txt variant="cap">{MODES.find((m) => m.value === mode)?.help}</Txt>
           </View>
-          {ai ? <ListRow icon="sparkle" title="Who answers you" sub={ai} onPress={() => router.push("/ai")} /> : null}
+          {ai ? <ListRow icon="sparkle" title="Your AI engines" sub={ai} onPress={() => router.push("/ai")} /> : null}
 
           {messages.length === 0 ? (
             <Card flat>

@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+import { llmForUser } from "@/lib/ai/engines";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
-import { buildLlm } from "@/lib/providers";
+
 import { getRedis } from "@/lib/queue/films";
 import { allow } from "@/lib/rate-limit";
 import { getUserId, unauthorized } from "@/lib/session";
@@ -31,7 +32,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "Daily limit for AI raps reached. Try again tomorrow." }, { status: 429 });
   }
   try {
-    const llm = buildLlm(loadEnv());
+    const llm = await llmForUser(getDb(), loadEnv(), userId);
     if (parsed.data.idea) await assertNoRealArtists(llm, [parsed.data.idea]);
     const bars = await writeRap(llm, {
       lyrics: song.lyrics,

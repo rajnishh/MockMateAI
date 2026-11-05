@@ -267,6 +267,28 @@ export const agentSettings = pgTable("agent_settings", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// The creator's own AI engines, tried in `position` order for every AI task before Reelkar's own
+// lane. Keys are encrypted like OAuth tokens; only the last 4 characters are shown back. `extra`
+// holds a second value a provider needs, such as a Cloudflare account id.
+export const aiEngine = pgTable(
+  "ai_engine",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull(),
+    model: text("model").notNull(),
+    key: text("key"),
+    keyHint: text("key_hint"),
+    extra: text("extra"),
+    position: integer("position").notNull().default(0),
+    enabled: boolean("enabled").notNull().default(true),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("ai_engine_user_idx").on(t.userId, t.position)],
+);
+
 export const agentMessage = pgTable(
   "agent_message",
   {

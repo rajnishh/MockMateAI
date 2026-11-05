@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { llmForUser } from "@/lib/ai/engines";
+import { getDb } from "@/lib/db";
 import { z } from "zod";
 import { loadEnv } from "@/lib/env";
-import { buildLlm } from "@/lib/providers";
+
 import { getRedis } from "@/lib/queue/films";
 import { allow } from "@/lib/rate-limit";
 import { getUserId, unauthorized } from "@/lib/session";
@@ -22,7 +24,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Daily limit for AI styles reached. Try again tomorrow." }, { status: 429 });
   }
   try {
-    const llm = buildLlm(loadEnv());
+    const llm = await llmForUser(getDb(), loadEnv(), userId);
     await assertNoRealArtists(llm, [parsed.data.idea, parsed.data.topic]);
     const style = await writeStyle(llm, { ...parsed.data, idea: parsed.data.idea || parsed.data.topic, genre });
     await assertNoRealArtists(llm, [style]);

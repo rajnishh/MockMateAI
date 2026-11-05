@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { handleMessage } from "@/lib/agent/agent";
-import { creatorPlanner } from "@/lib/agent/ai-planner";
+import { llmForUser, plannerForUser } from "@/lib/ai/engines";
 import { agentDeps, toTurn, turnSchema } from "@/lib/agent/deps";
 import { getPostingMode, historyView } from "@/lib/agent/store";
 import { getDb } from "@/lib/db";
@@ -34,13 +34,15 @@ export async function POST(req: Request) {
   const parsed = messageSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: z.prettifyError(parsed.error) }, { status: 400 });
   const deps = agentDeps();
-  const own = await creatorPlanner(deps.db, loadEnv(), userId);
-  const ownKey = !!own && own.provider !== "ollama";
+  const own = await plannerForUser(deps.db, loadEnv(), userId);
+  const ownKey = !!own?.ownKey;
   const limit = ownKey ? DAILY_MESSAGES_OWN_KEY : DAILY_MESSAGES;
   if (!(await allow(getRedis(), `ratelimit:agent:${ownKey ? "own:" : ""}${userId}`, limit, 24 * 3600))) {
     return NextResponse.json({ error: `Ask Reelkar answers ${limit} messages a day${ownKey ? "" : " on the free plan"}. Try again tomorrow, or use the Create screen.` }, { status: 429 });
   }
   if (own) Object.assign(deps, { planner: own.planner, ownAi: own.name });
+  // The one-shot planner (when no engine can call tools, or they all failed) uses the creator's chain too.
+  deps.llm = await llmForUser(deps.db, loadEnv(), userId);
   await handleMessage(deps, toTurn(userId, parsed.data), parsed.data.text);
   return NextResponse.json({ messages: await historyView(deps.db, userId) });
 }

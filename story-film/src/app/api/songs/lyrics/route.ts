@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { llmForUser } from "@/lib/ai/engines";
+import { getDb } from "@/lib/db";
 import { z } from "zod";
 import { loadEnv } from "@/lib/env";
-import { buildLlm } from "@/lib/providers";
+
 import { getRedis } from "@/lib/queue/films";
 import { allow } from "@/lib/rate-limit";
 import { getUserId, unauthorized } from "@/lib/session";
@@ -21,7 +23,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Daily limit for AI lyrics reached. Try again tomorrow." }, { status: 429 });
   }
   try {
-    const llm = buildLlm(loadEnv());
+    const llm = await llmForUser(getDb(), loadEnv(), userId);
     const { draft, ...options } = parsed.data;
     await assertNoRealArtists(llm, [options.topic, draft ?? ""]);
     // With the creator's own lines: "Enhance my lyrics" grows them into a full song.

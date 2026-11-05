@@ -65,31 +65,3 @@ export class OpenAiCompatibleLlm implements LlmProvider {
   }
 }
 
-// Tries the primary LLM and, if it fails (Workers AI's free daily limit, an outage), asks the backup.
-export class FallbackLlm implements LlmProvider {
-  readonly modelId: string;
-
-  constructor(
-    private readonly primary: LlmProvider,
-    private readonly backup: LlmProvider,
-  ) {
-    this.modelId = primary.modelId;
-  }
-
-  writeScript(input: ScriptRequest): Promise<FilmScript> {
-    return this.withBackup((llm) => llm.writeScript(input));
-  }
-
-  completeJson(prompt: string): Promise<unknown> {
-    return this.withBackup((llm) => llm.completeJson(prompt));
-  }
-
-  private async withBackup<T>(run: (llm: LlmProvider) => Promise<T>): Promise<T> {
-    try {
-      return await run(this.primary);
-    } catch (err) {
-      console.warn(`${this.primary.modelId} failed, using ${this.backup.modelId}: ${(err as Error).message.slice(0, 200)}`);
-      return run(this.backup);
-    }
-  }
-}

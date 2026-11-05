@@ -1,10 +1,12 @@
 import { readFile, rm, writeFile } from "node:fs/promises";
+import { llmForUser } from "@/lib/ai/engines";
+import { getDb } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { SONG_CREDITS, STANDARD_CREDITS, TUNE_SONG_CREDITS } from "@/lib/billing/catalog";
 import { loadEnv } from "@/lib/env";
 import { defaultFfmpeg, probeDuration } from "@/lib/ffmpeg";
 import { normaliseLanguage } from "@/lib/languages";
-import { buildLlm, buildTranscriber, editsAvailable, songsAvailable } from "@/lib/providers";
+import { buildTranscriber, editsAvailable, songsAvailable } from "@/lib/providers";
 import type { TimedWord } from "@/lib/providers/whisper";
 import { getRedis } from "@/lib/queue/films";
 import { allow } from "@/lib/rate-limit";
@@ -83,7 +85,7 @@ export async function POST(req: Request) {
 
   let llm;
   try {
-    llm = buildLlm(env);
+    llm = await llmForUser(getDb(), env, userId);
   } catch {
     llm = undefined;
   }

@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
+import { llmForUser } from "@/lib/ai/engines";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { TUNE_SONG_CREDITS } from "@/lib/billing/catalog";
 import { grantCredits, spendCredits } from "@/lib/billing/credits";
 import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
-import { buildLlm, songsAvailable } from "@/lib/providers";
+import { songsAvailable } from "@/lib/providers";
 import { getSongQueue } from "@/lib/queue/songs";
 import { getUserId, unauthorized } from "@/lib/session";
 import { cleanLyrics, writeLyrics } from "@/lib/songs/lyrics";
@@ -31,7 +32,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!genre) return NextResponse.json({ error: "Unknown genre" }, { status: 400 });
   const durationSec = Math.max(1, Math.round(take.meta.durationSec));
 
-  const llm = buildLlm(env);
+  const llm = await llmForUser(getDb(), env, userId);
   let lyrics = cleanLyrics(r.lyrics);
   try {
     await assertNoRealArtists(llm, [r.title, r.topic, lyrics, r.style ?? ""]);

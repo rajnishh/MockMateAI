@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
+import { llmForUser } from "@/lib/ai/engines";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
 import { getFilm } from "@/lib/films";
 import { readFilmScript, writePostCopy } from "@/lib/post-copy";
-import { buildLlm } from "@/lib/providers";
+
 import { getRedis } from "@/lib/queue/films";
 import { allow } from "@/lib/rate-limit";
 import { getUserId, unauthorized } from "@/lib/session";
@@ -25,7 +26,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const script = await readFilmScript(film.outputPath);
   try {
-    const copy = await writePostCopy(buildLlm(loadEnv()), parsed.data.platform, {
+    const copy = await writePostCopy(await llmForUser(getDb(), loadEnv(), userId), parsed.data.platform, {
       story: film.story,
       title: film.title,
       narration: script?.shots.map((s) => s.narration),
