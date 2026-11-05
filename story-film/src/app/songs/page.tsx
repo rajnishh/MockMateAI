@@ -5,6 +5,7 @@ import { LANGUAGES } from "@/lib/languages";
 import { STYLE_CHIPS } from "@/lib/songs/styles";
 import { RemixPanel, type RemixPrices } from "./remix-panel";
 import { SongEditor } from "./song-editor";
+import { SongPlayer } from "./song-player";
 import { MusicVideoPanel, type MusicVideoPrices } from "./music-video-panel";
 import { MyVoices, type Voice } from "./my-voice";
 
@@ -293,7 +294,7 @@ export default function SongsPage() {
                 </div>
                 {s.audioUrl && (
                   <>
-                    <audio src={s.audioUrl} controls preload="none" />
+                    <SongPlayer song={s} genreLabel={GENRES.find(([id]) => id === s.genre)?.[1]} />
                     <a href={s.audioUrl} download>Download</a>
                     {editFor === s.id ? (
                       <SongEditor

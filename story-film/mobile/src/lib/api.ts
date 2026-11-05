@@ -230,6 +230,17 @@ export interface Song {
   createdAt: string;
   audioUrl: string | null;
 }
+// What the player draws from (mirrors story-film/src/lib/songs/analysis.ts).
+export interface SongAnalysis {
+  duration: number;
+  envelope: number[];
+  bpm: number;
+  beats: number[];
+  strength: number[];
+  peaks: number[];
+  lines: { text: string; start: number; end: number }[];
+  timing: "words" | "even";
+}
 export type RemixKind = "cover" | "extend" | "replace";
 export interface SongStudio {
   songs: Song[];
@@ -396,6 +407,7 @@ const real = {
   editSong: (id: string, edit: SongEdit) => call<Song>(`/api/songs/${id}/edit`, { method: "POST", body: JSON.stringify(edit) }),
   remixSong: (id: string, remix: SongRemix) => call<{ id: string }>(`/api/songs/${id}/remix`, { method: "POST", body: JSON.stringify(remix) }),
   songAudioUrl: (song: Song) => (song.audioUrl ? `${API_URL}${song.audioUrl}` : null),
+  songAnalysis: (id: string) => call<SongAnalysis>(`/api/songs/${id}/analysis`),
   videoHeaders: async (): Promise<Record<string, string>> => {
     const cookie = await authClient.getCookie();
     return cookie ? { Cookie: cookie } : {};
@@ -424,6 +436,24 @@ const demoPosts: Post[] = [
   { id: "p2", filmId: "d2", title: "3 chai hacks nobody told you", scheduledAt: at(0, 19, 30), status: "scheduled", externalUrl: null, error: null, accountName: "@priyacooks", platform: "instagram" },
   { id: "p3", filmId: "d3", title: "Monsoon recipe in 10 minutes", scheduledAt: at(1, 13), status: "scheduled", externalUrl: null, error: null, accountName: "Priya Cooks", platform: "youtube" },
 ];
+
+// A steady 96 BPM pulse with the lyric lines spread evenly, so the player can be tried offline.
+function demoAnalysis(song: Song | undefined): SongAnalysis {
+  const duration = song?.durationSec ?? 60;
+  const beats = Array.from({ length: Math.floor((duration * 96) / 60) }, (_, i) => Math.round(((i * 60) / 96 + 0.2) * 100) / 100);
+  const lines = (song?.lyrics ?? "").split("\n").map((l) => l.trim()).filter((l) => l && !/^\[.*\]$/.test(l));
+  const span = (duration * 0.85) / Math.max(1, lines.length);
+  return {
+    duration,
+    envelope: Array.from({ length: duration * 20 }, (_, i) => Math.round((0.55 + 0.35 * Math.sin(i / 37) * Math.sin(i / 11)) * 100) / 100),
+    bpm: 96,
+    beats,
+    strength: beats.map((_, i) => (i % 4 === 0 ? 1 : 0.6)),
+    peaks: Array.from({ length: 160 }, (_, i) => Math.round((0.35 + 0.6 * Math.abs(Math.sin(i * 0.37) * Math.cos(i * 0.11))) * 100) / 100),
+    lines: lines.map((text, i) => ({ text, start: duration * 0.08 + i * span, end: duration * 0.08 + (i + 1) * span })),
+    timing: "even",
+  };
+}
 
 const demoSongs: Song[] = [demoSong("s1", "Baarish wali chai", "indie-acoustic"), demoSong("s2", "Dadi ki rasoi", "bollywood-romantic")];
 function demoSong(id: string, title: string, genre: string): Song {
@@ -772,6 +802,7 @@ const demo: typeof real = {
     return { id: copy.id };
   },
   songAudioUrl: () => null,
+  songAnalysis: async (id) => demoAnalysis(demoSongs.find((s) => s.id === id)),
   videoUrl: () => null,
   previewUri: () => null,
   videoHeaders: async () => ({}),
