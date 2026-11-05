@@ -140,12 +140,14 @@ export function publicGiftView(g: PublicGift) {
 
 export type PublicGiftView = ReturnType<typeof publicGiftView>;
 
-// Marks the gift opened (once). The sender's own visits aren't counted (the route checks that).
-export async function markOpened(db: Db, giftId: string): Promise<void> {
-  await db
+// Marks the gift opened (once); true the first time. The sender's own visits aren't counted (the route checks that).
+export async function markOpened(db: Db, giftId: string): Promise<boolean> {
+  const rows = await db
     .update(gift)
     .set({ openedAt: new Date() })
-    .where(and(eq(gift.id, giftId), isNull(gift.openedAt)));
+    .where(and(eq(gift.id, giftId), isNull(gift.openedAt)))
+    .returning({ id: gift.id });
+  return rows.length > 0;
 }
 
 // One play per browser per day; returns whether this one counted.

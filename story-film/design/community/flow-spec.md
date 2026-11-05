@@ -598,4 +598,8 @@ Built:
 - Credits: A pays 6 at the start; B's half is taken when B joins and given back to A when the song is joined, so B leaving early never costs A. Cancel gives everything back; finishing solo keeps 2. One free retake each, then 1 credit.
 - Instagram Collab: posts take a `collaborators` field, allowed only for the partner of a duet both approved; the caption credits the partner too.
 
-Not built yet: push reminders at 24 hours (the 48-hour window and its options work without them), @handle search inside Reelkar, playing A's part in the earphones while recording in the app (it plays before), and own cloned voices for parts.
+Also built:
+- Push notifications (Expo): a gift opened or answered; a partner joined, declined, sang, approved or asked for a retake; the joined song ready; and the 24-hour reminder (the worker checks every 15 minutes). Permission is asked right after sending a gift or starting or joining a duet. Needs the EAS project id in `app.json` (`npx eas init`, once) and a new build of the app, since it adds a native module.
+- Invite by @handle: the Instagram username a Reelkar user connected. They get it in Inbox and a push, and join in the app; the link keeps working for anyone else.
+- In the app, the partner's part plays while you record your answer (best with earphones).
+- Own voice per part: each singer can pick one of their own consented voices (4 credits, back if switched off or cancelled). After the duet is made, it's cut where the first part ends and each side is re-sung in its singer's voice; nobody can pick the other's voice.

@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { song } from "@/lib/db/schema";
-import { getDuet, roleOf } from "@/lib/duets";
+import { getDuet, viewerOf } from "@/lib/duets";
 import { serveFile } from "@/lib/serve-file";
 import { getUserId, unauthorized } from "@/lib/session";
 
@@ -11,8 +11,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (!userId) return unauthorized();
   const db = getDb();
   const d = await getDuet(db, (await params).id);
-  if (!d || !roleOf(d, userId)) return new Response("Not found", { status: 404 });
+  const viewer = d ? viewerOf(d, userId) : null;
   const part = new URL(req.url).searchParams.get("part");
+  // Someone invited by username hears only the first part, as on the invite page.
+  if (!d || !viewer || (viewer === "invited" && part !== "a")) return new Response("Not found", { status: 404 });
   let file: string | null = part === "a" ? d.partAPath : part === "b" ? d.partBPath : null;
   if (part === "song" && d.songId) {
     const [row] = await db.select({ outputPath: song.outputPath, status: song.status }).from(song).where(eq(song.id, d.songId));

@@ -541,6 +541,16 @@ export const duet = pgTable(
     // 48 hours from when A's part is in; "Give 24 more hours" works once.
     expiresAt: timestamp("expires_at"),
     extended: boolean("extended").notNull().default(false),
+    // Invited by Instagram username: the Reelkar account that connected it, told in the app.
+    invitedUserId: text("invited_user_id").references(() => user.id, { onDelete: "set null" }),
+    invitedIg: text("invited_ig").notNull().default(""),
+    // Each part may be sung in its own singer's consented voice (never the other's); each pays for theirs.
+    voiceA: uuid("voice_a").references(() => voiceProfile.id, { onDelete: "set null" }),
+    voiceB: uuid("voice_b").references(() => voiceProfile.id, { onDelete: "set null" }),
+    paidVoiceA: integer("paid_voice_a").notNull().default(0),
+    paidVoiceB: integer("paid_voice_b").notNull().default(0),
+    // The 24-hour reminder went out.
+    remindedAt: timestamp("reminded_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [index("duet_starter_idx").on(t.starterId, t.createdAt), index("duet_partner_idx").on(t.partnerId, t.createdAt)],
@@ -560,4 +570,17 @@ export const duetReport = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [index("duet_report_duet_idx").on(t.duetId)],
+);
+
+// Expo push tokens, one row per phone; a token moves to whoever signs in on that phone last.
+export const pushToken = pgTable(
+  "push_token",
+  {
+    token: text("token").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [index("push_token_user_idx").on(t.userId)],
 );

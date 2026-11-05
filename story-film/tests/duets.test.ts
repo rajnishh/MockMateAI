@@ -15,7 +15,9 @@ import {
   type Duet,
   duetView,
   extendDuet,
+  dueReminders,
   finishSolo,
+  inviteByHandle,
   joinArgs,
   joinDuet,
   type MakeDeps,
@@ -23,9 +25,16 @@ import {
   reinviteDuet,
   retakePart,
   savePart,
+  setPartVoice,
   startDuet,
   startJoin,
+  viewerOf,
 } from "@/lib/duets";
+import { singDuetVoices } from "@/lib/duet-voice";
+import { defaultFfmpeg, probeDuration } from "@/lib/ffmpeg";
+import { savePushToken, sendPush } from "@/lib/push";
+import { saveVoice } from "@/lib/voice/profiles";
+import { execFileSync } from "node:child_process";
 import { createFilm, updateFilm } from "@/lib/films";
 import { createPost } from "@/lib/posts";
 import { eq } from "drizzle-orm";
@@ -50,14 +59,15 @@ async function setup(): Promise<Db> {
   return db;
 }
 
-function deps(jobs: { songId: string; credits: number; lyrics?: string }[] = []): MakeDeps {
+type Job = { songId: string; credits: number; lyrics?: string; voices?: unknown };
+function deps(jobs: Job[] = []): MakeDeps {
   return {
     outputDir: dir,
     ffmpeg: async () => undefined,
     writeLyrics: async (topic) => `[Verse]\nAI lines about ${topic}\n[Chorus]`,
     tuneCall: (input) => ({ kind: "cover", input: { audioUrl: input.takeMp3, style: input.vocal, originalStyle: "", lyrics: input.lyrics, originalLyrics: "" } }),
     queue: async (job) => {
-      jobs.push({ songId: job.songId, credits: job.credits, lyrics: (job.call.input as { lyrics: string }).lyrics });
+      jobs.push({ songId: job.songId, credits: job.credits, lyrics: (job.call.input as { lyrics: string }).lyrics, voices: job.voices });
     },
   };
 }
@@ -274,5 +284,94 @@ describe("a join that fails to start", () => {
     await expect(startJoin(db, broken, d)).rejects.toThrow(/ffmpeg/);
     expect(phaseOf(d, null)).toBe("join_failed");
     expect((await startJoin(db, deps(), d)).status).toBe("joining");
+  });
+});
+
+describe("inviting by Instagram username", () => {
+  it("finds the Reelkar account that connected it, shows them the invite, and lets them join", async () => {
+    const db = await setup();
+    await db.insert(socialAccount).values({ userId: "sana", platform: "instagram", externalId: "88", name: "@Sana.Sings", accessToken: "x", refreshToken: "x", expiresAt: new Date() });
+    let d = await savePart(db, dir, await start(db), "a", part("hum"));
+    await expect(inviteByHandle(db, d, "@nobody.here")).rejects.toMatchObject({ status: 404 });
+    d = await inviteByHandle(db, d, "@sana.sings");
+    expect(d).toMatchObject({ invitedUserId: "sana", invitedIg: "sana.sings" });
+    expect(viewerOf(d, "sana")).toBe("invited");
+    expect(viewerOf(d, "omar")).toBeNull();
+    d = await joinDuet(db, d, "sana", { name: "Sana", ig: "sana.sings", split: false });
+    expect(viewerOf(d, "sana")).toBe("b");
+  });
+});
+
+describe("own voices for parts", () => {
+  async function voice(db: Db, userId: string) {
+    return saveVoice(db, { userId, name: "Me", samplePath: take, durationSec: 20, consentText: "I consent", consentCode: "1234", transcript: "my code is 1234" });
+  }
+
+  it("charges for your own voice, gives it back when switched off, and sends both samples to the join", async () => {
+    const db = await setup();
+    const va = await voice(db, "arjun");
+    const vb = await voice(db, "sana");
+    let d = await savePart(db, dir, await start(db), "a", part("hum"));
+    d = await setPartVoice(db, d, "a", "arjun", va.id);
+    expect(await getBalance(db, "arjun")).toBe(20 - DUET_CREDITS - 4);
+    d = await setPartVoice(db, d, "a", "arjun", null);
+    expect(await getBalance(db, "arjun")).toBe(20 - DUET_CREDITS);
+    d = await setPartVoice(db, d, "a", "arjun", va.id);
+    d = await joinDuet(db, d, "sana", { name: "Sana", ig: "", split: false });
+    d = await setPartVoice(db, d, "b", "sana", vb.id);
+    d = await savePart(db, dir, d, "b", part("hum"));
+    const jobs: Job[] = [];
+    await startJoin(db, deps(jobs), d);
+    expect(jobs[0].voices).toEqual({ splitSec: 20.2, samples: [take, take] });
+  });
+
+  it("gives voice money back on cancel", async () => {
+    const db = await setup();
+    const va = await voice(db, "arjun");
+    let d = await savePart(db, dir, await start(db), "a", part("hum"));
+    d = await setPartVoice(db, d, "a", "arjun", va.id);
+    await cancelDuet(db, d);
+    expect(await getBalance(db, "arjun")).toBe(20);
+  });
+
+  it("cuts the song where the first part ends and re-sings only the sides with a voice", async () => {
+    const song30 = path.join(dir, "song30.mp3");
+    execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=300:duration=10", "-ac", "2", song30]);
+    const sung: string[] = [];
+    const out = await singDuetVoices(
+      { ffmpeg: defaultFfmpeg, sing: async (file) => (sung.push(path.basename(file)), file) },
+      song30,
+      { splitSec: 4, samples: [null, take] },
+      path.join(dir, "voices-work"),
+    );
+    expect(sung).toEqual(["part-b.wav"]);
+    expect(Math.round(await probeDuration(out))).toBe(10);
+  });
+});
+
+describe("reminders and push", () => {
+  it("reminds a partner who hasn't sung once, in the last 24 hours", async () => {
+    const db = await setup();
+    const t0 = new Date("2026-11-06T10:00:00Z");
+    let d = await savePart(db, dir, await start(db), "a", part("hum"), t0);
+    d = await joinDuet(db, d, "sana", { name: "Sana", ig: "", split: false }, t0);
+    expect(await dueReminders(db, new Date(t0.getTime() + 10 * HOUR))).toHaveLength(0);
+    expect((await dueReminders(db, new Date(t0.getTime() + 25 * HOUR))).map((x) => x.id)).toEqual([d.id]);
+    expect(await dueReminders(db, new Date(t0.getTime() + 26 * HOUR))).toHaveLength(0);
+  });
+
+  it("sends to each phone and forgets ones Expo says are gone", async () => {
+    const db = await setup();
+    await savePushToken(db, "sana", "ExponentPushToken[aaa]");
+    await savePushToken(db, "sana", "ExponentPushToken[bbb]");
+    const bodies: unknown[] = [];
+    const fetchFn = (async (_url: string, init?: RequestInit) => {
+      bodies.push(JSON.parse(init!.body as string));
+      return Response.json({ data: [{ status: "ok" }, { status: "error", details: { error: "DeviceNotRegistered" } }] });
+    }) as unknown as typeof fetch;
+    expect(await sendPush(db, ["sana", null, "sana"], { title: "Hi", body: "There", path: "/inbox" }, fetchFn)).toBe(1);
+    expect((bodies[0] as { to: string; data: unknown }[]).map((m) => m.to)).toEqual(["ExponentPushToken[aaa]", "ExponentPushToken[bbb]"]);
+    const left = await db.query.pushToken.findMany();
+    expect(left.map((r) => r.token)).toEqual(["ExponentPushToken[aaa]"]);
   });
 });
