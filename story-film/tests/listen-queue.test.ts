@@ -54,6 +54,8 @@ describe("the player queue", () => {
     expect(remove(q, "s:a")).toBe(q);
     q = remove(q, "s:b");
     expect(keys(q.items)).toEqual(["s:a", "s:c"]);
+    // Autoplay won't add it back.
+    expect(keys(appendAuto(q, [t("s:b")]).items)).toEqual(["s:a", "s:c"]);
     q = clear(next(playList(q, [t("s:x"), t("s:y"), t("s:z")], 0)));
     expect(keys(q.items)).toEqual(["s:x", "s:y"]);
     expect(current(q)?.key).toBe("s:y");

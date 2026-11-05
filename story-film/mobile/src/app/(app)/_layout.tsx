@@ -11,6 +11,7 @@ export default function AppLayout() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface } }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="songs/play/[id]" options={{ presentation: "fullScreenModal", animation: "slide_from_bottom" }} />
+        <Stack.Screen name="listen/queue" options={{ presentation: "formSheet", sheetAllowedDetents: [0.6, 1], sheetGrabberVisible: true }} />
       </Stack>
     </SongPlayerProvider>
   );

@@ -69,11 +69,12 @@ export function skipTo<T extends QueueTrack>(q: Queue<T>, index: number): Queue<
   return { ...q, index, heard: hear(q, q.items[index].key) };
 }
 
-// Removes an upcoming song (the one playing can't be removed; skip it instead).
+// Removes an upcoming song (the one playing can't be removed; skip it instead). Autoplay won't
+// bring it back this session.
 export function remove<T extends QueueTrack>(q: Queue<T>, key: string): Queue<T> {
   const i = q.items.findIndex((t, n) => t.key === key && n > q.index);
   if (i === -1) return q;
-  return { ...q, items: q.items.filter((_, n) => n !== i) };
+  return { ...q, items: q.items.filter((_, n) => n !== i), heard: hear(q, key) };
 }
 
 // "Clear": everything after the current song goes; songs already played stay for Previous.

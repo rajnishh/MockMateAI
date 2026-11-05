@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, type ScrollViewInstance, StyleSheet, useWindowDimensions, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, type ScrollViewInstance, Share, StyleSheet, useWindowDimensions, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SvgXml } from "react-native-svg";
@@ -14,6 +14,7 @@ import { Txt } from "@/components/ui";
 import { WaveformScrubber } from "@/components/waveform-scrubber";
 import { api, type Song, type SongAnalysis } from "@/lib/api";
 import { PLAYER_THEMES, type PlayerTheme, usePlayerTheme } from "@/lib/player-themes";
+import { publicTrackSong } from "@/lib/listen";
 import { genreLabel, shareSong } from "@/lib/songs";
 import { useData } from "@/lib/use-data";
 import { fonts } from "@/theme";
@@ -25,7 +26,9 @@ const INK_MUTED = "rgba(255, 241, 230, 0.7)";
 export default function PlayerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const player = useSongPlayer();
-  const fetched = useData(() => (player.song?.id === id ? Promise.resolve(player.song) : api.song(id)));
+  // Public songs have 10-character ids with no dashes.
+  const isPublic = !id.includes("-");
+  const fetched = useData(() => (player.song?.id === id ? Promise.resolve(player.song) : isPublic ? api.publicSong(id).then((p) => publicTrackSong(p.song)) : api.song(id)));
   const song = player.song?.id === id ? player.song : fetched.data;
   const analysis = useSongAnalysis(song?.status === "completed" ? id : null);
   const [theme, setTheme] = usePlayerTheme();
@@ -33,6 +36,27 @@ export default function PlayerScreen() {
   const insets = useSafeAreaInsets();
   const [sharing, setSharing] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
+  // Like / Not for me for someone's public song; your own songs have neither.
+  const [vote, setVote] = useState<{ id: string; mine: boolean; value: -1 | 0 | 1 } | null>(null);
+  const publicId = song?.publicId;
+  useEffect(() => {
+    if (!publicId) return;
+    let live = true;
+    api.publicSong(publicId).then((p) => live && setVote({ id: publicId, mine: p.song.mine, value: p.song.myVote }), () => undefined);
+    return () => {
+      live = false;
+    };
+  }, [publicId]);
+  const myVote = vote && vote.id === publicId ? vote : null;
+
+  async function doVote(value: 1 | -1) {
+    if (!publicId || !myVote) return;
+    const next = myVote.value === value ? 0 : value;
+    setVote({ ...myVote, value: next });
+    api.voteSong(publicId, next).catch(() => setVote(myVote));
+    // Not for me: Autoplay won't pick it again, and it moves on.
+    if (next === -1 && player.upNext.length) player.next();
+  }
 
   // Opening a song that isn't playing starts it.
   const started = useRef(false);
@@ -58,7 +82,8 @@ export default function PlayerScreen() {
     setSharing(true);
     setShareError(null);
     try {
-      await shareSong(song);
+      if (song.publicId) await Share.share({ message: `${song.title} · @${song.handle} on Reelkar ${api.publicSongLink(song.publicId)}`, url: api.publicSongLink(song.publicId) });
+      else await shareSong(song);
     } catch (err) {
       setShareError((err as Error).message);
     } finally {
@@ -87,7 +112,10 @@ export default function PlayerScreen() {
               </Txt>
             ) : null}
           </View>
-          <RoundButton label="Save or share song" onPress={share} disabled={!song?.audioUrl || sharing}>
+          <RoundButton label="Up next" onPress={() => router.push("/listen/queue")} disabled={!song}>
+            <Icon name="queue" size={22} color={INK} />
+          </RoundButton>
+          <RoundButton label={song?.publicId ? "Share link" : "Save or share song"} onPress={share} disabled={!song?.audioUrl || sharing}>
             {sharing ? <ActivityIndicator color={INK} /> : <Icon name="share" size={22} color={INK} />}
           </RoundButton>
         </View>
@@ -109,6 +137,11 @@ export default function PlayerScreen() {
               <Txt variant={small ? "md" : "lg"} numberOfLines={2} accessibilityRole="header" style={{ color: INK, textAlign: "center" }}>
                 {song.title}
               </Txt>
+              {song.publicId ? (
+                <Pressable accessibilityRole="link" accessibilityHint="Opens the song page" onPress={() => router.push({ pathname: "/s/[id]", params: { id: song.publicId! } })} hitSlop={8}>
+                  <Txt variant="label" style={{ color: INK_MUTED }}>{`@${song.handle} · Song page`}</Txt>
+                </Pressable>
+              ) : null}
               {shareError ? (
                 <Txt variant="cap" style={{ color: "#ff8b7e", textAlign: "center" }}>
                   {shareError}
@@ -118,8 +151,15 @@ export default function PlayerScreen() {
             <Lyrics song={song} analysis={analysis} time={time} onSeek={(s) => player.seekTo(s)} accent={theme.accent} />
             <WaveformScrubber peaks={analysis?.peaks ?? null} time={time} duration={duration} accent={theme.accent} onSeek={(s) => (mine ? player.seekTo(s) : player.play(song))} />
             <View style={[styles.controls, { marginVertical: small ? 4 : 12 }]}>
-              <RoundButton label="Back 10 seconds" size={56} onPress={() => player.skip(-10)} disabled={!mine}>
-                <SvgXml xml={skipXml(false)} width={34} height={34} color={INK} />
+              {myVote && !myVote.mine ? (
+                <RoundButton label={myVote.value === -1 ? "Undo Not for me" : "Not for me"} size={44} onPress={() => doVote(-1)}>
+                  <Icon name="thumb-down" size={22} color={myVote.value === -1 ? theme.accent : INK_MUTED} />
+                </RoundButton>
+              ) : (
+                <View style={{ width: 44 }} />
+              )}
+              <RoundButton label="Previous song" size={56} onPress={player.previous} disabled={!mine}>
+                <Icon name="previous" size={30} color={INK} />
               </RoundButton>
               <Pressable
                 accessibilityRole="button"
@@ -135,9 +175,16 @@ export default function PlayerScreen() {
                   <PlayGlyph color={theme.onAccent} size={32} />
                 )}
               </Pressable>
-              <RoundButton label="Forward 10 seconds" size={56} onPress={() => player.skip(10)} disabled={!mine}>
-                <SvgXml xml={skipXml(true)} width={34} height={34} color={INK} />
+              <RoundButton label="Next song" size={56} onPress={player.next} disabled={!mine || !player.upNext.length}>
+                <Icon name="next" size={30} color={INK} />
               </RoundButton>
+              {myVote && !myVote.mine ? (
+                <RoundButton label={myVote.value === 1 ? "Unlike" : "Like"} size={44} onPress={() => doVote(1)}>
+                  <Icon name="heart" size={22} color={myVote.value === 1 ? theme.accent : INK_MUTED} />
+                </RoundButton>
+              ) : (
+                <View style={{ width: 44 }} />
+              )}
             </View>
             <ThemePicker value={theme} onChange={setTheme} />
           </>
@@ -253,15 +300,9 @@ function RoundButton({ label, onPress, disabled, size = 44, children }: { label:
 
 const CHEVRON_DOWN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>`;
 
-// A circular arrow with "10" inside, pointing back or forward.
-function skipXml(forward: boolean): string {
-  const arc = forward ? `<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 3.5v4h-4"/>` : `<path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 3.5v4h4"/>`;
-  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${arc}<text x="12" y="15.2" text-anchor="middle" font-size="7.5" font-weight="700" fill="currentColor" stroke="none" font-family="${fonts.bold}">10</text></svg>`;
-}
-
 const styles = StyleSheet.create({
   top: { flexDirection: "row", alignItems: "center", gap: 8, height: 52 },
-  controls: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 28 },
+  controls: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 16 },
   play: { width: 76, height: 76, borderRadius: 38, alignItems: "center", justifyContent: "center" },
   themes: { flexDirection: "row", justifyContent: "center", gap: 18 },
   theme: { alignItems: "center", gap: 3, minWidth: 56, minHeight: 44 },

@@ -4,6 +4,7 @@ export default function Earn() {
   return (
     <ComingSoon
       title="Earn"
+      back
       heading="Turn followers into income"
       text="After the beta: free guides that grow your followers, then courses you can sell in ₹, AED and $."
       items={[
