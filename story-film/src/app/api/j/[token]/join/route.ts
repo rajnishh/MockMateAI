@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { duetByToken, duetErrorResponse, duetView, joinDuet, joinDuetSchema } from "@/lib/duets";
 import { loadEnv } from "@/lib/env";
+import { notify } from "@/lib/push";
 import { getUserId, unauthorized } from "@/lib/session";
 
 // B opens the invite and joins: their name, Instagram username for the Collab post, and whether
@@ -17,6 +18,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   if (!parsed.success) return NextResponse.json({ error: z.prettifyError(parsed.error) }, { status: 400 });
   try {
     const row = await joinDuet(db, d, userId, parsed.data);
+    notify(db, [row.starterId], { title: `${row.partnerName} joined your Jugalbandi`, body: `“${row.topic}”${row.paidB ? ` · they're paying half` : ""}`, path: `/duets/${row.id}` });
     return NextResponse.json(duetView(row, "b", null, loadEnv().BETTER_AUTH_URL));
   } catch (err) {
     return duetErrorResponse(err);

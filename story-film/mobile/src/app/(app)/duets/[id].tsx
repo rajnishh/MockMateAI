@@ -5,10 +5,12 @@ import { View } from "react-native";
 
 import { DuetAudio } from "@/components/duet-audio";
 import { ReelLogo } from "@/components/logo";
-import { Banner, Button, Card, Header, Hero, Row, Screen, Skeleton, Status, Txt, Win } from "@/components/ui";
+import { Banner, Button, Card, Chip, ChipRow, Field, Header, Hero, Row, Screen, Skeleton, Status, Txt, Win } from "@/components/ui";
 import { api, ApiError, type Duet, type DuetAction } from "@/lib/api";
 import { duetPart, hoursLeft, inviteMessage } from "@/lib/duets";
-import { copyLink, sendOnWhatsApp, shareMore } from "@/lib/gifts";
+import { copyLink, sendOnWhatsApp, shareMore, signName } from "@/lib/gifts";
+import { registerForPush } from "@/lib/push";
+import { useSession } from "@/lib/session";
 import { useData } from "@/lib/use-data";
 
 // One Jugalbandi, for either person: invite and wait, the 48-hour options, joining, the preview
@@ -19,6 +21,14 @@ export default function DuetScreen() {
   const [busy, setBusy] = useState<DuetAction | null>(null);
   const [error, setError] = useState<{ text: string; credits: boolean } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [handle, setHandle] = useState("");
+  // Joining from an in-app invite (by Instagram username).
+  const { user } = useSession();
+  const [name, setName] = useState(() => signName(user?.name));
+  const [ig, setIg] = useState("");
+  const [split, setSplit] = useState(false);
+  const [note, setNote] = useState("");
+  const voices = useData(() => api.myVoices().catch(() => []));
   const d = duet.data;
 
   // Waiting on the other person or the song: look again every 8 seconds.
@@ -29,11 +39,11 @@ export default function DuetScreen() {
   }, [d, duet.reload]);
 
   // Whether it worked, so a retake only opens the recorder once it's allowed.
-  async function act(action: DuetAction): Promise<boolean> {
+  async function act(action: DuetAction, extra: { handle?: string; voiceId?: string | null } = {}): Promise<boolean> {
     setBusy(action);
     setError(null);
     try {
-      await api.duetAction(id, action);
+      await api.duetAction(id, action, extra);
       Haptics.selectionAsync().catch(() => undefined);
       await duet.reload();
       return true;
@@ -68,6 +78,52 @@ export default function DuetScreen() {
   const theyApproved = d.role === "a" ? d.approvedB : d.approvedA;
   const bothApproved = d.approvedA && d.approvedB;
   const share = inviteMessage(d.url);
+
+  async function join(x: Duet, yes: boolean) {
+    setBusy(yes ? "approve" : "cancel");
+    setError(null);
+    try {
+      if (yes) await api.joinDuet(x.token, { name: name.trim(), ig: ig.trim() || x.invitedIg, split });
+      else await api.declineDuet(x.token, note.trim());
+      registerForPush(true).catch(() => undefined);
+      if (yes) await duet.reload();
+      else router.back();
+    } catch (err) {
+      setError({ text: (err as Error).message, credits: err instanceof ApiError && err.needCredits });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  if (d.role === "invited") {
+    return (
+      <Screen
+        footer={
+          <>
+            <Button label="Join and sing my part" icon="mic" block disabled={!name.trim()} loading={busy === "approve"} onPress={() => join(d, true)} />
+            <Button label="Not this time" kind="ghost" block loading={busy === "cancel"} onPress={() => join(d, false)} />
+          </>
+        }>
+        <Header title="Jugalbandi invite" back />
+        {error ? <Banner kind="error" text={error.text} action={error.credits ? <Button label="Get credits" small onPress={() => router.push("/credits")} /> : undefined} /> : null}
+        <Hero>
+          <Txt variant="lg" color="onBrand">
+            {d.starterName} wants to sing with you
+          </Txt>
+          <Txt color="onBrand">“{d.topic}” · open for {hoursLeft(d.expiresAt)}</Txt>
+          {d.partA ? <DuetAudio path={d.partA.audioUrl} label={`${d.starterName}'s part`} /> : null}
+        </Hero>
+        <Field label={`Your name (${d.starterName} sees it)`} value={name} onChangeText={setName} maxLength={40} autoCapitalize="words" />
+        <Field label="Your Instagram username, for the Collab post" placeholder={d.invitedIg ? `@${d.invitedIg}` : "@yourname"} value={ig} onChangeText={setIg} autoCapitalize="none" autoCorrect={false} />
+        <Chip label={`Offer to pay half (${d.half} credits)`} selected={split} onPress={() => setSplit(!split)} />
+        <Txt variant="cap">{d.starterName} pays unless you offer. Sung by an AI singer or your own voice, never theirs.</Txt>
+        <Field label={`A note if you say no (optional)`} value={note} onChangeText={setNote} maxLength={140} />
+      </Screen>
+    );
+  }
+
+  const ownVoiceOpen = ["recording_a", "waiting", "ready", "join_failed"].includes(d.phase);
+  const voiceOptions = [{ value: "ai", label: "AI singer" }, ...(voices.data ?? []).map((v) => ({ value: v.id, label: v.name }))];
 
   return (
     <Screen>
@@ -104,6 +160,14 @@ export default function DuetScreen() {
             <Button label="More" icon="share" kind="secondary" style={{ flex: 1 }} onPress={() => shareMore(share, d.url).catch(() => undefined)} />
           </Row>
           <Txt variant="cap">They can sing right on the invite page, no app needed.</Txt>
+          {!d.partnerName ? (
+            <Card>
+              <Txt variant="label">{d.invitedIg ? `Invited @${d.invitedIg} in Reelkar` : "Or invite by Instagram username"}</Txt>
+              <Txt variant="cap">If they use Reelkar with that Instagram connected, it shows in their Inbox.</Txt>
+              <Field label="Instagram username" placeholder="@friend" value={handle} onChangeText={setHandle} autoCapitalize="none" autoCorrect={false} />
+              <Button label="Invite in Reelkar" icon="send" kind="secondary" small disabled={!handle.trim()} loading={busy === "invite_handle"} onPress={() => act("invite_handle", { handle }).then((ok) => ok && setHandle(""))} />
+            </Card>
+          ) : null}
           {d.partA ? <DuetAudio path={d.partA.audioUrl} label="my part" /> : null}
           <Row style={{ gap: 8, flexWrap: "wrap" }}>
             <Button label="Sing my part again" kind="ghost" small onPress={() => sing(d)} />
@@ -176,6 +240,22 @@ export default function DuetScreen() {
           ) : null}
           {bothApproved && d.role === "b" ? <Txt variant="cap">{d.starterName} posts it as an Instagram Collab. Accept the invite in Instagram and it shows on both profiles.</Txt> : null}
         </>
+      ) : null}
+
+      {ownVoiceOpen && (d.role === "a" || d.role === "b") ? (
+        <Card>
+          <Txt variant="label">Sing my part in</Txt>
+          <ChipRow
+            options={voiceOptions}
+            value={d.myVoiceId ?? "ai"}
+            onChange={(v) => act("set_voice", { voiceId: v === "ai" ? null : v })}
+          />
+          <Txt variant="cap">
+            {(voices.data ?? []).length
+              ? `Your own voice costs ${d.voiceCredits} credits, back if you switch to the AI singer. Only you can use it.${d.phase === "ready" ? " Changing it makes the song again." : ""}`
+              : "To sing in your own voice, record it once in Song Studio on the web (My voice)."}
+          </Txt>
+        </Card>
       ) : null}
 
       {d.phase === "solo" ? (

@@ -1,11 +1,11 @@
 import { copyFile, mkdir } from "node:fs/promises";
 import path from "node:path";
-import { and, desc, eq, isNull, or } from "drizzle-orm";
+import { and, desc, eq, gt, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
-import { SONG_CREDITS, TUNE_SONG_CREDITS } from "@/lib/billing/catalog";
+import { MY_VOICE_CREDITS, SONG_CREDITS, TUNE_SONG_CREDITS } from "@/lib/billing/catalog";
 import { grantCredits, spendCredits } from "@/lib/billing/credits";
 import type { Db } from "@/lib/db";
-import { duet, duetReport, song } from "@/lib/db/schema";
+import { duet, duetReport, socialAccount, song, voiceProfile } from "@/lib/db/schema";
 import { GIFT_TOKEN, newGiftToken } from "@/lib/gifts";
 import { LANGUAGE_CODES } from "@/lib/languages";
 import type { RemixCall } from "@/lib/songs/remix";
@@ -16,6 +16,8 @@ import type { RemixCall } from "@/lib/songs/remix";
 
 export type Duet = typeof duet.$inferSelect;
 export type Role = "a" | "b";
+// Someone invited by Instagram username sees the invite in the app before joining.
+export type Viewer = Role | "invited";
 
 // A song plus a song on your tune (placeholder price, owner decision 2026-11-06), so they move together.
 export const DUET_CREDITS = SONG_CREDITS + TUNE_SONG_CREDITS;
@@ -66,6 +68,10 @@ export function roleOf(d: Duet, userId: string): Role | null {
   if (d.starterId === userId) return "a";
   if (d.partnerId === userId) return "b";
   return null;
+}
+
+export function viewerOf(d: Duet, userId: string): Viewer | null {
+  return roleOf(d, userId) ?? (d.invitedUserId === userId && !d.partnerId ? "invited" : null);
 }
 
 // Where the duet is, worked out from its row (and its song's status) so nothing has to run on a timer.
@@ -175,9 +181,10 @@ async function refundPartner(db: Db, d: Duet, reason: string): Promise<void> {
 export async function declineDuet(db: Db, d: Duet, userId: string, note: string): Promise<Duet> {
   if (d.starterId === userId) throw new DuetError("Use Cancel for your own Jugalbandi.");
   if (d.partnerId && d.partnerId !== userId) throw new DuetError("Someone else already joined this Jugalbandi.", 409);
-  if (phaseOf(d, null) !== "waiting" || d.partBPath) throw new DuetError("This invite can't be declined now.");
+  if (!["waiting", "expired"].includes(phaseOf(d, null)) || d.partBPath) throw new DuetError("This invite can't be declined now.");
   await refundPartner(db, d, "declined");
-  return update(db, d.id, { status: "declined", partnerId: userId, declineNote: note.trim().slice(0, 140), paidB: 0 });
+  await refundVoices(db, d, "declined", ["b"]);
+  return update(db, d.id, { status: "declined", partnerId: userId, declineNote: note.trim().slice(0, 140), paidB: 0, voiceB: null, paidVoiceB: 0 });
 }
 
 // A gives everything back and ends it (not while the song is being made).
@@ -186,7 +193,8 @@ export async function cancelDuet(db: Db, d: Duet): Promise<Duet> {
   if (phase === "joining" || phase === "solo" || phase === "cancelled") throw new DuetError("This Jugalbandi can't be cancelled now.");
   if (d.paidA > 0) await grantCredits(db, d.starterId, d.paidA, "refund", `duet-cancel:${d.id}`);
   await refundPartner(db, d, "cancel");
-  return update(db, d.id, { status: "cancelled", paidA: 0, paidB: 0 });
+  await refundVoices(db, d, "cancel");
+  return update(db, d.id, { status: "cancelled", paidA: 0, paidB: 0, paidVoiceA: 0, paidVoiceB: 0 });
 }
 
 // "Give 24 more hours", once.
@@ -200,7 +208,13 @@ export async function reinviteDuet(db: Db, d: Duet, now = new Date()): Promise<D
   const phase = phaseOf(d, null, now);
   if (d.partBPath || !(phase === "expired" || phase === "declined" || phase === "waiting")) throw new DuetError("You can invite someone else before a second part is in.");
   await refundPartner(db, d, `reinvite-${now.getTime()}`);
+  await refundVoices(db, d, `reinvite-${now.getTime()}`, ["b"]);
   return update(db, d.id, {
+    invitedUserId: null,
+    invitedIg: "",
+    voiceB: null,
+    paidVoiceB: 0,
+    remindedAt: null,
     token: newGiftToken(),
     status: "waiting",
     partnerId: null,
@@ -220,7 +234,25 @@ export interface MakeDeps {
   // Lyrics for a hummed part, sized to its length.
   writeLyrics: (topic: string, durationSec: number) => Promise<string>;
   tuneCall: (input: { takeMp3: string; kind: "hum" | "sing"; heardLyrics: string; lyrics: string; vocal: "auto" | "duet" }) => RemixCall;
-  queue: (job: { songId: string; userId: string; title: string; call: RemixCall; credits: number }) => Promise<void>;
+  queue: (job: { songId: string; userId: string; title: string; call: RemixCall; credits: number; voices?: DuetVoices }) => Promise<void>;
+}
+
+// Each part re-sung in its own singer's voice after the duet is made: the song is cut where A's
+// part ends (the tune keeps the parts' timing) and each side goes through "my voice" on its own.
+export interface DuetVoices {
+  splitSec: number;
+  samples: [string | null, string | null];
+}
+
+async function voicesFor(db: Db, d: Duet): Promise<DuetVoices | undefined> {
+  if (!d.voiceA && !d.voiceB) return undefined;
+  const sample = async (id: string | null, owner: string | null) => {
+    if (!id || !owner) return null;
+    const [v] = await db.select({ samplePath: voiceProfile.samplePath }).from(voiceProfile).where(and(eq(voiceProfile.id, id), eq(voiceProfile.userId, owner)));
+    return v?.samplePath ?? null;
+  };
+  const samples: [string | null, string | null] = [await sample(d.voiceA, d.starterId), await sample(d.voiceB, d.partnerId)];
+  return samples[0] || samples[1] ? { splitSec: (d.partASec ?? 15) + 0.2, samples } : undefined;
 }
 
 // Both parts back to back, with a breath between, as one tune.
@@ -260,7 +292,7 @@ export async function startJoin(db: Db, deps: MakeDeps, d: Duet, now = new Date(
     .values({ userId: d.starterId, title, genre: d.genre, language: d.language, lyrics, durationSec: (d.partASec ?? 15) + (d.partBSec ?? 15), credits: 0 })
     .returning({ id: song.id });
   // The credits were paid when the duet started, so the song job refunds nothing on failure.
-  await deps.queue({ songId: row.id, userId: d.starterId, title, call, credits: 0 });
+  await deps.queue({ songId: row.id, userId: d.starterId, title, call, credits: 0, voices: await voicesFor(db, d) });
   // B's half covers half of A's: A gets that back on the first join.
   const splitBack = d.paidB > 0 && d.paidA === DUET_CREDITS;
   if (splitBack) await grantCredits(db, d.starterId, d.paidB, "refund", `duet-split:${d.id}`);
@@ -281,7 +313,9 @@ export async function finishSolo(db: Db, deps: MakeDeps, d: Duet, now = new Date
   await deps.queue({ songId: row.id, userId: d.starterId, title, call, credits: SOLO_CREDITS });
   if (d.paidA > SOLO_CREDITS) await grantCredits(db, d.starterId, d.paidA - SOLO_CREDITS, "refund", `duet-solo:${d.id}`);
   await refundPartner(db, d, "solo");
-  return update(db, d.id, { songId: row.id, status: "solo", paidA: SOLO_CREDITS, paidB: 0 });
+  // Solo is sung by an AI singer: any voice paid for comes back.
+  await refundVoices(db, d, "solo");
+  return update(db, d.id, { songId: row.id, status: "solo", paidA: SOLO_CREDITS, paidB: 0, paidVoiceA: 0, paidVoiceB: 0 });
 }
 
 // Sing your own part again: the first retake each is free. Both approvals start over.
@@ -329,9 +363,72 @@ export async function listDuets(db: Db, userId: string, limit = 30): Promise<Due
   return db
     .select()
     .from(duet)
-    .where(or(eq(duet.starterId, userId), eq(duet.partnerId, userId)))
+    .where(or(eq(duet.starterId, userId), eq(duet.partnerId, userId), and(eq(duet.invitedUserId, userId), isNull(duet.partnerId))))
     .orderBy(desc(duet.createdAt))
     .limit(limit);
+}
+
+// "Invite by @handle": the Reelkar account that connected that Instagram username gets the invite
+// in the app (and a push). The link keeps working for anyone else until someone joins.
+export async function inviteByHandle(db: Db, d: Duet, handle: string, now = new Date()): Promise<Duet> {
+  const h = handle.trim().replace(/^@/, "").toLowerCase();
+  if (!IG_HANDLE.test(h)) throw new DuetError("That doesn't look like an Instagram username.");
+  if (d.partnerId || !["waiting", "expired"].includes(phaseOf(d, null, now))) throw new DuetError("You can invite someone while you're waiting for a partner.");
+  const [acct] = await db
+    .select({ userId: socialAccount.userId })
+    .from(socialAccount)
+    .where(and(eq(socialAccount.platform, "instagram"), sql`lower(${socialAccount.name}) = ${`@${h}`}`))
+    .limit(1);
+  if (!acct) throw new DuetError(`No one on Reelkar has connected @${h} yet. Send them the link instead.`, 404);
+  if (acct.userId === d.starterId) throw new DuetError("That's your own Instagram. Invite a friend.");
+  return update(db, d.id, { invitedUserId: acct.userId, invitedIg: h });
+}
+
+// Sing your own part in one of your own consented voices (the route checks it's yours), or back to
+// an AI singer. It's paid when picked and comes back when it's taken off or the duet is cancelled.
+export async function setPartVoice(db: Db, d: Duet, role: Role, userId: string, voiceId: string | null): Promise<Duet> {
+  const phase = phaseOf(d, await songStatusOf(db, d));
+  if (!["recording_a", "waiting", "ready", "join_failed"].includes(phase)) throw new DuetError("You can change the voice before or after the song is joined.");
+  const paid = role === "a" ? d.paidVoiceA : d.paidVoiceB;
+  const n = d.retakesA + d.retakesB + (d.voiceA ? 1 : 0) + (d.voiceB ? 1 : 0);
+  let charge = paid;
+  if (voiceId && paid === 0) {
+    if (!(await spendCredits(db, userId, MY_VOICE_CREDITS, `duet-voice:${d.id}:${role}:${n}:${Date.now()}`, "song"))) {
+      throw new DuetError(`Singing in your own voice costs ${MY_VOICE_CREDITS} credits.`, 402, true);
+    }
+    charge = MY_VOICE_CREDITS;
+  } else if (!voiceId && paid > 0) {
+    await grantCredits(db, userId, paid, "refund", `duet-voice-off:${d.id}:${role}:${Date.now()}`);
+    charge = 0;
+  }
+  const values = role === "a" ? { voiceA: voiceId, paidVoiceA: charge } : { voiceB: voiceId, paidVoiceB: charge };
+  // Changing the voice of a joined song makes it again (both approve again).
+  return update(db, d.id, { ...values, ...(phase === "ready" ? { approvedA: null, approvedB: null } : {}) });
+}
+
+async function refundVoices(db: Db, d: Duet, reason: string, which: Role[] = ["a", "b"]): Promise<void> {
+  if (which.includes("a") && d.paidVoiceA > 0) await grantCredits(db, d.starterId, d.paidVoiceA, "refund", `duet-voice-${reason}-a:${d.id}`);
+  if (which.includes("b") && d.paidVoiceB > 0 && d.partnerId) await grantCredits(db, d.partnerId, d.paidVoiceB, "refund", `duet-voice-${reason}-b:${d.id}`);
+}
+
+// The 24-hour reminder: a partner (joined or invited by username) who hasn't sung, once.
+export async function dueReminders(db: Db, now = new Date()): Promise<Duet[]> {
+  const due = await db
+    .select()
+    .from(duet)
+    .where(
+      and(
+        eq(duet.status, "waiting"),
+        isNotNull(duet.partAPath),
+        isNull(duet.partBPath),
+        isNull(duet.remindedAt),
+        gt(duet.expiresAt, now),
+        lte(duet.expiresAt, new Date(now.getTime() + 24 * 3600 * 1000)),
+        or(isNotNull(duet.partnerId), isNotNull(duet.invitedUserId)),
+      ),
+    );
+  for (const d of due) await update(db, d.id, { remindedAt: now });
+  return due;
 }
 
 export function inviteUrl(baseUrl: string, token: string): string {
@@ -339,12 +436,19 @@ export function inviteUrl(baseUrl: string, token: string): string {
 }
 
 // What each person sees. Audio comes through routes that check who's asking.
-export function duetView(d: Duet, role: Role, songStatus: string | null, baseUrl: string, now = new Date()) {
+export function duetView(d: Duet, role: Viewer, songStatus: string | null, baseUrl: string, now = new Date()) {
   const phase = phaseOf(d, songStatus, now);
   const mine = role === "a" ? d.retakesA : d.retakesB;
   return {
     id: d.id,
     role,
+    token: d.token,
+    invitedIg: d.invitedIg,
+    // Whether my part is in my own voice (the other's voice is never offered).
+    myVoiceId: role === "a" ? d.voiceA : role === "b" ? d.voiceB : null,
+    voiceCredits: MY_VOICE_CREDITS,
+    partAOwnVoice: Boolean(d.voiceA),
+    partBOwnVoice: Boolean(d.voiceB),
     phase,
     url: inviteUrl(baseUrl, d.token),
     topic: d.topic,
@@ -354,6 +458,7 @@ export function duetView(d: Duet, role: Role, songStatus: string | null, baseUrl
     partnerName: d.partnerName,
     starterIg: d.starterIg,
     partnerIg: d.partnerIg,
+    // An invited person hears A's part before joining, like on the invite page.
     partA: d.partAPath ? { kind: d.partAKind, sec: d.partASec, audioUrl: `/api/duets/${d.id}/audio?part=a` } : null,
     partB: d.partBPath ? { kind: d.partBKind, sec: d.partBSec, audioUrl: `/api/duets/${d.id}/audio?part=b` } : null,
     songId: role === "a" ? d.songId : null,

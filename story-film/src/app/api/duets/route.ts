@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { llmForUser } from "@/lib/ai/engines";
 import { getDb } from "@/lib/db";
-import { duetErrorResponse, duetForSong, duetView, listDuets, roleOf, songStatusOf, startDuet, startDuetSchema } from "@/lib/duets";
+import { duetErrorResponse, duetForSong, duetView, listDuets, songStatusOf, startDuet, startDuetSchema, viewerOf } from "@/lib/duets";
 import { loadEnv } from "@/lib/env";
 import { songsAvailable } from "@/lib/providers";
 import { getUserId, unauthorized } from "@/lib/session";
@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   const base = loadEnv().BETTER_AUTH_URL;
   const songId = new URL(req.url).searchParams.get("song");
   const rows = songId ? [await duetForSong(db, userId, songId)].filter((d) => d !== undefined) : await listDuets(db, userId);
-  const duets = await Promise.all(rows.map(async (d) => duetView(d, roleOf(d, userId)!, await songStatusOf(db, d), base)));
+  const duets = await Promise.all(rows.map(async (d) => duetView(d, viewerOf(d, userId)!, await songStatusOf(db, d), base)));
   return NextResponse.json({ duets });
 }
 
