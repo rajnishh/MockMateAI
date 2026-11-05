@@ -473,7 +473,7 @@ Prices move monthly; waoowaoo and several other licenses unverified; EvoLink is 
     - **Not tried live yet:** Cerebras, Mistral and Claude's OpenAI-compatible endpoints were built from their docs with fake-fetch tests.
 
 
-42. **Listen, phase 1: public songs and a player that keeps going (planned 2026-11-06, waiting for the owner's OK).** Design: `design/listen/flow-spec.md` and `design/listen/mockups.html` (Masala Pop v3.0). Borrows patterns from music apps the owner likes, never their name, look or text.
+42. **Listen, phase 1: public songs and a player that keeps going (owner approved all 8 recommendations below, 2026-11-06).** Design: `design/listen/flow-spec.md` and `design/listen/mockups.html` (Masala Pop v3.0). Borrows patterns from music apps the owner likes, never their name, look or text.
     - **Why:** the owner's favourite thing elsewhere is that the player never stops; it plays other creators' songs in many languages. Today Reelkar songs are private, with no feed, likes or queue.
     - **Publish:** songs are private by default. Song Studio's "Share on Listen" card → Publish (title, Show lyrics, Allow remixes, "Made with AI") → public; Make private undoes it. The first publish asks for a **handle** (`@name`), the account's first public name. Publishing re-runs the existing song safety checks; if they can't run, the song stays private. Public songs show title, @handle, genre, language, cover and lyrics.
     - **Listen** (iPhone tab, web `/listen` when signed in): hero with Play all, language chips, rails New, Trending this week (plays + likes in 7 days), Best of {genre}, and By language. Tapping a song plays it, and the rest of that rail becomes the queue.
@@ -484,7 +484,7 @@ Prices move monthly; waoowaoo and several other licenses unverified; EvoLink is 
     - **No new content rules:** beyond the existing safety checks and the Report path, nothing new. Reports are stored for a person to review, as with gifts, and the owner takes a song down by hand (`taken_down_at`).
     - **Build order:** handle + publish + public page → playlist player, queue and Autoplay + lock screen → Listen rails → song page votes, reactions and rails → remix from someone else's song → web `/listen`.
     - **Phase 2:** comments, follows, For You, earn credits by listening and ranking, invite bonus, saved style prompts, a genre wheel, playlists.
-    - **Open questions for the owner** (recommendation first):
+    - **Owner decisions (2026-11-06), all as recommended:**
       1. Listen replaces Earn as the 5th tab (Earn is a placeholder; it moves to a Home card and Account until it ships). This changes item 19's tab list.
       2. Handles: a–z, 0–9, dot, underscore, 3–20 characters, unique, a short reserved list; change every 30 days.
       3. Not for me counts are never public; the creator sees their own total privately.

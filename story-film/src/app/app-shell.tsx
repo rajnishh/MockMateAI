@@ -34,6 +34,7 @@ const ICONS = {
   bell: <path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 20a2 2 0 0 0 4 0" />,
   brand: <><circle cx="12" cy="12" r="9" /><circle cx="8.5" cy="10" r="1.2" /><circle cx="12" cy="7.5" r="1.2" /><circle cx="15.5" cy="10" r="1.2" /><path d="M12 21a3 3 0 0 1 0-6h2" /></>,
   insights: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
+  listen: <><path d="M4 15v-3a8 8 0 0 1 16 0v3" /><rect x="3" y="14" width="4" height="7" rx="1.5" /><rect x="17" y="14" width="4" height="7" rx="1.5" /></>,
 };
 
 export type IconName = keyof typeof ICONS;
@@ -52,6 +53,7 @@ const SIDE: Nav[] = [
   { href: "/create", label: "Create", icon: "create", make: true },
   { href: "/", label: "Home", icon: "home" },
   { href: "/songs", label: "Songs", icon: "songs" },
+  { href: "/listen", label: "Listen", icon: "listen" },
   { href: "/ask", label: "Ask Reelkar", icon: "ask" },
   { href: "/calendar", label: "Calendar", icon: "calendar" },
   { href: "/billing", label: "Credits", icon: "credits" },
@@ -79,8 +81,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [billing, setBilling] = useState<Billing | null>(null);
   const [menu, setMenu] = useState(false);
   const acct = useRef<HTMLDivElement>(null);
-  // Public gift pages open with no sign-in and no app chrome.
-  const bare = path === "/login" || path.startsWith("/oauth/") || path.startsWith("/g/");
+  // Public gift and song pages open with no sign-in and no app chrome.
+  const bare = path === "/login" || path.startsWith("/oauth/") || path.startsWith("/g/") || path.startsWith("/s/");
 
   useEffect(() => {
     if (bare) return;
