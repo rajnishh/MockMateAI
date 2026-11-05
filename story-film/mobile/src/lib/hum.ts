@@ -1,7 +1,7 @@
 import type { AudioPlayer } from "expo-audio";
 import { File, Paths } from "expo-file-system";
 
-import { ApiError, type Film, type Song, type SongVocal } from "./api";
+import { ApiError, type Film, type ReplyGiftLink, type Song, type SongVocal } from "./api";
 import { authClient } from "./auth-client";
 import { API_URL } from "./config";
 
@@ -42,6 +42,9 @@ export interface TuneSong {
   lyrics: string;
   vocal?: SongVocal;
   style?: string;
+  // A gift this song answers (see lib/gifts.ts).
+  replyTo?: string;
+  fromName?: string;
 }
 
 // One of "My recordings" (kept on the server for 30 days).
@@ -98,7 +101,7 @@ export const hum = {
   // A typed request, or one handed over by Siri or another app.
   understand: (text: string) => send<Omit<Take, "takeId" | "durationSec" | "video">>("/api/voice/understand", { method: "POST", body: JSON.stringify({ text }) }),
   tuneSong: (takeId: string, input: TuneSong) =>
-    send<{ id: string; credits: number }>(`/api/voice/takes/${takeId}/song`, { method: "POST", body: JSON.stringify(input) }),
+    send<{ id: string; credits: number; gift?: ReplyGiftLink }>(`/api/voice/takes/${takeId}/song`, { method: "POST", body: JSON.stringify(input) }),
   recordings: async () => (await send<{ takes: Recording[] }>("/api/voice/takes", { method: "GET" })).takes,
   // The same reply as an upload, so "Here's what I heard" opens again.
   recording: (id: string) => send<Take>(`/api/voice/takes/${id}`, { method: "GET" }),

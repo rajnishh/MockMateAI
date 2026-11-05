@@ -6,8 +6,9 @@ import { View } from "react-native";
 import { ReelLogo } from "@/components/logo";
 import { SongPlayerRow, useSongPlayer } from "@/components/song-player";
 import { Banner, Button, Card, Header, Hero, ProgressBar, Screen, Status, Txt, Win } from "@/components/ui";
-import { api, type Song } from "@/lib/api";
+import { api, type Occasion, type Song } from "@/lib/api";
 import { currentTake } from "@/lib/hum";
+import { giftMessage, sendOnWhatsApp } from "@/lib/gifts";
 import { shareSong, songMaking } from "@/lib/songs";
 
 const STEPS = ["Reading your tune", "Adding the band", "Singing it", "Mixing"];
@@ -16,7 +17,8 @@ const EXPECTED_SEC = 75;
 
 // Making and result for "Hum it": waits for the song, plays it, then on to Mix (with the take) or the song itself.
 export default function HumResult() {
-  const { id, take, video } = useLocalSearchParams<{ id: string; take?: string; video?: string }>();
+  // giftUrl / giftTo: this song answers a gift; it already went to giftTo in Reelkar, and gets a link to send too.
+  const { id, take, video, giftUrl, giftTo, giftOccasion } = useLocalSearchParams<{ id: string; take?: string; video?: string; giftUrl?: string; giftTo?: string; giftOccasion?: Occasion }>();
   const player = useSongPlayer();
   const [song, setSong] = useState<Song | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -61,10 +63,20 @@ export default function HumResult() {
       footer={
         song?.status === "completed" ? (
           <>
+            {giftUrl && giftTo ? (
+              <Button
+                label={`Send it back to ${giftTo}`}
+                icon="send"
+                block
+                onPress={() => sendOnWhatsApp(giftMessage(giftTo, giftOccasion ?? "just_because", giftUrl)).catch((e) => setError((e as Error).message))}
+              />
+            ) : (
+              <Button label="Make it a gift" icon="gift" block onPress={() => router.push({ pathname: "/gift/[songId]", params: { songId: id } })} />
+            )}
             {hasTake ? (
-              <Button label="Mix and save" icon="music" block onPress={() => router.push({ pathname: "/hum/mix", params: { song: id, take: take! } })} />
+              <Button label="Mix and save" icon="music" kind="secondary" block onPress={() => router.push({ pathname: "/hum/mix", params: { song: id, take: take! } })} />
             ) : null}
-            <Button label={video ? "Make the music video" : "Open in Song Studio"} kind={hasTake ? "secondary" : "primary"} icon={video ? "film" : "music"} block onPress={() => router.push(`/songs/${id}`)} />
+            <Button label={video ? "Make the music video" : "Open in Song Studio"} kind="secondary" icon={video ? "film" : "music"} block onPress={() => router.push(`/songs/${id}`)} />
             <Button label="Make another" kind="ghost" block onPress={() => router.dismissTo("/hum")} />
           </>
         ) : song?.status === "failed" ? (
@@ -95,7 +107,8 @@ export default function HumResult() {
         <Banner kind="error" title="That didn't work" text={`${song.error ?? "Something went wrong."} Your credits are back.`} />
       ) : song ? (
         <>
-          <Win text="Your song is ready" icon="music" />
+          <Win text={giftTo ? `Your song for ${giftTo} is ready` : "Your song is ready"} icon="music" />
+          {giftTo ? <Status kind="ok" text={`${giftTo} gets it in their Reelkar Inbox too.`} /> : null}
           <Card>
             <Txt variant="md">{song.title}</Txt>
             <SongPlayerRow song={song} player={player} />

@@ -17,6 +17,7 @@ import { SONG_STEMS_QUEUE, type StemsJob } from "@/lib/queue/song-stems";
 import { mixArgs, writeStemsState } from "@/lib/songs/mix";
 import { separateSongStems } from "@/lib/songs/stems";
 import { singInMyVoice } from "@/lib/voice/sing";
+import { duetSongDone, sendDuetReminders, singDuetVoices } from "@/lib/duet-voice";
 import { makeCover } from "@/lib/songs/cover";
 import { runRemix } from "@/lib/songs/remix";
 import { getSongById, updateSong } from "@/lib/songs/songs";
@@ -184,6 +185,16 @@ if (songsAvailable(env)) {
         const audio = await runRemix(songEditor, (job.data as RemixJob).call, { workDir: dir, ffmpeg: defaultFfmpeg, probeDuration, pro: proSongEditor, separator: singDeps?.separator });
         outputPath = path.join(dir, `${songId}.${audio.ext}`);
         await writeFile(outputPath, audio.data);
+        // A Jugalbandi whose singers chose their own voices: each part re-sung in its singer's voice.
+        const voices = (job.data as RemixJob).voices;
+        if (voices) {
+          if (!singDeps) throw new Error("Singing in your own voice needs fal");
+          const work = path.join(dir, `${songId}-voices`);
+          const mixed = await singDuetVoices({ ffmpeg: defaultFfmpeg, sing: (file, sample, wd) => singInMyVoice(singDeps, file, sample, wd) }, outputPath, voices, work);
+          outputPath = path.join(dir, `${songId}-voices.mp3`);
+          await rename(mixed, outputPath);
+          await rm(work, { recursive: true, force: true });
+        }
       } else {
         const d = job.data as SongJob;
         const audio = await (d.model === "lyria" ? shortSinger : singer).sing(d);
@@ -202,6 +213,7 @@ if (songsAvailable(env)) {
               : "AI-generated song: lyrics, music and vocals made with generative AI models",
       });
       await updateSong(db, songId, { status: "completed", outputPath, contentCredentials, completedAt: new Date() });
+      if ((job.data as RemixJob).duet) await duetSongDone(db, songId);
       // Cover art comes after the song is playable, and a failed picture never fails the song.
       const made = coverImage ? await getSongById(db, songId) : undefined;
       const coverPath = made
@@ -218,7 +230,8 @@ if (songsAvailable(env)) {
     console.error(`song ${job?.data.songId} failed:`, err.message);
     if (job && job.attemptsMade >= (job.opts.attempts ?? 1)) {
       await updateSong(db, job.data.songId, { status: "failed", error: creatorMessage(err) });
-      await grantCredits(db, job.data.userId, job.data.credits, "refund", `song:${job.data.songId}`);
+      // A free song (the first reply to a gift) has nothing to give back.
+      if (job.data.credits > 0) await grantCredits(db, job.data.userId, job.data.credits, "refund", `song:${job.data.songId}`);
     }
   });
   console.log(`song worker listening on queue "${SONG_QUEUE}"`);
@@ -263,5 +276,8 @@ if (youtubeAvailable(env) || instagramAvailable(env)) {
 } else {
   console.log("publisher disabled: set TOKEN_ENCRYPTION_KEY plus Google (YouTube) and/or Instagram app keys");
 }
+
+// Jugalbandi: remind a partner who hasn't sung, 24 hours before the invite closes.
+setInterval(() => sendDuetReminders(db).catch((err) => console.error("duet reminders failed:", (err as Error).message)), 15 * 60_000);
 
 console.log(`worker listening on queue "${FILM_QUEUE}"`);

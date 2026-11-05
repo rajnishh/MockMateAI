@@ -22,7 +22,7 @@ export default function CreditsScreen() {
             <Txt variant="md">What things cost</Txt>
             <ListRow title="Standard reel" sub={`Free ${b.freeVideosPerWeek} a week, then 1 credit`} right={null} />
             <ListRow title="Premium AI animation" sub={`${b.premiumCreditsPerShot} credits per 5 seconds`} right={null} />
-            <ListRow title="Song" sub="4 credits" right={null} />
+            <ListRow title="Song" sub="1 credit a version, 2 for a short Lyria one" right={null} />
           </Card>
           <ChipRow<Currency>
             options={[

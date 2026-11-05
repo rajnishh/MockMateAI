@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { GENRES } from "@/lib/songs/styles";
-import { CreateForm } from "./create-form";
+import { CreateForm, SONG_PRICES_FALLBACK, type SongPrices } from "./create-form";
 import { SongPlayer } from "./song-player";
 import { MusicVideoPanel, type MusicVideoPrices } from "./music-video-panel";
 import { MyVoices, type Voice } from "./my-voice";
@@ -31,7 +31,7 @@ async function postJson<T>(url: string, body: unknown): Promise<{ ok: boolean; d
 export default function SongsPage() {
 
   const [songs, setSongs] = useState<Song[]>([]);
-  const [credits, setCredits] = useState(4);
+  const [perTake, setPerTake] = useState<SongPrices>(SONG_PRICES_FALLBACK);
   const [available, setAvailable] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [needCredits, setNeedCredits] = useState(false);
@@ -47,7 +47,7 @@ export default function SongsPage() {
     if (!res.ok) return;
     const d = await res.json();
     setSongs(d.songs);
-    setCredits(d.credits);
+    if (d.creditsPerTake) setPerTake(d.creditsPerTake);
     setAvailable(d.available);
   }, []);
 
@@ -87,7 +87,7 @@ export default function SongsPage() {
       {!available && <div className="status">Song Studio isn&apos;t set up on this server yet.</div>}
 
       <section className="create">
-        <CreateForm credits={credits} available={available} onCreated={load} />
+        <CreateForm perTake={perTake} available={available} onCreated={load} />
       </section>
 
       {error && (

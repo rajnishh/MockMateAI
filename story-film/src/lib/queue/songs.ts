@@ -1,6 +1,7 @@
 import { Queue } from "bullmq";
 import type { AceControls } from "@/lib/songs/controls";
 import type { MixInput } from "@/lib/songs/mix";
+import type { DuetVoices } from "@/lib/duets";
 import type { RemixCall } from "@/lib/songs/remix";
 import type { SongModel } from "@/lib/songs/request";
 import { getRedis } from "./films";
@@ -40,6 +41,9 @@ export interface RemixJob {
   // Built by the API route; its audioUrl is the original song's file:// URL.
   call: RemixCall;
   credits: number;
+  // A Jugalbandi's song: both get told when it's made, and parts may be re-sung in their singers' voices.
+  duet?: boolean;
+  voices?: DuetVoices;
 }
 
 // Job name "studio": a free mix of a song's stems and/or a sound preset, made with ffmpeg.

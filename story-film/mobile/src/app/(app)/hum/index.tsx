@@ -14,11 +14,14 @@ import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, Linking, Modal, Pressable, StyleSheet, View } from "react-native";
 
+import { DuetAudio } from "@/components/duet-audio";
 import { Icon } from "@/components/icon";
 import { ReelLogo, useReducedMotion } from "@/components/logo";
-import { Banner, Button, Credits, Header, Hero, Row, Screen, Txt } from "@/components/ui";
+import { Banner, Button, Chip, Credits, Header, Hero, Row, Screen, Txt } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { allowDeviceSpeech, transcribeOnDevice } from "@/lib/device-speech";
+import { duetPart } from "@/lib/duets";
+import { occasionLabel, replyContext } from "@/lib/gifts";
 import { currentTake, hum, level, type Picked } from "@/lib/hum";
 import { useSession } from "@/lib/session";
 import { formatTime } from "@/lib/songs";
@@ -54,6 +57,24 @@ export default function HumRecord() {
   const player = useAudioPlayer(null, { updateInterval: 250 });
   const playing = useAudioPlayerStatus(player).playing;
   const language = prefs?.language ?? "hi";
+  // A reply to a gift lasts while this screen is open; leaving Hum it drops it.
+  const [reply] = useState(() => replyContext.get());
+  // Or a Jugalbandi part: the take goes to the duet instead of "Here's what I heard".
+  const [part] = useState(() => duetPart.get());
+  // The partner's part plays while you sing (best with earphones), so you can answer it in time.
+  const theirs = useAudioPlayer(null);
+  const [playAlong, setPlayAlong] = useState(true);
+  useEffect(() => {
+    if (!part?.otherPart) return;
+    api.videoHeaders().then((headers) => theirs.replace({ uri: api.duetAudioUrl(part.otherPart!), headers })).catch(() => undefined);
+  }, [part, theirs]);
+  useEffect(
+    () => () => {
+      replyContext.clear();
+      duetPart.clear();
+    },
+    [],
+  );
 
   useEffect(() => {
     getItem(HINT_KEY).then((v) => setHint(v !== "1")).catch(() => setHint(true));
@@ -94,6 +115,10 @@ export default function HumRecord() {
     await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
     await recorder.prepareToRecordAsync();
     recorder.record();
+    if (part?.otherPart && playAlong) {
+      theirs.seekTo(0).catch(() => undefined);
+      theirs.play();
+    }
     warned.current = false;
     setSec(0);
     setLevels(Array(BARS).fill(0));
@@ -105,6 +130,7 @@ export default function HumRecord() {
   async function stop() {
     const length = recorder.getStatus().durationMillis / 1000;
     await recorder.stop();
+    theirs.pause();
     await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
     const uri = recorder.uri;
@@ -179,6 +205,14 @@ export default function HumRecord() {
       const transcript = file.video ? "" : await transcribeOnDevice(file.uri, language);
       setStep("Working out if you hummed, sang or asked");
       const take = await hum.upload(file, { transcript, language });
+      if (part) {
+        setStep("Sending your part");
+        await api.duetPart(part.id, take.takeId);
+        duetPart.clear();
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+        router.back();
+        return;
+      }
       currentTake.set(take, file);
       Haptics.selectionAsync().catch(() => undefined);
       AccessibilityInfo.announceForAccessibility(`I heard ${take.kind === "speech" ? "you asking" : take.kind === "sing" ? "singing" : "humming"}`);
@@ -228,11 +262,25 @@ export default function HumRecord() {
           </>
         ) : (
           <Txt variant="cap" style={{ textAlign: "center" }}>
-            2 credits for a song on your tune · you&apos;ll see the price before anything is made
+            1 credit for a song on your tune · you&apos;ll see the price before anything is made
           </Txt>
         )
       }>
       <Header title="Hum it" sub="Make" back right={<Credits count={billing.data?.balance ?? null} />} />
+      {part ? (
+        <Banner
+          kind="info"
+          title={part.otherPart ? `Your part · answer ${part.otherName}` : "Your part of the Jugalbandi"}
+          text="About 30 seconds. Hum, sing or just say your lines; AI joins both parts into one song."
+          action={part.otherPart ? <DuetAudio path={part.otherPart} label={`${part.otherName}'s part`} /> : undefined}
+        />
+      ) : null}
+      {part?.otherPart ? (
+        <Chip label={`Play ${part.otherName}'s part while I sing (earphones)`} selected={playAlong} onPress={() => setPlayAlong(!playAlong)} />
+      ) : null}
+      {reply ? (
+        <Banner kind="info" title={`Replying to ${reply.toName}`} text={`Hum, sing or just say what the song back for their ${occasionLabel(reply.occasion).toLowerCase()} gift should be.`} />
+      ) : null}
       {error ? (
         <Banner
           kind="error"
