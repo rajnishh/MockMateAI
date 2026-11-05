@@ -357,6 +357,7 @@ export default function HumRecord() {
           <Button label="Import a file" kind="secondary" small icon="download" onPress={importFile} style={{ flex: 1 }} />
         </Row>
       ) : null}
+      {phase === "idle" || phase === "denied" ? <Button label="My recordings" kind="ghost" icon="music" block onPress={() => router.push("/hum/recordings")} /> : null}
 
       {hint && phase === "idle" ? (
         <Banner

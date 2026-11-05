@@ -6,9 +6,9 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { defaultFfmpeg, probeDuration } from "@/lib/ffmpeg";
 import { guessKind, meaningfulWords, understand } from "@/lib/voice-create/heard";
-import { INSTRUMENTAL, TUNE_ORIGINAL_STYLE, tuneSongCall, tuneSongSchema } from "@/lib/voice-create/hum-song";
+import { INSTRUMENTAL, TUNE_COVER_STRENGTH, TUNE_ORIGINAL_STYLE, tuneSongCall, tuneSongSchema } from "@/lib/voice-create/hum-song";
 import { mixAudioArgs, mixLength, mixSchema, mixVideoArgs } from "@/lib/voice-create/mix";
-import { extractArgs, loadTake, saveTakeMeta, sweepOldTakes, TAKE_KEEP_MS, takeFiles, userFolder } from "@/lib/voice-create/takes";
+import { deleteTake, extractArgs, listTakes, loadTake, saveTakeMeta, sweepOldTakes, TAKE_KEEP_COUNT, TAKE_KEEP_MS, takeFiles, userFolder } from "@/lib/voice-create/takes";
 import { findGenre } from "@/lib/songs/styles";
 
 const words = (list: [string, number, number][]) => list.map(([word, start, end]) => ({ word, start, end }));
@@ -68,7 +68,7 @@ describe("a song on your tune", () => {
   const genre = findGenre("punjabi-pop")!;
 
   it("remixes the take with ACE-Step, keeping the tune", () => {
-    const call = tuneSongCall({ takeMp3: "/data/voice/u/t.mp3", kind: "hum", genre, mood: "happy", vocal: "female", heardLyrics: "", lyrics: "" });
+    const call = tuneSongCall({ takeMp3: "/data/voice/u/t.mp3", kind: "hum", genre, mood: "happy", vocal: "female", language: "hi", heardLyrics: "", lyrics: "" });
     expect(call.kind).toBe("cover");
     expect(call.input).toMatchObject({
       audioUrl: "file:///data/voice/u/t.mp3",
@@ -81,8 +81,16 @@ describe("a song on your tune", () => {
   });
 
   it("sings the sung lines, as the creator fixed them", () => {
-    const call = tuneSongCall({ takeMp3: "/t.mp3", kind: "sing", genre, mood: "", vocal: "auto", heardLyrics: "tere bina jiya jaye na", lyrics: "Tere bina jiya jaye na" });
-    expect(call.input).toMatchObject({ originalStyle: TUNE_ORIGINAL_STYLE.sing, originalLyrics: "tere bina jiya jaye na", lyrics: "Tere bina jiya jaye na" });
+    const call = tuneSongCall({ takeMp3: "/t.mp3", kind: "sing", genre, mood: "", vocal: "auto", language: "hinglish", heardLyrics: "tere bina jiya jaye na", lyrics: "Tere bina jiya jaye na" });
+    expect(call.input).toMatchObject({ originalStyle: TUNE_ORIGINAL_STYLE.sing, originalLyrics: "tere bina jiya jaye na", lyrics: "Tere bina jiya jaye na", vocalLanguage: "hi", strength: TUNE_COVER_STRENGTH });
+  });
+
+  it("sings with one voice unless the creator picks a duet", () => {
+    const romantic = findGenre("bollywood-romantic")!;
+    const style = (vocal: "auto" | "duet") => (tuneSongCall({ takeMp3: "/t.mp3", kind: "sing", genre: romantic, mood: "", vocal, language: "hi", heardLyrics: "", lyrics: "" }).input as { style: string }).style;
+    expect(style("auto")).toContain("solo lead vocals");
+    expect(style("auto")).not.toMatch(/male and female/);
+    expect(style("duet")).toContain("male and female duet vocals");
   });
 
   it("validates the request", () => {
@@ -109,7 +117,7 @@ describe("takes", () => {
     expect(await loadTake(out, "alice", "nope")).toBeUndefined();
   });
 
-  it("sweeps takes older than a day", async () => {
+  it("sweeps takes older than a month", async () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), "sweep-"));
     await writeFile(path.join(dir, "old.mp3"), "x");
     await writeFile(path.join(dir, "new.mp3"), "x");
@@ -118,6 +126,39 @@ describe("takes", () => {
     await sweepOldTakes(dir);
     expect(existsSync(path.join(dir, "old.mp3"))).toBe(false);
     expect(existsSync(path.join(dir, "new.mp3"))).toBe(true);
+  });
+
+  it("keeps only the newest takes, with all their files", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "sweep-"));
+    const ids = Array.from({ length: TAKE_KEEP_COUNT + 1 }, (_, i) => `123e4567-e89b-12d3-a456-${String(i).padStart(12, "0")}`);
+    for (const [i, id] of ids.entries()) {
+      for (const f of [`${id}.json`, `${id}.mp3`]) {
+        await writeFile(path.join(dir, f), "{}");
+        const t = (Date.now() - (ids.length - i) * 60_000) / 1000;
+        await utimes(path.join(dir, f), t, t);
+      }
+    }
+    await sweepOldTakes(dir);
+    expect(existsSync(path.join(dir, `${ids[0]}.json`))).toBe(false);
+    expect(existsSync(path.join(dir, `${ids[0]}.mp3`))).toBe(false);
+    expect(existsSync(path.join(dir, `${ids[1]}.mp3`))).toBe(true);
+  });
+
+  it("lists a creator's recordings newest first, and deletes one", async () => {
+    const out = await mkdtemp(path.join(os.tmpdir(), "takes-"));
+    const [a, b, c] = ["0", "1", "2"].map((n) => `123e4567-e89b-12d3-a456-42661417400${n}`);
+    const save = (id: string, durationSec: number, createdAt: string) =>
+      saveTakeMeta(takeFiles(out, "alice", id), { id, kind: "hum", transcript: "", durationSec, videoFile: null, createdAt });
+    await save(a, 9, "2026-11-05T10:00:00.000Z");
+    await save(b, 12, "2026-11-05T11:00:00.000Z");
+    // Still uploading: no length yet.
+    await save(c, 0, "2026-11-05T12:00:00.000Z");
+    await writeFile(takeFiles(out, "alice", a).mp3, "x");
+    expect((await listTakes(out, "alice")).map((t) => t.id)).toEqual([b, a]);
+    expect(await listTakes(out, "bob")).toEqual([]);
+    await deleteTake(out, "alice", a);
+    expect(existsSync(takeFiles(out, "alice", a).mp3)).toBe(false);
+    expect((await listTakes(out, "alice")).map((t) => t.id)).toEqual([b]);
   });
 });
 
@@ -194,7 +235,7 @@ describe("a song on your tune, against a fake fal", () => {
       throw new Error(`unexpected fetch ${url}`);
     }) as unknown as typeof fetch;
     const editor = new FalSongEditor(new FalQueueClient("k", fetchFn, 0), fetchFn);
-    const call = tuneSongCall({ takeMp3: take, kind: "hum", genre: findGenre("pop")!, mood: "", vocal: "auto", heardLyrics: "", lyrics: "" });
+    const call = tuneSongCall({ takeMp3: take, kind: "hum", genre: findGenre("pop")!, mood: "", vocal: "auto", language: "hi", heardLyrics: "", lyrics: "" });
     const audio = await runRemix(editor, call, { workDir: dir, ffmpeg: defaultFfmpeg, probeDuration });
 
     expect(String(sent[0].audio_url)).toMatch(/^data:audio\/mpeg;base64,/);

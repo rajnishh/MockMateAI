@@ -77,7 +77,7 @@ const filmWorker = new Worker<FilmQueueJob>(
     const llm = await llmForUser(db, env, job.data.userId);
     // The creator's own footage: no Content Credentials claiming it was AI-generated.
     if (isEdit(job)) {
-      const state = await planEdit({ llm, transcriber: buildTranscriber(env) }, job.data, workDir, onStage);
+      const state = await planEdit({ llm, transcriber: buildTranscriber(env, { needTimings: true }) }, job.data, workDir, onStage);
       if (job.data.review) {
         // Waits for the creator to check the effects; PUT /api/edits/[id] queues the render.
         await updateFilm(db, filmId, { status: "review", stage: null, title: state.plan.title });

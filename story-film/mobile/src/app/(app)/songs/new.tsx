@@ -10,7 +10,7 @@ import { insertRap, onlyTags, structureOf } from "@/lib/song-structure";
 import { addStyleChip, MOODS, SONG_LANGUAGES, STYLE_CHIPS, STYLE_PRESETS } from "@/lib/songs";
 import { useData } from "@/lib/use-data";
 
-type Length = "short" | "30" | "60" | "120";
+type Length = "short" | "30" | "60" | "120" | "180" | "240";
 
 const MODES: { value: SongMode; label: string; help: string }[] = [
   { value: "simple", label: "Simple", help: "One sentence" },
@@ -217,6 +217,8 @@ export default function NewSong() {
             { value: "30", label: "30 s" },
             { value: "60", label: "1 min" },
             { value: "120", label: "2 min" },
+            { value: "180", label: "3 min" },
+            { value: "240", label: "4 min" },
           ]}
           value={length}
           onChange={setLength}

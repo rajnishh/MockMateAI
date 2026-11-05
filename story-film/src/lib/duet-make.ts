@@ -16,7 +16,7 @@ export async function duetMakeDeps(db: Db, env: Env, starterId: string, genreId:
     outputDir: env.OUTPUT_DIR,
     ffmpeg: defaultFfmpeg,
     writeLyrics: async (topic, durationSec) => (await writeLyrics(llm, { topic, genre, mood: "", language: language as SongLanguage, durationSec })).lyrics,
-    tuneCall: (input) => tuneSongCall({ ...input, genre, mood: "" }),
+    tuneCall: (input) => tuneSongCall({ ...input, genre, mood: "", language: language as SongLanguage }),
     queue: async (job) => {
       await getSongQueue().add("remix", { ...job, duet: true }, { jobId: job.songId });
     },

@@ -298,7 +298,7 @@ export interface SongOptions {
   genre: string;
   mood: string;
   language: string;
-  durationSec: 30 | 60 | 120;
+  durationSec: 30 | 60 | 120 | 180 | 240;
   kidSafe: boolean;
 }
 // Simple: one sentence, AI writes the rest. Custom: every control. Instrumental: no vocals.
