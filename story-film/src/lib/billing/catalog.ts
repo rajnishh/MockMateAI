@@ -122,3 +122,7 @@ export const REMIX_CREDITS = { cover: 2, extend: 2, replace: 1, rap: 1, "add-voc
 // Splitting a song into vocals, drums, bass and music (Demucs on fal, ~$0.04 a minute). Made once per
 // song; mixing them afterwards is free.
 export const STEMS_CREDITS = 1;
+
+// "Hum it": a song on the creator's own hummed or sung tune (ACE-Step audio-to-audio on fal, $0.0002 per
+// second of audio from fal's pricing API on 2026-11-05, so a 60 s take is ~1 cent), priced like a cover.
+export const TUNE_SONG_CREDITS = REMIX_CREDITS.cover;

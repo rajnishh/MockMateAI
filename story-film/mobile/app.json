@@ -58,18 +58,36 @@
           "photosPermission": "Reelkar opens your gallery so you can pick a video to edit.",
           "savePhotosPermission": "Reelkar saves the reels you make to your Photos.",
           "isAccessMediaLocationEnabled": false,
-          "granularPermissions": ["video"]
+          "granularPermissions": [
+            "video"
+          ]
         }
       ],
       [
         "expo-image-picker",
         {
           "photosPermission": "Reelkar opens your gallery so you can pick a video to edit.",
-          "cameraPermission": false,
-          "microphonePermission": false
+          "cameraPermission": "Reelkar films a clip of you to put a song under. It's used only when you tap Film yourself.",
+          "microphonePermission": "Reelkar records your humming, singing or voice to make a song."
         }
       ],
-      "expo-audio"
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Reelkar records your humming, singing or voice to make a song."
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Reelkar records your humming, singing or voice to make a song.",
+          "speechRecognitionPermission": "Reelkar understands what you said on your phone before sending it.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
+        }
+      ],
+      "./plugins/with-app-intents"
     ],
     "experiments": {
       "typedRoutes": true,

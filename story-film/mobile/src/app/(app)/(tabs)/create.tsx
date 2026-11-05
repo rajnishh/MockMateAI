@@ -235,6 +235,20 @@ export default function Create() {
         </>
       }>
       <Header title="Make a reel" right={<Credits count={billing.data?.balance ?? null} />} />
+      <Card onPress={() => router.push("/hum")} style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.deep, borderColor: colors.deep }}>
+        <View style={{ width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center", backgroundColor: colors.brand }}>
+          <Icon name="mic" size={26} color={colors.onBrand} />
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Txt variant="md" style={{ color: colors.onDeep }}>
+            Hum it
+          </Txt>
+          <Txt variant="cap" style={{ color: colors.onDeep, opacity: 0.85 }}>
+            Hum, sing or just say it. Reelkar makes the song, reel or music video.
+          </Txt>
+        </View>
+        <Icon name="right" size={20} color={colors.onDeep} />
+      </Card>
       {error ? (
         <Banner
           kind="error"
