@@ -7,6 +7,7 @@ import { LogoLoader } from "@/components/logo";
 import { confirmDelete } from "@/components/reel-grid";
 import { Banner, Button, Card, Header, ProgressBar, Screen, Txt } from "@/components/ui";
 import { api, type Film, type Stage } from "@/lib/api";
+import { reviewHref } from "@/lib/music-video";
 import { fonts, useTheme } from "@/theme";
 
 const STEPS: { stage: Stage; label: string }[] = [
@@ -33,7 +34,7 @@ export default function Making() {
         if (!alive) return;
         setFilm(f);
         if (f.status === "completed") return router.replace(`/reel/${f.id}?new=1`);
-        if (f.status === "review") return router.replace(`/edit/${f.id}`);
+        if (f.status === "review") return router.replace(reviewHref(f));
         if (f.status === "failed") return;
       } catch (err) {
         if (alive) setError((err as Error).message);

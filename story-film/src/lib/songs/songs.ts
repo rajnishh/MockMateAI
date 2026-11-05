@@ -18,6 +18,12 @@ export async function getSong(db: Db, userId: string, id: string): Promise<Song 
   return row;
 }
 
+// For the worker, which acts for whoever made the song.
+export async function getSongById(db: Db, id: string): Promise<Song | undefined> {
+  const [row] = await db.select().from(song).where(eq(song.id, id));
+  return row;
+}
+
 export async function listSongs(db: Db, userId: string, limit = 50): Promise<Song[]> {
   return db.select().from(song).where(eq(song.userId, userId)).orderBy(desc(song.createdAt)).limit(limit);
 }
@@ -39,6 +45,8 @@ export function songView(s: Song) {
     error: s.error,
     createdAt: s.createdAt.toISOString(),
     audioUrl: s.status === "completed" ? `/api/songs/${s.id}/audio` : null,
+    // Square AI cover art; null while it's being made or if it couldn't be made.
+    coverUrl: s.coverPath ? `/api/songs/${s.id}/cover` : null,
   };
 }
 

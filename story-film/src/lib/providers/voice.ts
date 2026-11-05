@@ -28,6 +28,18 @@ export class FalDemucs {
       accompanimentUrls: [out.drums, out.bass, out.other].filter((f): f is FalFile => Boolean(f)).map((f) => f.url),
     };
   }
+
+  // All four stems by name, for the Studio's mixer.
+  async separateAll(audioUrl: string): Promise<Record<"vocals" | "drums" | "bass" | "other", string>> {
+    const out = await this.client.run<Record<"vocals" | "drums" | "bass" | "other", FalFile | null>>("fal-ai/demucs", {
+      audio_url: audioUrl,
+      model: "htdemucs",
+      stems: ["vocals", "drums", "bass", "other"],
+      output_format: "mp3",
+    });
+    if (!out.vocals || !out.drums || !out.bass || !out.other) throw new Error("Couldn't split this song into parts");
+    return { vocals: out.vocals.url, drums: out.drums.url, bass: out.bass.url, other: out.other.url };
+  }
 }
 
 export interface VoiceConverter {

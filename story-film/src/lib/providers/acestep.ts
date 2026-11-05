@@ -1,4 +1,5 @@
 import { readMedia } from "@/lib/media";
+import { aceInputs } from "@/lib/songs/controls";
 import { AUDIO_TYPES, audioExt, type SongAudio, type SongInput } from "./fal-music";
 import type { CoverInput, ReplaceSectionInput } from "./fal-song-edit";
 import type { MusicProvider } from "./types";
@@ -45,6 +46,8 @@ export class AceStepMusic implements MusicProvider {
       audio_duration: input.durationSec,
       ...(input.vocalLanguage !== "unknown" ? { vocal_language: input.vocalLanguage } : {}),
       thinking: true,
+      // Create's dials; the local server takes the same field names as fal.
+      ...aceInputs(input.controls),
     });
   }
 

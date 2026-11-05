@@ -5,16 +5,16 @@ import { z } from "zod";
 import { grantCredits, spendCredits } from "@/lib/billing/credits";
 import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
-import { buildLlm, songsAvailable } from "@/lib/providers";
+import { buildLlm, proRemixAvailable, songsAvailable } from "@/lib/providers";
 import { getSongQueue } from "@/lib/queue/songs";
 import { getUserId, unauthorized } from "@/lib/session";
 import { cleanLyrics } from "@/lib/songs/lyrics";
-import { remixCall, remixCredits, remixedDurationSec, remixSchemaFor, type RemixKind } from "@/lib/songs/remix";
+import { remixCall, remixCredits, remixedDurationSec, remixKinds, remixSchemaFor, type RemixKind } from "@/lib/songs/remix";
 import { assertNoRealArtists, SongSafetyError } from "@/lib/songs/safety";
 import { createSong, getSong } from "@/lib/songs/songs";
 import { findGenre, GENRES, stylePrompt } from "@/lib/songs/styles";
 
-const SUFFIX: Record<RemixKind, string> = { cover: "cover", extend: "extended", replace: "new part" };
+const SUFFIX: Record<RemixKind, string> = { cover: "cover", extend: "extended", replace: "new part", rap: "rap", "add-vocals": "with vocals", "add-instrumental": "new music" };
 
 // Remix a finished song like Suno: a cover in another style, a longer version, or one part redone.
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -29,6 +29,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const parsed = remixSchemaFor(song.durationSec).safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: z.prettifyError(parsed.error) }, { status: 400 });
   const request = { ...parsed.data, lyrics: parsed.data.lyrics && cleanLyrics(parsed.data.lyrics) };
+  if (!remixKinds(proRemixAvailable(env)).includes(request.kind)) {
+    return NextResponse.json({ error: "This remix isn't available yet" }, { status: 503 });
+  }
 
   try {
     await assertNoRealArtists(buildLlm(env), [request.style ?? "", request.lyrics ?? ""]);
@@ -50,7 +53,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: `This costs ${credits} credits.`, needCredits: true }, { status: 402 });
   }
   try {
-    const title = `${song.title} (${SUFFIX[request.kind]})`.slice(0, 80);
+    const title = `${song.title} (${SUFFIX[request.kind] ?? request.kind})`.slice(0, 80);
     await createSong(db, {
       id: songId,
       userId,

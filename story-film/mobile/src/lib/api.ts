@@ -17,6 +17,8 @@ export interface Film {
   error: string | null;
   createdAt: string;
   videoUrl: string | null;
+  // Set for music videos: their storyboard is checked on the song's music video screen.
+  songId?: string | null;
   format?: "story" | "motion" | "dance" | "edit" | "music";
 }
 
@@ -229,13 +231,60 @@ export interface Song {
   error: string | null;
   createdAt: string;
   audioUrl: string | null;
+  // Square AI cover art, made just after the song; null until then.
+  coverUrl?: string | null;
 }
-export type RemixKind = "cover" | "extend" | "replace";
+// The server lists its remix kinds (remixKinds), so kinds it adds later work without an app update.
+export type RemixKind = "cover" | "extend" | "replace" | "rap" | (string & {});
+export interface RemixKindInfo {
+  kind: RemixKind;
+  label: string;
+  help: string;
+  credits: number;
+  style: "required" | "optional" | "none";
+  part: boolean;
+  extend: boolean;
+  lyrics: boolean;
+  bars: boolean;
+  // Covers on Runware: how far from the original, 0 to 1. Older servers leave it out.
+  strength?: boolean;
+}
+export interface SoundPreset {
+  id: string;
+  label: string;
+  help: string;
+}
+export type StemName = "vocals" | "drums" | "bass" | "other";
+export interface SongStems {
+  status: "none" | "running" | "ready" | "failed";
+  error?: string;
+  credits: number;
+  stems: Record<StemName, string> | null;
+}
+export interface SongMix {
+  gains?: Partial<Record<StemName, number>>;
+  preset?: string;
+}
+// What the player draws from (mirrors story-film/src/lib/songs/analysis.ts).
+export interface SongAnalysis {
+  duration: number;
+  envelope: number[];
+  bpm: number;
+  beats: number[];
+  strength: number[];
+  peaks: number[];
+  lines: { text: string; start: number; end: number }[];
+  timing: "words" | "even";
+}
 export interface SongStudio {
   songs: Song[];
   // What one Create costs, and each kind of remix.
   credits: number;
   remixCredits: Record<RemixKind, number>;
+  // Missing on servers from before the Studio.
+  remixKinds?: RemixKindInfo[];
+  soundPresets?: SoundPreset[];
+  stemsCredits?: number;
   available: boolean;
 }
 export type SongModel = "ace-step" | "lyria";
@@ -248,13 +297,23 @@ export interface SongOptions {
   durationSec: 30 | 60 | 120;
   kidSafe: boolean;
 }
+// Simple: one sentence, AI writes the rest. Custom: every control. Instrumental: no vocals.
+export type SongMode = "simple" | "custom" | "instrumental";
 export interface NewSong extends SongOptions {
+  mode?: SongMode;
   title: string;
   lyrics: string;
   style?: string;
   vocal: SongVocal;
   takes: 1 | 2;
   model: SongModel;
+  // Simple mode: the structure blocks AI writes the lyrics in.
+  structure?: string[];
+  // 0-100 sliders: Experiment (safe to wild) and Follow my style (loose to strict).
+  experiment?: number;
+  strictness?: number;
+  bpm?: number;
+  keyScale?: string;
 }
 export interface SongEdit {
   startSec: number;
@@ -270,6 +329,10 @@ export interface SongRemix {
   extendSec?: number;
   startSec?: number;
   endSec?: number;
+  // "rap": the bars for the picked part.
+  bars?: string;
+  // Covers on Runware: 0 (close to the original) to 1 (far).
+  strength?: number;
 }
 
 export class ApiError extends Error {
@@ -388,14 +451,28 @@ const real = {
   videoUrl: (film: Film) => (film.videoUrl ? `${API_URL}${film.videoUrl}` : null),
   songs: () => call<SongStudio>("/api/songs"),
   song: (id: string) => call<Song>(`/api/songs/${id}`),
-  createSong: (input: NewSong) => call<{ id: string; ids: string[] }>("/api/songs", { method: "POST", body: JSON.stringify(input) }),
+  createSong: (input: NewSong) => call<{ id: string; ids: string[]; title?: string }>("/api/songs", { method: "POST", body: JSON.stringify(input) }),
+  // "✨ Write a rap verse": rap bars for the song's [Rap] block.
+  songRapVerse: async (input: SongOptions & { lyrics: string; bars?: 8 | 12 | 16 }) =>
+    (await call<{ bars: string }>("/api/songs/lyrics/rap", { method: "POST", body: JSON.stringify(input) })).bars,
   // "✨ Write lyrics with AI" from the topic, or "✨ Enhance my lyrics" with the creator's own lines as the draft.
-  songLyrics: (input: SongOptions & { draft?: string }) => call<{ title: string; lyrics: string }>("/api/songs/lyrics", { method: "POST", body: JSON.stringify(input) }),
+  songLyrics: (input: SongOptions & { draft?: string; structure?: string[]; duet?: boolean }) => call<{ title: string; lyrics: string }>("/api/songs/lyrics", { method: "POST", body: JSON.stringify(input) }),
   songStyle: async (input: Partial<SongOptions> & { genre: string; idea: string; vocal?: SongVocal }) =>
     (await call<{ style: string }>("/api/songs/style", { method: "POST", body: JSON.stringify(input) })).style,
   editSong: (id: string, edit: SongEdit) => call<Song>(`/api/songs/${id}/edit`, { method: "POST", body: JSON.stringify(edit) }),
   remixSong: (id: string, remix: SongRemix) => call<{ id: string }>(`/api/songs/${id}/remix`, { method: "POST", body: JSON.stringify(remix) }),
   songAudioUrl: (song: Song) => (song.audioUrl ? `${API_URL}${song.audioUrl}` : null),
+  songCoverUrl: (song: Song) => (song.coverUrl ? `${API_URL}${song.coverUrl}` : null),
+  // Studio: waveform, stems, mixes, sound previews and rap bars.
+  songPeaks: async (id: string) => (await call<{ peaks: number[] }>(`/api/songs/${id}/peaks`)).peaks,
+  songStems: (id: string) => call<SongStems>(`/api/songs/${id}/stems`),
+  splitSong: (id: string) => call<SongStems>(`/api/songs/${id}/stems`, { method: "POST", body: "{}" }),
+  saveMix: (id: string, mix: SongMix) => call<{ id: string }>(`/api/songs/${id}/mix`, { method: "POST", body: JSON.stringify(mix) }),
+  songRap: async (id: string, input: { startSec: number; endSec: number; idea?: string }) =>
+    (await call<{ bars: string }>(`/api/songs/${id}/rap`, { method: "POST", body: JSON.stringify(input) })).bars,
+  stemUrl: (path: string) => `${API_URL}${path}`,
+  soundPreviewUrl: (id: string, preset: string): string | null => `${API_URL}/api/songs/${id}/mix/preview?preset=${encodeURIComponent(preset)}`,
+  songAnalysis: (id: string) => call<SongAnalysis>(`/api/songs/${id}/analysis`),
   videoHeaders: async (): Promise<Record<string, string>> => {
     const cookie = await authClient.getCookie();
     return cookie ? { Cookie: cookie } : {};
@@ -424,6 +501,24 @@ const demoPosts: Post[] = [
   { id: "p2", filmId: "d2", title: "3 chai hacks nobody told you", scheduledAt: at(0, 19, 30), status: "scheduled", externalUrl: null, error: null, accountName: "@priyacooks", platform: "instagram" },
   { id: "p3", filmId: "d3", title: "Monsoon recipe in 10 minutes", scheduledAt: at(1, 13), status: "scheduled", externalUrl: null, error: null, accountName: "Priya Cooks", platform: "youtube" },
 ];
+
+// A steady 96 BPM pulse with the lyric lines spread evenly, so the player can be tried offline.
+function demoAnalysis(song: Song | undefined): SongAnalysis {
+  const duration = song?.durationSec ?? 60;
+  const beats = Array.from({ length: Math.floor((duration * 96) / 60) }, (_, i) => Math.round(((i * 60) / 96 + 0.2) * 100) / 100);
+  const lines = (song?.lyrics ?? "").split("\n").map((l) => l.trim()).filter((l) => l && !/^\[.*\]$/.test(l));
+  const span = (duration * 0.85) / Math.max(1, lines.length);
+  return {
+    duration,
+    envelope: Array.from({ length: duration * 20 }, (_, i) => Math.round((0.55 + 0.35 * Math.sin(i / 37) * Math.sin(i / 11)) * 100) / 100),
+    bpm: 96,
+    beats,
+    strength: beats.map((_, i) => (i % 4 === 0 ? 1 : 0.6)),
+    peaks: Array.from({ length: 160 }, (_, i) => Math.round((0.35 + 0.6 * Math.abs(Math.sin(i * 0.37) * Math.cos(i * 0.11))) * 100) / 100),
+    lines: lines.map((text, i) => ({ text, start: duration * 0.08 + i * span, end: duration * 0.08 + (i + 1) * span })),
+    timing: "even",
+  };
+}
 
 const demoSongs: Song[] = [demoSong("s1", "Baarish wali chai", "indie-acoustic"), demoSong("s2", "Dadi ki rasoi", "bollywood-romantic")];
 function demoSong(id: string, title: string, genre: string): Song {
@@ -737,7 +832,7 @@ const demo: typeof real = {
   shareLink: async () => {
     throw new ApiError("Saving and sharing need the Reelkar server, not the demo", 503);
   },
-  songs: async () => (await wait(300), { songs: [...demoSongs], credits: 4, remixCredits: { cover: 2, extend: 2, replace: 1 }, available: true }),
+  songs: async () => (await wait(300), { songs: [...demoSongs], credits: 4, remixCredits: { cover: 2, extend: 2, replace: 1, rap: 1 }, available: true }),
   song: async (id) => {
     await wait(200);
     const s = demoSongs.find((x) => x.id === id);
@@ -757,6 +852,7 @@ const demo: typeof real = {
     { title: input.topic ? input.topic.slice(0, 40) : "Meri kahani", lyrics: `${input.draft ? `${input.draft}\n\n` : ""}[Verse]\nBaarish ki boondein, khidki pe gaana\nChai ki pyaali, maa ka bulaana\n\n[Chorus]\nYe pal hai mera, ye ghar hai mera\nHar subah naya, har din sunehra` }
   ),
   songStyle: async (input) => (await wait(400), `${input.idea || "soft"}, acoustic guitar, tabla, warm female vocals, mid tempo`),
+  songRapVerse: async () => (await wait(600), "Subah ki chai, haath mein phone\nSapne bade, raaste anjaan, chal akela hi zone\nGalli se studio tak, beat pe mera naam\nMehnat ki syahi se likhta apna kaam"),
   editSong: async (id) => {
     await wait(400);
     const s = demoSongs.find((x) => x.id === id)!;
@@ -772,9 +868,26 @@ const demo: typeof real = {
     return { id: copy.id };
   },
   songAudioUrl: () => null,
+  songPeaks: async () => (await wait(200), Array.from({ length: 160 }, (_, i) => 0.35 + 0.3 * Math.abs(Math.sin(i / 5)) + 0.2 * Math.abs(Math.sin(i * 1.7)))),
+  songStems: async () => (await wait(200), { status: "none" as const, credits: 1, stems: null }),
+  splitSong: async () => {
+    throw new ApiError("Splitting songs needs the Reelkar server, not the demo", 503);
+  },
+  saveMix: async (id, mix) => {
+    await wait(400);
+    const s = demoSongs.find((x) => x.id === id)!;
+    const copy = { ...s, id: `s${Date.now()}`, title: `${s.title} (${mix.gains ? "mix" : "sound"})`, status: "queued" as const, audioUrl: null };
+    demoSongs.unshift(copy);
+    return { id: copy.id };
+  },
+  songRap: async () => (await wait(600), "Subah ki chai, haath mein phone\nSapne bade, raaste anjaan, chalna hai alone\nGully se uthke, mic pe hai naam\nMehnat ki beat pe likhunga apna kaam"),
+  stemUrl: () => "",
+  soundPreviewUrl: () => null,
+  songAnalysis: async (id) => demoAnalysis(demoSongs.find((s) => s.id === id)),
   videoUrl: () => null,
   previewUri: () => null,
   videoHeaders: async () => ({}),
+  songCoverUrl: () => null,
 };
 
 export const api = DEMO ? demo : real;

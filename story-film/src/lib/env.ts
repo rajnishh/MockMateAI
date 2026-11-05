@@ -47,6 +47,8 @@ const schema = z.object({
   OLLAMA_URL: z.string().url().optional(),
   ASK_REELKAR_GEMINI_MODEL: z.string().default("gemini-2.5-flash"),
   FAL_KEY: z.string().optional(),
+  // Optional: ACE-Step 1.5 on Runware for pro remixes (cover strength, add vocals, add music).
+  RUNWARE_API_KEY: z.string().optional(),
   VIDEO_MODEL: z.enum(["wan", "kling"]).default("wan"),
   FAL_IMAGE_MODEL_ID: z.string().optional(),
   FAL_IMAGE_EDIT_MODEL_ID: z.string().optional(),
