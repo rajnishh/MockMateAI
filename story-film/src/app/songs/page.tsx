@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { GENRES } from "@/lib/songs/styles";
 import { CreateForm } from "./create-form";
+import { SongPlayer } from "./song-player";
 import { MusicVideoPanel, type MusicVideoPrices } from "./music-video-panel";
 import { MyVoices, type Voice } from "./my-voice";
 
@@ -116,7 +117,7 @@ export default function SongsPage() {
                 </div>
                 {s.audioUrl && (
                   <>
-                    <audio src={s.audioUrl} controls preload="none" />
+                    <SongPlayer song={s} genreLabel={GENRES.find((g) => g.id === s.genre)?.label} />
                     <a href={s.audioUrl} download>Download</a>
                     <a href={`/songs/${s.id}`} style={{ minHeight: 44, display: "inline-flex", alignItems: "center" }}>🎛️ Open in Studio: mix, remix, edit</a>
                     {s.contentCredentials && (
