@@ -122,7 +122,7 @@ export default function DuetScreen() {
             <Txt variant="cap">Your part is safe. Choose what&apos;s next.</Txt>
           </Card>
           <Button label="Invite someone else" icon="send" block loading={busy === "reinvite"} onPress={() => act("reinvite")} />
-          <Button label="Finish it solo · 2 credits, the rest back" icon="music" kind="secondary" block loading={busy === "solo"} onPress={() => act("solo")} />
+          <Button label="Finish it solo · 1 credit, the rest back" icon="music" kind="secondary" block loading={busy === "solo"} onPress={() => act("solo")} />
           {d.canExtend ? <Button label={`Give ${d.partnerName || "them"} 24 more hours`} icon="refresh" kind="secondary" block loading={busy === "extend"} onPress={() => act("extend")} /> : null}
           <Button label={`Cancel and get all ${d.paidA} credits back`} kind="ghost" block loading={busy === "cancel"} onPress={() => act("cancel")} />
         </>

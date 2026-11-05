@@ -61,7 +61,9 @@ export default function NewSong() {
 
   const model: SongModel = length === "short" ? "lyria" : "ace-step";
   const short = model === "lyria";
-  const credits = studio.data?.credits ?? 4;
+  // Credits per take, by model; older servers only send one Create price.
+  const perTake = studio.data?.creditsPerTake ?? { "ace-step": 1, lyria: 2 };
+  const credits = perTake[model] * (twoTakes ? 2 : 1);
   const available = studio.data?.available !== false;
   const options: SongOptions = { topic: topic.trim(), genre, mood, language, durationSec: short ? 30 : (Number(length) as SongOptions["durationSec"]), kidSafe };
   const noWords = onlyTags(lyrics);
@@ -146,7 +148,7 @@ export default function NewSong() {
     <Screen
       footer={
         <>
-          <Button label={`${twoTakes ? "Make 2 versions" : "Make song"} · ${credits} credits`} icon="music" block disabled={blocked} loading={busy} onPress={make} />
+          <Button label={`${twoTakes ? "Make 2 versions" : "Make song"} · ${credits} ${credits === 1 ? "credit" : "credits"}`} icon="music" block disabled={blocked} loading={busy} onPress={make} />
           <Txt variant="cap" style={{ textAlign: "center" }}>
             {!available
               ? "Song Studio isn't set up on this server yet"
@@ -296,7 +298,7 @@ export default function NewSong() {
 
       <Row>
         {mode !== "instrumental" ? <Chip label="For kids" selected={kidSafe} onPress={() => setKidSafe(!kidSafe)} /> : null}
-        <Chip label="2 versions · same price" selected={twoTakes} onPress={() => setTwoTakes(!twoTakes)} />
+        <Chip label="2 versions to choose from" selected={twoTakes} onPress={() => setTwoTakes(!twoTakes)} />
       </Row>
       <Txt variant="cap">Songs can&apos;t name or imitate real singers or bands. Every song gets AI cover art and is marked as made with AI.</Txt>
     </Screen>

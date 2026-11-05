@@ -54,11 +54,18 @@ export const CINEMATIC_CREDITS_PER_SHOT = { kling: 30, veo: 92 } as const;
 // "Sing it yourself" music videos: the star lip-syncs each scene with Kling AI Avatar v2 (standard
 // $0.0562/s for AI animation, pro $0.115/s for Cinematic) plus a keyframe, per 5s of song.
 export const SINGER_CREDITS_PER_SHOT = { premium: 16, cinematic: 30 } as const;
-// One song of up to 2 minutes (ACE-Step on fal.ai); verify fal's price before launch.
-export const SONG_CREDITS = 4;
-// A dance reel sung by ACE-Step instead of Reelkar's free sung chant: one short song, priced as one.
+// Songs are priced per take (decision 42). ACE-Step on fal is $0.0002 per second, so a 2-minute take
+// is ~$0.024 (~₹2.1); Lyria 3 is $0.04 per 30 s take (~₹3.5), both from fal's pricing API on 2026-11-05.
+// At the worst-case ₹3.1 a credit after GST, 1 and 2 credits a take keep a ~30%+ margin.
+export const SONG_CREDITS_PER_TAKE = { "ace-step": 1, lyria: 2 } as const;
+export function songCredits(model: keyof typeof SONG_CREDITS_PER_TAKE, takes: number): number {
+  return SONG_CREDITS_PER_TAKE[model] * takes;
+}
+// The usual Create: two ACE-Step takes to choose from.
+export const SONG_CREDITS = songCredits("ace-step", 2);
+// A dance reel sung by ACE-Step instead of Reelkar's free sung chant: one short take.
 // It never uses the free weekly allowance.
-export const DANCE_SONG_CREDITS = SONG_CREDITS;
+export const DANCE_SONG_CREDITS = songCredits("ace-step", 1);
 // Music videos: Standard (pan-and-zoom scenes, ~$0 to make) is a flat price;
 // Premium animates every 5s scene with AI at the usual per-shot price.
 export const MUSIC_VIDEO_STANDARD_CREDITS = 2;
@@ -118,7 +125,7 @@ export function findPlan(id: string): Plan | undefined {
 // Adding vocals or music (ACE-Step 1.5 on Runware, ~$0.01 a call, plus two Demucs splits on fal,
 // ~$0.04 a minute each, so ~$0.2 for a 2-minute song) costs more. Covers, extensions and replaced
 // parts on Runware cost about the same as on fal. A rap is a replaced part.
-export const REMIX_CREDITS = { cover: 2, extend: 2, replace: 1, rap: 1, "add-vocals": 6, "add-instrumental": 6 } as const;
+export const REMIX_CREDITS = { cover: 1, extend: 1, replace: 1, rap: 1, "add-vocals": 6, "add-instrumental": 6 } as const;
 // Splitting a song into vocals, drums, bass and music (Demucs on fal, ~$0.04 a minute). Made once per
 // song; mixing them afterwards is free.
 export const STEMS_CREDITS = 1;
