@@ -17,7 +17,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   const parsed = declineSchema.safeParse(await req.json().catch(() => ({})));
   try {
     const row = await declineDuet(db, d, userId, parsed.data?.note ?? "");
-    notify(db, [row.starterId], { title: "Not this time for your Jugalbandi", body: row.declineNote || "Invite someone else, or finish it solo.", path: `/duets/${row.id}` });
+    notify(db, [row.starterId], { title: "Not this time for your Jugalbandi", body: row.declineNote || "Invite someone else, or finish it solo.", kind: "gifts", path: `/duets/${row.id}` });
     return NextResponse.json({ ok: true });
   } catch (err) {
     return duetErrorResponse(err);

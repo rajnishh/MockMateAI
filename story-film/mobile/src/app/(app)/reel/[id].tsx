@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Linking, StyleSheet, View } from "react-native";
 
 import { Celebrate } from "@/components/celebrate";
+import { PushOffer } from "@/components/push-offer";
 import { confirmDelete } from "@/components/reel-grid";
 import { ReelThumb } from "@/components/reel-thumb";
 import { ReelVideo } from "@/components/reel-video";
@@ -165,6 +166,7 @@ export default function Reel() {
         <Banner kind="warn" text="Allow Reelkar to add to Photos in Settings, then try again." action={<Button label="Settings" small kind="secondary" onPress={() => Linking.openSettings()} />} />
       ) : null}
       {film?.error ? <Banner kind="warn" text={film.error} /> : null}
+      {fresh && film ? <PushOffer what="reel" /> : null}
       {film?.format === "edit" ? (
         <Button label="Fine-tune effects" icon="edit" kind="secondary" block onPress={() => router.push(`/edit/${id}`)} />
       ) : null}

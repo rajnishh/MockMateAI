@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, Share, StyleSheet, View } from "react-native";
 
+import { PushOffer } from "@/components/push-offer";
 import { SongCover } from "@/components/song-cover";
 import { SongPlayerRow, useSongPlayer } from "@/components/song-player";
 import { StudioEdit } from "@/components/studio-edit";
@@ -124,6 +125,7 @@ export default function SongScreen() {
             <SongPlayerRow song={s} player={player} />
           </Card>
           <ListenCard song={s} reload={song.reload} />
+          <PushOffer what="song" />
           <Button label="Make it a gift" icon="gift" block disabled={s.status === "failed"} onPress={() => router.push({ pathname: "/gift/[songId]", params: { songId: s.id } })} />
           <Button label="Save or share" icon="share" kind="secondary" block loading={sharing} disabled={!s.audioUrl} onPress={share} />
           {error ? <Banner kind="error" text={error} /> : null}

@@ -18,7 +18,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   if (!parsed.success) return NextResponse.json({ error: z.prettifyError(parsed.error) }, { status: 400 });
   try {
     const row = await joinDuet(db, d, userId, parsed.data);
-    notify(db, [row.starterId], { title: `${row.partnerName} joined your Jugalbandi`, body: `“${row.topic}”${row.paidB ? ` · they're paying half` : ""}`, path: `/duets/${row.id}` });
+    notify(db, [row.starterId], { title: `${row.partnerName} joined your Jugalbandi`, body: `“${row.topic}”${row.paidB ? ` · they're paying half` : ""}`, kind: "gifts", path: `/duets/${row.id}` });
     return NextResponse.json(duetView(row, "b", null, loadEnv().BETTER_AUTH_URL));
   } catch (err) {
     return duetErrorResponse(err);

@@ -6,6 +6,7 @@ import { countPlay, giftState, markOpened, publicGift } from "@/lib/gifts";
 import { getRedis } from "@/lib/queue/films";
 import { allow } from "@/lib/rate-limit";
 import { notify } from "@/lib/push";
+import { giftOpenedText } from "@/lib/push-copy";
 import { getUserId } from "@/lib/session";
 
 const eventSchema = z.object({ type: z.enum(["open", "play"]) });
@@ -29,10 +30,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   if (visitor !== cookie) res.cookies.set("rk_v", visitor, { httpOnly: true, sameSite: "lax", secure: req.url.startsWith("https:"), maxAge: 365 * 86400, path: "/" });
 
   if ((await getUserId().catch(() => undefined)) === found.gift.senderId) return res;
-  // The sender hears once that it was opened, never who opened it.
-  if (parsed.data.type === "open" && (await markOpened(db, found.gift.id))) {
-    notify(db, [found.gift.senderId], { title: `Your gift for ${found.gift.toName} was opened`, body: found.song.title, path: "/inbox" });
-  }
-  else await countPlay(db, found.gift.id, visitor);
+  // The sender hears once that it was opened (a play can come first), never who opened it, and
+  // never about plays. An open that isn't the first is not a play.
+  const first = await markOpened(db, found.gift.id);
+  if (parsed.data.type === "play") await countPlay(db, found.gift.id, visitor);
+  const { toName, occasion } = found.gift;
+  if (first) notify(db, [found.gift.senderId], (lang) => ({ ...giftOpenedText(lang, toName, occasion), path: "/inbox", kind: "gifts" }));
   return res;
 }

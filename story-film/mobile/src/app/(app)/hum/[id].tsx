@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 
 import { ReelLogo } from "@/components/logo";
+import { PushOffer } from "@/components/push-offer";
 import { SongPlayerRow, useSongPlayer } from "@/components/song-player";
 import { Banner, Button, Card, Header, Hero, ProgressBar, Screen, Status, Txt, Win } from "@/components/ui";
 import { api, type Occasion, type Song } from "@/lib/api";
@@ -109,6 +110,7 @@ export default function HumResult() {
         <>
           <Win text={giftTo ? `Your song for ${giftTo} is ready` : "Your song is ready"} icon="music" />
           {giftTo ? <Status kind="ok" text={`${giftTo} gets it in their Reelkar Inbox too.`} /> : null}
+          <PushOffer what="song" />
           <Card>
             <Txt variant="md">{song.title}</Txt>
             <SongPlayerRow song={song} player={player} />
