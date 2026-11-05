@@ -51,6 +51,11 @@ export const STYLE_CHIPS = [
 ] as const;
 
 // The style ACE-Step receives: the creator's own style text (written or AI-enhanced) when there is one, else the genre preset.
+// A preset sung by one voice: "male and female vocals" becomes one lead singer.
+export function soloStyle(genre: Genre): Genre {
+  return { ...genre, prompt: genre.prompt.replace(/\b(male and female|male and female duet|duet) vocals\b/i, "solo lead vocals") };
+}
+
 export function stylePrompt(genre: Genre, mood: string, vocal: Vocal = "auto", custom?: string): string {
   const base = custom?.trim() || genre.prompt;
   // The creator's style that already says "female vocals" doesn't need it twice; presets always get the choice.

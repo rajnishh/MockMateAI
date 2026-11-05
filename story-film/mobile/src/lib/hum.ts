@@ -1,7 +1,7 @@
 import type { AudioPlayer } from "expo-audio";
-import { File } from "expo-file-system";
+import { File, Paths } from "expo-file-system";
 
-import { ApiError, type Film, type Song } from "./api";
+import { ApiError, type Film, type Song, type SongVocal } from "./api";
 import { authClient } from "./auth-client";
 import { API_URL } from "./config";
 
@@ -40,6 +40,19 @@ export interface TuneSong {
   language: string;
   topic: string;
   lyrics: string;
+  vocal?: SongVocal;
+  style?: string;
+}
+
+// One of "My recordings" (kept on the server for 30 days).
+export interface Recording {
+  id: string;
+  kind: HeardKind;
+  transcript: string;
+  title: string;
+  durationSec: number;
+  video: boolean;
+  createdAt: string;
 }
 
 export interface Mix {
@@ -86,6 +99,21 @@ export const hum = {
   understand: (text: string) => send<Omit<Take, "takeId" | "durationSec" | "video">>("/api/voice/understand", { method: "POST", body: JSON.stringify({ text }) }),
   tuneSong: (takeId: string, input: TuneSong) =>
     send<{ id: string; credits: number }>(`/api/voice/takes/${takeId}/song`, { method: "POST", body: JSON.stringify(input) }),
+  recordings: async () => (await send<{ takes: Recording[] }>("/api/voice/takes", { method: "GET" })).takes,
+  // The same reply as an upload, so "Here's what I heard" opens again.
+  recording: (id: string) => send<Take>(`/api/voice/takes/${id}`, { method: "GET" }),
+  removeRecording: async (id: string) => {
+    const cookie = await authClient.getCookie();
+    const res = await fetch(`${API_URL}/api/voice/takes/${id}`, { method: "DELETE", credentials: "omit", headers: cookie ? { Cookie: cookie } : {} });
+    if (!res.ok && res.status !== 404) throw new ApiError(`Couldn't delete it (${res.status})`, res.status, false);
+  },
+  recordingUrl: (id: string) => `${API_URL}/api/voice/takes/${id}/audio`,
+  // A saved recording back into the cache, so Mix can play it like a fresh one.
+  download: async (id: string): Promise<Picked> => {
+    const cookie = await authClient.getCookie();
+    const file = await File.downloadFileAsync(hum.recordingUrl(id), new File(Paths.cache, `take-${id}.mp3`), { headers: cookie ? { Cookie: cookie } : {}, idempotent: true });
+    return { uri: file.uri, name: "recording.mp3", type: "audio/mpeg" };
+  },
   mix: (input: Mix) => send<{ song?: Song; film?: Film }>("/api/voice/mix", { method: "POST", body: JSON.stringify(input) }),
 };
 

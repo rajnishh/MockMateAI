@@ -3,15 +3,16 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
 
-import { Banner, Button, Card, ChipRow, Credits, Field, Header, Screen, Skeleton, Txt } from "@/components/ui";
-import { api, ApiError, type SongOptions } from "@/lib/api";
+import { Banner, Button, Card, ChipRow, Credits, Field, Header, Row, Screen, Skeleton, Txt } from "@/components/ui";
+import { api, ApiError, type SongOptions, type SongVocal } from "@/lib/api";
 import { cleanPrompt, currentTake, hum, KIND_LABEL, MAKE_OPTIONS, type HeardKind, type MakeKind, type Take } from "@/lib/hum";
-import { formatTime, genreLabel, GENRES, SONG_LANGUAGES } from "@/lib/songs";
+import { formatTime, genreLabel, GENRES, SONG_LANGUAGES, VOCALS } from "@/lib/songs";
 import { useData } from "@/lib/use-data";
 import { useTheme } from "@/theme";
 
 type Heard = Omit<Take, "takeId" | "durationSec" | "video"> & Partial<Pick<Take, "takeId" | "durationSec" | "video">>;
-type Length = "30" | "60" | "120";
+type Length = "30" | "60" | "120" | "180" | "240";
+type Writing = "lyrics" | "polish" | "style" | null;
 
 // "Here's what I heard": what Reelkar understood and what it will make, all changeable, before any credits are spent.
 // Opened after a recording, or with ?prompt= from Siri, Shortcuts, another app or reelkar://create?prompt=….
@@ -30,6 +31,11 @@ export default function HumConfirm() {
   const [genre, setGenre] = useState(heard?.plan.genre ?? "bollywood-romantic");
   const [language, setLanguage] = useState(heard?.plan.language ?? "hi");
   const [length, setLength] = useState<Length>(lengthFor(heard?.plan.durationSec));
+  // Lyrics for a hum or a request (a song's sung lines are `text`), the style text and the voice.
+  const [words, setWords] = useState("");
+  const [style, setStyle] = useState("");
+  const [vocal, setVocal] = useState<SongVocal>("auto");
+  const [writing, setWriting] = useState<Writing>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ text: string; credits: boolean } | null>(null);
 
@@ -59,6 +65,37 @@ export default function HumConfirm() {
   const short = balance !== null && cost > balance;
   const blocked = busy || !heard || (tune ? !title.trim() || !takeId : topic.trim().length < 3 && text.trim().length < 3) || heard.songsAvailable === false && !reel;
 
+  // The free AI helpers from Song Studio: write or polish lyrics, and enhance the style.
+  const tuneSec: SongOptions["durationSec"] = (heard?.durationSec ?? 30) <= 45 ? 30 : 60;
+  const songOptions = (): SongOptions => ({
+    topic: (topic.trim() || (kind === "speech" ? text.trim() : "")).slice(0, 300),
+    genre,
+    mood: heard?.plan.mood ?? "",
+    language,
+    durationSec: tune ? tuneSec : (Number(length) as SongOptions["durationSec"]),
+    kidSafe: false,
+  });
+
+  async function help(what: Exclude<Writing, null>) {
+    setWriting(what);
+    setError(null);
+    try {
+      if (what === "style") setStyle(await api.songStyle({ ...songOptions(), idea: style.trim() || topic.trim() || text.trim().slice(0, 300), vocal }));
+      else {
+        const draft = what === "polish" ? (kind === "sing" ? text : words).trim() : undefined;
+        const out = await api.songLyrics({ ...songOptions(), ...(draft ? { draft } : {}), duet: vocal === "duet" });
+        if (kind === "sing") setText(out.lyrics);
+        else setWords(out.lyrics);
+        if (!title.trim() && out.title) setTitle(out.title.slice(0, 80));
+      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+    } catch (err) {
+      setError({ text: (err as Error).message, credits: false });
+    } finally {
+      setWriting(null);
+    }
+  }
+
   async function makeIt() {
     if (!heard) return;
     if (short) return router.push("/credits");
@@ -74,7 +111,9 @@ export default function HumConfirm() {
           mood: heard.plan.mood,
           language,
           topic: kind === "hum" ? topic.trim() : "",
-          lyrics: kind === "sing" ? text.trim() : "",
+          lyrics: kind === "sing" ? text.trim() : words.trim(),
+          vocal,
+          ...(style.trim() ? { style: style.trim() } : {}),
         });
         router.replace({ pathname: "/hum/[id]", params: { id, take: takeId } });
       } else if (reel) {
@@ -84,8 +123,17 @@ export default function HumConfirm() {
       } else {
         const durationSec = Number(length) as SongOptions["durationSec"];
         const options: SongOptions = { topic: (topic.trim() || text.trim()).slice(0, 300), genre, mood: heard.plan.mood, language, durationSec, kidSafe: false };
-        const lyrics = heard.plan.lyrics.trim().length >= 20 ? { title: title.trim() || "My song", lyrics: heard.plan.lyrics } : await api.songLyrics(options);
-        const { id } = await api.createSong({ ...options, title: title.trim() || lyrics.title, lyrics: lyrics.lyrics, vocal: "auto", takes: 1, model: durationSec === 30 ? "lyria" : "ace-step" });
+        const own = words.trim() || heard.plan.lyrics.trim();
+        const lyrics = own.length >= 20 ? { title: title.trim() || "My song", lyrics: own } : await api.songLyrics({ ...options, duet: vocal === "duet" });
+        const { id } = await api.createSong({
+          ...options,
+          title: title.trim() || lyrics.title,
+          lyrics: lyrics.lyrics,
+          vocal,
+          ...(style.trim() ? { style: style.trim() } : {}),
+          takes: 1,
+          model: durationSec === 30 ? "lyria" : "ace-step",
+        });
         router.replace({ pathname: "/hum/[id]", params: { id, ...(takeId ? { take: takeId } : {}), ...(make === "music_video" ? { video: "1" } : {}) } });
       }
     } catch (err) {
@@ -144,6 +192,9 @@ export default function HumConfirm() {
               placeholder={kind === "sing" ? "The lines you sang" : "What should Reelkar make?"}
             />
           )}
+          {kind === "sing" ? (
+            <Button label={writing === "polish" ? "Writing…" : "✨ Polish my lines"} kind="secondary" small disabled={writing !== null || text.trim().length < 10} onPress={() => help("polish")} />
+          ) : null}
 
           <View style={{ height: 1, backgroundColor: colors.line }} />
           <Txt variant="over">I&apos;ll make</Txt>
@@ -153,7 +204,11 @@ export default function HumConfirm() {
               {kind === "hum" ? (
                 <Field label="What's it about? (optional)" value={topic} onChangeText={setTopic} placeholder="Leave empty for a song with no words" />
               ) : null}
-              {kind === "hum" ? <Txt variant="cap">{topic.trim() ? "AI writes words to fit your tune." : "No words: the band plays your tune."}</Txt> : null}
+              {kind === "hum" && !words.trim() ? <Txt variant="cap">{topic.trim() ? "AI writes words to fit your tune when you tap Make it, or write them now to check them." : "No words: the band plays your tune."}</Txt> : null}
+              {kind === "hum" && topic.trim().length >= 3 ? (
+                <Button label={writing === "lyrics" ? "Writing…" : words.trim() ? "✨ Write them again" : "✨ Write the words now"} kind="secondary" small disabled={writing !== null} onPress={() => help("lyrics")} />
+              ) : null}
+              {kind === "hum" && words.trim() ? <Field label="Words for your tune" value={words} onChangeText={setWords} multiline style={{ minHeight: 120 }} /> : null}
             </>
           ) : (
             <>
@@ -164,17 +219,37 @@ export default function HumConfirm() {
                 options={[
                   { value: "30", label: "30 s" },
                   { value: "60", label: "1 min" },
-                  ...(reel ? [] : [{ value: "120" as const, label: "2 min" }]),
+                  ...(reel
+                    ? []
+                    : [
+                        { value: "120" as const, label: "2 min" },
+                        { value: "180" as const, label: "3 min" },
+                        { value: "240" as const, label: "4 min" },
+                      ]),
                 ]}
-                value={reel && length === "120" ? "60" : length}
+                value={reel && Number(length) > 60 ? "60" : length}
                 onChange={setLength}
               />
+              {!reel ? (
+                <>
+                  <Field label="Lyrics (optional)" value={words} onChangeText={setWords} multiline style={{ minHeight: 120 }} placeholder="Leave empty and AI writes them when you tap Make it" />
+                  <Row>
+                    <Button label={writing === "lyrics" ? "Writing…" : "✨ Write lyrics"} kind="secondary" small disabled={writing !== null || (topic.trim().length < 3 && text.trim().length < 3)} onPress={() => help("lyrics")} style={{ flex: 1 }} />
+                    <Button label={writing === "polish" ? "Writing…" : "✨ Enhance"} kind="secondary" small disabled={writing !== null || words.trim().length < 10} onPress={() => help("polish")} style={{ flex: 1 }} />
+                  </Row>
+                </>
+              ) : null}
             </>
           )}
           {!reel ? (
             <>
               <Txt variant="cap">Style</Txt>
               <ChipRow options={GENRES} value={genre} onChange={setGenre} />
+              <Field label="Your own style (optional)" value={style} onChangeText={(t) => setStyle(t.slice(0, 500))} multiline placeholder="Slow and sad, soft piano, rain sounds" />
+              <Button label={writing === "style" ? "Writing…" : "✨ Enhance style"} kind="secondary" small disabled={writing !== null} onPress={() => help("style")} />
+              <Txt variant="cap">Voice</Txt>
+              <ChipRow<SongVocal> options={VOCALS} value={vocal} onChange={setVocal} />
+              {tune && vocal === "auto" ? <Txt variant="cap">One singer, like your recording.</Txt> : null}
             </>
           ) : null}
           <Txt variant="cap">Language</Txt>
@@ -190,5 +265,6 @@ export default function HumConfirm() {
 
 function lengthFor(sec: number | undefined): Length {
   if (!sec || sec <= 45) return sec ? "30" : "60";
-  return sec <= 90 ? "60" : "120";
+  if (sec <= 90) return "60";
+  return sec <= 150 ? "120" : sec <= 210 ? "180" : "240";
 }

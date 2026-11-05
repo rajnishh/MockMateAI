@@ -65,6 +65,18 @@ describe("AceStepMusic (self-hosted ACE-Step 1.5)", () => {
     expect(body.src_audio).toBeInstanceOf(Blob);
   });
 
+  it("covers a recording loosely enough to sing it cleanly, in its language", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "ace-"));
+    const file = path.join(dir, "take.mp3");
+    await writeFile(file, mp3);
+    const { calls, ace } = fakeServer();
+    await ace.cover({ audioUrl: pathToFileURL(file).href, style: "ballad", originalStyle: "a cappella", lyrics: "घर का रास्ता", originalLyrics: "घर का रास्ता", vocalLanguage: "hi", strength: 0.5 });
+    expect(calls[0].body).toMatchObject({ task_type: "cover", audio_cover_strength: "0.5", vocal_language: "hi" });
+    // A Studio cover without a strength keeps ACE-Step's own default.
+    await ace.cover({ audioUrl: pathToFileURL(file).href, style: "ballad", originalStyle: "pop", originalLyrics: "la" });
+    expect(calls.find((c, i) => i > 0 && c.url.endsWith("/release_task"))?.body).not.toHaveProperty("audio_cover_strength");
+  });
+
   it("surfaces a failed task", async () => {
     const { ace } = fakeServer(2);
     await expect(ace.compose({ prompt: "calm", durationSec: 20 })).rejects.toThrow(/out of memory/);

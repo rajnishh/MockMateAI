@@ -51,9 +51,20 @@ export class AceStepMusic implements MusicProvider {
     });
   }
 
-  // Remix: restyle a song.
-  async cover(input: CoverInput): Promise<SongAudio> {
-    return this.generate({ task_type: "cover", prompt: input.style.slice(0, 512), lyrics: input.lyrics ?? input.originalLyrics }, input.audioUrl);
+  // Remix: restyle a song. `strength` (0-1) is how much it changes; ACE-Step's audio_cover_strength is
+  // the opposite, how closely it follows the source, and defaults to 1, which copies a phone recording's
+  // noise and wobble into the new vocals.
+  async cover(input: CoverInput & { strength?: number }): Promise<SongAudio> {
+    return this.generate(
+      {
+        task_type: "cover",
+        prompt: input.style.slice(0, 512),
+        lyrics: input.lyrics ?? input.originalLyrics,
+        ...(input.strength !== undefined ? { audio_cover_strength: Number((1 - Math.min(1, Math.max(0, input.strength))).toFixed(2)) } : {}),
+        ...(input.vocalLanguage ? { vocal_language: input.vocalLanguage } : {}),
+      },
+      input.audioUrl,
+    );
   }
 
   // Remix: redo one part of a song.

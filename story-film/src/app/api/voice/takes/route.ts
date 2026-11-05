@@ -6,7 +6,7 @@ import { SONG_CREDITS, STANDARD_CREDITS, TUNE_SONG_CREDITS } from "@/lib/billing
 import { loadEnv } from "@/lib/env";
 import { defaultFfmpeg, probeDuration } from "@/lib/ffmpeg";
 import { normaliseLanguage } from "@/lib/languages";
-import { buildTranscriber, editsAvailable, songsAvailable } from "@/lib/providers";
+import { buildTranscriber, listenAvailable, songsAvailable } from "@/lib/providers";
 import type { TimedWord } from "@/lib/providers/whisper";
 import { getRedis } from "@/lib/queue/films";
 import { allow } from "@/lib/rate-limit";
@@ -17,6 +17,7 @@ import {
   extractArgs,
   MAX_TAKE_BYTES,
   newTakeId,
+  listTakes,
   removeTakeFiles,
   saveTakeMeta,
   sweepOldTakes,
@@ -30,7 +31,7 @@ const bad = (error: string, status = 400) => NextResponse.json({ error }, { stat
 // "Hum it": upload one recording (or a filmed / imported clip). Reelkar works out whether it was a hum,
 // a sung tune or a spoken request, and sends back a plan for the creator to check. Nothing is charged here.
 // The phone may send what it understood on its own (on-device speech recognition) as `transcript`;
-// Whisper on the server is used when it didn't, or heard too little to be sure.
+// The server listens (Workers AI, this computer's Whisper, or Gemini) when it didn't, or heard too little to be sure.
 export async function POST(req: Request) {
   const userId = await getUserId();
   if (!userId) return unauthorized();
@@ -71,7 +72,7 @@ export async function POST(req: Request) {
   let transcript = String(form.get("transcript") ?? "").slice(0, 3000);
   let words: TimedWord[] = [];
   // Phones are good at speech and bad at singing, so the server listens again unless the phone heard plenty.
-  if (meaningfulWords(transcript).length < 6 && editsAvailable(env)) {
+  if (meaningfulWords(transcript).length < 6 && listenAvailable(env)) {
     try {
       const heard = await buildTranscriber(env).transcribe(await readFile(files.wav16k), language === "auto" ? undefined : language);
       if (meaningfulWords(heard.text).length >= meaningfulWords(transcript).length) {
@@ -79,7 +80,7 @@ export async function POST(req: Request) {
         words = heard.words;
       }
     } catch (err) {
-      console.warn(`Whisper failed on a voice take: ${(err as Error).message.slice(0, 200)}`);
+      console.warn(`Listening failed on a voice take: ${(err as Error).message.slice(0, 200)}`);
     }
   }
 
@@ -97,7 +98,10 @@ export async function POST(req: Request) {
     durationSec,
     videoFile: videoExt ? original : null,
     createdAt: new Date().toISOString(),
+    plan: heard.plan,
   });
+  // Kept: the MP3 (to play and make songs from) and a filmed clip. The rest was only for listening.
+  await rm(files.wav16k, { force: true });
   if (!videoExt) await rm(original, { force: true });
 
   return NextResponse.json(
@@ -112,4 +116,14 @@ export async function POST(req: Request) {
     },
     { status: 201 },
   );
+}
+
+// "My recordings": the creator's takes from the last 30 days, newest first.
+export async function GET() {
+  const userId = await getUserId();
+  if (!userId) return unauthorized();
+  const takes = await listTakes(loadEnv().OUTPUT_DIR, userId);
+  return NextResponse.json({
+    takes: takes.map((t) => ({ id: t.id, kind: t.kind, transcript: t.transcript, title: t.plan?.title ?? "", durationSec: t.durationSec, video: Boolean(t.videoFile), createdAt: t.createdAt })),
+  });
 }

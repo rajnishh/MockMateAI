@@ -50,6 +50,10 @@ const schema = z.object({
   OLLAMA_URL: z.string().url().optional(),
   // The model in Reelkar's lane on that server.
   OLLAMA_LLM_MODEL: z.string().default("gemma3:12b"),
+  // Optional: whisper.cpp on this computer (a ggml model file), the backup for listening when Workers AI's
+  // free allowance runs out. `brew install whisper-cpp` gives whisper-cli.
+  WHISPER_CPP_MODEL: z.string().optional(),
+  WHISPER_CPP_BIN: z.string().default("whisper-cli"),
   // Google retires Gemini models for new keys (2.5 Flash was, by 2026-11-05).
   ASK_REELKAR_GEMINI_MODEL: z.string().default("gemini-3.5-flash"),
   // Gemini's model in Reelkar's own AI lane.

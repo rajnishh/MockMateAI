@@ -223,6 +223,8 @@ export function CreateForm({ credits, available, onCreated }: { credits: number;
             <option value={30}>30 s</option>
             <option value={60}>1 min</option>
             <option value={120}>2 min</option>
+            <option value={180}>3 min</option>
+            <option value={240}>4 min</option>
           </select>
         </div>
       </div>

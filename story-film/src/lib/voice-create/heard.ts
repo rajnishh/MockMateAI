@@ -21,7 +21,7 @@ export const planSchema = z.object({
   genre: z.enum(GENRES.map((g) => g.id) as [string, ...string[]]).catch("bollywood-romantic"),
   mood: z.enum(MOODS).or(z.literal("")).catch(""),
   language: z.enum(LANGS).catch("hi"),
-  durationSec: z.number().int().min(15).max(120).catch(30),
+  durationSec: z.number().int().min(15).max(240).catch(30),
   // The lines the creator sang (sing) or asked for (speech), cleaned up.
   lyrics: z.string().trim().max(3000).default(""),
 });
@@ -89,7 +89,7 @@ export function buildHeardPrompt(transcript: string, guess: HeardKind, stats: { 
     '"topic": everything they said it should be about (who, what, the occasion, names), in one English sentence; keep their details. "title": a short catchy title in the language of the song.',
     `"genre": one of ${GENRES.map((g) => g.id).join(", ")}. Pick the closest to what they asked or what the lyrics feel like.`,
     `"mood": one of ${MOODS.join(", ")}, or "". "language": one of ${LANGS.join(", ")} (hinglish = Hindi in Latin letters mixed with English).`,
-    '"durationSec": the length they asked for, else 30 for a reel and 60 for a song.',
+    '"durationSec": the length they asked for in seconds (30, 60, 120, 180 or 240), else 30 for a reel and 60 for a song.',
     '"lyrics": for "sing", the sung lines cleaned up, one per line, in the script they were sung in; else "".',
     'Reply with JSON only: {"kind": string, "plan": {"make": string, "topic": string, "title": string, "genre": string, "mood": string, "language": string, "durationSec": number, "lyrics": string}}',
   ].join("\n");

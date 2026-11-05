@@ -50,6 +50,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     mood: r.mood,
     vocal: r.vocal,
     style: r.style,
+    language: r.language,
     heardLyrics: take.meta.transcript,
     lyrics,
   });

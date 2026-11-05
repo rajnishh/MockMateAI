@@ -1,5 +1,12 @@
+import { execFile } from "node:child_process";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { promisify } from "node:util";
 import type { Word } from "@/lib/music-video/timing";
 import { cloudflareAiBase } from "./cloudflare";
+
+const execFileAsync = promisify(execFile);
 
 // Word timings from Whisper on Workers AI (~41 neurons per audio minute).
 export class CloudflareWhisper {
@@ -45,7 +52,7 @@ export interface Transcript {
 
 // Speech-to-text with word timings for a creator's own video (Whisper large-v3-turbo on
 // Workers AI, ~$0.0005 per audio minute). Passing the language keeps Hindi in Devanagari.
-export class CloudflareTranscriber {
+export class CloudflareTranscriber implements Transcriber {
   readonly modelId = "whisper";
 
   constructor(
@@ -70,5 +77,76 @@ export class CloudflareTranscriber {
       .filter((w) => w.word?.trim() && typeof w.start === "number" && typeof w.end === "number")
       .map((w) => ({ word: w.word!.trim(), start: w.start!, end: Math.max(w.end!, w.start!) }));
     return { text: r.text ?? "", language: r.transcription_info?.language ?? language, words };
+  }
+}
+
+export interface Transcriber {
+  readonly modelId: string;
+  transcribe(audio: Buffer, language?: string): Promise<Transcript>;
+}
+
+type Exec = (file: string, args: string[]) => Promise<unknown>;
+
+// whisper.cpp on the owner's own computer: never runs out, about real time on an M-series Mac.
+// One-word segments (-ml 1 -sow) give word timings like Workers AI's.
+export class LocalWhisper implements Transcriber {
+  readonly modelId = "whisper";
+
+  constructor(
+    private readonly model: string,
+    private readonly bin = "whisper-cli",
+    private readonly exec: Exec = (file, args) => execFileAsync(file, args, { maxBuffer: 16 * 1024 * 1024, timeout: 300_000 }),
+  ) {}
+
+  async transcribe(audio: Buffer, language?: string): Promise<Transcript> {
+    const dir = await mkdtemp(path.join(tmpdir(), "reelkar-whisper-"));
+    try {
+      const wav = path.join(dir, "in.wav");
+      await writeFile(wav, audio);
+      await this.exec(this.bin, ["-m", this.model, "-f", wav, "-l", language ?? "auto", "-ml", "1", "-sow", "-oj", "-of", path.join(dir, "out"), "-np"]);
+      const out = JSON.parse(await readFile(path.join(dir, "out.json"), "utf8")) as {
+        result?: { language?: string };
+        transcription?: { text?: string; offsets?: { from?: number; to?: number } }[];
+      };
+      const segments = out.transcription ?? [];
+      const words = segments
+        .filter((s) => s.text?.trim() && typeof s.offsets?.from === "number" && typeof s.offsets?.to === "number")
+        .map((s) => ({ word: s.text!.trim(), start: s.offsets!.from! / 1000, end: Math.max(s.offsets!.to!, s.offsets!.from!) / 1000 }));
+      const text = segments.map((s) => s.text ?? "").join("").trim();
+      return { text, language: out.result?.language ?? language, words };
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  }
+}
+
+const LANGUAGE_NAMES: Record<string, string> = { hi: "Hindi", en: "English", ar: "Arabic", bn: "Bengali", ta: "Tamil", te: "Telugu", mr: "Marathi", gu: "Gujarati", kn: "Kannada", ml: "Malayalam", pa: "Punjabi", ur: "Urdu" };
+
+// Gemini listens too, but gives no word timings, so it's only for tasks that need just the words.
+export class GeminiTranscriber implements Transcriber {
+  readonly modelId = "gemini";
+
+  constructor(
+    private readonly apiKey: string,
+    private readonly model: string,
+    private readonly fetchFn: typeof fetch = fetch,
+  ) {}
+
+  async transcribe(audio: Buffer, language?: string): Promise<Transcript> {
+    const lang = language ? LANGUAGE_NAMES[language] ?? language : undefined;
+    const prompt = [
+      "Write down the words sung or spoken in this recording, exactly as heard, in their own script (Hindi in Devanagari).",
+      lang ? `The language is ${lang}.` : "",
+      "Reply with only the words. If there are no words (humming, music or silence), reply with nothing.",
+    ].filter(Boolean).join(" ");
+    const res = await this.fetchFn(`https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`, {
+      method: "POST",
+      headers: { "x-goog-api-key": this.apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ role: "user", parts: [{ inline_data: { mime_type: "audio/wav", data: audio.toString("base64") } }, { text: prompt }] }] }),
+    });
+    if (!res.ok) throw new Error(`Gemini ${res.status}: ${await res.text()}`);
+    const data = (await res.json()) as { candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[] };
+    const text = (data.candidates?.[0]?.content?.parts ?? []).filter((p) => !p.thought).map((p) => p.text ?? "").join("").trim();
+    return { text, language, words: [] };
   }
 }
