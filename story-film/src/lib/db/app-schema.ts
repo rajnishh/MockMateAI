@@ -414,3 +414,76 @@ export const oauthToken = pgTable(
   },
   (t) => [index("oauth_token_grant_idx").on(t.grantId)],
 );
+
+// Song gifts (design/community/flow-spec.md): a song sent as a link that opens with no sign-in.
+export const giftOccasion = pgEnum("gift_occasion", ["birthday", "wedding", "eid", "diwali", "anniversary", "rakhi", "just_because"]);
+// How the Arabic gift page addresses the person; null uses neutral wording.
+export const giftAddress = pgEnum("gift_address", ["her", "him"]);
+
+export const gift = pgTable(
+  "gift",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // The public link's code (reelkar.app/g/{token}); short, random, and never reused.
+    token: text("token").notNull().unique(),
+    songId: uuid("song_id")
+      .notNull()
+      .references(() => song.id, { onDelete: "cascade" }),
+    senderId: text("sender_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    toName: text("to_name").notNull(),
+    // How the sender signs it ("Bhaiya", "Mom"); empty uses their account name.
+    fromName: text("from_name").notNull().default(""),
+    occasion: giftOccasion("occasion").notNull(),
+    note: text("note").notNull().default(""),
+    // The sender's own photo as the cover; null uses the song's AI cover.
+    coverPath: text("cover_path"),
+    address: giftAddress("address"),
+    // Set for a reply: the gift it answers. A reply goes to the person who sent that gift.
+    replyToGiftId: uuid("reply_to_gift_id").references((): AnyPgColumn => gift.id, { onDelete: "set null" }),
+    // The first reply to a gift is free (owner decision, 2026-11-06).
+    freeReply: boolean("free_reply").notNull().default(false),
+    // What the sender sees: whether it was opened, plays (one per browser per day) and when. Never who.
+    openedAt: timestamp("opened_at"),
+    playCount: integer("play_count").notNull().default(0),
+    lastPlayedAt: timestamp("last_played_at"),
+    // The sender stopped sharing; the link shows "not available any more" until shared again.
+    revokedAt: timestamp("revoked_at"),
+    takenDownAt: timestamp("taken_down_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("gift_sender_created_idx").on(t.senderId, t.createdAt), index("gift_reply_to_idx").on(t.replyToGiftId)],
+);
+
+// One row per browser per day that played a gift, so a replay doesn't inflate the count. The
+// visitor is a random id in a first-party cookie, not an IP or device.
+export const giftPlay = pgTable(
+  "gift_play",
+  {
+    giftId: uuid("gift_id")
+      .notNull()
+      .references(() => gift.id, { onDelete: "cascade" }),
+    visitor: text("visitor").notNull(),
+    day: text("day").notNull(),
+  },
+  (t) => [uniqueIndex("gift_play_once_idx").on(t.giftId, t.visitor, t.day)],
+);
+
+export const giftReportReason = pgEnum("gift_report_reason", ["voice_or_likeness", "copyright", "hateful", "minor_sexual", "other"]);
+
+// Reports from the Report link on a public gift page (legally required); reviewed by a person.
+export const giftReport = pgTable(
+  "gift_report",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    giftId: uuid("gift_id")
+      .notNull()
+      .references(() => gift.id, { onDelete: "cascade" }),
+    reason: giftReportReason("reason").notNull(),
+    details: text("details").notNull().default(""),
+    email: text("email"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("gift_report_gift_idx").on(t.giftId)],
+);

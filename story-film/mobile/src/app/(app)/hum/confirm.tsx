@@ -5,6 +5,8 @@ import { View } from "react-native";
 
 import { Banner, Button, Card, ChipRow, Credits, Field, Header, Screen, Skeleton, Txt } from "@/components/ui";
 import { api, ApiError, type SongOptions } from "@/lib/api";
+import { occasionLabel, replyContext, signName } from "@/lib/gifts";
+import { useSession } from "@/lib/session";
 import { cleanPrompt, currentTake, hum, KIND_LABEL, MAKE_OPTIONS, type HeardKind, type MakeKind, type Take } from "@/lib/hum";
 import { formatTime, genreLabel, GENRES, SONG_LANGUAGES } from "@/lib/songs";
 import { useData } from "@/lib/use-data";
@@ -20,12 +22,17 @@ export default function HumConfirm() {
   const params = useLocalSearchParams<{ prompt?: string }>();
   const prompt = cleanPrompt(params.prompt);
   const billing = useData(() => api.billing());
+  // Answering a song gift: the song goes back to its sender, and the first reply is free.
+  const [reply, setReply] = useState(() => replyContext.get());
+  const replyInfo = useData(() => (reply ? api.replyInfo(reply.token) : Promise.resolve(null)));
+  const { user } = useSession();
+  const [fromName, setFromName] = useState(() => signName(user?.name));
   const [heard, setHeard] = useState<Heard | null>(() => (prompt ? null : (currentTake.get()?.take ?? null)));
   const [loadError, setLoadError] = useState<string | null>(null);
   const [kind, setKind] = useState<HeardKind>(heard?.kind ?? "speech");
   const [text, setText] = useState(heard?.kind === "sing" ? heard.plan.lyrics || heard.transcript : (heard?.transcript ?? prompt));
   const [make, setMake] = useState<MakeKind>(heard?.plan.make ?? "song");
-  const [topic, setTopic] = useState(heard?.plan.topic ?? "");
+  const [topic, setTopic] = useState(heard?.plan.topic || (reply ? `A thank-you song for ${reply.toName}` : ""));
   const [title, setTitle] = useState(heard?.plan.title ?? "");
   const [genre, setGenre] = useState(heard?.plan.genre ?? "bollywood-romantic");
   const [language, setLanguage] = useState(heard?.plan.language ?? "hi");
@@ -53,11 +60,13 @@ export default function HumConfirm() {
 
   const takeId = heard?.takeId;
   const tune = kind !== "speech";
-  const reel = !tune && make === "reel";
-  const cost = !heard ? 0 : tune ? heard.credits.tune : reel ? 0 : heard.credits.song;
+  // A reply is always a song.
+  const reel = !tune && make === "reel" && !reply;
+  const free = Boolean(reply && replyInfo.data?.free);
+  const cost = !heard || free ? 0 : tune ? heard.credits.tune : reel ? 0 : heard.credits.song;
   const balance = billing.data?.balance ?? null;
   const short = balance !== null && cost > balance;
-  const blocked = busy || !heard || (tune ? !title.trim() || !takeId : topic.trim().length < 3 && text.trim().length < 3) || heard.songsAvailable === false && !reel;
+  const blocked = busy || !heard || (tune ? !title.trim() || !takeId : topic.trim().length < 3 && text.trim().length < 3) || heard.songsAvailable === false && !reel || Boolean(reply && !fromName.trim());
 
   async function makeIt() {
     if (!heard) return;
@@ -67,7 +76,7 @@ export default function HumConfirm() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined);
     try {
       if (tune && takeId) {
-        const { id } = await hum.tuneSong(takeId, {
+        const made = await hum.tuneSong(takeId, {
           kind: kind as "hum" | "sing",
           title: title.trim(),
           genre,
@@ -75,8 +84,11 @@ export default function HumConfirm() {
           language,
           topic: kind === "hum" ? topic.trim() : "",
           lyrics: kind === "sing" ? text.trim() : "",
+          replyTo: reply?.token,
+          fromName: reply ? fromName.trim() : undefined,
         });
-        router.replace({ pathname: "/hum/[id]", params: { id, take: takeId } });
+        replyContext.clear();
+        router.replace({ pathname: "/hum/[id]", params: { id: made.id, take: takeId, ...sendBack(made.gift) } });
       } else if (reel) {
         const sec = Math.min(60, Number(length));
         const { id } = await api.createFilm({ story: (topic.trim() || text.trim()).slice(0, 500), language: language === "hinglish" ? "hi" : language, durationSec: sec, quality: "standard", style: "animated" });
@@ -85,8 +97,9 @@ export default function HumConfirm() {
         const durationSec = Number(length) as SongOptions["durationSec"];
         const options: SongOptions = { topic: (topic.trim() || text.trim()).slice(0, 300), genre, mood: heard.plan.mood, language, durationSec, kidSafe: false };
         const lyrics = heard.plan.lyrics.trim().length >= 20 ? { title: title.trim() || "My song", lyrics: heard.plan.lyrics } : await api.songLyrics(options);
-        const { id } = await api.createSong({ ...options, title: title.trim() || lyrics.title, lyrics: lyrics.lyrics, vocal: "auto", takes: 1, model: durationSec === 30 ? "lyria" : "ace-step" });
-        router.replace({ pathname: "/hum/[id]", params: { id, ...(takeId ? { take: takeId } : {}), ...(make === "music_video" ? { video: "1" } : {}) } });
+        const made = await api.createSong({ ...options, title: title.trim() || lyrics.title, lyrics: lyrics.lyrics, vocal: "auto", takes: 1, model: durationSec === 30 ? "lyria" : "ace-step", replyTo: reply?.token, fromName: reply ? fromName.trim() : undefined });
+        replyContext.clear();
+        router.replace({ pathname: "/hum/[id]", params: { id: made.id, ...(takeId ? { take: takeId } : {}), ...(make === "music_video" && !reply ? { video: "1" } : {}), ...sendBack(made.gift) } });
       }
     } catch (err) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => undefined);
@@ -97,7 +110,9 @@ export default function HumConfirm() {
 
   // A hum or a song needs the recording; a typed or Siri request can only be a request.
   const kinds = (takeId ? (["hum", "sing", "speech"] as const) : (["speech"] as const)).map((k) => ({ value: k, label: KIND_LABEL[k] }));
-  const label = !heard ? "Make it" : short ? `You need ${cost} credits` : cost > 0 ? `Make it · ${cost} credits` : "Make it";
+  const label = !heard ? "Make it" : short ? `You need ${cost} credits` : cost > 0 ? `Make it · ${cost} credits` : free ? "Make it · free" : "Make it";
+  // The result screen offers "Send it back" with the reply's own link.
+  const sendBack = (g?: { url: string }) => (g && reply ? { giftUrl: g.url, giftTo: reply.toName, giftOccasion: reply.occasion } : {});
 
   return (
     <Screen
@@ -111,6 +126,25 @@ export default function HumConfirm() {
         </>
       }>
       <Header title="Here's what I heard" back right={<Credits count={balance} />} />
+      {reply ? (
+        <Banner
+          kind="info"
+          title={`Replying to ${reply.toName}`}
+          text={`A song back for their ${occasionLabel(reply.occasion).toLowerCase()} gift.${free ? " Your first reply is free." : ""} Sung by an AI singer or your own voice, never theirs.`}
+          action={
+            <Button
+              label="Not a reply"
+              small
+              kind="ghost"
+              onPress={() => {
+                replyContext.clear();
+                setReply(null);
+              }}
+            />
+          }
+        />
+      ) : null}
+      {reply ? <Field label={`Your name (${reply.toName} sees it)`} value={fromName} onChangeText={setFromName} maxLength={40} autoCapitalize="words" /> : null}
       {prompt ? <Banner kind="info" text="Sent from Siri or another app. Check it, then tap Make it." /> : null}
       {loadError ? <Banner kind="error" text={loadError} action={<Button label="Back" small onPress={() => router.back()} />} /> : null}
       {error ? (

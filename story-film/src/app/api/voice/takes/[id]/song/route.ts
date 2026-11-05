@@ -5,6 +5,7 @@ import { z } from "zod";
 import { TUNE_SONG_CREDITS } from "@/lib/billing/catalog";
 import { grantCredits, spendCredits } from "@/lib/billing/credits";
 import { getDb } from "@/lib/db";
+import { createReplyGift, giftUrl, replyTarget, replyToSchema } from "@/lib/gifts";
 import { loadEnv } from "@/lib/env";
 import { songsAvailable } from "@/lib/providers";
 import { getSongQueue } from "@/lib/queue/songs";
@@ -25,17 +26,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   const take = await loadTake(env.OUTPUT_DIR, userId, id);
   if (!take) return NextResponse.json({ error: "That recording has expired. Record it again." }, { status: 404 });
-  const parsed = tuneSongSchema.safeParse(await req.json());
+  const body = await req.json();
+  const parsed = tuneSongSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: z.prettifyError(parsed.error) }, { status: 400 });
+  const { replyTo, fromName } = replyToSchema.safeParse(body).data ?? {};
   const r = parsed.data;
   const genre = findGenre(r.genre);
   if (!genre) return NextResponse.json({ error: "Unknown genre" }, { status: 400 });
   const durationSec = Math.max(1, Math.round(take.meta.durationSec));
 
+  // The first reply to a gift is free, and its sender's name isn't an artist's.
+  const reply = replyTo ? await replyTarget(getDb(), userId, replyTo) : undefined;
+  if (reply && "error" in reply) return NextResponse.json({ error: reply.error }, { status: reply.status });
   const llm = await llmForUser(getDb(), env, userId);
   let lyrics = cleanLyrics(r.lyrics);
   try {
-    await assertNoRealArtists(llm, [r.title, r.topic, lyrics, r.style ?? ""]);
+    await assertNoRealArtists(llm, [r.title, r.topic, lyrics, r.style ?? ""], reply ? [reply.senderName, fromName ?? ""] : []);
     // A hum with a topic gets lyrics written for it, sized to the take.
     if (!lyrics && r.topic.length >= 3) lyrics = (await writeLyrics(llm, { topic: r.topic, genre, mood: r.mood, language: r.language, durationSec })).lyrics;
   } catch (err) {
@@ -54,8 +60,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     lyrics,
   });
   const db = getDb();
+  const cost = reply?.free ? 0 : TUNE_SONG_CREDITS;
   const songId = randomUUID();
-  if (!(await spendCredits(db, userId, TUNE_SONG_CREDITS, `song:${songId}`, "song"))) {
+  if (cost > 0 && !(await spendCredits(db, userId, cost, `song:${songId}`, "song"))) {
     return NextResponse.json({ error: `A song on your tune costs ${TUNE_SONG_CREDITS} credits.`, needCredits: true }, { status: 402 });
   }
   try {
@@ -68,13 +75,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       language: r.language,
       lyrics: lyrics || "[Instrumental]",
       durationSec,
-      credits: TUNE_SONG_CREDITS,
+      credits: cost,
     });
     // The same job as a cover remix; the worker needs nothing new.
-    await getSongQueue().add("remix", { songId, userId, title: r.title, call, credits: TUNE_SONG_CREDITS }, { jobId: songId });
-    return NextResponse.json({ id: songId, credits: TUNE_SONG_CREDITS }, { status: 202 });
+    await getSongQueue().add("remix", { songId, userId, title: r.title, call, credits: cost }, { jobId: songId });
+    const replyGift = reply ? await createReplyGift(db, { userId, songId, original: reply.original, senderName: reply.senderName, free: reply.free, fromName }) : undefined;
+    const gift = replyGift ? { token: replyGift.token, url: giftUrl(env.BETTER_AUTH_URL, replyGift.token), free: replyGift.freeReply } : undefined;
+    return NextResponse.json({ id: songId, credits: cost, gift }, { status: 202 });
   } catch (err) {
-    await grantCredits(db, userId, TUNE_SONG_CREDITS, "refund", `song:${songId}`);
+    if (cost > 0) await grantCredits(db, userId, cost, "refund", `song:${songId}`);
     throw err;
   }
 }

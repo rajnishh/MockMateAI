@@ -19,6 +19,7 @@ import { ReelLogo, useReducedMotion } from "@/components/logo";
 import { Banner, Button, Credits, Header, Hero, Row, Screen, Txt } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { allowDeviceSpeech, transcribeOnDevice } from "@/lib/device-speech";
+import { occasionLabel, replyContext } from "@/lib/gifts";
 import { currentTake, hum, level, type Picked } from "@/lib/hum";
 import { useSession } from "@/lib/session";
 import { formatTime } from "@/lib/songs";
@@ -54,6 +55,9 @@ export default function HumRecord() {
   const player = useAudioPlayer(null, { updateInterval: 250 });
   const playing = useAudioPlayerStatus(player).playing;
   const language = prefs?.language ?? "hi";
+  // A reply to a gift lasts while this screen is open; leaving Hum it drops it.
+  const [reply] = useState(() => replyContext.get());
+  useEffect(() => () => replyContext.clear(), []);
 
   useEffect(() => {
     getItem(HINT_KEY).then((v) => setHint(v !== "1")).catch(() => setHint(true));
@@ -233,6 +237,9 @@ export default function HumRecord() {
         )
       }>
       <Header title="Hum it" sub="Make" back right={<Credits count={billing.data?.balance ?? null} />} />
+      {reply ? (
+        <Banner kind="info" title={`Replying to ${reply.toName}`} text={`Hum, sing or just say what the song back for their ${occasionLabel(reply.occasion).toLowerCase()} gift should be.`} />
+      ) : null}
       {error ? (
         <Banner
           kind="error"
