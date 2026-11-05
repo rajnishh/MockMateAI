@@ -288,9 +288,10 @@ function Stage({ song, genreLabel, audio, analysis, theme, onTheme, playing, tim
   useEffect(() => {
     const box = lyricsBox.current;
     if (!box) return;
-    if (active < 0) return box.scrollTo({ top: 0, behavior: "smooth" });
-    const el = box.querySelector<HTMLElement>(`[data-line="${active}"]`);
-    if (el) box.scrollTo({ top: el.offsetTop - box.clientHeight * 0.32, behavior: "smooth" });
+    // Braces, not an expression: newer browsers return a Promise from scrollTo, which React would take as the cleanup.
+    const el = active < 0 ? null : box.querySelector<HTMLElement>(`[data-line="${active}"]`);
+    if (active < 0) box.scrollTo({ top: 0, behavior: "smooth" });
+    else if (el) box.scrollTo({ top: el.offsetTop - box.clientHeight * 0.32, behavior: "smooth" });
   }, [active]);
 
   // On <body>, so no card's transform or overflow can trap the full-screen stage.
