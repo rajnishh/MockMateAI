@@ -172,3 +172,33 @@ describe("typed requests", () => {
     expect((await understand(llm, { transcript: "a song for my dog Bruno", words: [], durationSec: 0, typed: true })).kind).toBe("speech");
   });
 });
+
+describe("a song on your tune, against a fake fal", () => {
+  it("sends the take typed by its bytes and keeps fal's FLAC as FLAC", async () => {
+    const { FalQueueClient } = await import("@/lib/providers/fal");
+    const { FalSongEditor } = await import("@/lib/providers/fal-song-edit");
+    const { runRemix } = await import("@/lib/songs/remix");
+    const dir = await mkdtemp(path.join(os.tmpdir(), "tune-"));
+    const take = path.join(dir, "take.mp3");
+    await defaultFfmpeg(["-y", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=262:duration=2", "-ac", "2", take]);
+    const flac = Buffer.concat([Buffer.from("fLaC"), Buffer.alloc(64)]);
+    const sent: Record<string, unknown>[] = [];
+    const fetchFn = (async (url: string, init?: RequestInit) => {
+      if (url.startsWith("https://queue.fal.run/")) {
+        sent.push(JSON.parse(init!.body as string));
+        return Response.json({ request_id: "r", status_url: "s", response_url: "o" });
+      }
+      if (url === "s") return Response.json({ status: "COMPLETED" });
+      if (url === "o") return Response.json({ audio: { url: "https://cdn.test/out.wav", file_name: "out.wav" } });
+      if (url === "https://cdn.test/out.wav") return new Response(flac);
+      throw new Error(`unexpected fetch ${url}`);
+    }) as unknown as typeof fetch;
+    const editor = new FalSongEditor(new FalQueueClient("k", fetchFn, 0), fetchFn);
+    const call = tuneSongCall({ takeMp3: take, kind: "hum", genre: findGenre("pop")!, mood: "", vocal: "auto", heardLyrics: "", lyrics: "" });
+    const audio = await runRemix(editor, call, { workDir: dir, ffmpeg: defaultFfmpeg, probeDuration });
+
+    expect(String(sent[0].audio_url)).toMatch(/^data:audio\/mpeg;base64,/);
+    expect(sent[0]).toMatchObject({ edit_mode: "remix", original_tags: TUNE_ORIGINAL_STYLE.hum, lyrics: INSTRUMENTAL });
+    expect(audio.ext).toBe("flac");
+  });
+});

@@ -11,7 +11,7 @@ import { allow } from "@/lib/rate-limit";
 import { getUserId, unauthorized } from "@/lib/session";
 import { meaningfulWords, understand } from "@/lib/voice-create/heard";
 import {
-  AUDIO_TYPES,
+  UPLOAD_AUDIO_TYPES,
   extractArgs,
   MAX_TAKE_BYTES,
   newTakeId,
@@ -20,7 +20,7 @@ import {
   sweepOldTakes,
   TAKE_SEC,
   takeFiles,
-  VIDEO_TYPES,
+  UPLOAD_VIDEO_TYPES,
 } from "@/lib/voice-create/takes";
 
 const bad = (error: string, status = 400) => NextResponse.json({ error }, { status });
@@ -41,8 +41,8 @@ export async function POST(req: Request) {
   if (file.size > MAX_TAKE_BYTES) return bad("That file is too large (150 MB max).");
   const type = file.type.toLowerCase();
   const fromName = file.name.split(".").pop()?.toLowerCase() ?? "";
-  const videoExt = VIDEO_TYPES[type] ?? (Object.values(VIDEO_TYPES).includes(fromName) ? fromName : undefined);
-  const audioExt = AUDIO_TYPES[type] ?? (Object.values(AUDIO_TYPES).includes(fromName) ? fromName : undefined);
+  const videoExt = UPLOAD_VIDEO_TYPES[type] ?? (Object.values(UPLOAD_VIDEO_TYPES).includes(fromName) ? fromName : undefined);
+  const audioExt = UPLOAD_AUDIO_TYPES[type] ?? (Object.values(UPLOAD_AUDIO_TYPES).includes(fromName) ? fromName : undefined);
   const ext = videoExt ?? audioExt;
   if (!ext) return bad("Use an audio recording or a video (M4A, MP3, WAV, MP4 or MOV).");
 

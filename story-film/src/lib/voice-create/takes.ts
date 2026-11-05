@@ -11,7 +11,7 @@ export const TAKE_SEC = { min: 1.5, max: 60 };
 export const MAX_TAKE_BYTES = 150 * 1024 * 1024;
 export const TAKE_ID = /^[0-9a-f-]{36}$/;
 
-export const AUDIO_TYPES: Record<string, string> = {
+export const UPLOAD_AUDIO_TYPES: Record<string, string> = {
   "audio/m4a": "m4a",
   "audio/x-m4a": "m4a",
   "audio/mp4": "m4a",
@@ -24,7 +24,7 @@ export const AUDIO_TYPES: Record<string, string> = {
   "audio/ogg": "ogg",
   "audio/flac": "flac",
 };
-export const VIDEO_TYPES: Record<string, string> = { "video/mp4": "mp4", "video/quicktime": "mov", "video/webm": "webm", "video/3gpp": "3gp" };
+export const UPLOAD_VIDEO_TYPES: Record<string, string> = { "video/mp4": "mp4", "video/quicktime": "mov", "video/webm": "webm", "video/3gpp": "3gp" };
 
 export const takeMetaSchema = z.object({
   id: z.string(),
