@@ -235,7 +235,72 @@ export interface Song {
   audioUrl: string | null;
   // Square AI cover art, made just after the song; null until then.
   coverUrl?: string | null;
+  // Your own song's place on Listen (from GET /api/songs/:id).
+  listen?: SongListen;
+  // Set for someone's public song in the player: its public id (also its `id`) and maker's handle.
+  publicId?: string;
+  handle?: string;
 }
+
+// Listen (mirrors story-film/src/lib/listen.ts).
+export type ListenState = "public" | "private" | "taken_down";
+export interface SongListen {
+  state: ListenState;
+  publicId: string | null;
+  url: string | null;
+  showLyrics: boolean;
+  allowRemix: boolean;
+  playCount: number;
+  likeCount: number;
+  dislikeCount: number;
+}
+export interface PublicSongCard {
+  publicId: string;
+  title: string;
+  handle: string;
+  genre: string;
+  genreLabel: string;
+  language: string;
+  languageLabel: string;
+  mood: string;
+  durationSec: number;
+  ownVoice: boolean;
+  playCount: number;
+  likeCount: number;
+  audioUrl: string;
+  coverUrl: string | null;
+}
+export type Reaction = "fire" | "dance" | "touched" | "haha" | "respect" | "celebrate";
+export interface PublicSong extends PublicSongCard {
+  state: ListenState;
+  lyrics: string | null;
+  allowRemix: boolean;
+  publishedAt: string | null;
+  reactions: Record<Reaction, number>;
+  dislikeCount: number | null;
+  mine: boolean;
+  myVote: -1 | 0 | 1;
+  myReaction: Reaction | null;
+  remixOf: { publicId: string; title: string; handle: string } | null;
+}
+export interface PublicSongPage {
+  song: PublicSong;
+  moreLikeThis: PublicSongCard[];
+  byCreator: PublicSongCard[];
+}
+export interface ListenHome {
+  newThisWeek: number;
+  new: PublicSongCard[];
+  trending: PublicSongCard[];
+  bestOf: { genre: string; label: string; songs: PublicSongCard[] }[];
+  languages: { code: string; name: string; native: string; count: number }[];
+}
+export interface HandleInfo {
+  handle: string | null;
+  canChangeAt: string | null;
+  suggestions: string[];
+}
+export type ReportReason = "voice_or_likeness" | "copyright" | "hateful" | "minor_sexual" | "other";
 // The server lists its remix kinds (remixKinds), so kinds it adds later work without an app update.
 export type RemixKind = "cover" | "extend" | "replace" | "rap" | (string & {});
 export interface RemixKindInfo {
@@ -643,7 +708,25 @@ const real = {
     (await call<{ bars: string }>(`/api/songs/${id}/rap`, { method: "POST", body: JSON.stringify(input) })).bars,
   stemUrl: (path: string) => `${API_URL}${path}`,
   soundPreviewUrl: (id: string, preset: string): string | null => `${API_URL}/api/songs/${id}/mix/preview?preset=${encodeURIComponent(preset)}`,
-  songAnalysis: (id: string) => call<SongAnalysis>(`/api/songs/${id}/analysis`),
+  // Public songs (10-character ids, no dashes) have their own analysis route.
+  songAnalysis: (id: string) => call<SongAnalysis>(id.includes("-") ? `/api/songs/${id}/analysis` : `/api/listen/songs/${id}/analysis`),
+  // Listen.
+  handle: () => call<HandleInfo>("/api/me/handle"),
+  checkHandle: (handle: string) => call<{ handle: string; ok: boolean; problem: string | null }>(`/api/me/handle?check=${encodeURIComponent(handle)}`),
+  setHandle: async (handle: string) => (await call<{ handle: string }>("/api/me/handle", { method: "PUT", body: JSON.stringify({ handle }) })).handle,
+  publishSong: (id: string, input: { title?: string; showLyrics: boolean; allowRemix: boolean }) => call<SongListen>(`/api/songs/${id}/publish`, { method: "POST", body: JSON.stringify(input) }),
+  unpublishSong: (id: string) => call<SongListen>(`/api/songs/${id}/publish`, { method: "DELETE" }),
+  listen: (lang?: string) => call<ListenHome>(`/api/listen${lang ? `?lang=${encodeURIComponent(lang)}` : ""}`),
+  relatedSongs: async (seed: string | undefined, exclude: string[]) =>
+    (await call<{ songs: PublicSongCard[] }>(`/api/listen/related?${new URLSearchParams({ ...(seed ? { seed } : {}), exclude: exclude.slice(-300).join(",") })}`)).songs,
+  publicSong: (publicId: string) => call<PublicSongPage>(`/api/listen/songs/${publicId}`),
+  countPlay: (publicId: string) => call<{ counted: boolean }>(`/api/listen/songs/${publicId}/play`, { method: "POST" }),
+  voteSong: (publicId: string, value: -1 | 0 | 1) => call<unknown>(`/api/listen/songs/${publicId}/vote`, { method: "PUT", body: JSON.stringify({ value }) }),
+  reactSong: (publicId: string, kind: Reaction | null) => call<unknown>(`/api/listen/songs/${publicId}/reaction`, { method: "PUT", body: JSON.stringify({ kind }) }),
+  reportSong: (publicId: string, reason: ReportReason, details: string) => call<unknown>(`/api/listen/songs/${publicId}/report`, { method: "POST", body: JSON.stringify({ reason, details }) }),
+  // The page the native share sheet links to. Built on the address the phone reaches (in
+  // development that's a LAN IP or tunnel, like shareLink), which is the public URL in production.
+  publicSongLink: (publicId: string) => `${API_URL}/s/${publicId}`,
   videoHeaders: async (): Promise<Record<string, string>> => {
     const cookie = await authClient.getCookie();
     return cookie ? { Cookie: cookie } : {};
@@ -706,6 +789,29 @@ function demoAnalysis(song: Song | undefined): SongAnalysis {
 }
 
 const demoSongs: Song[] = [demoSong("s1", "Baarish wali chai", "indie-acoustic"), demoSong("s2", "Dadi ki rasoi", "bollywood-romantic")];
+let demoHandle: string | null = null;
+const demoCard = (publicId: string, title: string, handle: string, genre: string, genreLabel: string, language: string, languageLabel: string): PublicSongCard => ({
+  publicId,
+  title,
+  handle,
+  genre,
+  genreLabel,
+  language,
+  languageLabel,
+  mood: "energetic",
+  durationSec: 90,
+  ownVoice: false,
+  playCount: 120,
+  likeCount: 18,
+  audioUrl: "",
+  coverUrl: null,
+});
+const demoCards: PublicSongCard[] = [
+  demoCard("aaaaaaaaaa", "Dhol di awaaz", "harjeet.beats", "bhangra", "Bhangra", "pa", "Punjabi"),
+  demoCard("bbbbbbbbbb", "Chai aur baarish", "meera.sings", "lofi-hindi", "Lo-fi Hindi", "hi", "Hindi"),
+  demoCard("cccccccccc", "Ya habibi", "noor.music", "khaleeji", "Khaleeji", "ar", "Arabic"),
+];
+
 function demoSong(id: string, title: string, genre: string): Song {
   return {
     id,
@@ -1209,6 +1315,38 @@ const demo: typeof real = {
   stemUrl: () => "",
   soundPreviewUrl: () => null,
   songAnalysis: async (id) => demoAnalysis(demoSongs.find((s) => s.id === id)),
+  handle: async () => (await wait(200), { handle: demoHandle, canChangeAt: null, suggestions: demoHandle ? [] : ["priya.sings", "priya_music", "priyacooks"] }),
+  checkHandle: async (handle) => (await wait(150), { handle, ok: /^[a-z0-9._]{3,20}$/.test(handle), problem: /^[a-z0-9._]{3,20}$/.test(handle) ? null : "Use letters a-z, numbers, dots and underscores." }),
+  setHandle: async (handle) => (await wait(200), (demoHandle = handle.toLowerCase())),
+  publishSong: async (id, input) => {
+    await wait(400);
+    const s = demoSongs.find((x) => x.id === id)!;
+    if (input.title) s.title = input.title;
+    s.listen = { state: "public", publicId: `demo${id}`.padEnd(10, "x").slice(0, 10), url: null, showLyrics: input.showLyrics, allowRemix: input.allowRemix, playCount: 0, likeCount: 0, dislikeCount: 0 };
+    return s.listen;
+  },
+  unpublishSong: async (id) => {
+    await wait(300);
+    const s = demoSongs.find((x) => x.id === id)!;
+    s.listen = { ...(s.listen as SongListen), state: "private" };
+    return s.listen;
+  },
+  listen: async () => (await wait(300), { newThisWeek: demoCards.length, new: demoCards, trending: demoCards.slice(0, 2), bestOf: [{ genre: "bhangra", label: "Bhangra", songs: demoCards }], languages: [{ code: "pa", name: "Punjabi", native: "ਪੰਜਾਬੀ", count: 1 }, { code: "hi", name: "Hindi", native: "हिन्दी", count: 2 }] }),
+  relatedSongs: async (_seed, exclude) => (await wait(200), demoCards.filter((c) => !exclude.includes(c.publicId))),
+  publicSong: async (publicId) => {
+    await wait(300);
+    const c = demoCards.find((x) => x.publicId === publicId) ?? demoCards[0];
+    return {
+      song: { ...c, state: "public", lyrics: "[Chorus]\nDhol baje, dil nache", allowRemix: true, publishedAt: new Date().toISOString(), reactions: { fire: 4, dance: 0, touched: 0, haha: 0, respect: 0, celebrate: 0 }, dislikeCount: null, mine: false, myVote: 0, myReaction: null, remixOf: null },
+      moreLikeThis: demoCards.filter((x) => x.publicId !== c.publicId),
+      byCreator: [],
+    };
+  },
+  countPlay: async () => ({ counted: true }),
+  voteSong: async () => ({}),
+  reactSong: async () => ({}),
+  reportSong: async () => (await wait(300), {}),
+  publicSongLink: (publicId) => `https://reelkar.app/s/${publicId}`,
   videoUrl: () => null,
   previewUri: () => null,
   videoHeaders: async () => ({}),

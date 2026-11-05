@@ -4,8 +4,9 @@ import type { LlmProvider } from "@/lib/providers/types";
 import type { SectionKind } from "./structure";
 import type { Genre } from "./styles";
 
-// Hinglish is a song-only option (Hindi and English mixed, Latin script).
-export type SongLanguage = LanguageCode | "hinglish";
+// Hinglish (Hindi and English mixed, Latin script) and Punjabi (Gurmukhi) are song-only options;
+// Punjabi narration for reels comes later.
+export type SongLanguage = LanguageCode | "hinglish" | "pa";
 
 export interface LyricsRequest {
   topic: string;
@@ -36,9 +37,9 @@ export function structureRules(req: Pick<LyricsRequest, "structure" | "duet">): 
 }
 
 export function lyricsLanguageRule(language: SongLanguage): string {
-  return language === "hinglish"
-    ? "Write the lyrics in Hinglish (Hindi and English mixed, Latin script), as in modern Indian pop."
-    : `Lyrics: ${writeInRule(language)}`;
+  if (language === "hinglish") return "Write the lyrics in Hinglish (Hindi and English mixed, Latin script), as in modern Indian pop.";
+  if (language === "pa") return "Lyrics: Write in natural, everyday Punjabi using Gurmukhi script (not Latin letters).";
+  return `Lyrics: ${writeInRule(language)}`;
 }
 
 // Roughly 2.5 sung lines per 10 seconds keeps lyrics from being rushed or cut off.

@@ -4,11 +4,11 @@ import { Button, Card, Empty, Header, ListRow, Screen } from "./ui";
 import type { IconName } from "./icon";
 
 // Tabs whose backend isn't in the free beta yet: say what's coming instead of showing an empty shell.
-export function ComingSoon({ title, heading, text, items }: { title: string; heading: string; text: string; items: { icon: IconName; title: string; sub: string }[] }) {
+export function ComingSoon({ title, heading, text, items, back }: { title: string; heading: string; text: string; items: { icon: IconName; title: string; sub: string }[]; back?: boolean }) {
   const [asked, setAsked] = useState(false);
   return (
     <Screen>
-      <Header title={title} />
+      <Header title={title} back={back} />
       <Empty
         title={heading}
         text={text}
