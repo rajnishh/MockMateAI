@@ -471,3 +471,17 @@ Prices move monthly; waoowaoo and several other licenses unverified; EvoLink is 
     - **Credits:** unchanged. Credits pay for audio, pictures and video; the text AI was free before and still is.
     - **Not tried live yet:** Cerebras, Mistral and Claude's OpenAI-compatible endpoints were built from their docs with fake-fetch tests.
 
+42. **How Reelkar makes money, and cheaper songs (decided 2026-11-05, not built yet).**
+    - **Why:** Suno Pro sells about 500 songs for $10, roughly $0.02 a song. At 4 credits for a two-take song, Reelkar charges about $0.23. Songs are cheap to make, so a low song price brings creators in. The money comes from what they make next and from things that cost us nothing.
+    - **Song prices (proposed; `src/lib/billing/catalog.ts` still has the old ones):** ACE-Step songs cost **1 credit per take**, so the usual 2 takes cost 2 credits instead of 4. A dance-reel song costs 1. A "Hum it" song, a cover and an extension each cost 1, down from 2. Lyria stays at 4 for 2 takes. Add vocals or music stays at 6. The Brand Studio signature jingle costs 1. The worst-case credit is about ₹3.1 after GST (Pro monthly, INR). Against fal's prices that leaves about 30% margin or more: an ACE-Step take is $0.0002 per second, about ₹2.1 for 2 minutes; Lyria is $0.04 per 30-second take. To build it, `SONG_CREDITS` becomes a price per take and per model, and `src/app/api/songs/route.ts` charges per take. `takeCredits` already splits the charge, so a failed take still refunds only its share. The screens read prices from the API.
+    - **Free songs (later, optional):** 2 free ACE-Step songs a week, like the free weekly reels. That costs at most about ₹8 per active creator a week on fal. Start without it.
+    - **Where the money comes from, in build order:**
+      1. **Expensive, high-value next steps.** After every song, show "Make a video for this song". Music videos (34–40 credits per 5 s), AI and Cinematic reels, and lip-sync videos all carry 30%+ margin. One 2-minute Story music video is about 816 credits.
+      2. **Charge for rights and convenience, which cost ₹0.** On Free, every reel, music video and song download carries the Reelkar watermark and is for personal use only. Paid plans get no watermark, commercial rights (needed for brand deals), a priority queue, the full Brand Studio, stems and 4K export. Spell out commercial rights in the terms.
+      3. **Subscriptions over packs.** Monthly plan credits expire at the end of the month, or roll over up to one month's worth. Pack credits don't expire. Add **yearly plans** at about 2 months free.
+      4. **Price by market.** Set AED and USD prices on their own merits rather than converting from INR. Gulf creators spend more.
+      5. **Lower costs instead of raising prices.** Text AI stays free (item 41). Use Cloudflare FLUX before paying for Nano Banana. At a few thousand songs a day, rent one GPU for ACE-Step instead of paying fal per song. That is where Reelkar can match Suno's price.
+      6. **Later: business plans and brand deals.** Team or agency plans (several handles) at 3–5 times the Pro price. Once creators have a Brand Studio media kit, match them with brands for a small cut of each deal.
+    - **Not doing:** ads inside the app, or selling creator data.
+    - **Open items:** check whether monthly credits expire today; decide the free-songs allowance; check the self-hosted GPU cost per song with a real load test before relying on it.
+
