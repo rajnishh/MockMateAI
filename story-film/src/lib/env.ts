@@ -47,7 +47,10 @@ const schema = z.object({
   GROQ_API_KEY: z.string().optional(),
   // Optional: an Ollama server creators can pick for Ask Reelkar (e.g. http://localhost:11434).
   OLLAMA_URL: z.string().url().optional(),
-  ASK_REELKAR_GEMINI_MODEL: z.string().default("gemini-2.5-flash"),
+  // Google retires Gemini models for new keys (2.5 Flash was, by 2026-11-05).
+  ASK_REELKAR_GEMINI_MODEL: z.string().default("gemini-3.5-flash"),
+  // Gemini's model in Reelkar's own AI lane.
+  GEMINI_LLM_MODEL: z.string().default("gemini-3.5-flash"),
   FAL_KEY: z.string().optional(),
   // Optional: ACE-Step 1.5 on Runware for pro remixes (cover strength, add vocals, add music).
   RUNWARE_API_KEY: z.string().optional(),

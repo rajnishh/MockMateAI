@@ -165,7 +165,7 @@ export function reelkarLane(env: Env, fetchFn: typeof fetch = fetch): Link<LlmPr
     );
     links.push({ id: "lane:cloudflare", name: "Reelkar (Workers AI)", engine: llm });
   }
-  if (env.GEMINI_API_KEY) links.push({ id: "lane:gemini", name: "Reelkar (Gemini)", engine: geminiLlm(env.GEMINI_API_KEY, "gemini-2.5-flash", fetchFn) });
+  if (env.GEMINI_API_KEY) links.push({ id: "lane:gemini", name: "Reelkar (Gemini)", engine: geminiLlm(env.GEMINI_API_KEY, env.GEMINI_LLM_MODEL, fetchFn) });
   if (env.GROQ_API_KEY) {
     const llm = new OpenAiCompatibleLlm("https://api.groq.com/openai/v1", env.GROQ_API_KEY, "llama-3.3-70b-versatile", { licenseId: "groq", jsonMode: true }, fetchFn);
     links.push({ id: "lane:groq", name: "Reelkar (Groq)", engine: llm });
@@ -184,12 +184,12 @@ export function buildLlm(env: Env, rests: RestStore = aiRests): LlmProvider {
 }
 
 // Gemini through its OpenAI-compatible endpoint. Flash models think by default, which spends the
-// reply's token budget, so thinking is off for them.
+// reply's token budget, so thinking is kept low ("none" isn't accepted by every Flash model).
 export function geminiLlm(apiKey: string, model: string, fetchFn: typeof fetch = fetch): OpenAiCompatibleLlm {
   return new OpenAiCompatibleLlm("https://generativelanguage.googleapis.com/v1beta/openai", apiKey, model, {
-    licenseId: model.startsWith("gemini-2.5-pro") ? "gemini-2.5-pro" : "gemini-2.5-flash",
+    licenseId: "gemini",
     jsonMode: true,
-    ...(model.includes("flash") ? { extraBody: { reasoning_effort: "none" } } : {}),
+    ...(model.includes("flash") ? { extraBody: { reasoning_effort: "low" } } : {}),
   }, fetchFn);
 }
 

@@ -39,7 +39,7 @@ describe("Ask Reelkar on Gemini", () => {
 
     expect(reply).toBe("Bana rahi hoon! Ek minute lagega.");
     expect(calls).toEqual([{ name: "make_reel", input: { idea: "Three chai hacks for rainy mornings in Mumbai." } }]);
-    expect(requests[0].url).toContain("/models/gemini-2.5-flash:generateContent");
+    expect(requests[0].url).toContain("/models/gemini-3.5-flash:generateContent");
     expect(requests[0].headers["x-goog-api-key"]).toBe("key");
     expect(requests[0].body.systemInstruction).toEqual({ parts: [{ text: "You are Ask Reelkar." }] });
     const names = requests[0].body.tools[0].functionDeclarations.map((t) => t.name);
@@ -115,7 +115,7 @@ describe("Ask Reelkar on Gemini", () => {
     expect(limited.requests).toHaveLength(1);
   });
 
-  it("refuses models that aren't on the license allowlist", () => {
-    expect(() => new GeminiToolPlanner("key", "some-unreviewed-model")).toThrow(/allowlist/);
+  it("accepts newer Gemini models, which share one license entry", () => {
+    expect(() => new GeminiToolPlanner("key", "gemini-flash-latest")).not.toThrow();
   });
 });

@@ -2,7 +2,7 @@ import { assertCommercialSafe } from "@/lib/models/licenses";
 import { chatHistory, limitedActions, MAX_ACTIONS, plannerTools, type ToolPlanner, type ToolPlannerInput } from "./claude";
 
 // Free with a Google AI Studio key, within Google's per-minute and per-day limits.
-export const DEFAULT_GEMINI_AGENT_MODEL = "gemini-2.5-flash";
+export const DEFAULT_GEMINI_AGENT_MODEL = "gemini-3.5-flash";
 const API = "https://generativelanguage.googleapis.com/v1beta/models";
 
 type Part = {
@@ -26,7 +26,8 @@ export class GeminiToolPlanner implements ToolPlanner {
     readonly modelId = DEFAULT_GEMINI_AGENT_MODEL,
     private readonly fetchFn: typeof fetch = fetch,
   ) {
-    assertCommercialSafe(modelId);
+    // One allowlist entry covers every Gemini model, since Google renames and retires them often.
+    assertCommercialSafe("gemini");
   }
 
   async respond({ system, history, message, act }: ToolPlannerInput): Promise<string> {

@@ -11,6 +11,7 @@ import type { LlmProvider } from "@/lib/providers/types";
 import { testDb } from "./helpers/db";
 
 const ENV = {
+  GEMINI_LLM_MODEL: "gemini-3.5-flash",
   TOKEN_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"),
   CLOUDFLARE_ACCOUNT_ID: "acc",
   CLOUDFLARE_API_TOKEN: "cf",
@@ -121,15 +122,15 @@ describe("a creator's own AI engines", { timeout: 30_000 }, () => {
 
   it("checks a key before saving it, keeps it encrypted and shows only its last 4 characters", async () => {
     const { fetchFn, requests } = fakeApi();
-    await addEngine(db, ENV, "u1", { provider: "gemini", model: "gemini-2.5-flash", key: KEY }, fetchFn);
+    await addEngine(db, ENV, "u1", { provider: "gemini", model: "gemini-3.5-flash", key: KEY }, fetchFn);
     expect(requests[0].url).toBe("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions");
     expect(requests[0].headers.Authorization).toBe(`Bearer ${KEY}`);
-    expect(requests[0].body).toMatchObject({ model: "gemini-2.5-flash", reasoning_effort: "none" });
+    expect(requests[0].body).toMatchObject({ model: "gemini-3.5-flash", reasoning_effort: "low" });
 
     const [row] = await db.select().from(aiEngine);
     expect(row.key).not.toContain(KEY);
     const view = await enginesView(db, ENV, "u1", new MemoryRestStore());
-    expect(view.engines).toMatchObject([{ provider: "gemini", model: "gemini-2.5-flash", keyHint: "…abcd", status: "ready", chat: true }]);
+    expect(view.engines).toMatchObject([{ provider: "gemini", model: "gemini-3.5-flash", keyHint: "…abcd", status: "ready", chat: true }]);
     expect(JSON.stringify(view)).not.toContain(KEY);
   });
 
