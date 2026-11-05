@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { fonts, useTheme } from "@/theme";
 import { Icon, type IconName } from "./icon";
 
-const ICONS: Record<string, IconName> = { home: "home", create: "plus", calendar: "calendar", inbox: "inbox", earn: "earn" };
+const ICONS: Record<string, IconName> = { home: "home", create: "plus", calendar: "calendar", inbox: "inbox", listen: "headphones" };
 
 // v3.0: a floating deep-plum bar. Create is the round chilli button in the middle; the current tab is mint.
 export function TabBar({ state, descriptors, navigateToTab }: BottomTabBarProps) {

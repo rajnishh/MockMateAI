@@ -1,15 +1,17 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, Share, StyleSheet, View } from "react-native";
 
 import { SongCover } from "@/components/song-cover";
 import { SongPlayerRow, useSongPlayer } from "@/components/song-player";
 import { StudioEdit } from "@/components/studio-edit";
 import { FALLBACK_PRESETS, StudioMix } from "@/components/studio-mix";
 import { fallbackKinds, StudioRemix } from "@/components/studio-remix";
-import { Banner, Button, Card, Header, Screen, Skeleton, Txt } from "@/components/ui";
+import { Icon } from "@/components/icon";
+import { Banner, Button, Card, Header, Row, Screen, Skeleton, Txt } from "@/components/ui";
 import type { Range } from "@/components/waveform";
-import { api } from "@/lib/api";
+import { api, type Song } from "@/lib/api";
+import { plays } from "@/lib/listen";
 import { formatTime, genreLabel, shareSong } from "@/lib/songs";
 import { useData } from "@/lib/use-data";
 import { radius, useTheme } from "@/theme";
@@ -121,6 +123,7 @@ export default function SongScreen() {
           <Card>
             <SongPlayerRow song={s} player={player} />
           </Card>
+          <ListenCard song={s} reload={song.reload} />
           <Button label="Make it a gift" icon="gift" block disabled={s.status === "failed"} onPress={() => router.push({ pathname: "/gift/[songId]", params: { songId: s.id } })} />
           <Button label="Save or share" icon="share" kind="secondary" block loading={sharing} disabled={!s.audioUrl} onPress={share} />
           {error ? <Banner kind="error" text={error} /> : null}
@@ -178,6 +181,60 @@ export default function SongScreen() {
         </>
       )}
     </Screen>
+  );
+}
+
+// "Share on Listen": private, public (with plays and likes), or removed after a report.
+function ListenCard({ song, reload }: { song: Song; reload: () => void }) {
+  const { colors } = useTheme();
+  const [busy, setBusy] = useState(false);
+  const l = song.listen;
+  if (!l) return null;
+  if (l.state === "taken_down") return <Banner kind="warn" title="Removed from Listen" text="This song was taken down after a report, so it can't be public again." />;
+  if (l.state === "private") {
+    return (
+      <Card>
+        <Row style={{ alignItems: "center", gap: 12 }}>
+          <Icon name="headphones" color={colors.tealText} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Txt variant="label">Share on Listen</Txt>
+            <Txt variant="cap">Private. Publish it so everyone can hear it, in the Listen tab and by link.</Txt>
+          </View>
+        </Row>
+        <Button label="Publish" icon="globe" block onPress={() => router.push({ pathname: "/songs/publish/[id]", params: { id: song.id } })} />
+      </Card>
+    );
+  }
+  const makePrivate = () =>
+    Alert.alert("Make this song private?", "It leaves Listen and its link stops working. You can publish it again later; the link comes back.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Make private",
+        style: "destructive",
+        onPress: async () => {
+          setBusy(true);
+          await api.unpublishSong(song.id).catch(() => undefined);
+          setBusy(false);
+          reload();
+        },
+      },
+    ]);
+  const link = l.publicId ? api.publicSongLink(l.publicId) : null;
+  return (
+    <Card>
+      <Row style={{ alignItems: "center", gap: 12 }}>
+        <Icon name="headphones" color={colors.tealText} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Txt variant="label">Public on Listen</Txt>
+          <Txt variant="cap">{`${plays(l.playCount)} · ${l.likeCount} ${l.likeCount === 1 ? "like" : "likes"} · ${l.dislikeCount} Not for me (only you see this)`}</Txt>
+        </View>
+      </Row>
+      <Row style={{ gap: 8 }}>
+        <Button label="Share link" icon="share" kind="secondary" small style={{ flex: 1 }} disabled={!link} onPress={() => link && Share.share({ message: `Listen to my song “${song.title}” on Reelkar ${link}`, url: link }).catch(() => undefined)} />
+        <Button label="See it" kind="secondary" small style={{ flex: 1 }} onPress={() => l.publicId && router.push({ pathname: "/s/[id]", params: { id: l.publicId } })} />
+      </Row>
+      <Button label="Make private" kind="ghost" small loading={busy} onPress={makePrivate} />
+    </Card>
   );
 }
 

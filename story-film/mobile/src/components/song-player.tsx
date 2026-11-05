@@ -1,57 +1,225 @@
-import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { type AudioSource, setAudioModeAsync, useAudioPlaylist, useAudioPlaylistStatus } from "expo-audio";
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { SvgXml } from "react-native-svg";
 
-import { api, type Song, type SongAnalysis } from "@/lib/api";
-import { formatTime } from "@/lib/songs";
+import { api, type PublicSongCard, type Song, type SongAnalysis } from "@/lib/api";
+import * as Q from "@/lib/listen-queue";
+import { publicTrackSong } from "@/lib/listen";
+import { formatTime, genreLabel } from "@/lib/songs";
+import { getItem, setItem } from "@/lib/storage";
 import { useTheme } from "@/theme";
+import { coverUri } from "./song-cover";
 import { Icon } from "./icon";
 import { ProgressBar, Txt } from "./ui";
 
+// A song in the queue: your own (key "own:<id>") or someone's public one ("s:<publicId>").
+export type Track = Song & Q.QueueTrack;
+
+const AUTOPLAY_KEY = "listen.autoplay";
+
+export const trackOf = (s: Song): Track => ({ ...s, key: s.publicId ? `s:${s.publicId}` : `own:${s.id}` });
+export const trackOfCard = (c: PublicSongCard): Track => trackOf(publicTrackSong(c));
+
+// The app's one player, built on expo-audio's playlist so the lock screen's next and previous
+// work. The queue lives here in JS (lib/listen-queue.ts); the native playlist is kept in step
+// with it, only ever appending or dropping songs after the current one, because inserting
+// rebuilds the native queue and would restart the song that's playing.
 function usePlayerState() {
-  const player = useAudioPlayer(null, { updateInterval: 200 });
-  const status = useAudioPlayerStatus(player);
-  const [song, setSong] = useState<Song | null>(null);
+  const playlist = useAudioPlaylist({ updateInterval: 200 });
+  const native = useAudioPlaylistStatus(playlist);
+  const [queue, setQueue] = useState<Q.Queue<Track>>(Q.emptyQueue());
+  const [autoplay, setAutoplayState] = useState(true);
+  const nativeKeys = useRef<string[]>([]);
+  const syncing = useRef<Promise<void>>(Promise.resolve());
+  const fetching = useRef(false);
+  const counted = useRef(new Set<string>());
+  const lockKey = useRef<string | null>(null);
+  const song = Q.current(queue) ?? null;
 
   useEffect(() => {
-    // Songs play even with the ring/silent switch off, like other music apps.
-    setAudioModeAsync({ playsInSilentMode: true }).catch(() => undefined);
+    // Songs play with the ring/silent switch off and keep going in the background, like other music apps.
+    setAudioModeAsync({ playsInSilentMode: true, shouldPlayInBackground: true, interruptionMode: "doNotMix" }).catch(() => undefined);
+    getItem(AUTOPLAY_KEY).then((v) => v === "off" && setAutoplayState(false), () => undefined);
   }, []);
+
+  const source = useCallback(async (t: Track): Promise<AudioSource> => {
+    const uri = api.songAudioUrl(t) ?? "";
+    // Your own songs need the session cookie; public ones don't.
+    return t.publicId ? { uri } : { uri, headers: await api.videoHeaders() };
+  }, []);
+
+  // The latest native index and queue, for the effects below that must not wait for a render.
+  const nativeIndex = useRef(0);
+  const queueRef = useRef(queue);
+  useEffect(() => {
+    nativeIndex.current = native.currentIndex;
+    queueRef.current = queue;
+  });
+  // The index we asked native to move to, until it says it's there; its own reports in between
+  // (a clear briefly reports 0) aren't the listener's doing.
+  const expected = useRef<number | null>(null);
+  const expectTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const finishedLast = useRef(false);
+
+  const expect = (index: number) => {
+    expected.current = index;
+    clearTimeout(expectTimer.current);
+    expectTimer.current = setTimeout(() => (expected.current = null), 2000);
+  };
+
+  // Native follows the JS queue.
+  useEffect(() => {
+    const target = queue.items.map((t) => t.key);
+    const cur = queue.index;
+    syncing.current = syncing.current.then(async () => {
+      const have = nativeKeys.current;
+      if (cur < 0) {
+        if (have.length) playlist.clear();
+        nativeKeys.current = [];
+        return;
+      }
+      let common = 0;
+      while (common < have.length && common < target.length && have[common] === target[common]) common++;
+      if (common <= cur) {
+        // A different song is current, or the songs before it changed: load the queue again from it.
+        finishedLast.current = false;
+        const sources = await Promise.all(queue.items.map(source));
+        expect(cur);
+        playlist.clear();
+        sources.forEach((src) => playlist.add(src));
+        if (cur > 0) playlist.skipTo(cur);
+        playlist.play();
+        nativeKeys.current = target;
+        return;
+      }
+      // Same songs up to and past the current one: drop and append only after it.
+      for (let i = have.length - 1; i >= common; i--) playlist.remove(i);
+      for (const t of queue.items.slice(common)) playlist.add(await source(t));
+      nativeKeys.current = target;
+      if (nativeIndex.current !== cur) {
+        // Next, Previous or a tap in Up next: move native there.
+        finishedLast.current = false;
+        expect(cur);
+        playlist.skipTo(cur);
+        playlist.play();
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only the queue drives native changes
+  }, [queue]);
+
+  // The lock screen, Control Center or a song ending moved native on: catch the queue up.
+  useEffect(() => {
+    if (expected.current !== null) {
+      if (native.currentIndex === expected.current) expected.current = null;
+      return;
+    }
+    if (native.trackCount !== nativeKeys.current.length || native.currentIndex === queueRef.current.index) return;
+    setQueue((q) => Q.skipTo(q, native.currentIndex));
+  }, [native.currentIndex, native.trackCount]);
+
+  // The last song ended with nothing after it; when Autoplay's picks arrive, carry on with them.
+  useEffect(() => {
+    if (native.didJustFinish && native.currentIndex >= nativeKeys.current.length - 1) finishedLast.current = true;
+  }, [native.didJustFinish, native.currentIndex]);
+  useEffect(() => {
+    if (finishedLast.current && Q.upNext(queue).length) {
+      finishedLast.current = false;
+      setQueue(Q.next);
+    }
+  }, [queue]);
+
+  // Now-playing on the lock screen, with next and previous.
+  useEffect(() => {
+    if (!song) {
+      if (lockKey.current) playlist.clearLockScreenControls();
+      lockKey.current = null;
+      return;
+    }
+    if (lockKey.current === song.key) return;
+    const metadata = { title: song.title, artist: song.handle ? `@${song.handle}` : "Reelkar", albumTitle: genreLabel(song.genre), artworkUrl: coverUri(song) ?? undefined };
+    if (lockKey.current) playlist.updateLockScreenMetadata(metadata);
+    else playlist.setActiveForLockScreen(true, metadata, { showNextTrack: true, showPreviousTrack: true, showSeekBackward: false, showSeekForward: false });
+    lockKey.current = song.key;
+  }, [song, playlist]);
+
+  // Autoplay: when one song is left, add related public songs not heard this session.
+  useEffect(() => {
+    if (!Q.needsMore(queue, autoplay) || fetching.current) return;
+    fetching.current = true;
+    api
+      .relatedSongs(Q.seedId(queue), Q.excludeIds(queue))
+      .then((cards) => {
+        setQueue((q) => Q.appendAuto(q, cards.map(trackOfCard)));
+      })
+      .catch(() => undefined)
+      .finally(() => (fetching.current = false));
+  }, [queue, autoplay]);
+
+  // A public song counts as played after 10 seconds (the server keeps one per listener per day).
+  useEffect(() => {
+    if (!song?.publicId || native.currentTime < 10 || counted.current.has(song.key)) return;
+    counted.current.add(song.key);
+    api.countPlay(song.publicId).catch(() => undefined);
+  }, [song, native.currentTime]);
+
+  const status = useMemo(
+    () => ({ playing: native.playing, currentTime: native.currentTime, duration: native.duration, isLoaded: native.isLoaded, isBuffering: native.isBuffering, didJustFinish: native.didJustFinish }),
+    [native.playing, native.currentTime, native.duration, native.isLoaded, native.isBuffering, native.didJustFinish],
+  );
 
   const play = useCallback(
     async (next: Song) => {
       if (song?.id === next.id) {
-        if (status.duration > 0 && status.currentTime >= status.duration - 0.25) await player.seekTo(0);
-        return player.play();
+        if (status.duration > 0 && status.currentTime >= status.duration - 0.25) await playlist.seekTo(0);
+        return playlist.play();
       }
-      const uri = api.songAudioUrl(next);
-      if (!uri) return;
-      // The audio route needs the session cookie, like the reel videos.
-      player.replace({ uri, headers: await api.videoHeaders() });
-      setSong(next);
-      player.play();
+      if (!api.songAudioUrl(next)) return;
+      setQueue((q) => Q.playOne(q, trackOf(next)));
     },
-    [player, song?.id, status.currentTime, status.duration],
+    [playlist, song?.id, status.currentTime, status.duration],
   );
+
+  const setAutoplay = useCallback((on: boolean) => {
+    setAutoplayState(on);
+    if (!on) setQueue(Q.dropAuto);
+    setItem(AUTOPLAY_KEY, on ? "on" : "off").catch(() => undefined);
+  }, []);
 
   return useMemo(
     () => ({
       current: song?.id ?? null,
       song,
       status,
+      queue,
+      upNext: Q.upNext(queue),
+      autoplay,
+      setAutoplay,
       play,
-      pause: () => player.pause(),
-      toggle: (s: Song) => (song?.id === s.id && status.playing ? player.pause() : play(s)),
-      seekTo: (sec: number) => player.seekTo(Math.max(0, sec)),
+      // Plays a list from `start`; the rest of the list becomes the queue.
+      playList: (songs: Song[], start: number) => setQueue((q) => Q.playList(q, songs.map(trackOf), start)),
+      playNext: (s: Song) => setQueue((q) => Q.playNext(q, trackOf(s))),
+      addToQueue: (s: Song) => setQueue((q) => Q.addToQueue(q, trackOf(s))),
+      remove: (key: string) => setQueue((q) => Q.remove(q, key)),
+      clear: () => setQueue(Q.clear),
+      skipTo: (index: number) => setQueue((q) => Q.skipTo(q, index)),
+      next: () => setQueue(Q.next),
+      previous: () => {
+        const r = Q.previous(queue, status.currentTime);
+        if (r.restart) playlist.seekTo(0);
+        else setQueue(r.queue);
+      },
+      pause: () => playlist.pause(),
+      toggle: (s: Song) => (song?.id === s.id && status.playing ? playlist.pause() : play(s)),
+      seekTo: (sec: number) => playlist.seekTo(Math.max(0, sec)),
       // ±10 s, kept inside the song.
-      skip: (sec: number) => player.seekTo(Math.min(Math.max(0, status.currentTime + sec), Math.max(0, (status.duration || song?.durationSec || 0) - 0.5))),
+      skip: (sec: number) => playlist.seekTo(Math.min(Math.max(0, status.currentTime + sec), Math.max(0, (status.duration || song?.durationSec || 0) - 0.5))),
       stop: () => {
-        player.pause();
-        setSong(null);
+        playlist.pause();
+        setQueue(Q.emptyQueue());
       },
     }),
-    [player, play, song, status],
+    [song, status, queue, autoplay, setAutoplay, play, playlist],
   );
 }
 

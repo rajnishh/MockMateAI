@@ -245,8 +245,78 @@ export const song = pgTable(
     error: text("error"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     completedAt: timestamp("completed_at"),
+    // Listen (docs/PLAN.md item 44): a song is private until its maker publishes it. The public
+    // link is /s/{publicId}, made at first publish and kept, so an old link works again after a re-publish.
+    publicId: text("public_id").unique(),
+    publishedAt: timestamp("published_at"),
+    showLyrics: boolean("show_lyrics").notNull().default(true),
+    allowRemix: boolean("allow_remix").notNull().default(true),
+    // Set by the owner after a report; a taken-down song can't be published again by its maker.
+    takenDownAt: timestamp("taken_down_at"),
+    // Counters for sorting; the rows behind them are in song_play and song_vote.
+    playCount: integer("play_count").notNull().default(0),
+    likeCount: integer("like_count").notNull().default(0),
+    dislikeCount: integer("dislike_count").notNull().default(0),
   },
-  (t) => [index("song_user_created_idx").on(t.userId, t.createdAt)],
+  (t) => [index("song_user_created_idx").on(t.userId, t.createdAt), index("song_published_idx").on(t.publishedAt)],
+);
+
+// A creator's public name on Listen. Handles are lowercase a-z, 0-9, dot and underscore.
+export const creatorProfile = pgTable("creator_profile", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  handle: text("handle").notNull().unique(),
+  handleChangedAt: timestamp("handle_changed_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// One row per listener per song per day; the listener is a user id, or "v:" plus a browser cookie id.
+export const songPlay = pgTable(
+  "song_play",
+  {
+    songId: uuid("song_id")
+      .notNull()
+      .references(() => song.id, { onDelete: "cascade" }),
+    listener: text("listener").notNull(),
+    day: text("day").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("song_play_once_idx").on(t.songId, t.listener, t.day), index("song_play_day_idx").on(t.day)],
+);
+
+// Like (+1) or "Not for me" (-1), one per person per song.
+export const songVote = pgTable(
+  "song_vote",
+  {
+    songId: uuid("song_id")
+      .notNull()
+      .references(() => song.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    value: integer("value").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("song_vote_once_idx").on(t.songId, t.userId), index("song_vote_user_idx").on(t.userId)],
+);
+
+export const songReactionKind = pgEnum("song_reaction_kind", ["fire", "dance", "touched", "haha", "respect", "celebrate"]);
+
+// One reaction per person per song.
+export const songReaction = pgTable(
+  "song_reaction",
+  {
+    songId: uuid("song_id")
+      .notNull()
+      .references(() => song.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    kind: songReactionKind("kind").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("song_reaction_once_idx").on(t.songId, t.userId)],
 );
 
 // "Ask Reelkar", the built-in agent. How it may post: always ask first, schedule on its own, or post at once.
@@ -488,6 +558,23 @@ export const giftReport = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [index("gift_report_gift_idx").on(t.giftId)],
+);
+
+// Reports from the Report button on every public song, with the gift reasons; reviewed by a person.
+export const songReport = pgTable(
+  "song_report",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    songId: uuid("song_id")
+      .notNull()
+      .references(() => song.id, { onDelete: "cascade" }),
+    reason: giftReportReason("reason").notNull(),
+    details: text("details").notNull().default(""),
+    email: text("email"),
+    reporterId: text("reporter_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("song_report_song_idx").on(t.songId)],
 );
 
 // Jugalbandi: a song two creators make from two phones (design/community/flow-spec.md, feature 2).

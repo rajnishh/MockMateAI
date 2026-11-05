@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 
 import { genreLabel } from "@/lib/songs";
 import { fonts, useTheme } from "@/theme";
+import { Icon } from "./icon";
 import { SongCover } from "./song-cover";
 import { PauseGlyph, PlayGlyph, useSongPlayer } from "./song-player";
 import { Txt } from "./ui";
@@ -30,7 +31,7 @@ export function MiniPlayer() {
             {song.title}
           </Txt>
           <Txt variant="cap" numberOfLines={1} style={{ color: muted, fontFamily: fonts.medium, fontSize: 12 }}>
-            {genreLabel(song.genre)}
+            {song.handle ? `@${song.handle} · ${genreLabel(song.genre)}` : genreLabel(song.genre)}
           </Txt>
         </View>
         <Pressable
@@ -41,11 +42,17 @@ export function MiniPlayer() {
           style={[styles.play, { backgroundColor: colors.pop }]}>
           {!status.isLoaded ? <ActivityIndicator color={colors.onPop} /> : status.playing ? <PauseGlyph color={colors.onPop} size={16} /> : <PlayGlyph color={colors.onPop} size={20} />}
         </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Stop and close" onPress={player.stop} hitSlop={8} style={styles.close}>
-          <Txt variant="md" style={{ color: muted, fontSize: 20, lineHeight: 22 }}>
-            ×
-          </Txt>
-        </Pressable>
+        {player.upNext.length ? (
+          <Pressable accessibilityRole="button" accessibilityLabel="Next song" onPress={player.next} hitSlop={8} style={styles.close}>
+            <Icon name="next" size={20} color={colors.onDeep} />
+          </Pressable>
+        ) : (
+          <Pressable accessibilityRole="button" accessibilityLabel="Stop and close" onPress={player.stop} hitSlop={8} style={styles.close}>
+            <Txt variant="md" style={{ color: muted, fontSize: 20, lineHeight: 22 }}>
+              ×
+            </Txt>
+          </Pressable>
+        )}
         <View style={[styles.track, { backgroundColor: "rgba(255, 241, 230, 0.14)" }]} pointerEvents="none">
           <View style={{ width: `${progress * 100}%`, height: "100%", backgroundColor: colors.teal, borderRadius: 2 }} />
         </View>
@@ -58,6 +65,6 @@ const styles = StyleSheet.create({
   wrap: { paddingHorizontal: 12, paddingTop: 6 },
   bar: { flexDirection: "row", alignItems: "center", gap: 12, padding: 8, paddingRight: 6, borderRadius: 18, overflow: "hidden" },
   play: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
-  close: { width: 32, height: 44, alignItems: "center", justifyContent: "center" },
+  close: { width: 40, height: 44, alignItems: "center", justifyContent: "center" },
   track: { position: "absolute", left: 14, right: 14, bottom: 3, height: 3, borderRadius: 2, overflow: "hidden" },
 });

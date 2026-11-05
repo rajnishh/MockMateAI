@@ -43,7 +43,7 @@ export const STYLE_CHIPS = [
 ];
 
 // Songs can also be sung in Hinglish (mostly Hindi words, written in Latin letters).
-export const SONG_LANGUAGES = [...LANGUAGES.map((l) => ({ value: l.code as string, label: l.label as string })), { value: "hinglish", label: "Hinglish" }];
+export const SONG_LANGUAGES = [...LANGUAGES.map((l) => ({ value: l.code as string, label: l.label as string })), { value: "hinglish", label: "Hinglish" }, { value: "pa", label: "ਪੰਜਾਬੀ" }];
 
 export const genreLabel = (id: string) => GENRES.find((g) => g.value === id)?.label ?? id;
 

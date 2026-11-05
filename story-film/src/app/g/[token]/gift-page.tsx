@@ -298,8 +298,8 @@ function Processing({ view, lang }: { view: PublicGiftView; lang: PageLang }) {
 
 const REASONS = ["voice_or_likeness", "copyright", "hateful", "minor_sexual", "other"] as const;
 
-// The Report sheet on every public page (gifts and Jugalbandi invites); endpoint is where it posts.
-export function Report({ endpoint, lang, onClose }: { endpoint: string; lang: PageLang; onClose: () => void }) {
+// The Report sheet on every public page (gifts, Jugalbandi invites and songs); endpoint is where it posts.
+export function Report({ endpoint, lang, title, onClose }: { endpoint: string; lang: PageLang; title?: string; onClose: () => void }) {
   const t = copy(lang);
   const dialog = useRef<HTMLDialogElement>(null);
   const [reason, setReason] = useState<(typeof REASONS)[number] | "">("");
@@ -328,7 +328,7 @@ export function Report({ endpoint, lang, onClose }: { endpoint: string; lang: Pa
 
   return (
     <dialog ref={dialog} className={s.sheet} onClose={onClose} aria-labelledby="report-title">
-      <h2 id="report-title">{t.reportTitle}</h2>
+      <h2 id="report-title">{title ?? t.reportTitle}</h2>
       {done ? (
         <p role="status">{t.reportThanks}</p>
       ) : (

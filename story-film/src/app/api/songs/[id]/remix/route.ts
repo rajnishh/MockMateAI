@@ -12,7 +12,8 @@ import { getUserId, unauthorized } from "@/lib/session";
 import { cleanLyrics } from "@/lib/songs/lyrics";
 import { remixCall, remixCredits, remixedDurationSec, remixKinds, remixSchemaFor, type RemixKind } from "@/lib/songs/remix";
 import { assertNoRealArtists, SongSafetyError } from "@/lib/songs/safety";
-import { createSong, getSong } from "@/lib/songs/songs";
+import { publicSong, publicState, PUBLIC_ID } from "@/lib/listen";
+import { createSong, getSong, type Song } from "@/lib/songs/songs";
 import { findGenre, GENRES, stylePrompt } from "@/lib/songs/styles";
 
 const SUFFIX: Record<RemixKind, string> = { cover: "cover", extend: "extended", replace: "new part", rap: "rap", "add-vocals": "with vocals", "add-instrumental": "new music" };
@@ -25,7 +26,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!songsAvailable(env)) return NextResponse.json({ error: "Song Studio isn't available yet" }, { status: 503 });
   const { id } = await params;
   const db = getDb();
-  const song = await getSong(db, userId, id).catch(() => undefined);
+  // Your own song by id, or someone's public song by its public id when they allow remixes.
+  let song: Song | undefined;
+  if (PUBLIC_ID.test(id)) {
+    const found = await publicSong(db, id);
+    if (found && publicState(found.song) === "public" && found.song.allowRemix && !found.song.voiceProfileId) song = found.song;
+    if (found && !song) return NextResponse.json({ error: "This song's maker doesn't allow remixes." }, { status: 403 });
+  } else song = await getSong(db, userId, id).catch(() => undefined);
   if (!song?.outputPath || song.status !== "completed") return NextResponse.json({ error: "Song not found" }, { status: 404 });
   const parsed = remixSchemaFor(song.durationSec).safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: z.prettifyError(parsed.error) }, { status: 400 });

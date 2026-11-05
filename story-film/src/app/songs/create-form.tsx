@@ -213,6 +213,7 @@ export function CreateForm({ perTake, available, onCreated }: { perTake: SongPri
           <select id="lang" value={language} onChange={(e) => setLanguage(e.target.value)} disabled={mode === "instrumental"}>
             {LANGUAGES.map((l) => <option key={l.code} value={l.code}>{l.native}</option>)}
             <option value="hinglish">Hinglish</option>
+            <option value="pa">ਪੰਜਾਬੀ</option>
           </select>
         </div>
         <div>
