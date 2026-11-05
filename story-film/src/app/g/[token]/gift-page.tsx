@@ -61,7 +61,7 @@ export function GiftPage({ view, lang, isSender, count, url }: { view: PublicGif
           ⚑ {t.report}
         </button>
       </footer>
-      {reporting ? <Report token={view.token} lang={lang} onClose={() => setReporting(false)} /> : null}
+      {reporting ? <Report endpoint={`/api/g/${view.token}/report`} lang={lang} onClose={() => setReporting(false)} /> : null}
     </div>
   );
 }
@@ -298,7 +298,8 @@ function Processing({ view, lang }: { view: PublicGiftView; lang: PageLang }) {
 
 const REASONS = ["voice_or_likeness", "copyright", "hateful", "minor_sexual", "other"] as const;
 
-function Report({ token, lang, onClose }: { token: string; lang: PageLang; onClose: () => void }) {
+// The Report sheet on every public page (gifts and Jugalbandi invites); endpoint is where it posts.
+export function Report({ endpoint, lang, onClose }: { endpoint: string; lang: PageLang; onClose: () => void }) {
   const t = copy(lang);
   const dialog = useRef<HTMLDialogElement>(null);
   const [reason, setReason] = useState<(typeof REASONS)[number] | "">("");
@@ -315,7 +316,7 @@ function Report({ token, lang, onClose }: { token: string; lang: PageLang; onClo
     const form = new FormData(e.currentTarget);
     setBusy(true);
     setError(null);
-    const res = await fetch(`/api/g/${token}/report`, {
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ reason, details: form.get("details") ?? "", email: form.get("email") ?? "" }),

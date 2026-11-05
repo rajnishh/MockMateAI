@@ -2,6 +2,7 @@ import { and, asc, eq, gte, inArray, lt } from "drizzle-orm";
 import { z } from "zod";
 import type { Db } from "@/lib/db";
 import { film, scheduledPost, socialAccount } from "@/lib/db/schema";
+import { collabAllowed, duetForSong, IG_HANDLE } from "@/lib/duets";
 import { getFilm } from "@/lib/films";
 import { InstagramError, type InstagramClient } from "@/lib/instagram";
 import { publicVideoUrl } from "@/lib/public-video";
@@ -21,6 +22,8 @@ export const newPostSchema = z.object({
   madeForKids: z.boolean().optional(),
   // ISO timestamp; omitted means "publish now".
   scheduledAt: z.iso.datetime({ offset: true }).optional(),
+  // Instagram Collab co-author: only a Jugalbandi partner who approved the song (see duets.ts).
+  collaborators: z.array(z.string().trim().regex(IG_HANDLE)).max(1).default([]),
 });
 
 export function postView(p: Post, extra?: { filmTitle?: string | null; accountName?: string; platform?: string }) {
@@ -40,7 +43,8 @@ export function postView(p: Post, extra?: { filmTitle?: string | null; accountNa
   };
 }
 
-export async function createPost(db: Db, userId: string, input: z.infer<typeof newPostSchema>): Promise<Post> {
+export async function createPost(db: Db, userId: string, input: Omit<z.infer<typeof newPostSchema>, "collaborators"> & { collaborators?: string[] }): Promise<Post> {
+  const collaborators = input.collaborators ?? [];
   const f = await getFilm(db, userId, input.filmId);
   if (!f || f.status !== "completed") throw new PostError("Only finished videos can be scheduled");
   const [account] = await db
@@ -49,6 +53,11 @@ export async function createPost(db: Db, userId: string, input: z.infer<typeof n
     .where(and(eq(socialAccount.id, input.socialAccountId), eq(socialAccount.userId, userId)));
   if (!account) throw new PostError("Connect Instagram or YouTube first");
   if (account.platform === "instagram" && input.description.length > 2200) throw new PostError("Instagram captions can be up to 2,200 characters");
+  if (collaborators.length) {
+    if (account.platform !== "instagram") throw new PostError("Collab posts are for Instagram");
+    const d = f.songId ? await duetForSong(db, userId, f.songId) : undefined;
+    if (!d || d.starterId !== userId || !collabAllowed(d, collaborators[0])) throw new PostError("A Collab needs a Jugalbandi you both approved");
+  }
   const scheduledAt = input.scheduledAt ? new Date(input.scheduledAt) : new Date();
   if (scheduledAt.getTime() > Date.now() + 90 * 24 * 3600 * 1000) throw new PostError("Schedule up to 90 days ahead");
   const [row] = await db
@@ -63,6 +72,7 @@ export async function createPost(db: Db, userId: string, input: z.infer<typeof n
       privacy: input.privacy,
       // Kid-safe cartoons default to "made for kids" (YouTube/COPPA); the user can override.
       madeForKids: input.madeForKids ?? f.kidSafe,
+      collaborators,
       scheduledAt,
     })
     .returning();
@@ -134,7 +144,7 @@ export async function publishPost(deps: PublishDeps, postId: string): Promise<"p
       if (!deps.instagram) throw new PostError("Instagram posting isn't set up on this server");
       const token = await instagramTokenFor(db, deps.tokenKey, deps.instagram, row.account);
       const caption = claimed.description || claimed.title;
-      const media = await deps.instagram.publishReel(token, row.account.externalId, publicVideoUrl(deps.baseUrl, deps.tokenKey, row.film.id), caption);
+      const media = await deps.instagram.publishReel(token, row.account.externalId, publicVideoUrl(deps.baseUrl, deps.tokenKey, row.film.id), caption, claimed.collaborators);
       await db
         .update(scheduledPost)
         .set({ status: "published", externalId: media.id, externalUrl: media.url, publishedAt: new Date() })

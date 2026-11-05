@@ -4,7 +4,8 @@ import { useState } from "react";
 import { View } from "react-native";
 
 import { Banner, Button, Card, Empty, Header, ListRow, Row, Screen, Skeleton, Txt } from "@/components/ui";
-import { api, type ReceivedReply, type SentGift } from "@/lib/api";
+import { api, type Duet, type ReceivedReply, type SentGift } from "@/lib/api";
+import { hoursLeft } from "@/lib/duets";
 import { giftMessage, occasionLabel, replyContext, sendOnWhatsApp } from "@/lib/gifts";
 import { useData } from "@/lib/use-data";
 
@@ -31,9 +32,36 @@ function replyTo(token: string, toName: string, occasion: SentGift["occasion"]) 
   router.push("/hum");
 }
 
-// Inbox: "Gifts and duets" for now (gifts sent and songs sent back); comments come later.
+// One line on where a Jugalbandi is, for whoever is looking.
+function duetLine(d: Duet): string {
+  const other = (d.role === "a" ? d.partnerName : d.starterName) || "your friend";
+  const mine = d.role === "a" ? d.partA : d.partB;
+  switch (d.phase) {
+    case "recording_a":
+      return d.role === "a" ? "Record your part" : `${d.starterName} is singing their part`;
+    case "waiting":
+      return !mine ? "Your turn to sing" : `Waiting for ${other} · ${hoursLeft(d.expiresAt)} left`;
+    case "expired":
+      return `${other} didn't answer · choose what's next`;
+    case "declined":
+      return `${other} can't join this time`;
+    case "joining":
+      return "Joining your parts…";
+    case "join_failed":
+      return "That didn't work · try again";
+    case "ready":
+      return d.approvedA && d.approvedB ? "You both approved · post it" : (d.role === "a" ? d.approvedA : d.approvedB) ? `Waiting for ${other} to approve` : "Ready · listen and approve";
+    case "solo":
+      return "Finished solo";
+    default:
+      return "Cancelled";
+  }
+}
+
+// Inbox: "Gifts and duets" for now (gifts, songs sent back and Jugalbandis); comments come later.
 export default function Inbox() {
   const gifts = useData(() => api.gifts());
+  const duets = useData(() => api.duets());
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const sent = gifts.data?.sent ?? [];
@@ -58,6 +86,12 @@ export default function Inbox() {
       {gifts.error ? <Banner kind="error" text={gifts.error} action={<Button label="Retry" small kind="secondary" onPress={gifts.reload} />} /> : null}
       {error ? <Banner kind="error" text={error} /> : null}
       {!gifts.data && !gifts.error ? <Skeleton height={120} /> : null}
+      {(duets.data ?? []).map((d) => (
+        <Card key={d.id} onPress={() => router.push(`/duets/${d.id}`)}>
+          <ListRow icon="mic" title={`Jugalbandi${(d.role === "a" ? d.partnerName : d.starterName) ? ` with ${d.role === "a" ? d.partnerName : d.starterName}` : ""}`} sub={`${d.topic} · ${duetLine(d)}`} />
+        </Card>
+      ))}
+      <Button label="Start a Jugalbandi" icon="mic" kind="secondary" block onPress={() => router.push("/duets/new")} />
       {replies.map((r) => (
         <ReplyCard key={r.id} reply={r} />
       ))}
