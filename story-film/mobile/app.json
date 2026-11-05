@@ -93,6 +93,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "1da35408-b35f-4d76-b697-769534eeaaa5"
+      }
+    },
+    "owner": "rajnish.official"
   }
 }
