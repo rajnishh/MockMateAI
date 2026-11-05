@@ -23,6 +23,8 @@ export interface CoverInput {
   // New lyrics to sing; defaults to the original ones.
   lyrics?: string;
   originalLyrics: string;
+  // ACE-Step's language for the lyrics ("hi"); the self-hosted server uses it, fal's remix doesn't take it.
+  vocalLanguage?: string;
 }
 
 export interface ExtendInput {

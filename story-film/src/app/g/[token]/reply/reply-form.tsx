@@ -95,7 +95,7 @@ export function ReplyForm({ token, to, occasion, free, price, language, myName }
             </div>
           ) : null}
           <button type="submit" className={s.replyBtn} disabled={busy || topic.trim().length < 3 || !fromName.trim()} style={{ border: 0, width: "100%" }}>
-            {busy ? "Making it…" : free ? "Make it · free" : `Make it · ${price} credits`}
+            {busy ? "Making it…" : free ? "Make it · free" : `Make it · ${price} ${price === 1 ? "credit" : "credits"}`}
           </button>
           <p className={s.hint}>{free ? "Your first reply is free. " : ""}About a minute. {to} gets it in Reelkar, and you get a link to send.</p>
         </form>

@@ -2,7 +2,8 @@ import { pathToFileURL } from "node:url";
 import { z } from "zod";
 import { LANGUAGE_CODES } from "@/lib/languages";
 import type { RemixCall } from "@/lib/songs/remix";
-import { type Genre, MOODS, stylePrompt, VOCALS } from "@/lib/songs/styles";
+import { vocalLanguage } from "@/lib/songs/request";
+import { type Genre, MOODS, soloStyle, stylePrompt, VOCALS } from "@/lib/songs/styles";
 
 // A song on the creator's own tune: their hummed or sung recording goes to ACE-Step's audio-to-audio
 // ("remix" mode) with the new style, which keeps the tune and timing and adds the band and a singer.
@@ -12,6 +13,9 @@ export const TUNE_ORIGINAL_STYLE = {
   sing: "a cappella singing, solo human voice, no instruments, home phone recording",
 } as const;
 export const INSTRUMENTAL = "[instrumental]";
+// How much the song may change from the recording: about half keeps the tune and timing but lets
+// ACE-Step sing it cleanly, instead of copying the phone's sound (see AceStepMusic.cover).
+export const TUNE_COVER_STRENGTH = 0.5;
 
 export const tuneSongSchema = z.object({
   // The creator can say it was a hum or a song even if Reelkar guessed the other.
@@ -36,6 +40,7 @@ export function tuneSongCall(input: {
   mood: string;
   vocal: (typeof VOCALS)[number];
   style?: string;
+  language: TuneSongRequest["language"];
   // The lines heard in the take (sing), and the lines to sing in the song.
   heardLyrics: string;
   lyrics: string;
@@ -44,10 +49,13 @@ export function tuneSongCall(input: {
     kind: "cover",
     input: {
       audioUrl: pathToFileURL(input.takeMp3).href,
-      style: stylePrompt(input.genre, input.mood, input.vocal, input.style),
+      // One person hummed or sang it, so "auto" is one singer, not a preset's duet.
+      style: stylePrompt(input.vocal === "auto" && !input.style ? soloStyle(input.genre) : input.genre, input.mood, input.vocal, input.style),
       originalStyle: TUNE_ORIGINAL_STYLE[input.kind],
       lyrics: input.lyrics || INSTRUMENTAL,
       originalLyrics: (input.kind === "sing" && input.heardLyrics) || INSTRUMENTAL,
+      vocalLanguage: vocalLanguage(input.language),
+      strength: TUNE_COVER_STRENGTH,
     },
   };
 }

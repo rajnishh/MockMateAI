@@ -5,6 +5,7 @@ import { getDb } from "@/lib/db";
 import { countPlay, giftState, markOpened, publicGift } from "@/lib/gifts";
 import { getRedis } from "@/lib/queue/films";
 import { allow } from "@/lib/rate-limit";
+import { notify } from "@/lib/push";
 import { getUserId } from "@/lib/session";
 
 const eventSchema = z.object({ type: z.enum(["open", "play"]) });
@@ -28,7 +29,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   if (visitor !== cookie) res.cookies.set("rk_v", visitor, { httpOnly: true, sameSite: "lax", secure: req.url.startsWith("https:"), maxAge: 365 * 86400, path: "/" });
 
   if ((await getUserId().catch(() => undefined)) === found.gift.senderId) return res;
-  if (parsed.data.type === "open") await markOpened(db, found.gift.id);
+  // The sender hears once that it was opened, never who opened it.
+  if (parsed.data.type === "open" && (await markOpened(db, found.gift.id))) {
+    notify(db, [found.gift.senderId], { title: `Your gift for ${found.gift.toName} was opened`, body: found.song.title, path: "/inbox" });
+  }
   else await countPlay(db, found.gift.id, visitor);
   return res;
 }

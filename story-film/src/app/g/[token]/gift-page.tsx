@@ -298,7 +298,7 @@ function Processing({ view, lang }: { view: PublicGiftView; lang: PageLang }) {
 
 const REASONS = ["voice_or_likeness", "copyright", "hateful", "minor_sexual", "other"] as const;
 
-// Also used by the public song page (/s/{publicId}), with its own endpoint and title.
+// The Report sheet on every public page (gifts, Jugalbandi invites and songs); endpoint is where it posts.
 export function Report({ endpoint, lang, title, onClose }: { endpoint: string; lang: PageLang; title?: string; onClose: () => void }) {
   const t = copy(lang);
   const dialog = useRef<HTMLDialogElement>(null);

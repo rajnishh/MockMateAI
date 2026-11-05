@@ -173,8 +173,22 @@
     {
       "idx": 24,
       "version": "7",
-      "when": 1793918786196,
-      "tag": "0024_striped_lady_bullseye",
+      "when": 1793915415525,
+      "tag": "0024_steady_boomer",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1793917919324,
+      "tag": "0025_medical_mercury",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1793921351556,
+      "tag": "0026_swift_magneto",
       "breakpoints": true
     }
   ]

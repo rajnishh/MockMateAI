@@ -7,7 +7,7 @@ import { findLanguage } from "@/lib/languages";
 import { findGenre } from "@/lib/songs/styles";
 import type { Song } from "@/lib/songs/songs";
 
-// Listen (docs/PLAN.md item 42, design/listen/flow-spec.md): published songs, their rails, the
+// Listen (docs/PLAN.md item 44, design/listen/flow-spec.md): published songs, their rails, the
 // related songs Autoplay plays next, and plays, likes and reactions.
 
 // ---------- Handles ----------

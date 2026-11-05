@@ -10,6 +10,7 @@ import { SongCover } from "@/components/song-cover";
 import { Banner, Button, Card, ChipRow, Field, Header, Hero, Screen, Skeleton, Status, Txt, Win } from "@/components/ui";
 import { api, type Gift, type Occasion } from "@/lib/api";
 import { copyLink, giftMessage, guessOccasion, OCCASIONS, occasionLabel, sendOnWhatsApp, shareMore, signName } from "@/lib/gifts";
+import { registerForPush } from "@/lib/push";
 import { useSession } from "@/lib/session";
 import { useData } from "@/lib/use-data";
 import { radius, useTheme } from "@/theme";
@@ -69,6 +70,8 @@ export default function MakeGift() {
       const g = await api.createGift(songId, { toName: toName.trim(), fromName: fromName.trim(), occasion: picked, note: note.trim(), photo: photoId, address: address === "none" ? null : address });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
       setGift(g);
+      // Now it's clear why: so they hear when it's opened or answered.
+      registerForPush(true).catch(() => undefined);
     } catch (err) {
       setError((err as Error).message);
     } finally {

@@ -97,6 +97,8 @@ export interface NewPost {
   tags: string[];
   // Omit to post now.
   scheduledAt?: string;
+  // Instagram Collab co-author: an approved Jugalbandi partner.
+  collaborators?: string[];
 }
 
 // How the creator's own voice is processed: as recorded, cleaned and levelled, or a little deeper.
@@ -343,8 +345,10 @@ export interface SongAnalysis {
 }
 export interface SongStudio {
   songs: Song[];
-  // What one Create costs, and each kind of remix.
+  // What the usual Create (two ACE-Step takes) costs, and each kind of remix.
   credits: number;
+  // Credits per take, by model. Missing on servers from before per-take prices.
+  creditsPerTake?: Record<SongModel, number>;
   remixCredits: Record<RemixKind, number>;
   // Missing on servers from before the Studio.
   remixKinds?: RemixKindInfo[];
@@ -359,7 +363,7 @@ export interface SongOptions {
   genre: string;
   mood: string;
   language: string;
-  durationSec: 30 | 60 | 120;
+  durationSec: 30 | 60 | 120 | 180 | 240;
   kidSafe: boolean;
 }
 // Simple: one sentence, AI writes the rest. Custom: every control. Instrumental: no vocals.
@@ -428,6 +432,65 @@ export interface NewGift {
   photo?: string;
   // How the Arabic gift page speaks to them; null is neutral.
   address?: "her" | "him" | null;
+}
+// Jugalbandi (mirrors duetView in story-film/src/lib/duets.ts).
+export type DuetPhase = "recording_a" | "waiting" | "expired" | "joining" | "join_failed" | "ready" | "declined" | "cancelled" | "solo";
+export type DuetAction = "approve" | "retake" | "ask_retake" | "cancel" | "extend" | "reinvite" | "solo" | "join_again" | "invite_handle" | "set_voice";
+export interface DuetPart {
+  kind: "hum" | "sing" | null;
+  sec: number | null;
+  audioUrl: string;
+}
+export interface Duet {
+  id: string;
+  // "invited": asked by Instagram username, not joined yet.
+  role: "a" | "b" | "invited";
+  token: string;
+  invitedIg: string;
+  // My part's own voice (one of mine), or null for an AI singer.
+  myVoiceId: string | null;
+  voiceCredits: number;
+  partAOwnVoice: boolean;
+  partBOwnVoice: boolean;
+  phase: DuetPhase;
+  url: string;
+  topic: string;
+  genre: string;
+  language: string;
+  starterName: string;
+  partnerName: string;
+  starterIg: string;
+  partnerIg: string;
+  partA: DuetPart | null;
+  partB: DuetPart | null;
+  // The joined song, for the person who started it (Song Studio, music video, posting).
+  songId: string | null;
+  songAudioUrl: string | null;
+  price: number;
+  half: number;
+  paidA: number;
+  paidB: number;
+  freeRetake: boolean;
+  retakeCredits: number;
+  approvedA: boolean;
+  approvedB: boolean;
+  askedToRetake: boolean;
+  expiresAt: string | null;
+  canExtend: boolean;
+  declineNote: string;
+  createdAt: string;
+}
+// The account's own consented voices (recorded in Song Studio on the web).
+export interface MyVoice {
+  id: string;
+  name: string;
+}
+export interface NewDuet {
+  topic: string;
+  genre: string;
+  language: string;
+  name: string;
+  ig: string;
 }
 export interface SongEdit {
   startSec: number;
@@ -604,6 +667,18 @@ const real = {
   createGift: (songId: string, input: NewGift) => call<Gift>(`/api/songs/${songId}/gift`, { method: "POST", body: JSON.stringify(input) }),
   gifts: () => call<{ sent: SentGift[]; replies: ReceivedReply[] }>("/api/gifts"),
   setGiftSharing: (id: string, sharing: boolean) => call<Gift>(`/api/gifts/${id}`, { method: "PATCH", body: JSON.stringify({ sharing }) }),
+  duets: async () => (await call<{ duets: Duet[] }>("/api/duets")).duets,
+  duet: (id: string) => call<Duet>(`/api/duets/${id}`),
+  duetForSong: async (songId: string): Promise<Duet | null> => (await call<{ duets: Duet[] }>(`/api/duets?song=${encodeURIComponent(songId)}`)).duets[0] ?? null,
+  startDuet: (input: NewDuet) => call<Duet>("/api/duets", { method: "POST", body: JSON.stringify(input) }),
+  duetPart: (id: string, takeId: string) => call<Duet>(`/api/duets/${id}/part`, { method: "POST", body: JSON.stringify({ takeId }) }),
+  duetAction: (id: string, action: DuetAction, extra: { handle?: string; voiceId?: string | null } = {}) =>
+    call<Duet>(`/api/duets/${id}/action`, { method: "POST", body: JSON.stringify({ action, ...extra }) }),
+  joinDuet: (token: string, input: { name: string; ig: string; split: boolean }) => call<Duet>(`/api/j/${token}/join`, { method: "POST", body: JSON.stringify(input) }),
+  declineDuet: (token: string, note: string) => call<unknown>(`/api/j/${token}/decline`, { method: "POST", body: JSON.stringify({ note }) }),
+  myVoices: async () => (await call<{ voices: MyVoice[] }>("/api/voices")).voices,
+  savePushToken: (token: string) => call<unknown>("/api/push-tokens", { method: "POST", body: JSON.stringify({ token }) }),
+  duetAudioUrl: (path: string) => `${API_URL}${path}`,
   replyInfo: (token: string) => call<{ toName: string; occasion: Occasion; free: boolean }>(`/api/gifts/reply?to=${encodeURIComponent(token)}`),
   // "✨ Write a rap verse": rap bars for the song's [Rap] block.
   songRapVerse: async (input: SongOptions & { lyrics: string; bars?: 8 | 12 | 16 }) =>
@@ -660,6 +735,13 @@ const demoFilms: Film[] = [
   { ...sample("d4", "Baarish dance: chham chham chham", "completed", 4), format: "dance" },
 ];
 let demoBalance = 20;
+const demoDuetBase: Duet = {
+  id: "d1", role: "a", token: "demoDuet01", invitedIg: "", myVoiceId: null, voiceCredits: 4, partAOwnVoice: false, partBOwnVoice: false, phase: "waiting", url: "https://reelkar.app/j/demoDuet01", topic: "Chai vs coffee, settled in song", genre: "bollywood-romantic", language: "hinglish",
+  starterName: "Arjun", partnerName: "", starterIg: "arjun.sings", partnerIg: "", partA: { kind: "hum", sec: 28, audioUrl: "/demo" }, partB: null, songId: null, songAudioUrl: null,
+  price: 3, half: 1, paidA: 3, paidB: 0, freeRetake: true, retakeCredits: 1, approvedA: false, approvedB: false, askedToRetake: false,
+  expiresAt: new Date(Date.now() + 47 * 3600_000).toISOString(), canExtend: false, declineNote: "", createdAt: new Date().toISOString(),
+};
+const demoDuets: Duet[] = [{ ...demoDuetBase }];
 const demoGifts: SentGift[] = [
   { id: "g1", url: "https://reelkar.app/g/demoGift1x", token: "demoGift1x", toName: "Priya", occasion: "birthday", note: "Play it loud!", songId: "s1", songTitle: "Baarish wali chai", songReady: true, isReply: false, opened: true, playCount: 2, lastPlayedAt: new Date(Date.now() - 3 * 3600_000).toISOString(), sharing: true, takenDown: false, createdAt: new Date(Date.now() - 86400_000).toISOString(), replies: 1 },
 ];
@@ -1094,7 +1176,7 @@ const demo: typeof real = {
   shareLink: async () => {
     throw new ApiError("Saving and sharing need the Reelkar server, not the demo", 503);
   },
-  songs: async () => (await wait(300), { songs: [...demoSongs], credits: 4, remixCredits: { cover: 2, extend: 2, replace: 1, rap: 1 }, available: true }),
+  songs: async () => (await wait(300), { songs: [...demoSongs], credits: 2, creditsPerTake: { "ace-step": 1, lyria: 2 }, remixCredits: { cover: 1, extend: 1, replace: 1, rap: 1 }, available: true }),
   song: async (id) => {
     await wait(200);
     const s = demoSongs.find((x) => x.id === id);
@@ -1137,6 +1219,45 @@ const demo: typeof real = {
     return g;
   },
   gifts: async () => (await wait(300), { sent: [...demoGifts], replies: [...demoReplies] }),
+  duets: async () => (await wait(300), [...demoDuets]),
+  duet: async (id) => {
+    await wait(200);
+    const d = demoDuets.find((x) => x.id === id);
+    if (!d) throw new ApiError("Jugalbandi not found", 404);
+    return d;
+  },
+  duetForSong: async () => null,
+  startDuet: async (input) => {
+    await wait(400);
+    if (demoBalance < 6) throw new ApiError("A Jugalbandi costs 6 credits.", 402, true);
+    demoBalance -= 6;
+    const d: Duet = { ...demoDuetBase, id: `d${Date.now()}`, topic: input.topic, genre: input.genre, language: input.language, starterName: input.name, starterIg: input.ig, phase: "recording_a", partA: null, createdAt: new Date().toISOString() };
+    demoDuets.unshift(d);
+    return d;
+  },
+  duetPart: async (id) => {
+    await wait(600);
+    const d = demoDuets.find((x) => x.id === id)!;
+    if (d.role === "a") Object.assign(d, { partA: { kind: "hum", sec: 24, audioUrl: "/demo" }, phase: d.partB ? "joining" : "waiting", expiresAt: new Date(Date.now() + 48 * 3600_000).toISOString() });
+    else Object.assign(d, { partB: { kind: "sing", sec: 22, audioUrl: "/demo" }, phase: "joining" });
+    return d;
+  },
+  duetAction: async (id, action) => {
+    await wait(300);
+    const d = demoDuets.find((x) => x.id === id)!;
+    if (action === "approve") Object.assign(d, d.role === "a" ? { approvedA: true } : { approvedB: true });
+    if (action === "cancel") d.phase = "cancelled";
+    return d;
+  },
+  duetAudioUrl: (path) => path,
+  joinDuet: async (token) => {
+    await wait(300);
+    const d = demoDuets.find((x) => x.token === token) ?? demoDuets[0];
+    return Object.assign(d, { role: "b" as const });
+  },
+  declineDuet: async () => (await wait(200), {}),
+  myVoices: async () => (await wait(200), [{ id: "00000000-0000-4000-8000-000000000001", name: "My voice" }]),
+  savePushToken: async () => ({}),
   replyInfo: async () => (await wait(200), { toName: "Priya", occasion: "birthday" as const, free: true }),
   setGiftSharing: async (id, sharing) => {
     await wait(200);

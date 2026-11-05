@@ -588,3 +588,18 @@ Not built yet:
 - A screen for reviewing reports: reports are stored in `gift_report` and need a person to read them.
 
 Changed from the spec: each gift stores the name it's signed with (`fromName`, "Bhaiya"), because phone sign-ups are named "Creator 1234"; and the token is kept on the gift row (no separate `share_link` table until duets need one).
+
+## Build status (v1, Jugalbandi)
+
+Built:
+- iPhone: Start (topic, style, language, name, Instagram username, price), recording each part with Hum it, the duet screen for both people (invite on WhatsApp, waiting with hours left, no answer or declined with invite someone else / finish solo / 24 more hours / cancel, joining, the joined preview with retakes and approvals, then the music video and the Collab post), and Jugalbandis in Inbox.
+- Web invite `/j/{token}` (W3 + W4): hear A's part, sign in, join (name, Instagram, offer half), sing on the page with the browser's mic (A's part can play along), then hear the joined song, approve or sing again. No app needed for B.
+- Joining: both parts back to back become one tune, sung as a duet by the "song on your tune" engine (a sung part keeps its words; AI writes a hummed part's).
+- Credits: A pays 6 at the start; B's half is taken when B joins and given back to A when the song is joined, so B leaving early never costs A. Cancel gives everything back; finishing solo keeps 2. One free retake each, then 1 credit.
+- Instagram Collab: posts take a `collaborators` field, allowed only for the partner of a duet both approved; the caption credits the partner too.
+
+Also built:
+- Push notifications (Expo): a gift opened or answered; a partner joined, declined, sang, approved or asked for a retake; the joined song ready; and the 24-hour reminder (the worker checks every 15 minutes). Permission is asked right after sending a gift or starting or joining a duet. Needs the EAS project id in `app.json` (`npx eas init`, once) and a new build of the app, since it adds a native module.
+- Invite by @handle: the Instagram username a Reelkar user connected. They get it in Inbox and a push, and join in the app; the link keeps working for anyone else.
+- In the app, the partner's part plays while you record your answer (best with earphones).
+- Own voice per part: each singer can pick one of their own consented voices (4 credits, back if switched off or cancelled). After the duet is made, it's cut where the first part ends and each side is re-sung in its singer's voice; nobody can pick the other's voice.

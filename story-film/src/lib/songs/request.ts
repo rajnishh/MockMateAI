@@ -20,7 +20,7 @@ export const songOptionsSchema = z.object({
   genre: z.string(),
   mood: z.enum(MOODS).or(z.literal("")).default(""),
   language: z.enum([...LANGUAGE_CODES, "hinglish", "pa"]).default("hi"),
-  durationSec: z.union([z.literal(30), z.literal(60), z.literal(120)]).default(60),
+  durationSec: z.union([z.literal(30), z.literal(60), z.literal(120), z.literal(180), z.literal(240)]).default(60),
   kidSafe: z.boolean().default(false),
 });
 

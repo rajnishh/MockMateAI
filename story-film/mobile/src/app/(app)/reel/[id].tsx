@@ -8,7 +8,7 @@ import { confirmDelete } from "@/components/reel-grid";
 import { ReelThumb } from "@/components/reel-thumb";
 import { ReelVideo } from "@/components/reel-video";
 import { Banner, Button, Card, Chip, ChipRow, Header, Row, Screen, Skeleton, Txt } from "@/components/ui";
-import { api, type Account, type Film, type Platform, type PostCopy } from "@/lib/api";
+import { api, type Account, type Duet, type Film, type Platform, type PostCopy } from "@/lib/api";
 import { PLATFORM_LABEL } from "@/lib/connect";
 import { formatLabel } from "@/lib/formats";
 import { saveReelToPhotos, shareReel } from "@/lib/reel-file";
@@ -51,10 +51,17 @@ export default function Reel() {
   const [options] = useState(() => whenOptions(new Date()));
   const [when, setWhen] = useState<When>("now");
   const [posting, setPosting] = useState(false);
+  // A Jugalbandi's music video posts as an Instagram Collab with the partner, once both approved.
+  const [duet, setDuet] = useState<Duet | null>(null);
+  const [collab, setCollab] = useState(true);
+  const collabWith = duet && duet.role === "a" && duet.approvedA && duet.approvedB ? duet.partnerIg : "";
 
   useEffect(() => {
     api.film(id).then(setFilm, (e) => setError(e.message));
   }, [id]);
+  useEffect(() => {
+    if (film?.songId) api.duetForSong(film.songId).then(setDuet, () => undefined);
+  }, [film?.songId]);
 
   async function save() {
     setSaving(true);
@@ -117,11 +124,15 @@ export default function Reel() {
       const at = options.find((o) => o.value === when)?.at;
       for (const account of connected.filter((a) => selected.includes(a.id))) {
         const c = await captionFor(account.platform);
+        const withPartner = account.platform === "instagram" && collab && collabWith;
+        // Credit the partner in the caption too (YouTube has no Collab, and it helps if Instagram's invite is missed).
+        const credit = duet && duet.partnerName ? `with ${duet.partnerIg ? `@${duet.partnerIg}` : duet.partnerName} · Jugalbandi made on Reelkar` : "";
         await api.createPost({
+          ...(withPartner ? { collaborators: [collabWith] } : {}),
           filmId: id,
           socialAccountId: account.id,
           title: c.title || film?.title || "My reel",
-          description: [c.caption, c.hashtags.join(" ")].filter(Boolean).join("\n\n"),
+          description: [c.caption, credit, c.hashtags.join(" ")].filter(Boolean).join("\n\n"),
           tags: c.hashtags.map((h) => h.replace(/^#/, "")).slice(0, 15),
           scheduledAt: at?.toISOString(),
         });
@@ -178,6 +189,8 @@ export default function Reel() {
                 />
               ))}
             </Row>
+            {collabWith ? <Chip label={`Instagram Collab with @${collabWith}`} selected={collab} onPress={() => setCollab(!collab)} /> : null}
+            {collabWith && collab ? <Txt variant="cap">@{collabWith} gets an invite in Instagram; once they accept, it shows on both profiles.</Txt> : null}
             <Txt variant="cap">When</Txt>
             <ChipRow options={options.map((o) => ({ value: o.value, label: o.label }))} value={when} onChange={setWhen} />
             <Button

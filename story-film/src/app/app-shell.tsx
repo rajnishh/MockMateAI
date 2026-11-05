@@ -81,8 +81,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [billing, setBilling] = useState<Billing | null>(null);
   const [menu, setMenu] = useState(false);
   const acct = useRef<HTMLDivElement>(null);
-  // Public gift and song pages open with no sign-in and no app chrome.
-  const bare = path === "/login" || path.startsWith("/oauth/") || path.startsWith("/g/") || path.startsWith("/s/");
+  // Public gift, song and Jugalbandi invite pages open with no sign-in and no app chrome.
+  const bare = path === "/login" || path.startsWith("/oauth/") || path.startsWith("/g/") || path.startsWith("/j/") || path.startsWith("/s/");
 
   useEffect(() => {
     if (bare) return;

@@ -2,13 +2,14 @@ import { randomUUID } from "node:crypto";
 import { llmForUser } from "@/lib/ai/engines";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { REMIX_CREDITS, SONG_CREDITS, STEMS_CREDITS } from "@/lib/billing/catalog";
+import { REMIX_CREDITS, SONG_CREDITS, SONG_CREDITS_PER_TAKE, STEMS_CREDITS, songCredits } from "@/lib/billing/catalog";
 import { grantCredits, spendCredits } from "@/lib/billing/credits";
 import { getDb } from "@/lib/db";
 import { createReplyGift, giftUrl, replyTarget, replyToSchema } from "@/lib/gifts";
 import { loadEnv } from "@/lib/env";
 import { proRemixAvailable, songsAvailable } from "@/lib/providers";
 import { getSongQueue } from "@/lib/queue/songs";
+import { notify } from "@/lib/push";
 import { getUserId, unauthorized } from "@/lib/session";
 import { prepareSong } from "@/lib/songs/create";
 import { SOUND_PRESETS } from "@/lib/songs/mix";
@@ -25,6 +26,7 @@ export async function GET() {
   return NextResponse.json({
     songs: (await listSongs(getDb(), userId)).map(songView),
     credits: SONG_CREDITS,
+    creditsPerTake: SONG_CREDITS_PER_TAKE,
     remixCredits: REMIX_CREDITS,
     // Remix kinds this server can run, with the fields each takes; the pro ones need Runware.
     remixKinds: remixKindList(proRemixAvailable(env)),
@@ -66,15 +68,15 @@ export async function POST(req: Request) {
   const { lyrics, style, controls } = prepared;
 
   const db = getDb();
-  const cost = reply?.free ? 0 : SONG_CREDITS;
+  const { model } = parsed.data;
   const takes = reply ? 1 : parsed.data.takes;
+  const cost = reply?.free ? 0 : songCredits(model, takes);
   const ids = Array.from({ length: takes }, () => randomUUID());
   // One charge for all takes; each take carries its share, so a failed take refunds only that share.
   const shares = takeCredits(cost, takes);
   if (cost > 0 && !(await spendCredits(db, userId, cost, `song:${ids[0]}`, "song"))) {
-    return NextResponse.json({ error: `A song costs ${SONG_CREDITS} credits.`, needCredits: true }, { status: 402 });
+    return NextResponse.json({ error: `This song costs ${cost} credits.`, needCredits: true }, { status: 402 });
   }
-  const { model } = parsed.data;
   const durationSec = songLength(model, parsed.data.durationSec);
   try {
     for (const [i, songId] of ids.entries()) {
@@ -97,6 +99,7 @@ export async function POST(req: Request) {
       );
     }
     const replyGift = reply ? await createReplyGift(db, { userId, songId: ids[0], original: reply.original, senderName: reply.senderName, free: reply.free, fromName }) : undefined;
+    if (replyGift && reply) notify(db, [reply.original.senderId], { title: `${replyGift.fromName || "Someone"} is making you a song back`, body: "Your gift got a reply. It plays in about a minute.", path: "/inbox" });
     const gift = replyGift ? { token: replyGift.token, url: giftUrl(env.BETTER_AUTH_URL, replyGift.token), free: replyGift.freeReply } : undefined;
     return NextResponse.json({ id: ids[0], ids, title: prepared.title, gift }, { status: 202 });
   } catch (err) {

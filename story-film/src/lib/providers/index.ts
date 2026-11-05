@@ -10,11 +10,11 @@ import { FalAceStep, FalLyria } from "./fal-music";
 import { FalSongEditor } from "./fal-song-edit";
 import { RunwareSongEditor } from "./runware-song-edit";
 import { FalChatterboxVc, FalDemucs, SeedVcServer } from "./voice";
-import { CloudflareTranscriber, CloudflareWhisper } from "./whisper";
+import { CloudflareTranscriber, CloudflareWhisper, GeminiTranscriber, LocalWhisper, type Transcriber } from "./whisper";
 import { KenBurnsVideo } from "./kenburns";
 import { KokoroTts } from "./kokoro";
 import { FalChatterboxTts, RoutedTts, SarvamTts } from "./tts";
-import { ChainLlm, type Link, RedisRestStore, type RestStore } from "@/lib/ai/chain";
+import { ChainLlm, ChainTranscriber, type Link, RedisRestStore, type RestStore } from "@/lib/ai/chain";
 import { getRedis } from "@/lib/queue/films";
 import { OpenAiCompatibleLlm } from "./llm";
 import type { LlmProvider } from "./types";
@@ -127,11 +127,26 @@ export function editsAvailable(env: Env): boolean {
   return Boolean(env.CLOUDFLARE_ACCOUNT_ID && env.CLOUDFLARE_API_TOKEN);
 }
 
-export function buildTranscriber(env: Env): CloudflareTranscriber {
-  return new CloudflareTranscriber(
-    requireKey(env.CLOUDFLARE_ACCOUNT_ID, "CLOUDFLARE_ACCOUNT_ID"),
-    requireKey(env.CLOUDFLARE_API_TOKEN, "CLOUDFLARE_API_TOKEN"),
-  );
+// Listening, with auto-switch: Workers AI, then whisper.cpp on this computer, then Gemini. Gemini gives no
+// word timings, so it's left out when they're needed (captions in "Edit my video").
+export function listenAvailable(env: Env): boolean {
+  return transcriberLinks(env, false).length > 0;
+}
+
+export function buildTranscriber(env: Env, opts: { needTimings?: boolean } = {}, rests: RestStore = aiRests): ChainTranscriber {
+  const links = transcriberLinks(env, opts.needTimings ?? false);
+  if (!links.length) requireKey(undefined, "CLOUDFLARE_ACCOUNT_ID");
+  return new ChainTranscriber(links, rests);
+}
+
+function transcriberLinks(env: Env, needTimings: boolean): Link<Transcriber>[] {
+  const links: Link<Transcriber>[] = [];
+  if (env.CLOUDFLARE_ACCOUNT_ID && env.CLOUDFLARE_API_TOKEN) {
+    links.push({ id: "listen:cloudflare", name: "Listening (Workers AI)", engine: new CloudflareTranscriber(env.CLOUDFLARE_ACCOUNT_ID, env.CLOUDFLARE_API_TOKEN) });
+  }
+  if (env.WHISPER_CPP_MODEL) links.push({ id: "listen:local", name: "Listening (this computer)", engine: new LocalWhisper(env.WHISPER_CPP_MODEL, env.WHISPER_CPP_BIN) });
+  if (env.GEMINI_API_KEY && !needTimings) links.push({ id: "listen:gemini", name: "Listening (Gemini)", engine: new GeminiTranscriber(env.GEMINI_API_KEY, env.GEMINI_LLM_MODEL) });
+  return links;
 }
 
 // Seed-VC keeps the melody better; Chatterbox works with just a fal key.

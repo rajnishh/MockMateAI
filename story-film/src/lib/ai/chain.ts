@@ -1,6 +1,7 @@
 import type { Redis } from "ioredis";
 import type { ToolPlanner, ToolPlannerInput } from "@/lib/agent/claude";
 import type { FilmScript, LlmProvider, ScriptRequest } from "@/lib/providers/types";
+import type { Transcriber, Transcript } from "@/lib/providers/whisper";
 
 // Auto-switch: every AI task tries a list of engines in order (the creator's own, then Reelkar's
 // lane). An engine that runs out of free use, or whose key stops working, rests until it should
@@ -152,5 +153,21 @@ export class ChainPlanner implements ToolPlanner {
       return input.act(name, args);
     };
     return tryInOrder(this.links, this.rests, (planner) => planner.respond({ ...input, act }), () => !acted);
+  }
+}
+
+// Listening (speech and singing to text): Workers AI, then whisper.cpp on this computer, then Gemini.
+export class ChainTranscriber implements Transcriber {
+  readonly modelId: string;
+
+  constructor(
+    readonly links: Link<Transcriber>[],
+    private readonly rests: RestStore,
+  ) {
+    this.modelId = links[0]?.engine.modelId ?? "none";
+  }
+
+  transcribe(audio: Buffer, language?: string): Promise<Transcript> {
+    return tryInOrder(this.links, this.rests, (t) => t.transcribe(audio, language));
   }
 }

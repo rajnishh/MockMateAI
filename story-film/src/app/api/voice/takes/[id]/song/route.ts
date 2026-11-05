@@ -9,6 +9,7 @@ import { createReplyGift, giftUrl, replyTarget, replyToSchema } from "@/lib/gift
 import { loadEnv } from "@/lib/env";
 import { songsAvailable } from "@/lib/providers";
 import { getSongQueue } from "@/lib/queue/songs";
+import { notify } from "@/lib/push";
 import { getUserId, unauthorized } from "@/lib/session";
 import { cleanLyrics, writeLyrics } from "@/lib/songs/lyrics";
 import { assertNoRealArtists, SongSafetyError } from "@/lib/songs/safety";
@@ -56,6 +57,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     mood: r.mood,
     vocal: r.vocal,
     style: r.style,
+    language: r.language,
     heardLyrics: take.meta.transcript,
     lyrics,
   });
@@ -80,6 +82,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     // The same job as a cover remix; the worker needs nothing new.
     await getSongQueue().add("remix", { songId, userId, title: r.title, call, credits: cost }, { jobId: songId });
     const replyGift = reply ? await createReplyGift(db, { userId, songId, original: reply.original, senderName: reply.senderName, free: reply.free, fromName }) : undefined;
+    if (replyGift && reply) notify(db, [reply.original.senderId], { title: `${replyGift.fromName || "Someone"} is making you a song back`, body: "Your gift got a reply. It plays in about a minute.", path: "/inbox" });
     const gift = replyGift ? { token: replyGift.token, url: giftUrl(env.BETTER_AUTH_URL, replyGift.token), free: replyGift.freeReply } : undefined;
     return NextResponse.json({ id: songId, credits: cost, gift }, { status: 202 });
   } catch (err) {

@@ -1,10 +1,17 @@
 import { Stack } from "expo-router";
+import { useEffect } from "react";
 
 import { SongPlayerProvider } from "@/components/song-player";
+import { listenForTaps, registerForPush } from "@/lib/push";
 import { useTheme } from "@/theme";
 
 export default function AppLayout() {
   const { colors } = useTheme();
+  // Notifications about gifts and Jugalbandis: keep the token fresh if allowed, and open what's tapped.
+  useEffect(() => {
+    registerForPush(false).catch(() => undefined);
+    return listenForTaps();
+  }, []);
   return (
     // One song player for the whole app, so a song keeps playing from screen to screen.
     <SongPlayerProvider>

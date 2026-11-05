@@ -172,7 +172,7 @@ describe("remix kinds", () => {
   it("lists every kind with its price and inputs", () => {
     const kinds = remixKindList();
     expect(kinds.map((k) => k.kind)).toEqual(expect.arrayContaining(["cover", "extend", "replace", "rap"]));
-    expect(kinds.find((k) => k.kind === "cover")).toMatchObject({ style: "required", part: false, credits: 2 });
+    expect(kinds.find((k) => k.kind === "cover")).toMatchObject({ style: "required", part: false, credits: 1 });
     expect(kinds.find((k) => k.kind === "rap")).toMatchObject({ label: "Add a rap", part: true, bars: true, credits: 1 });
   });
 });
