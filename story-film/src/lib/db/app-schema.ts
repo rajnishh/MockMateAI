@@ -237,6 +237,8 @@ export const song = pgTable(
     credits: integer("credits").notNull().default(0),
     status: filmStatus("status").default("queued").notNull(),
     outputPath: text("output_path"),
+    // AI cover art, a square JPEG made after the song; null until then, or if the picture failed.
+    coverPath: text("cover_path"),
     contentCredentials: boolean("content_credentials").notNull().default(false),
     error: text("error"),
     createdAt: timestamp("created_at").defaultNow().notNull(),

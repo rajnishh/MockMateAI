@@ -8,11 +8,11 @@ import { loadEnv } from "@/lib/env";
 import { buildLlm, songsAvailable } from "@/lib/providers";
 import { getSongQueue } from "@/lib/queue/songs";
 import { getUserId, unauthorized } from "@/lib/session";
-import { cleanLyrics } from "@/lib/songs/lyrics";
+import { prepareSong } from "@/lib/songs/create";
 import { newSongSchema, songLength, vocalLanguage } from "@/lib/songs/request";
 import { assertNoRealArtists, SongSafetyError } from "@/lib/songs/safety";
 import { createSong, listSongs, songView, takeCredits } from "@/lib/songs/songs";
-import { findGenre, stylePrompt } from "@/lib/songs/styles";
+import { findGenre } from "@/lib/songs/styles";
 
 export async function GET() {
   const userId = await getUserId();
@@ -29,14 +29,19 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: z.prettifyError(parsed.error) }, { status: 400 });
   const genre = findGenre(parsed.data.genre);
   if (!genre) return NextResponse.json({ error: "Unknown genre" }, { status: 400 });
-  const lyrics = cleanLyrics(parsed.data.lyrics);
 
-  // User-edited lyrics and titles are checked again before anything is generated.
+  // Simple mode writes the title, lyrics and style with AI first. User-edited lyrics and titles,
+  // and AI-written ones, are checked before anything is generated.
+  const llm = buildLlm(env);
+  let prepared: Awaited<ReturnType<typeof prepareSong>>;
   try {
-    await assertNoRealArtists(buildLlm(env), [parsed.data.topic, parsed.data.title, lyrics, parsed.data.style ?? ""]);
+    await assertNoRealArtists(llm, [parsed.data.topic, parsed.data.title, parsed.data.lyrics, parsed.data.style ?? ""]);
+    prepared = await prepareSong(llm, parsed.data, genre);
+    if (parsed.data.mode === "simple") await assertNoRealArtists(llm, [prepared.title, prepared.lyrics, prepared.style]);
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: err instanceof SongSafetyError ? 400 : 502 });
   }
+  const { lyrics, style, controls } = prepared;
 
   const db = getDb();
   const { takes } = parsed.data;
@@ -46,12 +51,11 @@ export async function POST(req: Request) {
   if (!(await spendCredits(db, userId, SONG_CREDITS, `song:${ids[0]}`, "song"))) {
     return NextResponse.json({ error: `A song costs ${SONG_CREDITS} credits.`, needCredits: true }, { status: 402 });
   }
-  const style = stylePrompt(genre, parsed.data.mood, parsed.data.vocal, parsed.data.style);
   const { model } = parsed.data;
   const durationSec = songLength(model, parsed.data.durationSec);
   try {
     for (const [i, songId] of ids.entries()) {
-      const title = takes > 1 ? `${parsed.data.title} (v${i + 1})`.slice(0, 80) : parsed.data.title;
+      const title = takes > 1 ? `${prepared.title} (v${i + 1})`.slice(0, 80) : prepared.title.slice(0, 80);
       await createSong(db, {
         id: songId,
         userId,
@@ -65,11 +69,11 @@ export async function POST(req: Request) {
       });
       await getSongQueue().add(
         "song",
-        { songId, userId, title, style, lyrics, durationSec, vocalLanguage: vocalLanguage(parsed.data.language), credits: shares[i], model },
+        { songId, userId, title, style, lyrics, durationSec, vocalLanguage: vocalLanguage(parsed.data.language), credits: shares[i], model, controls },
         { jobId: songId },
       );
     }
-    return NextResponse.json({ id: ids[0], ids }, { status: 202 });
+    return NextResponse.json({ id: ids[0], ids, title: prepared.title }, { status: 202 });
   } catch (err) {
     // The charge was made under the first take's id; a refund under that id happens at most once.
     await grantCredits(db, userId, SONG_CREDITS, "refund", `song:${ids[0]}`);

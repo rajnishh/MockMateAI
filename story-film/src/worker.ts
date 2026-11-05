@@ -11,11 +11,12 @@ import { pendingPosts, publishPost } from "@/lib/posts";
 import { provenanceFromEnv, trySign } from "@/lib/provenance";
 import { grantCredits } from "@/lib/billing/credits";
 import { creatorMessage } from "@/lib/creator-errors";
-import { buildDanceSinger, buildPipelineDeps, buildShortSongProvider, buildSinger, buildSingDeps, buildSongEditor, buildSongProvider, buildTranscriber, type Quality, songsAvailable } from "@/lib/providers";
+import { buildDanceSinger, buildImage, buildPipelineDeps, buildShortSongProvider, buildSinger, buildSingDeps, buildSongEditor, buildSongProvider, buildTranscriber, type Quality, songsAvailable } from "@/lib/providers";
 import { type MyVoiceJob, type RemixJob, SONG_QUEUE, type SongJob, type SongQueueJob } from "@/lib/queue/songs";
 import { singInMyVoice } from "@/lib/voice/sing";
+import { makeCover } from "@/lib/songs/cover";
 import { runRemix } from "@/lib/songs/remix";
-import { updateSong } from "@/lib/songs/songs";
+import { getSongById, updateSong } from "@/lib/songs/songs";
 import { type EditJob, type EditRenderJob, FILM_QUEUE, type FilmJob, type FilmQueueJob, getRedis, type MusicVideoJob } from "@/lib/queue/films";
 import { onReelFinished } from "@/lib/agent/agent";
 import { agentDeps } from "@/lib/agent/deps";
@@ -147,6 +148,8 @@ if (songsAvailable(env)) {
   const singDeps = buildSingDeps(env);
   const songEditor = buildSongEditor(env);
   const shortSinger = buildShortSongProvider(env);
+  // Cover art uses the free Cloudflare images; without them songs simply have no cover.
+  const coverImage = env.CLOUDFLARE_ACCOUNT_ID && env.CLOUDFLARE_API_TOKEN ? buildImage(env) : null;
   const songWorker = new Worker<SongQueueJob>(
     SONG_QUEUE,
     async (job) => {
@@ -181,6 +184,15 @@ if (songsAvailable(env)) {
               : "AI-generated song: lyrics, music and vocals made with generative AI models",
       });
       await updateSong(db, songId, { status: "completed", outputPath, contentCredentials, completedAt: new Date() });
+      // Cover art comes after the song is playable, and a failed picture never fails the song.
+      const made = coverImage ? await getSongById(db, songId) : undefined;
+      const coverPath = made
+        ? await makeCover({ image: coverImage!, ffmpeg: defaultFfmpeg }, made, path.join(dir, `${songId}-cover.jpg`)).catch((err) => {
+            console.error(`song ${songId} cover failed:`, (err as Error).message);
+            return null;
+          })
+        : null;
+      if (coverPath) await updateSong(db, songId, { coverPath });
     },
     { connection: getRedis(), concurrency: 2 },
   );

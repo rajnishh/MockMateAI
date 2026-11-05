@@ -1,4 +1,5 @@
 import { Queue } from "bullmq";
+import type { AceControls } from "@/lib/songs/controls";
 import type { RemixCall } from "@/lib/songs/remix";
 import type { SongModel } from "@/lib/songs/request";
 import { getRedis } from "./films";
@@ -16,6 +17,8 @@ export interface SongJob {
   credits: number;
   // Missing on jobs queued before short songs existed: ACE-Step.
   model?: SongModel;
+  // Experiment, Follow my style, BPM and key from Song Studio's Create. Missing on older jobs.
+  controls?: AceControls;
 }
 
 // Job name "my-voice": re-sing an existing song in the user's recorded voice.

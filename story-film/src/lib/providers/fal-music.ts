@@ -1,5 +1,6 @@
 import { findLanguage } from "@/lib/languages";
 import { readMedia } from "@/lib/media";
+import { type AceControls, aceInputs, controlWords } from "@/lib/songs/controls";
 import type { FalQueueClient } from "./fal";
 import type { MusicProvider } from "./types";
 
@@ -12,6 +13,8 @@ export interface SongInput {
   durationSec: number;
   // ISO code ("hi", "en") or "unknown" for auto-detect.
   vocalLanguage: string;
+  // Song Studio's dials: Experiment, Follow my style, BPM and key. Missing on older jobs.
+  controls?: AceControls;
 }
 
 export interface SongAudio {
@@ -60,6 +63,7 @@ export class FalAceStep implements MusicProvider {
       lyrics: input.lyrics,
       duration: input.durationSec,
       vocal_language: input.vocalLanguage,
+      ...aceInputs(input.controls),
     });
     return this.fetchAudio(out);
   }
@@ -85,9 +89,12 @@ export const FAL_LYRIA = "fal-ai/lyria3";
 export const LYRIA_SEC = 30;
 
 export function lyriaPrompt(input: SongInput): string {
+  const dials = controlWords(input.controls);
+  const style = dials ? `${input.style}, ${dials}` : input.style;
+  if (input.lyrics.trim() === "[Instrumental]") return `${style}. Instrumental only, no vocals.`.slice(0, 5000);
   const language = findLanguage(input.vocalLanguage)?.name;
   const sung = language ? `A song sung in ${language}` : "A song";
-  return `${input.style}. ${sung}, with exactly these lyrics in this order (section tags in brackets are not sung):\n${input.lyrics}`.slice(0, 5000);
+  return `${style}. ${sung}, with exactly these lyrics in this order (section tags in brackets are not sung):\n${input.lyrics}`.slice(0, 5000);
 }
 
 export class FalLyria {

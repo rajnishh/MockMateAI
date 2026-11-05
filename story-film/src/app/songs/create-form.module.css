@@ -1,0 +1,64 @@
+/* Song Studio's Create, in Masala Pop: a mode switch, colour-coded structure blocks and two dials. */
+.form { display: grid; gap: 4px; }
+.form > label, .group > label { margin-top: 18px; }
+
+.modes { display: flex; gap: 4px; padding: 4px; background: var(--surface-sunken); border-radius: 999px; }
+.modes button { flex: 1; min-height: 46px; padding: 0 12px; border: 0; border-radius: 999px; background: transparent; color: var(--ink-muted); font-weight: 700; font-size: 15px; box-shadow: none; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15; }
+.modes button small { font-weight: 500; font-size: 12px; }
+.modes button[aria-pressed="true"] { background: var(--pop); color: var(--on-pop); box-shadow: var(--shadow); }
+.modes button[aria-pressed="true"] small { color: var(--on-brand-muted); }
+
+.oneLine { font-size: 18px; line-height: 1.45; min-height: 96px; }
+.help { margin: 4px 0 0; }
+
+.blocksHead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 18px; }
+.blocksHead label { margin: 0; }
+.blocks { display: flex; flex-wrap: wrap; gap: 6px; min-height: 52px; padding: 8px; border-radius: 16px; background: var(--surface-sunken); margin-top: 8px; }
+.blocks:empty::before { content: "Tap a block below to start your song's shape"; color: var(--ink-muted); font-size: 14px; align-self: center; padding-left: 6px; }
+.block { position: relative; width: auto; min-height: 40px; padding: 0 14px; border: 2px solid transparent; border-radius: 10px; color: #2a1235; font-weight: 800; font-size: 14px; box-shadow: none; cursor: grab; display: inline-flex; gap: 6px; align-items: center; }
+.block:active { cursor: grabbing; }
+.block[aria-pressed="true"] { border-color: var(--ink); box-shadow: 0 0 0 2px var(--surface-sunken), 0 0 0 4px var(--ink); }
+.block.empty { opacity: .72; border-style: dashed; border-color: rgba(42, 18, 53, .45); }
+.block .who { font-weight: 600; font-size: 12px; padding: 1px 6px; border-radius: 6px; background: rgba(255, 255, 255, .55); }
+.dragOver { outline: 3px dashed var(--teal-text); outline-offset: 2px; }
+
+.k-Intro, .k-Outro { background: #c2a9b8; }
+.k-Verse { background: #ffb21a; }
+.k-Pre-Chorus { background: #ffd27a; }
+.k-Chorus { background: #ff7a1a; }
+.k-Rap { background: #14d9a0; }
+.k-Drop { background: #ff4d2e; }
+.k-Bridge { background: #ffa37a; }
+
+.tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+.tools button { width: auto; min-height: 36px; padding: 0 12px; font-size: 14px; }
+.palette { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.palette button { width: auto; min-height: 36px; padding: 0 12px; font-size: 13.5px; font-weight: 700; border: 1.5px dashed var(--line-strong); background: var(--surface-raised); color: var(--ink); box-shadow: none; }
+.palette button::before { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; background: var(--dot); }
+
+.lyrics { min-height: 280px; font-family: var(--font-mono); font-size: 14.5px; line-height: 1.6; }
+.aiRow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.aiRow > button { width: auto; }
+.rap { background: var(--teal-tint); color: var(--teal-text); border-color: transparent; }
+
+.dials { display: grid; gap: 18px; margin-top: 20px; padding: 18px; border-radius: 18px; background: var(--surface-sunken); }
+.dial { display: grid; gap: 6px; }
+.dialHead { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.dialHead label { margin: 0; font-weight: 700; }
+.dialEnds { display: flex; justify-content: space-between; font-size: 13px; color: var(--ink-muted); }
+.range { -webkit-appearance: none; appearance: none; width: 100%; height: 10px; padding: 0; border: 0; border-radius: 999px; background: linear-gradient(90deg, var(--pop), var(--brand)) 0 / var(--fill, 50%) 100% no-repeat, var(--line); box-shadow: none; min-height: 0; }
+.range::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%; background: var(--surface-raised); border: 3px solid var(--brand); box-shadow: var(--shadow); cursor: pointer; }
+.range::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: var(--surface-raised); border: 3px solid var(--brand); cursor: pointer; }
+.range:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 4px; }
+
+.musicRow { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 4px; }
+.bpm { display: flex; gap: 8px; align-items: center; }
+.bpm input[type="number"] { width: 90px; }
+
+.make { margin-top: 24px; min-height: 58px; font-size: 17px; background: linear-gradient(90deg, var(--pop), var(--brand)); color: var(--on-brand); border-color: transparent; }
+.make:hover:not(:disabled) { filter: brightness(1.04); }
+
+@media (max-width: 520px) {
+  .modes button small { display: none; }
+  .lyrics { min-height: 220px; }
+}

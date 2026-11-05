@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { View } from "react-native";
 
 import { Icon } from "@/components/icon";
+import { SongCover } from "@/components/song-cover";
 import { SongPlayerRow, useSongPlayer } from "@/components/song-player";
 import { Banner, Button, Card, Credits, Empty, Header, Row, Screen, Skeleton, Status, Txt } from "@/components/ui";
 import { api, type Song } from "@/lib/api";
@@ -60,6 +61,7 @@ function SongCard({ song, player }: { song: Song; player: ReturnType<typeof useS
   return (
     <Card onPress={done ? () => router.push(`/songs/${song.id}`) : undefined}>
       <Row style={{ flexWrap: "nowrap" }}>
+        <SongCover song={song} size={56} />
         <View style={{ flex: 1, gap: 2 }}>
           <Txt variant="label" numberOfLines={2}>
             {song.title}
