@@ -34,10 +34,13 @@ export const AI_PROVIDERS: AiProvider[] = [
     price: "Free key, within Google's daily limits",
     keyUrl: "https://aistudio.google.com/apikey",
     models: [
-      { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash · fast, free" },
-      { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro · smarter, lower free limit" },
+      { id: "gemini-3.5-flash", label: "Gemini 3.5 Flash · fast, free" },
+      { id: "gemini-flash-latest", label: "Newest Gemini Flash · free" },
+      { id: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash Lite · fastest, highest free limit" },
+      { id: "gemini-pro-latest", label: "Newest Gemini Pro · smarter, lower free limit" },
     ],
-    anyModel: false,
+    // Google renames and retires models often, so any current model id is accepted.
+    anyModel: true,
     chat: true,
   },
   {

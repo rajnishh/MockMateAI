@@ -34,6 +34,7 @@ export const MODEL_LICENSES: Record<string, ModelLicense> = {
   "claude-haiku-5-5": { license: "Anthropic Commercial Terms of Service (API)", commercial: true },
   "claude-sonnet-5-5": { license: "Anthropic Commercial Terms of Service (API)", commercial: true },
   "gemini-2.5-flash": { license: "Gemini API Additional Terms of Service", commercial: true, note: "free tier: Google may use prompts to improve its products, and EEA/UK/Swiss users need the paid tier" },
+  "gemini": { license: "Gemini API Additional Terms of Service", commercial: true, note: "any Gemini model; Google renames and retires them often. Free tier: Google may use prompts to improve its products" },
   "gemini-2.5-pro": { license: "Gemini API Additional Terms of Service", commercial: true, note: "chosen by the creator with their own key" },
   "groq": { license: "Per model on Groq (open-weight Llama, Qwen, gpt-oss); Groq API terms", commercial: true, note: "chosen by the creator with their own key" },
   "ollama": { license: "Per local model; check the model's license before setting OLLAMA_URL", commercial: true, note: "run by the server owner" },

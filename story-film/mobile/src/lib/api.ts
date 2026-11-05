@@ -653,7 +653,7 @@ const DEMO_AI_PROVIDERS: AiProvider[] = [
     name: "Google Gemini",
     price: "Free key, within Google's daily limits",
     keyUrl: "https://aistudio.google.com/apikey",
-    models: [{ id: "gemini-2.5-flash", label: "Gemini 2.5 Flash · fast, free" }],
+    models: [{ id: "gemini-3.5-flash", label: "Gemini 3.5 Flash · fast, free" }],
     anyModel: false,
     chat: true,
   },
