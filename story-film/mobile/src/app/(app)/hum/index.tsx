@@ -17,7 +17,7 @@ import { AccessibilityInfo, Linking, Modal, Pressable, StyleSheet, View } from "
 import { DuetAudio } from "@/components/duet-audio";
 import { Icon } from "@/components/icon";
 import { ReelLogo, useReducedMotion } from "@/components/logo";
-import { Banner, Button, Credits, Header, Hero, Row, Screen, Txt } from "@/components/ui";
+import { Banner, Button, Chip, Credits, Header, Hero, Row, Screen, Txt } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { allowDeviceSpeech, transcribeOnDevice } from "@/lib/device-speech";
 import { duetPart } from "@/lib/duets";
@@ -61,6 +61,13 @@ export default function HumRecord() {
   const [reply] = useState(() => replyContext.get());
   // Or a Jugalbandi part: the take goes to the duet instead of "Here's what I heard".
   const [part] = useState(() => duetPart.get());
+  // The partner's part plays while you sing (best with earphones), so you can answer it in time.
+  const theirs = useAudioPlayer(null);
+  const [playAlong, setPlayAlong] = useState(true);
+  useEffect(() => {
+    if (!part?.otherPart) return;
+    api.videoHeaders().then((headers) => theirs.replace({ uri: api.duetAudioUrl(part.otherPart!), headers })).catch(() => undefined);
+  }, [part, theirs]);
   useEffect(
     () => () => {
       replyContext.clear();
@@ -108,6 +115,10 @@ export default function HumRecord() {
     await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
     await recorder.prepareToRecordAsync();
     recorder.record();
+    if (part?.otherPart && playAlong) {
+      theirs.seekTo(0).catch(() => undefined);
+      theirs.play();
+    }
     warned.current = false;
     setSec(0);
     setLevels(Array(BARS).fill(0));
@@ -119,6 +130,7 @@ export default function HumRecord() {
   async function stop() {
     const length = recorder.getStatus().durationMillis / 1000;
     await recorder.stop();
+    theirs.pause();
     await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
     const uri = recorder.uri;
@@ -262,6 +274,9 @@ export default function HumRecord() {
           text="About 30 seconds. Hum, sing or just say your lines; AI joins both parts into one song."
           action={part.otherPart ? <DuetAudio path={part.otherPart} label={`${part.otherName}'s part`} /> : undefined}
         />
+      ) : null}
+      {part?.otherPart ? (
+        <Chip label={`Play ${part.otherName}'s part while I sing (earphones)`} selected={playAlong} onPress={() => setPlayAlong(!playAlong)} />
       ) : null}
       {reply ? (
         <Banner kind="info" title={`Replying to ${reply.toName}`} text={`Hum, sing or just say what the song back for their ${occasionLabel(reply.occasion).toLowerCase()} gift should be.`} />

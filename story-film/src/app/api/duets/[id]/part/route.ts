@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db";
 import { duetMakeDeps } from "@/lib/duet-make";
 import { duetErrorResponse, duetView, getDuet, roleOf, savePart, songStatusOf, startJoin } from "@/lib/duets";
 import { loadEnv } from "@/lib/env";
+import { notify } from "@/lib/push";
 import { getUserId, unauthorized } from "@/lib/session";
 import { loadTake } from "@/lib/voice-create/takes";
 
@@ -33,6 +34,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         return row;
       });
     }
+    if (role === "b") notify(db, [row.starterId], { title: `${row.partnerName} sang their part`, body: `“${row.topic}” · joining it into one song now`, path: `/duets/${row.id}` });
     return NextResponse.json(duetView(row, role, await songStatusOf(db, row), env.BETTER_AUTH_URL));
   } catch (err) {
     return duetErrorResponse(err);

@@ -6,6 +6,7 @@ import { Banner, Button, Card, ChipRow, Credits, Field, Header, Screen, Txt } fr
 import { api, ApiError } from "@/lib/api";
 import { duetPart } from "@/lib/duets";
 import { signName } from "@/lib/gifts";
+import { registerForPush } from "@/lib/push";
 import { useSession } from "@/lib/session";
 import { GENRES, SONG_LANGUAGES } from "@/lib/songs";
 import { useData } from "@/lib/use-data";
@@ -35,6 +36,7 @@ export default function NewDuet() {
     try {
       const d = await api.startDuet({ topic: topic.trim(), genre, language, name: name.trim(), ig: ig.trim() });
       duetPart.set({ id: d.id, otherName: "", otherPart: null });
+      registerForPush(true).catch(() => undefined);
       router.replace(`/duets/${d.id}`);
       router.push("/hum");
     } catch (err) {

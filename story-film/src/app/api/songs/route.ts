@@ -9,6 +9,7 @@ import { createReplyGift, giftUrl, replyTarget, replyToSchema } from "@/lib/gift
 import { loadEnv } from "@/lib/env";
 import { proRemixAvailable, songsAvailable } from "@/lib/providers";
 import { getSongQueue } from "@/lib/queue/songs";
+import { notify } from "@/lib/push";
 import { getUserId, unauthorized } from "@/lib/session";
 import { prepareSong } from "@/lib/songs/create";
 import { SOUND_PRESETS } from "@/lib/songs/mix";
@@ -98,6 +99,7 @@ export async function POST(req: Request) {
       );
     }
     const replyGift = reply ? await createReplyGift(db, { userId, songId: ids[0], original: reply.original, senderName: reply.senderName, free: reply.free, fromName }) : undefined;
+    if (replyGift && reply) notify(db, [reply.original.senderId], { title: `${replyGift.fromName || "Someone"} is making you a song back`, body: "Your gift got a reply. It plays in about a minute.", path: "/inbox" });
     const gift = replyGift ? { token: replyGift.token, url: giftUrl(env.BETTER_AUTH_URL, replyGift.token), free: replyGift.freeReply } : undefined;
     return NextResponse.json({ id: ids[0], ids, title: prepared.title, gift }, { status: 202 });
   } catch (err) {
