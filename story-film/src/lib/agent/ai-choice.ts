@@ -121,6 +121,7 @@ export const AI_PROVIDERS: AiProvider[] = [
     name: "Ollama (on Reelkar's server)",
     price: "Free, runs on the server's own computer",
     models: [
+      { id: "gemma3:12b", label: "Gemma 3 12B · good Hinglish" },
       { id: "qwen3:8b", label: "Qwen3 8B" },
       { id: "llama3.1:8b", label: "Llama 3.1 8B" },
     ],
