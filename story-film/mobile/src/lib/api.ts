@@ -358,7 +358,8 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-// Which AI answers in Ask Reelkar (mirrors AiChoiceView in the web app's src/lib/agent/ai-choice.ts).
+// The creator's AI engines (mirrors EnginesView in the web app's src/lib/agent/ai-choice.ts).
+// Every AI task tries them top to bottom, then "Reelkar free", which is always last.
 export interface AiProvider {
   id: string;
   name: string;
@@ -366,14 +367,43 @@ export interface AiProvider {
   keyUrl?: string;
   models: { id: string; label: string }[];
   anyModel: boolean;
+  // Whether it can run Ask Reelkar's chat; all of them do the other AI tasks.
+  chat: boolean;
+  // A second value it needs besides the key, such as Cloudflare's account ID.
+  extra?: { label: string; placeholder: string };
 }
-export interface AiChoice {
+// "resting": its free allowance is used up until restUntil; "key": the key stopped working.
+export type EngineStatus = "ready" | "resting" | "key";
+export interface AiEngine {
+  id: string;
   provider: string;
-  model: string | null;
+  name: string;
+  model: string;
   keyHint: string | null;
+  enabled: boolean;
+  chat: boolean;
+  status: EngineStatus;
+  restUntil: number | null;
+}
+export interface AiEngines {
+  engines: AiEngine[];
   providers: AiProvider[];
   ownKeys: boolean;
+  reelkar: { status: EngineStatus; restUntil: number | null };
 }
+export interface NewAiEngine {
+  provider: string;
+  model?: string;
+  key?: string;
+  extra?: string;
+}
+export interface AiEngineChange {
+  model?: string;
+  key?: string;
+  extra?: string;
+  enabled?: boolean;
+}
+export const MAX_AI_ENGINES = 8;
 export const aiNeedsKey = (id: string) => id !== "reelkar" && id !== "ollama";
 
 const real = {
@@ -427,9 +457,14 @@ const real = {
     (await call<{ messages: AgentMessage[] }>("/api/agent/actions", { method: "POST", body: JSON.stringify({ ...turn, name, input, label }) })).messages,
   agentDecide: async (actionId: string, approve: boolean, turn: AgentTurn) =>
     (await call<{ messages: AgentMessage[] }>(`/api/agent/actions/${actionId}`, { method: "POST", body: JSON.stringify({ ...turn, approve }) })).messages,
-  aiChoice: () => call<AiChoice>("/api/agent/ai"),
-  // Checked with one tiny message on the server before it's saved; a wrong key comes back as an error.
-  setAiChoice: (choice: { provider: string; model?: string; key?: string }) => call<AiChoice>("/api/agent/ai", { method: "PUT", body: JSON.stringify(choice) }),
+  aiEngines: () => call<AiEngines>("/api/ai/engines"),
+  // Adding, or changing the key, model or extra value, is checked with one tiny request on the server
+  // first; a wrong key comes back as an error. Switching on or off isn't checked.
+  addAiEngine: (engine: NewAiEngine) => call<AiEngines>("/api/ai/engines", { method: "POST", body: JSON.stringify(engine) }),
+  changeAiEngine: (id: string, change: AiEngineChange) => call<AiEngines>(`/api/ai/engines/${id}`, { method: "PATCH", body: JSON.stringify(change) }),
+  removeAiEngine: (id: string) => call<AiEngines>(`/api/ai/engines/${id}`, { method: "DELETE" }),
+  // The full new order of the creator's engine ids.
+  orderAiEngines: (ids: string[]) => call<AiEngines>("/api/ai/engines/order", { method: "PUT", body: JSON.stringify({ ids }) }),
   setPostingMode: (postingMode: PostingMode) => call<{ postingMode: PostingMode }>("/api/agent/settings", { method: "PUT", body: JSON.stringify({ postingMode }) }),
   accounts: () => call<Accounts>("/api/accounts"),
   // Returns the provider's sign-in page; the app opens it in the in-app browser.
@@ -610,12 +645,40 @@ function demoHistory(): AgentMessage[] {
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-let demoAi: Pick<AiChoice, "provider" | "model" | "keyHint"> = { provider: "reelkar", model: null, keyHint: null };
+let demoEngines: AiEngine[] = [];
+let demoEngineSeq = 0;
 const DEMO_AI_PROVIDERS: AiProvider[] = [
-  { id: "reelkar", name: "Reelkar free", price: "Free, no key needed", models: [], anyModel: false },
-  { id: "gemini", name: "Google Gemini", price: "Free key, within Google's daily limits", keyUrl: "https://aistudio.google.com/apikey", models: [{ id: "gemini-2.5-flash", label: "Gemini 2.5 Flash · fast, free" }], anyModel: false },
-  { id: "openrouter", name: "OpenRouter", price: "One key for hundreds of models", keyUrl: "https://openrouter.ai/keys", models: [{ id: "meta-llama/llama-3.3-70b-instruct:free", label: "Llama 3.3 70B · free" }], anyModel: true },
+  {
+    id: "gemini",
+    name: "Google Gemini",
+    price: "Free key, within Google's daily limits",
+    keyUrl: "https://aistudio.google.com/apikey",
+    models: [{ id: "gemini-2.5-flash", label: "Gemini 2.5 Flash · fast, free" }],
+    anyModel: false,
+    chat: true,
+  },
+  {
+    id: "cloudflare",
+    name: "Cloudflare Workers AI",
+    price: "Your own free Cloudflare account, 10,000 neurons a day",
+    keyUrl: "https://dash.cloudflare.com/profile/api-tokens",
+    models: [{ id: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", label: "Llama 3.3 70B · free" }],
+    anyModel: true,
+    chat: false,
+    extra: { label: "Account ID", placeholder: "From the Workers AI page of your dashboard" },
+  },
+  {
+    id: "openrouter",
+    name: "OpenRouter",
+    price: "One key for hundreds of models",
+    keyUrl: "https://openrouter.ai/keys",
+    models: [{ id: "meta-llama/llama-3.3-70b-instruct:free", label: "Llama 3.3 70B · free" }],
+    anyModel: true,
+    chat: true,
+  },
 ];
+const demoEnginesView = (): AiEngines => ({ engines: demoEngines.map((e) => ({ ...e })), providers: DEMO_AI_PROVIDERS, ownKeys: true, reelkar: { status: "ready", restUntil: null } });
+const demoKeyHint = (key?: string) => (key && key.length >= 4 ? `…${key.slice(-4)}` : "…demo");
 
 const demo: typeof real = {
   films: async () => (await wait(300), [...demoFilms].sort((a, b) => b.createdAt.localeCompare(a.createdAt))),
@@ -770,11 +833,45 @@ const demo: typeof real = {
     }
     return demoHistory();
   },
-  aiChoice: async () => (await wait(200), { ...demoAi, providers: DEMO_AI_PROVIDERS, ownKeys: true }),
-  setAiChoice: async ({ provider, model }) => {
-    await wait(600);
-    demoAi = { provider, model: provider === "reelkar" ? null : (model ?? null), keyHint: aiNeedsKey(provider) ? "…demo" : null };
-    return { ...demoAi, providers: DEMO_AI_PROVIDERS, ownKeys: true };
+  aiEngines: async () => (await wait(200), demoEnginesView()),
+  addAiEngine: async ({ provider, model, key, extra }) => {
+    await wait(900);
+    const p = DEMO_AI_PROVIDERS.find((x) => x.id === provider);
+    if (!p) throw new ApiError("Pick an AI to connect.", 400);
+    if (demoEngines.length >= MAX_AI_ENGINES) throw new ApiError(`You can connect up to ${MAX_AI_ENGINES} engines.`, 400);
+    if (aiNeedsKey(provider) && !key) throw new ApiError(`Add your ${p.name} key.`, 400);
+    if (p.extra && !extra) throw new ApiError(`Add your ${p.extra.label}.`, 400);
+    demoEngines.push({
+      id: `demo-engine-${++demoEngineSeq}`,
+      provider,
+      name: p.name,
+      model: model || p.models[0]?.id || "",
+      keyHint: aiNeedsKey(provider) ? demoKeyHint(key) : null,
+      enabled: true,
+      chat: p.chat,
+      status: "ready",
+      restUntil: null,
+    });
+    return demoEnginesView();
+  },
+  changeAiEngine: async (id, change) => {
+    await wait(change.enabled === undefined ? 900 : 200);
+    demoEngines = demoEngines.map((e) =>
+      e.id === id
+        ? { ...e, model: change.model || e.model, keyHint: change.key ? demoKeyHint(change.key) : e.keyHint, enabled: change.enabled ?? e.enabled, status: change.key ? "ready" : e.status }
+        : e,
+    );
+    return demoEnginesView();
+  },
+  removeAiEngine: async (id) => {
+    await wait(200);
+    demoEngines = demoEngines.filter((e) => e.id !== id);
+    return demoEnginesView();
+  },
+  orderAiEngines: async (ids) => {
+    await wait(200);
+    demoEngines = ids.map((id) => demoEngines.find((e) => e.id === id)).filter((e): e is AiEngine => !!e);
+    return demoEnginesView();
   },
   setPostingMode: async (postingMode) => {
     await wait(200);

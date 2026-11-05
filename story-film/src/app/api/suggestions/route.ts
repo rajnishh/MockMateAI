@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { llmForUser } from "@/lib/ai/engines";
 import { z } from "zod";
 import { getCharacter } from "@/lib/characters";
 import { getDb } from "@/lib/db";
@@ -6,7 +7,7 @@ import { seriesEpisodes } from "@/lib/films";
 import { loadEnv } from "@/lib/env";
 import { creatorMessage } from "@/lib/creator-errors";
 import { isGarbledScript } from "@/lib/pipeline/script";
-import { buildLlm } from "@/lib/providers";
+
 import { getUserId, unauthorized } from "@/lib/session";
 import { IDEA_FORMATS, suggestIdeas } from "@/lib/suggestions";
 
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
   // A character's earlier reels are its series, so the ideas become next episodes.
   const episodes = character && characterId ? await seriesEpisodes(getDb(), userId, characterId) : undefined;
   try {
-    const ideas = await suggestIdeas(buildLlm(loadEnv()), { ...ask, character, episodes });
+    const ideas = await suggestIdeas(await llmForUser(getDb(), loadEnv(), userId), { ...ask, character, episodes });
     return NextResponse.json({ ideas });
   } catch (err) {
     console.error("[suggestions]", err);

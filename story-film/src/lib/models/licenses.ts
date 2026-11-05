@@ -38,6 +38,9 @@ export const MODEL_LICENSES: Record<string, ModelLicense> = {
   "groq": { license: "Per model on Groq (open-weight Llama, Qwen, gpt-oss); Groq API terms", commercial: true, note: "chosen by the creator with their own key" },
   "ollama": { license: "Per local model; check the model's license before setting OLLAMA_URL", commercial: true, note: "run by the server owner" },
   "openrouter": { license: "Per routed model; check the chosen model's terms", commercial: true },
+  "cerebras": { license: "Per model on Cerebras (open-weight Llama, Qwen, gpt-oss); Cerebras API terms", commercial: true, note: "chosen by the creator with their own key" },
+  "mistral": { license: "Mistral AI terms (Experiment plan for free use)", commercial: true, note: "chosen by the creator with their own key" },
+  "cloudflare-workers-ai": { license: "Per model on Workers AI; Cloudflare Workers AI terms", commercial: true, note: "the creator's own Cloudflare account" },
 
   "xtts-v2": { license: "CPML", commercial: false, note: "Coqui defunct; no commercial license available" },
   "f5-tts": { license: "CC-BY-NC-4.0", commercial: false },

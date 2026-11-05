@@ -28,6 +28,7 @@ import { runDanceReel } from "@/lib/dance/pipeline";
 import { runMotionReel } from "@/lib/motion/pipeline";
 import { runMusicVideo } from "@/lib/music-video/pipeline";
 import { musicVideoDeps } from "@/lib/music-video/deps";
+import { llmForUser } from "@/lib/ai/engines";
 import { CloudflareWhisper } from "@/lib/providers/whisper";
 import { enqueuePost, getPublishQueue, PUBLISH_QUEUE, type PublishJob } from "@/lib/queue/publish";
 import { RedisQuotaStore } from "@/lib/quota/quota";
@@ -71,9 +72,11 @@ const filmWorker = new Worker<FilmQueueJob>(
     await updateFilm(db, filmId, { status: "running", error: null });
     let result;
     let description: string | undefined;
+    // Scripts and plans use the creator's own AI engines first, then Reelkar's lane.
+    const llm = await llmForUser(db, env, job.data.userId);
     // The creator's own footage: no Content Credentials claiming it was AI-generated.
     if (isEdit(job)) {
-      const state = await planEdit({ llm: depsFor("standard").llm, transcriber: buildTranscriber(env) }, job.data, workDir, onStage);
+      const state = await planEdit({ llm, transcriber: buildTranscriber(env) }, job.data, workDir, onStage);
       if (job.data.review) {
         // Waits for the creator to check the effects; PUT /api/edits/[id] queues the render.
         await updateFilm(db, filmId, { status: "review", stage: null, title: state.plan.title });
@@ -85,7 +88,7 @@ const filmWorker = new Worker<FilmQueueJob>(
     } else if (isMusicVideo(job)) {
       // Jobs queued before music video kinds existed carry only quality and singer.
       const d = { ...job.data, kind: musicVideoKind(job.data) };
-      const mv = await runMusicVideo(musicVideoDeps(d.kind), d, workDir, onStage, d.phase ?? "all");
+      const mv = await runMusicVideo({ ...musicVideoDeps(d.kind), llm }, d, workDir, onStage, d.phase ?? "all");
       if (mv.output === null) {
         // The storyboard waits for the creator; POST /api/songs/[id]/music-video/[filmId] renders it.
         await updateFilm(db, filmId, { status: "review", stage: null, title: mv.title });
@@ -95,7 +98,7 @@ const filmWorker = new Worker<FilmQueueJob>(
       description = "AI-generated music video: song, scenes, singing and dancing made with generative AI models";
     } else if ((job.data as FilmJob).format === "dance") {
       const d = job.data as FilmJob;
-      const { llm, tts } = depsFor("standard");
+      const { tts } = depsFor("standard");
       const aiSong = d.danceVoice === "ai_song";
       result = await runDanceReel(
         { llm, tts, fontsDir: env.FONTS_DIR, ...(aiSong ? { singer: buildDanceSinger(env), whisper } : {}) },
@@ -108,11 +111,11 @@ const filmWorker = new Worker<FilmQueueJob>(
         : "Dance reel: chant and voice made with AI; singing, dancers, beat and animation made by Reelkar";
     } else if ((job.data as FilmJob).format === "motion") {
       const d = job.data as FilmJob;
-      const { llm, tts, music, fontsDir } = depsFor("standard");
+      const { tts, music, fontsDir } = depsFor("standard");
       result = await runMotionReel({ llm, tts, music, fontsDir }, d, workDir, onStage);
       description = "Motion reel: script and voice-over made with AI; animated text and graphics rendered by Reelkar";
     } else {
-      result = await runFilm(depsFor((job.data as FilmJob).quality), job.data as FilmJob, workDir, onStage);
+      result = await runFilm({ ...depsFor((job.data as FilmJob).quality), llm }, job.data as FilmJob, workDir, onStage);
       description = "AI-generated video: script, images, motion and narration made with generative AI models";
     }
     const contentCredentials = description ? await trySign(provenance, result.output, { title: result.title, description }) : false;

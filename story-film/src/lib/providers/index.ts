@@ -14,7 +14,9 @@ import { CloudflareTranscriber, CloudflareWhisper } from "./whisper";
 import { KenBurnsVideo } from "./kenburns";
 import { KokoroTts } from "./kokoro";
 import { FalChatterboxTts, RoutedTts, SarvamTts } from "./tts";
-import { FallbackLlm, OpenAiCompatibleLlm } from "./llm";
+import { ChainLlm, type Link, RedisRestStore, type RestStore } from "@/lib/ai/chain";
+import { getRedis } from "@/lib/queue/films";
+import { OpenAiCompatibleLlm } from "./llm";
 import type { LlmProvider } from "./types";
 
 // standard: Cloudflare Workers AI images + local pan-and-zoom, ~$0 per video.
@@ -142,37 +144,53 @@ export function buildSingDeps(env: Env) {
 }
 
 // OpenRouter when configured (stronger models), otherwise the free Workers AI Llama.
-export function buildLlm(env: Env): LlmProvider {
+// Reelkar's own lane, on the owner's keys (never shown to creators), in the order it's tried:
+// OpenRouter when set (paid mode), then the free Workers AI Llama, Gemini and Groq. Each one that
+// runs out of free use rests until it resets, and the next one answers.
+export function reelkarLane(env: Env, fetchFn: typeof fetch = fetch): Link<LlmProvider>[] {
+  const links: Link<LlmProvider>[] = [];
   if (env.OPENROUTER_API_KEY) {
-    return new OpenAiCompatibleLlm("https://openrouter.ai/api/v1", env.OPENROUTER_API_KEY, env.OPENROUTER_MODEL, {
-      licenseId: "openrouter",
-      jsonMode: true,
-    });
+    const llm = new OpenAiCompatibleLlm("https://openrouter.ai/api/v1", env.OPENROUTER_API_KEY, env.OPENROUTER_MODEL, { licenseId: "openrouter", jsonMode: true }, fetchFn);
+    links.push({ id: "lane:openrouter", name: "Reelkar (OpenRouter)", engine: llm });
   }
-  const accountId = requireKey(env.CLOUDFLARE_ACCOUNT_ID, "CLOUDFLARE_ACCOUNT_ID");
-  // Workers AI's OpenAI-compatible endpoint. Every call wants JSON, and without JSON mode the free
-  // Llama sometimes sends broken JSON (an unquoted key, a stray quote), so it's on.
-  const workersAi = new OpenAiCompatibleLlm(
-    `${cloudflareAiBase(accountId)}/v1`,
-    requireKey(env.CLOUDFLARE_API_TOKEN, "CLOUDFLARE_API_TOKEN"),
-    env.CF_LLM_MODEL ?? CLOUDFLARE_DEFAULTS.llmModel,
-    { licenseId: "llama-3.3-70b", jsonMode: true },
-  );
-  return env.GEMINI_API_KEY ? new FallbackLlm(workersAi, buildGeminiLlm(env.GEMINI_API_KEY)) : workersAi;
+  if (env.CLOUDFLARE_ACCOUNT_ID && env.CLOUDFLARE_API_TOKEN) {
+    // Workers AI's OpenAI-compatible endpoint. Every call wants JSON, and without JSON mode the free
+    // Llama sometimes sends broken JSON (an unquoted key, a stray quote), so it's on.
+    const llm = new OpenAiCompatibleLlm(
+      `${cloudflareAiBase(env.CLOUDFLARE_ACCOUNT_ID)}/v1`,
+      env.CLOUDFLARE_API_TOKEN,
+      env.CF_LLM_MODEL ?? CLOUDFLARE_DEFAULTS.llmModel,
+      { licenseId: "llama-3.3-70b", jsonMode: true },
+      fetchFn,
+    );
+    links.push({ id: "lane:cloudflare", name: "Reelkar (Workers AI)", engine: llm });
+  }
+  if (env.GEMINI_API_KEY) links.push({ id: "lane:gemini", name: "Reelkar (Gemini)", engine: geminiLlm(env.GEMINI_API_KEY, "gemini-2.5-flash", fetchFn) });
+  if (env.GROQ_API_KEY) {
+    const llm = new OpenAiCompatibleLlm("https://api.groq.com/openai/v1", env.GROQ_API_KEY, "llama-3.3-70b-versatile", { licenseId: "groq", jsonMode: true }, fetchFn);
+    links.push({ id: "lane:groq", name: "Reelkar (Groq)", engine: llm });
+  }
+  if (!links.length) requireKey(undefined, "CLOUDFLARE_ACCOUNT_ID");
+  return links;
 }
 
-const GEMINI_BACKUP_MODEL = "gemini-2.5-flash";
+// Rests are kept in Redis, so the web app and the worker skip the same tired engines.
+export const aiRests: RestStore = new RedisRestStore(getRedis);
 
-// Gemini's free tier through its OpenAI-compatible endpoint: the backup when Workers AI's free daily
-// limit runs out. Thinking is off so it doesn't spend the reply's token budget.
-export function buildGeminiLlm(apiKey: string, fetchFn: typeof fetch = fetch): OpenAiCompatibleLlm {
-  return new OpenAiCompatibleLlm(
-    "https://generativelanguage.googleapis.com/v1beta/openai",
-    apiKey,
-    GEMINI_BACKUP_MODEL,
-    { licenseId: GEMINI_BACKUP_MODEL, jsonMode: true, extraBody: { reasoning_effort: "none" } },
-    fetchFn,
-  );
+// The AI for tasks that aren't any one creator's: Reelkar's lane. Creators' own requests use
+// llmForUser (src/lib/ai/engines.ts), which tries their engines first.
+export function buildLlm(env: Env, rests: RestStore = aiRests): LlmProvider {
+  return new ChainLlm(reelkarLane(env), rests);
+}
+
+// Gemini through its OpenAI-compatible endpoint. Flash models think by default, which spends the
+// reply's token budget, so thinking is off for them.
+export function geminiLlm(apiKey: string, model: string, fetchFn: typeof fetch = fetch): OpenAiCompatibleLlm {
+  return new OpenAiCompatibleLlm("https://generativelanguage.googleapis.com/v1beta/openai", apiKey, model, {
+    licenseId: model.startsWith("gemini-2.5-pro") ? "gemini-2.5-pro" : "gemini-2.5-flash",
+    jsonMode: true,
+    ...(model.includes("flash") ? { extraBody: { reasoning_effort: "none" } } : {}),
+  }, fetchFn);
 }
 
 export function buildImage(env: Env, quality: Quality = "standard") {

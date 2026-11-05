@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
+import { llmForUser } from "@/lib/ai/engines";
 import { pathToFileURL } from "node:url";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { grantCredits, spendCredits } from "@/lib/billing/credits";
 import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
-import { buildLlm, proRemixAvailable, songsAvailable } from "@/lib/providers";
+import { proRemixAvailable, songsAvailable } from "@/lib/providers";
 import { getSongQueue } from "@/lib/queue/songs";
 import { getUserId, unauthorized } from "@/lib/session";
 import { cleanLyrics } from "@/lib/songs/lyrics";
@@ -34,7 +35,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   try {
-    await assertNoRealArtists(buildLlm(env), [request.style ?? "", request.lyrics ?? ""]);
+    await assertNoRealArtists(await llmForUser(getDb(), env, userId), [request.style ?? "", request.lyrics ?? ""]);
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: err instanceof SongSafetyError ? 400 : 502 });
   }

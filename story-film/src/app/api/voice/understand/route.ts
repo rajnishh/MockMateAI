@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import { llmForUser } from "@/lib/ai/engines";
+import { getDb } from "@/lib/db";
 import { z } from "zod";
 import { SONG_CREDITS, STANDARD_CREDITS, TUNE_SONG_CREDITS } from "@/lib/billing/catalog";
 import { loadEnv } from "@/lib/env";
-import { buildLlm, songsAvailable } from "@/lib/providers";
+import { songsAvailable } from "@/lib/providers";
 import { getRedis } from "@/lib/queue/films";
 import { allow } from "@/lib/rate-limit";
 import { getUserId, unauthorized } from "@/lib/session";
@@ -22,7 +24,7 @@ export async function POST(req: Request) {
   const env = loadEnv();
   let llm;
   try {
-    llm = buildLlm(env);
+    llm = await llmForUser(getDb(), env, userId);
   } catch {
     llm = undefined;
   }
