@@ -101,8 +101,8 @@ describe("pro remix kinds", () => {
   const song = { audioUrl: "https://cdn.test/song.mp3", style: "bollywood pop", lyrics: "[Verse]\nbaarish", durationSec: 60 };
 
   it("lists Add vocals and Add instrumental only when Runware is set up", () => {
-    expect(remixKinds(false)).toEqual(["cover", "extend", "replace"]);
-    expect(remixKinds(true)).toEqual(["cover", "extend", "replace", "add-vocals", "add-instrumental"]);
+    expect(remixKinds(false)).toEqual(["cover", "extend", "replace", "rap"]);
+    expect(remixKinds(true)).toEqual(["cover", "extend", "replace", "rap", "add-vocals", "add-instrumental"]);
     const env = loadEnv();
     expect(proRemixAvailable({ ...env, FAL_KEY: "f", RUNWARE_API_KEY: undefined })).toBe(false);
     expect(proRemixAvailable({ ...env, FAL_KEY: "f", RUNWARE_API_KEY: "r" })).toBe(true);

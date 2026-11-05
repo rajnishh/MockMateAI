@@ -93,7 +93,7 @@ export default function NewSong() {
     setWriting("rap");
     setError(null);
     try {
-      const bars = await api.songRap({ ...options, lyrics, bars: 8 });
+      const bars = await api.songRapVerse({ ...options, lyrics, bars: 8 });
       setLyrics((l) => insertRap(l, bars));
     } catch (err) {
       fail(err);

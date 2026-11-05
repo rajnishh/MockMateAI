@@ -15,8 +15,9 @@ import {
 } from "@/lib/providers/fal-song-edit";
 import { COVER_STRENGTH, type RunwareSongEditor } from "@/lib/providers/runware-song-edit";
 import type { Stems } from "@/lib/providers/voice";
+import { lyricsWithRap, rapStyle } from "./rap";
 
-export const REMIX_KINDS = ["cover", "extend", "replace", "add-vocals", "add-instrumental"] as const;
+export const REMIX_KINDS = ["cover", "extend", "replace", "rap", "add-vocals", "add-instrumental"] as const;
 export type RemixKind = (typeof REMIX_KINDS)[number];
 
 // Kinds that need ACE-Step 1.5 on Runware (RUNWARE_API_KEY); the rest run on fal alone.
@@ -45,6 +46,8 @@ export const remixRequestSchema = z
     extendSec: z.number().int().min(EXTEND_SEC.min).max(EXTEND_SEC.max).optional(),
     // Covers only: how far from the original, 0 (close) to 1 (far). Needs Runware; fal ignores it.
     strength: z.number().min(COVER_STRENGTH.min).max(COVER_STRENGTH.max).optional(),
+    // "rap": the new bars for the chosen part (written with AI or by the creator).
+    bars: z.string().trim().min(10).max(1200).optional(),
   })
   .superRefine((r, ctx) => {
     if (r.kind === "cover" && !r.style) {
@@ -53,7 +56,10 @@ export const remixRequestSchema = z
     if (r.kind === "add-vocals" && !r.lyrics) {
       ctx.addIssue({ code: "custom", path: ["lyrics"], message: "Write the lyrics to sing" });
     }
-    if (r.kind === "replace") {
+    if (r.kind === "rap" && !r.bars) {
+      ctx.addIssue({ code: "custom", path: ["bars"], message: "Write the rap bars first" });
+    }
+    if (r.kind === "replace" || r.kind === "rap") {
       if (r.startSec === undefined || r.endSec === undefined) {
         ctx.addIssue({ code: "custom", path: ["startSec"], message: "Choose the part to replace" });
         return;
@@ -70,7 +76,7 @@ export type RemixRequest = z.infer<typeof remixRequestSchema>;
 // The request schema plus checks against the song's length.
 export function remixSchemaFor(songDurationSec: number) {
   return remixRequestSchema.superRefine((r, ctx) => {
-    if (r.kind === "replace" && r.endSec !== undefined && r.endSec > songDurationSec) {
+    if ((r.kind === "replace" || r.kind === "rap") && r.endSec !== undefined && r.endSec > songDurationSec) {
       ctx.addIssue({ code: "custom", path: ["endSec"], message: "The part runs past the end of the song" });
     }
     if (r.kind === "extend" && songDurationSec + (r.extendSec ?? EXTEND_SEC.default) > MAX_REMIXED_SEC) {
@@ -141,6 +147,12 @@ export function remixCall(req: RemixRequest, song: RemixSource): RemixCall {
     case "add-vocals":
     case "add-instrumental":
       return { kind: req.kind, input: { audioUrl: song.audioUrl, style, lyrics } };
+    // A rap is a replaced part sung with rap tags and the part's lines swapped for the bars.
+    case "rap":
+      return {
+        kind: "replace",
+        input: { audioUrl: song.audioUrl, style: rapStyle(style), lyrics: lyricsWithRap(lyrics, song.durationSec, req.startSec!, req.endSec!, req.bars!), startSec: req.startSec!, endSec: req.endSec! },
+      };
   }
 }
 
@@ -261,4 +273,41 @@ export function remixedDurationSec(req: RemixRequest, songDurationSec: number): 
 
 export function remixCredits(kind: RemixKind): number {
   return REMIX_CREDITS[kind];
+}
+
+// What the Studio's Remix tab shows for each kind, sent with GET /api/songs so new kinds appear
+// without app changes. A kind missing here still shows, with its name and the style and lyrics fields.
+export interface RemixKindInfo {
+  kind: RemixKind;
+  label: string;
+  help: string;
+  credits: number;
+  // Which inputs the kind takes. style "required" means it can't run without one.
+  style: "required" | "optional" | "none";
+  part: boolean;
+  extend: boolean;
+  lyrics: boolean;
+  bars: boolean;
+  // Covers on Runware take how far from the original to go, 0 (close) to 1 (far).
+  strength: boolean;
+}
+
+type KindFields = Omit<RemixKindInfo, "kind" | "credits">;
+const DEFAULT_FIELDS: Omit<KindFields, "label"> = { help: "", style: "optional", part: false, extend: false, lyrics: true, bars: false, strength: false };
+
+export const REMIX_KIND_INFO: Partial<Record<RemixKind, Partial<KindFields>>> = {
+  cover: { label: "Cover", help: "Sing it again in another style.", style: "required", lyrics: false },
+  extend: { label: "Extend", help: "Make it longer. Add new lines at the end of the lyrics for the new part.", extend: true },
+  replace: { label: "Replace part", help: "Pick a part you don't like and redo it. Change those lines in the lyrics for new words.", part: true },
+  rap: { label: "Add a rap", help: "Pick a part and AI writes rap bars; that part is re-sung as a rap.", part: true, lyrics: false, bars: true },
+  "add-vocals": { label: "Add vocals", help: "Sing your lyrics over the song's music. Write the words to sing below." },
+  "add-instrumental": { label: "New music", help: "Keep the singing and make new music under it, in the style you write.", lyrics: false },
+};
+
+export function remixKindList(proAvailable = false): RemixKindInfo[] {
+  return remixKinds(proAvailable).map((kind) => {
+    const info = REMIX_KIND_INFO[kind] ?? {};
+    const label = info.label ?? kind.replace(/[-_]/g, " ").replace(/^./, (c) => c.toUpperCase());
+    return { ...DEFAULT_FIELDS, ...info, label, kind, credits: remixCredits(kind), strength: kind === "cover" && proAvailable };
+  });
 }

@@ -5,7 +5,7 @@ import { buildLlm } from "@/lib/providers";
 import { getRedis } from "@/lib/queue/films";
 import { allow } from "@/lib/rate-limit";
 import { getUserId, unauthorized } from "@/lib/session";
-import { writeRap } from "@/lib/songs/rap";
+import { writeRap } from "@/lib/songs/rap-verse";
 import { rapRequestSchema } from "@/lib/songs/request";
 import { assertNoRealArtists, SongSafetyError } from "@/lib/songs/safety";
 import { findGenre } from "@/lib/songs/styles";

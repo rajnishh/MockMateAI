@@ -1,32 +1,78 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 
 import { SongCover } from "@/components/song-cover";
 import { SongPlayerRow, useSongPlayer } from "@/components/song-player";
-import { Banner, Button, Card, ChipRow, Field, Header, Row, Screen, Skeleton, Txt } from "@/components/ui";
-import { api, ApiError, type RemixKind, type Song } from "@/lib/api";
+import { StudioEdit } from "@/components/studio-edit";
+import { FALLBACK_PRESETS, StudioMix } from "@/components/studio-mix";
+import { fallbackKinds, StudioRemix } from "@/components/studio-remix";
+import { Banner, Button, Card, Header, Screen, Skeleton, Txt } from "@/components/ui";
+import type { Range } from "@/components/waveform";
+import { api } from "@/lib/api";
 import { formatTime, genreLabel, shareSong } from "@/lib/songs";
 import { useData } from "@/lib/use-data";
-import { fonts, radius, useTheme } from "@/theme";
+import { radius, useTheme } from "@/theme";
 
-type Panel = "edit" | "remix" | null;
-
-const KINDS: { value: RemixKind; label: string; help: string }[] = [
-  { value: "cover", label: "Cover", help: "Sing it again in another style." },
-  { value: "extend", label: "Extend", help: "Make it longer. Add new lines at the end of the lyrics for the new part." },
-  { value: "replace", label: "Replace a part", help: "Redo a few seconds you don't like. Change those lines in the lyrics if you want new words." },
+type Tab = "mix" | "remix" | "edit";
+const TABS: { value: Tab; label: string }[] = [
+  { value: "mix", label: "Mix" },
+  { value: "remix", label: "Remix" },
+  { value: "edit", label: "Edit" },
 ];
 
+// The Studio: one screen per song with Mix, Remix and Edit. Everything is saved as a new song.
 export default function SongScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { colors } = useTheme();
   const song = useData(() => api.song(id));
   const studio = useData(() => api.songs());
   const player = useSongPlayer();
-  const [panel, setPanel] = useState<Panel>(null);
+  const [tab, setTab] = useState<Tab>("mix");
+  const [peaks, setPeaks] = useState<number[] | null>(null);
+  // The part being played, and where it stops (a ref, so stopping doesn't re-render).
+  const [part, setPart] = useState<Range | null>(null);
+  const stopAt = useRef<number | null>(null);
   const [sharing, setSharing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const s = song.data;
+  const ready = s?.status === "completed";
+  const mine = s && player.current === s.id;
+  const position = mine ? player.status.currentTime : undefined;
+
+  // A new mix or remix opens while it's still being made; check until it's ready.
+  useEffect(() => {
+    if (!s || s.status === "completed" || s.status === "failed") return;
+    const t = setTimeout(song.reload, 4000);
+    return () => clearTimeout(t);
+  }, [s, song.reload]);
+
+  useEffect(() => {
+    if (!ready) return;
+    api.songPeaks(id).then(setPeaks, () => undefined);
+  }, [id, ready]);
+
+  // A picked part plays once, then stops at its end.
+  useEffect(() => {
+    if (s && stopAt.current !== null && mine && player.status.playing && player.status.currentTime >= stopAt.current) {
+      stopAt.current = null;
+      player.toggle(s);
+    }
+  }, [s, mine, player]);
+
+  async function playPart(r: Range | null) {
+    if (!s) return;
+    setPart(r);
+    stopAt.current = r?.end ?? null;
+    if (!r) return pauseSong();
+    if (!mine) await player.toggle(s);
+    await player.seekTo(r.start);
+    if (mine && !player.status.playing) await player.toggle(s);
+  }
+
+  function pauseSong() {
+    if (s && mine && player.status.playing) player.toggle(s);
+  }
 
   async function share() {
     if (!s) return;
@@ -41,58 +87,86 @@ export default function SongScreen() {
     }
   }
 
-  // Edits and remixes are saved as new songs, so they show up in My songs.
-  const done = () => router.dismissTo("/songs");
+  // Mixes, remixes and edits are new songs: open the new one (it shows while it's being made).
+  const opened = (newId: string) => {
+    pauseSong();
+    router.replace({ pathname: "/songs/[id]", params: { id: newId } });
+  };
+
+  const kinds = studio.data?.remixKinds ?? fallbackKinds(studio.data?.remixCredits ?? { cover: 2, extend: 2, replace: 1, rap: 1 });
+  const playingPart = Boolean(part && mine && player.status.playing);
 
   return (
     <Screen>
-      <Header title={s?.title ?? "Your song"} sub={s ? [genreLabel(s.genre), formatTime(s.durationSec), "Made with AI"].join(" · ") : undefined} back="/songs" />
+      <Header title={s?.title ?? "Your song"} sub={s ? ["Studio", genreLabel(s.genre), formatTime(s.durationSec)].join(" · ") : undefined} back="/songs" />
       {song.error ? <Banner kind="error" text={song.error} action={<Button label="Retry" small kind="secondary" onPress={song.reload} />} /> : null}
       {!s ? (
         <Skeleton height={160} />
+      ) : !ready ? (
+        <Card>
+          <View style={styles.making}>
+            {s.status === "failed" ? null : <ActivityIndicator color={colors.brand} />}
+            <Txt variant="md">{s.status === "failed" ? "This one didn't work" : "Making your song…"}</Txt>
+            <Txt variant="cap" style={{ textAlign: "center" }}>
+              {s.status === "failed" ? `${s.error ?? "Something went wrong"}. Any credits were refunded.` : "It takes a minute or two. You can leave; it'll be in My songs."}
+            </Txt>
+          </View>
+        </Card>
       ) : (
         <>
           <View style={{ alignItems: "center" }}>
             <SongCover song={s} size={240} />
           </View>
+          {/* The player slot (components/song-player.tsx). */}
           <Card>
             <SongPlayerRow song={s} player={player} />
           </Card>
-          <Button label="Save or share" icon="share" block loading={sharing} disabled={!s.audioUrl} onPress={share} />
-          <Txt variant="cap" style={{ textAlign: "center" }}>
-            Save to Files, or send it on WhatsApp and Instagram.
-          </Txt>
+          <Button label="Save or share" icon="share" kind="secondary" block loading={sharing} disabled={!s.audioUrl} onPress={share} />
           {error ? <Banner kind="error" text={error} /> : null}
 
+          <View style={[styles.tabs, { backgroundColor: colors.surfaceSunken }]} accessibilityRole="tablist">
+            {TABS.map((t) => {
+              const on = tab === t.value;
+              return (
+                <Pressable
+                  key={t.value}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: on }}
+                  onPress={() => {
+                    setPart(null);
+                    setTab(t.value);
+                  }}
+                  style={[styles.tab, on ? { backgroundColor: colors.surfaceRaised, shadowColor: "#2a1235", shadowOpacity: 0.12, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } } : null]}>
+                  <Txt variant="label" color={on ? "ink" : "inkMuted"}>
+                    {t.label}
+                  </Txt>
+                </Pressable>
+              );
+            })}
+          </View>
+
           <Card>
-            <Pressable accessibilityRole="button" accessibilityState={{ expanded: panel === "edit" }} onPress={() => setPanel(panel === "edit" ? null : "edit")} style={styles.panelHead}>
-              <View style={{ flex: 1 }}>
-                <Txt variant="md">Trim, fade, speed</Txt>
-                <Txt variant="cap">Free · saved as a new copy</Txt>
-              </View>
-              <Txt variant="label" color="tealText">
-                {panel === "edit" ? "Close" : "Open"}
-              </Txt>
-            </Pressable>
-            {panel === "edit" ? <EditPanel song={s} onDone={done} /> : null}
+            {tab === "mix" ? (
+              <StudioMix
+                song={s}
+                presets={studio.data?.soundPresets ?? FALLBACK_PRESETS}
+                stemsCredits={studio.data?.stemsCredits ?? 1}
+                position={position ?? 0}
+                pauseSong={pauseSong}
+                onSaved={opened}
+              />
+            ) : tab === "remix" ? (
+              studio.data?.available === false ? (
+                <Txt>Remixing isn&apos;t set up on this server yet.</Txt>
+              ) : (
+                <StudioRemix song={s} kinds={kinds} peaks={peaks} position={position} playingPart={playingPart} playPart={playPart} onDone={opened} />
+              )
+            ) : (
+              <StudioEdit song={s} peaks={peaks} position={position} playingPart={playingPart} playPart={playPart} onDone={opened} />
+            )}
           </Card>
 
-          {studio.data?.available !== false ? (
-            <Card>
-              <Pressable accessibilityRole="button" accessibilityState={{ expanded: panel === "remix" }} onPress={() => setPanel(panel === "remix" ? null : "remix")} style={styles.panelHead}>
-                <View style={{ flex: 1 }}>
-                  <Txt variant="md">Remix</Txt>
-                  <Txt variant="cap">Cover, extend, or replace a part</Txt>
-                </View>
-                <Txt variant="label" color="tealText">
-                  {panel === "remix" ? "Close" : "Open"}
-                </Txt>
-              </Pressable>
-              {panel === "remix" ? <RemixPanel song={s} prices={studio.data?.remixCredits ?? { cover: 2, extend: 2, replace: 1 }} onDone={done} /> : null}
-            </Card>
-          ) : null}
-
-          {s.lyrics && panel !== "remix" ? (
+          {s.lyrics && tab !== "remix" ? (
             <Card flat>
               <Txt variant="md">Lyrics</Txt>
               <Txt selectable>{s.lyrics}</Txt>
@@ -105,165 +179,8 @@ export default function SongScreen() {
   );
 }
 
-// A number with − and + buttons: no keyboard needed for a few seconds here and there.
-function Stepper({ label, value, onChange, min, max, step, format = (n) => `${n} s` }: { label: string; value: number; onChange: (n: number) => void; min: number; max: number; step: number; format?: (n: number) => string }) {
-  const { colors } = useTheme();
-  const set = (n: number) => onChange(Math.min(max, Math.max(min, Math.round(n * 100) / 100)));
-  const btn = (sign: 1 | -1) => {
-    const off = sign < 0 ? value <= min : value >= max;
-    return (
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${sign < 0 ? "Less" : "More"} ${label.toLowerCase()}`}
-        disabled={off}
-        onPress={() => set(value + sign * step)}
-        style={[styles.stepBtn, { borderColor: colors.lineStrong, opacity: off ? 0.4 : 1 }]}>
-        <Txt variant="md">{sign < 0 ? "−" : "+"}</Txt>
-      </Pressable>
-    );
-  };
-  return (
-    <View style={styles.stepper} accessibilityRole="adjustable" accessibilityLabel={label} accessibilityValue={{ text: format(value) }}>
-      <Txt variant="label" style={{ flex: 1 }}>
-        {label}
-      </Txt>
-      {btn(-1)}
-      <Txt variant="mono" style={{ minWidth: 64, textAlign: "center", fontFamily: fonts.mono }}>
-        {format(value)}
-      </Txt>
-      {btn(1)}
-    </View>
-  );
-}
-
-const SPEEDS = ["0.8", "0.9", "1", "1.1", "1.25"] as const;
-
-// Crop, fade and speed for a finished song. Free; saves a new copy.
-function EditPanel({ song, onDone }: { song: Song; onDone: () => void }) {
-  const [startSec, setStartSec] = useState(0);
-  const [endSec, setEndSec] = useState(song.durationSec);
-  const [fadeInSec, setFadeInSec] = useState(0);
-  const [fadeOutSec, setFadeOutSec] = useState(3);
-  const [speed, setSpeed] = useState<(typeof SPEEDS)[number]>("1");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function save() {
-    setSaving(true);
-    setError(null);
-    try {
-      await api.editSong(song.id, { startSec, endSec: endSec < song.durationSec ? endSec : undefined, fadeInSec, fadeOutSec, speed: Number(speed) });
-      onDone();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <>
-      <Stepper label="Start" value={startSec} onChange={setStartSec} min={0} max={Math.max(0, endSec - 1)} step={0.5} format={formatTime} />
-      <Stepper label="End" value={endSec} onChange={setEndSec} min={startSec + 1} max={song.durationSec} step={0.5} format={formatTime} />
-      <Stepper label="Fade in" value={fadeInSec} onChange={setFadeInSec} min={0} max={10} step={0.5} />
-      <Stepper label="Fade out" value={fadeOutSec} onChange={setFadeOutSec} min={0} max={10} step={0.5} />
-      <View style={{ gap: 6 }}>
-        <Txt variant="cap">Speed</Txt>
-        <ChipRow options={SPEEDS.map((v) => ({ value: v, label: v === "1" ? "Normal" : `${v}×` }))} value={speed} onChange={setSpeed} />
-      </View>
-      {error ? <Banner kind="error" text={error} /> : null}
-      <Button label="Save as new copy · free" icon="check" block loading={saving} onPress={save} />
-    </>
-  );
-}
-
-// Suno-style remixing on ACE-Step. Each remix is saved as a new song.
-function RemixPanel({ song, prices, onDone }: { song: Song; prices: Record<RemixKind, number>; onDone: () => void }) {
-  const [kind, setKind] = useState<RemixKind>("cover");
-  const [style, setStyle] = useState("");
-  const [lyrics, setLyrics] = useState(song.lyrics);
-  const [extendSec, setExtendSec] = useState<"15" | "30" | "60">("30");
-  const [startSec, setStartSec] = useState(0);
-  const [endSec, setEndSec] = useState(Math.min(15, song.durationSec));
-  const [busy, setBusy] = useState(false);
-  const [styling, setStyling] = useState(false);
-  const [error, setError] = useState<{ text: string; credits: boolean } | null>(null);
-
-  async function enhanceStyle() {
-    setStyling(true);
-    setError(null);
-    try {
-      setStyle(await api.songStyle({ genre: song.genre, idea: style.trim() }));
-    } catch (err) {
-      setError({ text: (err as Error).message, credits: false });
-    } finally {
-      setStyling(false);
-    }
-  }
-
-  async function remix() {
-    setBusy(true);
-    setError(null);
-    try {
-      await api.remixSong(song.id, {
-        kind,
-        ...(style.trim() ? { style: style.trim() } : {}),
-        ...(lyrics.trim() !== song.lyrics.trim() ? { lyrics } : {}),
-        ...(kind === "extend" ? { extendSec: Number(extendSec) } : {}),
-        ...(kind === "replace" ? { startSec, endSec } : {}),
-      });
-      onDone();
-    } catch (err) {
-      setError({ text: (err as Error).message, credits: err instanceof ApiError && err.needCredits });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <>
-      <ChipRow<RemixKind> options={KINDS.map((k) => ({ value: k.value, label: `${k.label} · ${prices[k.value]}` }))} value={kind} onChange={setKind} />
-      <Txt variant="cap">{KINDS.find((k) => k.value === kind)!.help}</Txt>
-      <Field label={kind === "cover" ? "New style" : "Style (optional)"} value={style} onChangeText={setStyle} maxLength={300} placeholder="Lo-fi chill, soft piano, 75 bpm" />
-      <Button label={styling ? "Writing…" : "✨ Enhance style"} kind="secondary" small disabled={styling} onPress={enhanceStyle} />
-      {kind === "extend" ? (
-        <View style={{ gap: 6 }}>
-          <Txt variant="cap">Add</Txt>
-          <ChipRow<"15" | "30" | "60">
-            options={[
-              { value: "15", label: "15 seconds" },
-              { value: "30", label: "30 seconds" },
-              { value: "60", label: "60 seconds" },
-            ]}
-            value={extendSec}
-            onChange={setExtendSec}
-          />
-        </View>
-      ) : null}
-      {kind === "replace" ? (
-        <>
-          <Stepper label="From" value={startSec} onChange={setStartSec} min={0} max={Math.max(0, endSec - 1)} step={1} format={formatTime} />
-          <Stepper label="To" value={endSec} onChange={setEndSec} min={startSec + 1} max={song.durationSec} step={1} format={formatTime} />
-        </>
-      ) : null}
-      {kind !== "cover" ? <Field label="Lyrics" value={lyrics} onChangeText={setLyrics} multiline maxLength={3000} style={{ minHeight: 160 }} /> : null}
-      {error ? (
-        <Banner
-          kind="error"
-          title={error.credits ? "Not enough credits" : undefined}
-          text={error.text}
-          action={error.credits ? <Button label="Get credits" small onPress={() => router.push("/credits")} /> : undefined}
-        />
-      ) : null}
-      <Row>
-        <Button label={`Remix · ${prices[kind]} ${prices[kind] === 1 ? "credit" : "credits"}`} icon="sparkle" block loading={busy} disabled={kind === "cover" && style.trim().length < 3} onPress={remix} style={{ flex: 1 }} />
-      </Row>
-    </>
-  );
-}
-
 const styles = StyleSheet.create({
-  panelHead: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 44 },
-  stepper: { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 44 },
-  stepBtn: { width: 44, height: 44, borderRadius: radius.pill, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  making: { alignItems: "center", gap: 10, paddingVertical: 16 },
+  tabs: { flexDirection: "row", padding: 4, borderRadius: radius.pill, gap: 4 },
+  tab: { flex: 1, minHeight: 44, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
 });

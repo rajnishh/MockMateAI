@@ -1,46 +1,70 @@
 import { z } from "zod";
 import type { LlmProvider } from "@/lib/providers/types";
-import { cleanLyrics, type LyricsRequest, lyricsLanguageRule } from "./lyrics";
-import { parseSections } from "./structure";
+import { cleanLyrics, type SongLanguage } from "./lyrics";
 
-// "✨ Write a rap verse": rap bars in the song's own language (Hinglish works) that fit its topic and lyrics.
-export interface RapRequest extends Pick<LyricsRequest, "topic" | "genre" | "mood" | "language" | "kidSafe"> {
-  // The song so far, so the bars pick up its story and hook.
+// "Add a rap": one part of a finished song is repainted as a rap verse with new bars.
+
+// Rap packs words in tighter than singing: about one bar every 2.5 seconds.
+export function rapBarCount(partSec: number): number {
+  return Math.min(16, Math.max(2, Math.round(partSec / 2.5)));
+}
+
+export interface RapRequest {
   lyrics: string;
-  bars: 8 | 12 | 16;
+  genre: string;
+  mood: string;
+  language: SongLanguage;
+  partSec: number;
+  idea?: string;
 }
 
 export function buildRapPrompt(req: RapRequest): string {
-  const sung = parseSections(req.lyrics)
-    .filter((s) => s.kind !== "Rap" && s.body)
-    .map((s) => s.body)
-    .join("\n")
-    .slice(0, 1500);
   return [
-    "You are a rapper and songwriter. Write one original rap verse for a song.",
-    req.topic ? `The song is about: ${req.topic}` : "",
-    sung ? `The rest of the song, for its story and words:\n${sung}` : "",
-    `Genre: ${req.genre.label}. Mood: ${req.mood || "any"}.`,
-    lyricsLanguageRule(req.language),
-    req.language === "hinglish" ? "Mix Hindi and English the way Indian hip-hop does; English words can carry the rhymes." : "",
-    `Exactly ${req.bars} bars, one bar per line. Each bar is 8-14 syllables, punchy, with end rhymes in pairs and internal rhymes.`,
-    "Pick up the song's topic and images, with fresh details; don't repeat the chorus.",
-    "Confident flow, wordplay, no filler like \"yo\" or \"uh\". Don't name or imitate real rappers, singers or celebrities, and don't copy existing lyrics.",
-    req.kidSafe ? "This is for children: clean, playful, positive words only." : "Keep it clean enough for Instagram: no slurs, no explicit content.",
+    "You are a desi hip-hop lyricist. Write an original rap verse that drops into this song:",
+    req.lyrics.slice(0, 2000),
+    `Song: ${req.genre}, ${req.mood || "any"} mood.`,
+    req.idea ? `The creator wants the rap to be about: ${req.idea}` : "Rap about the song's own story and feeling.",
+    req.language === "hinglish" || req.language === "hi"
+      ? "Write in Hinglish (Hindi and English mixed, Latin script), like modern Indian hip-hop."
+      : `Write in the song's language (code ${req.language}), in the same script as its lyrics.`,
+    `Exactly ${rapBarCount(req.partSec)} bars, one per line, for about ${Math.round(req.partSec)} seconds. Punchy internal rhymes, end rhymes in pairs, a clear rhythm.`,
+    "Keep it clean: no slurs or explicit words. Never mention real rappers, singers or celebrities, and don't copy existing lyrics.",
     'Reply with JSON only: {"bars": string} (bars uses \\n between lines, no section tags).',
   ]
     .filter(Boolean)
     .join("\n");
 }
 
-const rapSchema = z.object({ bars: z.string().min(20) });
+const rapSchema = z.object({ bars: z.string().min(10) });
 
 export async function writeRap(llm: LlmProvider, req: RapRequest): Promise<string> {
   const { bars } = rapSchema.parse(await llm.completeJson(buildRapPrompt(req)));
-  // Tags the model added anyway are dropped; the bars go under the song's [Rap] block.
+  return cleanBars(bars);
+}
+
+export function cleanBars(bars: string): string {
   return cleanLyrics(bars)
     .split("\n")
     .filter((l) => l && !/^\[.*\]$/.test(l))
-    .slice(0, req.bars)
-    .join("\n");
+    .slice(0, 24)
+    .join("\n")
+    .slice(0, 1200);
+}
+
+// Style tags that turn the repainted part into rap while keeping the song's sound around it.
+export function rapStyle(style: string): string {
+  return `${style}, [rap verse], hip-hop rap vocals, fast rhythmic flow, punchy delivery`.slice(0, 512);
+}
+
+// The song's lyrics with the lines sung in [startSec, endSec] swapped for a [Rap] verse.
+// Songs don't keep word timings, so lines are spread evenly over the song (tags take no time).
+export function lyricsWithRap(lyrics: string, durationSec: number, startSec: number, endSec: number, bars: string): string {
+  const lines = lyrics.split("\n");
+  const sung = lines.map((l, i) => ({ l, i })).filter(({ l }) => l.trim() && !/^\[.*\]$/.test(l.trim()));
+  const rap = ["[Rap]", ...cleanBars(bars).split("\n")];
+  if (!sung.length || durationSec <= 0) return [...lines, "", ...rap].join("\n").trim();
+  const at = (sec: number) => Math.min(sung.length - 1, Math.max(0, Math.floor((sec / durationSec) * sung.length)));
+  const first = sung[at(startSec)].i;
+  const last = sung[Math.max(at(startSec), at(Math.max(startSec, endSec - 0.01)))].i;
+  return [...lines.slice(0, first), ...rap, ...lines.slice(last + 1)].join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }

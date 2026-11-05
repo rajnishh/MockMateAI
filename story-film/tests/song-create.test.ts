@@ -7,7 +7,7 @@ import { aceInputs, experimentInputs, strictnessInputs } from "@/lib/songs/contr
 import { coverPrompt, makeCover } from "@/lib/songs/cover";
 import { ideaTitle, prepareSong, songControls } from "@/lib/songs/create";
 import { buildLyricsPrompt } from "@/lib/songs/lyrics";
-import { buildRapPrompt, writeRap } from "@/lib/songs/rap";
+import { buildRapPrompt, writeRap } from "@/lib/songs/rap-verse";
 import { newSongSchema } from "@/lib/songs/request";
 import { songView } from "@/lib/songs/songs";
 import { addSection, blocksOf, insertRap, moveSection, onlyTags, parseTag, removeSection, setSinger, structureOf } from "@/lib/songs/structure";

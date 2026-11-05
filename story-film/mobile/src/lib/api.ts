@@ -232,12 +232,46 @@ export interface Song {
   // Square AI cover art, made just after the song; null until then.
   coverUrl?: string | null;
 }
-export type RemixKind = "cover" | "extend" | "replace";
+// The server lists its remix kinds (remixKinds), so kinds it adds later work without an app update.
+export type RemixKind = "cover" | "extend" | "replace" | "rap" | (string & {});
+export interface RemixKindInfo {
+  kind: RemixKind;
+  label: string;
+  help: string;
+  credits: number;
+  style: "required" | "optional" | "none";
+  part: boolean;
+  extend: boolean;
+  lyrics: boolean;
+  bars: boolean;
+  // Covers on Runware: how far from the original, 0 to 1. Older servers leave it out.
+  strength?: boolean;
+}
+export interface SoundPreset {
+  id: string;
+  label: string;
+  help: string;
+}
+export type StemName = "vocals" | "drums" | "bass" | "other";
+export interface SongStems {
+  status: "none" | "running" | "ready" | "failed";
+  error?: string;
+  credits: number;
+  stems: Record<StemName, string> | null;
+}
+export interface SongMix {
+  gains?: Partial<Record<StemName, number>>;
+  preset?: string;
+}
 export interface SongStudio {
   songs: Song[];
   // What one Create costs, and each kind of remix.
   credits: number;
   remixCredits: Record<RemixKind, number>;
+  // Missing on servers from before the Studio.
+  remixKinds?: RemixKindInfo[];
+  soundPresets?: SoundPreset[];
+  stemsCredits?: number;
   available: boolean;
 }
 export type SongModel = "ace-step" | "lyria";
@@ -282,6 +316,10 @@ export interface SongRemix {
   extendSec?: number;
   startSec?: number;
   endSec?: number;
+  // "rap": the bars for the picked part.
+  bars?: string;
+  // Covers on Runware: 0 (close to the original) to 1 (far).
+  strength?: number;
 }
 
 export class ApiError extends Error {
@@ -402,7 +440,7 @@ const real = {
   song: (id: string) => call<Song>(`/api/songs/${id}`),
   createSong: (input: NewSong) => call<{ id: string; ids: string[]; title?: string }>("/api/songs", { method: "POST", body: JSON.stringify(input) }),
   // "✨ Write a rap verse": rap bars for the song's [Rap] block.
-  songRap: async (input: SongOptions & { lyrics: string; bars?: 8 | 12 | 16 }) =>
+  songRapVerse: async (input: SongOptions & { lyrics: string; bars?: 8 | 12 | 16 }) =>
     (await call<{ bars: string }>("/api/songs/lyrics/rap", { method: "POST", body: JSON.stringify(input) })).bars,
   // "✨ Write lyrics with AI" from the topic, or "✨ Enhance my lyrics" with the creator's own lines as the draft.
   songLyrics: (input: SongOptions & { draft?: string; structure?: string[]; duet?: boolean }) => call<{ title: string; lyrics: string }>("/api/songs/lyrics", { method: "POST", body: JSON.stringify(input) }),
@@ -412,6 +450,15 @@ const real = {
   remixSong: (id: string, remix: SongRemix) => call<{ id: string }>(`/api/songs/${id}/remix`, { method: "POST", body: JSON.stringify(remix) }),
   songAudioUrl: (song: Song) => (song.audioUrl ? `${API_URL}${song.audioUrl}` : null),
   songCoverUrl: (song: Song) => (song.coverUrl ? `${API_URL}${song.coverUrl}` : null),
+  // Studio: waveform, stems, mixes, sound previews and rap bars.
+  songPeaks: async (id: string) => (await call<{ peaks: number[] }>(`/api/songs/${id}/peaks`)).peaks,
+  songStems: (id: string) => call<SongStems>(`/api/songs/${id}/stems`),
+  splitSong: (id: string) => call<SongStems>(`/api/songs/${id}/stems`, { method: "POST", body: "{}" }),
+  saveMix: (id: string, mix: SongMix) => call<{ id: string }>(`/api/songs/${id}/mix`, { method: "POST", body: JSON.stringify(mix) }),
+  songRap: async (id: string, input: { startSec: number; endSec: number; idea?: string }) =>
+    (await call<{ bars: string }>(`/api/songs/${id}/rap`, { method: "POST", body: JSON.stringify(input) })).bars,
+  stemUrl: (path: string) => `${API_URL}${path}`,
+  soundPreviewUrl: (id: string, preset: string): string | null => `${API_URL}/api/songs/${id}/mix/preview?preset=${encodeURIComponent(preset)}`,
   videoHeaders: async (): Promise<Record<string, string>> => {
     const cookie = await authClient.getCookie();
     return cookie ? { Cookie: cookie } : {};
@@ -753,7 +800,7 @@ const demo: typeof real = {
   shareLink: async () => {
     throw new ApiError("Saving and sharing need the Reelkar server, not the demo", 503);
   },
-  songs: async () => (await wait(300), { songs: [...demoSongs], credits: 4, remixCredits: { cover: 2, extend: 2, replace: 1 }, available: true }),
+  songs: async () => (await wait(300), { songs: [...demoSongs], credits: 4, remixCredits: { cover: 2, extend: 2, replace: 1, rap: 1 }, available: true }),
   song: async (id) => {
     await wait(200);
     const s = demoSongs.find((x) => x.id === id);
@@ -773,7 +820,7 @@ const demo: typeof real = {
     { title: input.topic ? input.topic.slice(0, 40) : "Meri kahani", lyrics: `${input.draft ? `${input.draft}\n\n` : ""}[Verse]\nBaarish ki boondein, khidki pe gaana\nChai ki pyaali, maa ka bulaana\n\n[Chorus]\nYe pal hai mera, ye ghar hai mera\nHar subah naya, har din sunehra` }
   ),
   songStyle: async (input) => (await wait(400), `${input.idea || "soft"}, acoustic guitar, tabla, warm female vocals, mid tempo`),
-  songRap: async () => (await wait(600), "Subah ki chai, haath mein phone\nSapne bade, raaste anjaan, chal akela hi zone\nGalli se studio tak, beat pe mera naam\nMehnat ki syahi se likhta apna kaam"),
+  songRapVerse: async () => (await wait(600), "Subah ki chai, haath mein phone\nSapne bade, raaste anjaan, chal akela hi zone\nGalli se studio tak, beat pe mera naam\nMehnat ki syahi se likhta apna kaam"),
   editSong: async (id) => {
     await wait(400);
     const s = demoSongs.find((x) => x.id === id)!;
@@ -789,6 +836,21 @@ const demo: typeof real = {
     return { id: copy.id };
   },
   songAudioUrl: () => null,
+  songPeaks: async () => (await wait(200), Array.from({ length: 160 }, (_, i) => 0.35 + 0.3 * Math.abs(Math.sin(i / 5)) + 0.2 * Math.abs(Math.sin(i * 1.7)))),
+  songStems: async () => (await wait(200), { status: "none" as const, credits: 1, stems: null }),
+  splitSong: async () => {
+    throw new ApiError("Splitting songs needs the Reelkar server, not the demo", 503);
+  },
+  saveMix: async (id, mix) => {
+    await wait(400);
+    const s = demoSongs.find((x) => x.id === id)!;
+    const copy = { ...s, id: `s${Date.now()}`, title: `${s.title} (${mix.gains ? "mix" : "sound"})`, status: "queued" as const, audioUrl: null };
+    demoSongs.unshift(copy);
+    return { id: copy.id };
+  },
+  songRap: async () => (await wait(600), "Subah ki chai, haath mein phone\nSapne bade, raaste anjaan, chalna hai alone\nGully se uthke, mic pe hai naam\nMehnat ki beat pe likhunga apna kaam"),
+  stemUrl: () => "",
+  soundPreviewUrl: () => null,
   videoUrl: () => null,
   previewUri: () => null,
   videoHeaders: async () => ({}),

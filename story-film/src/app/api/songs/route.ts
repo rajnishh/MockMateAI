@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { REMIX_CREDITS, SONG_CREDITS } from "@/lib/billing/catalog";
+import { REMIX_CREDITS, SONG_CREDITS, STEMS_CREDITS } from "@/lib/billing/catalog";
 import { grantCredits, spendCredits } from "@/lib/billing/credits";
 import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
@@ -9,9 +9,10 @@ import { buildLlm, proRemixAvailable, songsAvailable } from "@/lib/providers";
 import { getSongQueue } from "@/lib/queue/songs";
 import { getUserId, unauthorized } from "@/lib/session";
 import { prepareSong } from "@/lib/songs/create";
+import { SOUND_PRESETS } from "@/lib/songs/mix";
 import { newSongSchema, songLength, vocalLanguage } from "@/lib/songs/request";
 import { assertNoRealArtists, SongSafetyError } from "@/lib/songs/safety";
-import { remixKinds } from "@/lib/songs/remix";
+import { remixKindList } from "@/lib/songs/remix";
 import { createSong, listSongs, songView, takeCredits } from "@/lib/songs/songs";
 import { findGenre } from "@/lib/songs/styles";
 
@@ -23,10 +24,11 @@ export async function GET() {
     songs: (await listSongs(getDb(), userId)).map(songView),
     credits: SONG_CREDITS,
     remixCredits: REMIX_CREDITS,
+    // Remix kinds this server can run, with the fields each takes; the pro ones need Runware.
+    remixKinds: remixKindList(proRemixAvailable(env)),
+    soundPresets: SOUND_PRESETS,
+    stemsCredits: STEMS_CREDITS,
     available: songsAvailable(env),
-    // Remix kinds this server can run, and whether covers take a strength (both need Runware for the pro ones).
-    remixKinds: remixKinds(proRemixAvailable(env)),
-    coverStrength: proRemixAvailable(env),
   });
 }
 
