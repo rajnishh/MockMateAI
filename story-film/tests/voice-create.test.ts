@@ -37,19 +37,19 @@ describe("what Reelkar heard", () => {
     let asked = false;
     const heard = await understand({ completeJson: async () => ((asked = true), {}) }, { transcript: "hmm hmm", words: [], durationSec: 10 });
     expect(asked).toBe(false);
-    expect(heard).toMatchObject({ kind: "hum", transcript: "", plan: { make: "song" } });
+    expect(heard).toMatchObject({ kind: "hum", transcript: "", plan: { make: "song", title: "My tune" } });
   });
 
   it("takes the AI's plan for a request, and fixes values it made up", async () => {
     const llm = {
       completeJson: async () => ({
         kind: "speech",
-        plan: { make: "reel", topic: "chai in Mumbai rain", title: "Chai Baarish", genre: "jazz-fusion", mood: "cosy", language: "hi", durationSec: 30, lyrics: "" },
+        plan: { make: "reel", topic: "chai in Mumbai rain", title: "Chai Baarish", genre: "jazz-fusion", mood: "cosy", language: "hi", durationSec: 30, lyrics: "about chai in Mumbai rain" },
       }),
     };
     const heard = await understand(llm, { transcript: "a 30 second reel about chai in Mumbai rain", words: [], durationSec: 3 });
     expect(heard.kind).toBe("speech");
-    expect(heard.plan).toMatchObject({ make: "reel", topic: "chai in Mumbai rain", durationSec: 30, genre: "bollywood-romantic", mood: "" });
+    expect(heard.plan).toMatchObject({ make: "reel", topic: "chai in Mumbai rain", durationSec: 30, genre: "bollywood-romantic", mood: "", lyrics: "" });
   });
 
   it("keeps sung recordings as songs with the sung lines as lyrics", async () => {

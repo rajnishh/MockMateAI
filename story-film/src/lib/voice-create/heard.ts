@@ -86,11 +86,11 @@ export function buildHeardPrompt(transcript: string, guess: HeardKind, stats: { 
     `Recording: ${stats.durationSec.toFixed(1)} s, about ${stats.wordsPerSecond.toFixed(1)} words per second (speech is usually 2-3.5, singing slower). First guess: ${guess}.`,
     'Decide "kind": "sing" if these are sung song lines (lyrics), "speech" if they are describing or asking for something to be made, "hum" if there are no real words.',
     'Then fill in a plan. "make": "song" unless they ask for a reel/short video ("reel") or a music video ("music_video"). Sung or hummed recordings are always "song".',
-    '"topic": what it is about, in a short phrase in English. "title": a short catchy title in the language of the song.',
+    '"topic": everything they said it should be about (who, what, the occasion, names), in one English sentence; keep their details. "title": a short catchy title in the language of the song.',
     `"genre": one of ${GENRES.map((g) => g.id).join(", ")}. Pick the closest to what they asked or what the lyrics feel like.`,
     `"mood": one of ${MOODS.join(", ")}, or "". "language": one of ${LANGS.join(", ")} (hinglish = Hindi in Latin letters mixed with English).`,
     '"durationSec": the length they asked for, else 30 for a reel and 60 for a song.',
-    '"lyrics": for "sing", the sung lines cleaned up, one per line, in the script they were sung in; for "speech", any lines they asked to include; else "".',
+    '"lyrics": for "sing", the sung lines cleaned up, one per line, in the script they were sung in; else "".',
     'Reply with JSON only: {"kind": string, "plan": {"make": string, "topic": string, "title": string, "genre": string, "mood": string, "language": string, "durationSec": number, "lyrics": string}}',
   ].join("\n");
 }
@@ -101,6 +101,7 @@ export function defaultPlan(kind: HeardKind, transcript: string): Plan {
   return planSchema.parse({
     make: "song",
     topic: kind === "speech" ? transcript.slice(0, 300) : "",
+    title: kind === "hum" ? "My tune" : "",
     lyrics: kind === "sing" ? transcript.slice(0, 3000) : "",
     durationSec: 60,
   });
@@ -120,7 +121,8 @@ export async function understand(
       await llm.completeJson(buildHeardPrompt(transcript, guess, { durationSec: input.durationSec, wordsPerSecond: wordsPerSecond(input.words, input.durationSec) })),
     );
     const kind = input.typed ? "speech" : reply.kind === "hum" ? guess : reply.kind;
-    const plan = kind === "speech" ? reply.plan : { ...reply.plan, make: "song" as const, lyrics: reply.plan.lyrics || transcript };
+    // A request's words describe the song; they are never sung as they are.
+    const plan = kind === "speech" ? { ...reply.plan, lyrics: "" } : { ...reply.plan, make: "song" as const, lyrics: reply.plan.lyrics || transcript };
     return { kind, transcript, plan };
   } catch (err) {
     console.warn(`Couldn't understand the recording with the AI, using the first guess: ${(err as Error).message.slice(0, 200)}`);
