@@ -14,7 +14,8 @@ import { CloudflareTranscriber, CloudflareWhisper } from "./whisper";
 import { KenBurnsVideo } from "./kenburns";
 import { KokoroTts } from "./kokoro";
 import { FalChatterboxTts, RoutedTts, SarvamTts } from "./tts";
-import { OpenAiCompatibleLlm } from "./llm";
+import { FallbackLlm, OpenAiCompatibleLlm } from "./llm";
+import type { LlmProvider } from "./types";
 
 // standard: Cloudflare Workers AI images + local pan-and-zoom, ~$0 per video.
 // premium: fal.ai Nano Banana 2 images + Wan/Kling AI animation, paid with credits.
@@ -141,7 +142,7 @@ export function buildSingDeps(env: Env) {
 }
 
 // OpenRouter when configured (stronger models), otherwise the free Workers AI Llama.
-export function buildLlm(env: Env): OpenAiCompatibleLlm {
+export function buildLlm(env: Env): LlmProvider {
   if (env.OPENROUTER_API_KEY) {
     return new OpenAiCompatibleLlm("https://openrouter.ai/api/v1", env.OPENROUTER_API_KEY, env.OPENROUTER_MODEL, {
       licenseId: "openrouter",
@@ -151,11 +152,26 @@ export function buildLlm(env: Env): OpenAiCompatibleLlm {
   const accountId = requireKey(env.CLOUDFLARE_ACCOUNT_ID, "CLOUDFLARE_ACCOUNT_ID");
   // Workers AI's OpenAI-compatible endpoint. Every call wants JSON, and without JSON mode the free
   // Llama sometimes sends broken JSON (an unquoted key, a stray quote), so it's on.
-  return new OpenAiCompatibleLlm(
+  const workersAi = new OpenAiCompatibleLlm(
     `${cloudflareAiBase(accountId)}/v1`,
     requireKey(env.CLOUDFLARE_API_TOKEN, "CLOUDFLARE_API_TOKEN"),
     env.CF_LLM_MODEL ?? CLOUDFLARE_DEFAULTS.llmModel,
     { licenseId: "llama-3.3-70b", jsonMode: true },
+  );
+  return env.GEMINI_API_KEY ? new FallbackLlm(workersAi, buildGeminiLlm(env.GEMINI_API_KEY)) : workersAi;
+}
+
+const GEMINI_BACKUP_MODEL = "gemini-2.5-flash";
+
+// Gemini's free tier through its OpenAI-compatible endpoint: the backup when Workers AI's free daily
+// limit runs out. Thinking is off so it doesn't spend the reply's token budget.
+export function buildGeminiLlm(apiKey: string, fetchFn: typeof fetch = fetch): OpenAiCompatibleLlm {
+  return new OpenAiCompatibleLlm(
+    "https://generativelanguage.googleapis.com/v1beta/openai",
+    apiKey,
+    GEMINI_BACKUP_MODEL,
+    { licenseId: GEMINI_BACKUP_MODEL, jsonMode: true, extraBody: { reasoning_effort: "none" } },
+    fetchFn,
   );
 }
 

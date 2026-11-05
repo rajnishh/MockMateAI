@@ -14,7 +14,8 @@ export class OpenAiCompatibleLlm implements LlmProvider {
     private readonly baseUrl: string,
     private readonly apiKey: string,
     private readonly model: string,
-    private readonly opts: { licenseId: string; jsonMode: boolean },
+    // extraBody: provider-specific fields, such as Gemini's reasoning_effort.
+    private readonly opts: { licenseId: string; jsonMode: boolean; extraBody?: Record<string, unknown> },
     private readonly fetchFn: typeof fetch = fetch,
   ) {
     this.modelId = opts.licenseId;
@@ -53,6 +54,7 @@ export class OpenAiCompatibleLlm implements LlmProvider {
         max_tokens: MAX_TOKENS,
         ...(this.opts.jsonMode ? { response_format: { type: "json_object" } } : {}),
         messages: [{ role: "user", content: prompt }],
+        ...this.opts.extraBody,
       }),
     });
     if (!res.ok) throw new Error(`LLM ${res.status}: ${await res.text()}`);
@@ -60,5 +62,34 @@ export class OpenAiCompatibleLlm implements LlmProvider {
     const choice = data.choices[0];
     if (choice.finish_reason === "length") throw new Error(`LLM reply was cut off at ${MAX_TOKENS} tokens`);
     return choice.message.content;
+  }
+}
+
+// Tries the primary LLM and, if it fails (Workers AI's free daily limit, an outage), asks the backup.
+export class FallbackLlm implements LlmProvider {
+  readonly modelId: string;
+
+  constructor(
+    private readonly primary: LlmProvider,
+    private readonly backup: LlmProvider,
+  ) {
+    this.modelId = primary.modelId;
+  }
+
+  writeScript(input: ScriptRequest): Promise<FilmScript> {
+    return this.withBackup((llm) => llm.writeScript(input));
+  }
+
+  completeJson(prompt: string): Promise<unknown> {
+    return this.withBackup((llm) => llm.completeJson(prompt));
+  }
+
+  private async withBackup<T>(run: (llm: LlmProvider) => Promise<T>): Promise<T> {
+    try {
+      return await run(this.primary);
+    } catch (err) {
+      console.warn(`${this.primary.modelId} failed, using ${this.backup.modelId}: ${(err as Error).message.slice(0, 200)}`);
+      return run(this.backup);
+    }
   }
 }
