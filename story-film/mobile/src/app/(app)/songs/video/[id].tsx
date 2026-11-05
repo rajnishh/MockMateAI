@@ -54,6 +54,13 @@ export default function MusicVideoScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ text: string; needCredits?: boolean } | null>(null);
   const [pollKey, setPollKey] = useState(0);
+  // Opening another storyboard from My videos reuses this screen with a new film param.
+  const [shownFilm, setShownFilm] = useState(film);
+  if (film && film !== shownFilm) {
+    setShownFilm(film);
+    setVideoId(film);
+    setVideo(null);
+  }
 
   const total = song.data?.durationSec ?? 0;
   const length = lengthSec === "all" || Number(lengthSec) >= total ? total : Number(lengthSec);
@@ -277,7 +284,10 @@ export default function MusicVideoScreen() {
       ) : video.status === "failed" ? (
         <Banner kind="error" title="Something went wrong" text={`${video.error ?? "The video failed."}${board ? " Credits were refunded." : ""}`} />
       ) : video.status === "completed" ? (
-        <ReelVideo film={{ id: video.id, videoUrl: video.videoUrl } as Film} autoPlay />
+        // ReelVideo fills its parent, so it gets a 9:16 frame here.
+        <View style={styles.video}>
+          <ReelVideo film={{ id: video.id, videoUrl: video.videoUrl } as Film} autoPlay />
+        </View>
       ) : board ? (
         <>
           <Card>
@@ -406,6 +416,7 @@ const styles = StyleSheet.create({
   kindIcon: { width: 36, textAlign: "center" },
   price: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
   star: { width: 64, height: 64, borderRadius: 32 },
+  video: { width: "100%", maxWidth: 420, alignSelf: "center", aspectRatio: 9 / 16, borderRadius: radius.lg, overflow: "hidden" },
   frame: { width: 96, aspectRatio: 9 / 16, borderRadius: radius.md, overflow: "hidden", justifyContent: "center" },
   tag: { position: "absolute", left: 6, top: 6, paddingHorizontal: 6, paddingVertical: 1, borderRadius: radius.pill },
   prompt: { minHeight: 72, borderWidth: 1, borderRadius: radius.md, padding: 8, fontFamily: fonts.regular, fontSize: 14, textAlignVertical: "top" },
