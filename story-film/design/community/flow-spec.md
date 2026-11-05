@@ -588,3 +588,14 @@ Not built yet:
 - A screen for reviewing reports: reports are stored in `gift_report` and need a person to read them.
 
 Changed from the spec: each gift stores the name it's signed with (`fromName`, "Bhaiya"), because phone sign-ups are named "Creator 1234"; and the token is kept on the gift row (no separate `share_link` table until duets need one).
+
+## Build status (v1, Jugalbandi)
+
+Built:
+- iPhone: Start (topic, style, language, name, Instagram username, price), recording each part with Hum it, the duet screen for both people (invite on WhatsApp, waiting with hours left, no answer or declined with invite someone else / finish solo / 24 more hours / cancel, joining, the joined preview with retakes and approvals, then the music video and the Collab post), and Jugalbandis in Inbox.
+- Web invite `/j/{token}` (W3 + W4): hear A's part, sign in, join (name, Instagram, offer half), sing on the page with the browser's mic (A's part can play along), then hear the joined song, approve or sing again. No app needed for B.
+- Joining: both parts back to back become one tune, sung as a duet by the "song on your tune" engine (a sung part keeps its words; AI writes a hummed part's).
+- Credits: A pays 6 at the start; B's half is taken when B joins and given back to A when the song is joined, so B leaving early never costs A. Cancel gives everything back; finishing solo keeps 2. One free retake each, then 1 credit.
+- Instagram Collab: posts take a `collaborators` field, allowed only for the partner of a duet both approved; the caption credits the partner too.
+
+Not built yet: push reminders at 24 hours (the 48-hour window and its options work without them), @handle search inside Reelkar, playing A's part in the earphones while recording in the app (it plays before), and own cloned voices for parts.

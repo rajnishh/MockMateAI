@@ -85,12 +85,14 @@ export class InstagramClient {
   }
 
   // Creates a Reels container from a public video URL, waits for Instagram to process it, then publishes.
-  async publishReel(accessToken: string, igUserId: string, videoUrl: string, caption: string): Promise<{ id: string; url: string }> {
+  // collaborators: Instagram usernames invited as co-authors (a Collab post); each accepts in Instagram.
+  async publishReel(accessToken: string, igUserId: string, videoUrl: string, caption: string, collaborators: string[] = []): Promise<{ id: string; url: string }> {
     const container = await this.post<{ id: string }>(`/${igUserId}/media`, {
       media_type: "REELS",
       video_url: videoUrl,
       caption: caption.slice(0, 2200),
       share_to_feed: "true",
+      ...(collaborators.length ? { collaborators: JSON.stringify(collaborators) } : {}),
       access_token: accessToken,
     });
     // Meta suggests checking about once a minute for up to 5 minutes.

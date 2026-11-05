@@ -97,6 +97,8 @@ export interface NewPost {
   tags: string[];
   // Omit to post now.
   scheduledAt?: string;
+  // Instagram Collab co-author: an approved Jugalbandi partner.
+  collaborators?: string[];
 }
 
 // How the creator's own voice is processed: as recorded, cleaned and levelled, or a little deeper.
@@ -364,6 +366,52 @@ export interface NewGift {
   // How the Arabic gift page speaks to them; null is neutral.
   address?: "her" | "him" | null;
 }
+// Jugalbandi (mirrors duetView in story-film/src/lib/duets.ts).
+export type DuetPhase = "recording_a" | "waiting" | "expired" | "joining" | "join_failed" | "ready" | "declined" | "cancelled" | "solo";
+export type DuetAction = "approve" | "retake" | "ask_retake" | "cancel" | "extend" | "reinvite" | "solo" | "join_again";
+export interface DuetPart {
+  kind: "hum" | "sing" | null;
+  sec: number | null;
+  audioUrl: string;
+}
+export interface Duet {
+  id: string;
+  role: "a" | "b";
+  phase: DuetPhase;
+  url: string;
+  topic: string;
+  genre: string;
+  language: string;
+  starterName: string;
+  partnerName: string;
+  starterIg: string;
+  partnerIg: string;
+  partA: DuetPart | null;
+  partB: DuetPart | null;
+  // The joined song, for the person who started it (Song Studio, music video, posting).
+  songId: string | null;
+  songAudioUrl: string | null;
+  price: number;
+  half: number;
+  paidA: number;
+  paidB: number;
+  freeRetake: boolean;
+  retakeCredits: number;
+  approvedA: boolean;
+  approvedB: boolean;
+  askedToRetake: boolean;
+  expiresAt: string | null;
+  canExtend: boolean;
+  declineNote: string;
+  createdAt: string;
+}
+export interface NewDuet {
+  topic: string;
+  genre: string;
+  language: string;
+  name: string;
+  ig: string;
+}
 export interface SongEdit {
   startSec: number;
   endSec?: number;
@@ -539,6 +587,13 @@ const real = {
   createGift: (songId: string, input: NewGift) => call<Gift>(`/api/songs/${songId}/gift`, { method: "POST", body: JSON.stringify(input) }),
   gifts: () => call<{ sent: SentGift[]; replies: ReceivedReply[] }>("/api/gifts"),
   setGiftSharing: (id: string, sharing: boolean) => call<Gift>(`/api/gifts/${id}`, { method: "PATCH", body: JSON.stringify({ sharing }) }),
+  duets: async () => (await call<{ duets: Duet[] }>("/api/duets")).duets,
+  duet: (id: string) => call<Duet>(`/api/duets/${id}`),
+  duetForSong: async (songId: string): Promise<Duet | null> => (await call<{ duets: Duet[] }>(`/api/duets?song=${encodeURIComponent(songId)}`)).duets[0] ?? null,
+  startDuet: (input: NewDuet) => call<Duet>("/api/duets", { method: "POST", body: JSON.stringify(input) }),
+  duetPart: (id: string, takeId: string) => call<Duet>(`/api/duets/${id}/part`, { method: "POST", body: JSON.stringify({ takeId }) }),
+  duetAction: (id: string, action: DuetAction) => call<Duet>(`/api/duets/${id}/action`, { method: "POST", body: JSON.stringify({ action }) }),
+  duetAudioUrl: (path: string) => `${API_URL}${path}`,
   replyInfo: (token: string) => call<{ toName: string; occasion: Occasion; free: boolean }>(`/api/gifts/reply?to=${encodeURIComponent(token)}`),
   // "✨ Write a rap verse": rap bars for the song's [Rap] block.
   songRapVerse: async (input: SongOptions & { lyrics: string; bars?: 8 | 12 | 16 }) =>
@@ -577,6 +632,13 @@ const demoFilms: Film[] = [
   { ...sample("d4", "Baarish dance: chham chham chham", "completed", 4), format: "dance" },
 ];
 let demoBalance = 20;
+const demoDuetBase: Duet = {
+  id: "d1", role: "a", phase: "waiting", url: "https://reelkar.app/j/demoDuet01", topic: "Chai vs coffee, settled in song", genre: "bollywood-romantic", language: "hinglish",
+  starterName: "Arjun", partnerName: "", starterIg: "arjun.sings", partnerIg: "", partA: { kind: "hum", sec: 28, audioUrl: "/demo" }, partB: null, songId: null, songAudioUrl: null,
+  price: 6, half: 3, paidA: 6, paidB: 0, freeRetake: true, retakeCredits: 1, approvedA: false, approvedB: false, askedToRetake: false,
+  expiresAt: new Date(Date.now() + 47 * 3600_000).toISOString(), canExtend: false, declineNote: "", createdAt: new Date().toISOString(),
+};
+const demoDuets: Duet[] = [{ ...demoDuetBase }];
 const demoGifts: SentGift[] = [
   { id: "g1", url: "https://reelkar.app/g/demoGift1x", token: "demoGift1x", toName: "Priya", occasion: "birthday", note: "Play it loud!", songId: "s1", songTitle: "Baarish wali chai", songReady: true, isReply: false, opened: true, playCount: 2, lastPlayedAt: new Date(Date.now() - 3 * 3600_000).toISOString(), sharing: true, takenDown: false, createdAt: new Date(Date.now() - 86400_000).toISOString(), replies: 1 },
 ];
@@ -1031,6 +1093,37 @@ const demo: typeof real = {
     return g;
   },
   gifts: async () => (await wait(300), { sent: [...demoGifts], replies: [...demoReplies] }),
+  duets: async () => (await wait(300), [...demoDuets]),
+  duet: async (id) => {
+    await wait(200);
+    const d = demoDuets.find((x) => x.id === id);
+    if (!d) throw new ApiError("Jugalbandi not found", 404);
+    return d;
+  },
+  duetForSong: async () => null,
+  startDuet: async (input) => {
+    await wait(400);
+    if (demoBalance < 6) throw new ApiError("A Jugalbandi costs 6 credits.", 402, true);
+    demoBalance -= 6;
+    const d: Duet = { ...demoDuetBase, id: `d${Date.now()}`, topic: input.topic, genre: input.genre, language: input.language, starterName: input.name, starterIg: input.ig, phase: "recording_a", partA: null, createdAt: new Date().toISOString() };
+    demoDuets.unshift(d);
+    return d;
+  },
+  duetPart: async (id) => {
+    await wait(600);
+    const d = demoDuets.find((x) => x.id === id)!;
+    if (d.role === "a") Object.assign(d, { partA: { kind: "hum", sec: 24, audioUrl: "/demo" }, phase: d.partB ? "joining" : "waiting", expiresAt: new Date(Date.now() + 48 * 3600_000).toISOString() });
+    else Object.assign(d, { partB: { kind: "sing", sec: 22, audioUrl: "/demo" }, phase: "joining" });
+    return d;
+  },
+  duetAction: async (id, action) => {
+    await wait(300);
+    const d = demoDuets.find((x) => x.id === id)!;
+    if (action === "approve") Object.assign(d, d.role === "a" ? { approvedA: true } : { approvedB: true });
+    if (action === "cancel") d.phase = "cancelled";
+    return d;
+  },
+  duetAudioUrl: (path) => path,
   replyInfo: async () => (await wait(200), { toName: "Priya", occasion: "birthday" as const, free: true }),
   setGiftSharing: async (id, sharing) => {
     await wait(200);

@@ -109,6 +109,8 @@ export const scheduledPost = pgTable(
     privacy: postPrivacy("privacy").notNull().default("public"),
     madeForKids: boolean("made_for_kids").notNull().default(false),
     scheduledAt: timestamp("scheduled_at").notNull(),
+    // Instagram usernames shown as co-authors (a Jugalbandi's partner); only for an approved duet.
+    collaborators: text("collaborators").array().notNull().default([]),
     status: postStatus("status").notNull().default("scheduled"),
     externalId: text("external_id"),
     externalUrl: text("external_url"),
@@ -486,4 +488,76 @@ export const giftReport = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [index("gift_report_gift_idx").on(t.giftId)],
+);
+
+// Jugalbandi: a song two creators make from two phones (design/community/flow-spec.md, feature 2).
+// waiting: A is recording or waiting for B; joining: the song is being made; ready: both approve;
+// declined / cancelled: over; solo: A finished it alone. "No answer in 48 hours" is worked out from
+// expiresAt, so no job has to run.
+export const duetStatus = pgEnum("duet_status", ["waiting", "joining", "ready", "declined", "cancelled", "solo"]);
+export const duetPartKind = pgEnum("duet_part_kind", ["hum", "sing"]);
+
+export const duet = pgTable(
+  "duet",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // The invite link's code (reelkar.app/j/{token}); a new one when A invites someone else.
+    token: text("token").notNull().unique(),
+    starterId: text("starter_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    // Whoever opened the invite and joined; null until then.
+    partnerId: text("partner_id").references(() => user.id, { onDelete: "set null" }),
+    starterName: text("starter_name").notNull(),
+    partnerName: text("partner_name").notNull().default(""),
+    // Instagram usernames for the Collab post (without @).
+    starterIg: text("starter_ig").notNull().default(""),
+    partnerIg: text("partner_ig").notNull().default(""),
+    topic: text("topic").notNull(),
+    genre: text("genre").notNull(),
+    language: text("language").notNull(),
+    status: duetStatus("status").notNull().default("waiting"),
+    // Each part: its audio (copied from the Hum it take), what it was, and what was heard in it.
+    partAPath: text("part_a_path"),
+    partAKind: duetPartKind("part_a_kind"),
+    partAText: text("part_a_text").notNull().default(""),
+    partASec: integer("part_a_sec"),
+    partBPath: text("part_b_path"),
+    partBKind: duetPartKind("part_b_kind"),
+    partBText: text("part_b_text").notNull().default(""),
+    partBSec: integer("part_b_sec"),
+    // The joined song (owned by A; B hears it through the duet).
+    songId: uuid("song_id").references(() => song.id, { onDelete: "set null" }),
+    // Credits each one paid: A pays at the start; B can offer half.
+    paidA: integer("paid_a").notNull().default(0),
+    paidB: integer("paid_b").notNull().default(0),
+    retakesA: integer("retakes_a").notNull().default(0),
+    retakesB: integer("retakes_b").notNull().default(0),
+    approvedA: timestamp("approved_a"),
+    approvedB: timestamp("approved_b"),
+    // A asked B to sing their part again (or the other way round).
+    retakeAskedOf: text("retake_asked_of"),
+    declineNote: text("decline_note").notNull().default(""),
+    // 48 hours from when A's part is in; "Give 24 more hours" works once.
+    expiresAt: timestamp("expires_at"),
+    extended: boolean("extended").notNull().default(false),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("duet_starter_idx").on(t.starterId, t.createdAt), index("duet_partner_idx").on(t.partnerId, t.createdAt)],
+);
+
+// Reports from the Report link on a public duet invite page.
+export const duetReport = pgTable(
+  "duet_report",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    duetId: uuid("duet_id")
+      .notNull()
+      .references(() => duet.id, { onDelete: "cascade" }),
+    reason: giftReportReason("reason").notNull(),
+    details: text("details").notNull().default(""),
+    email: text("email"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("duet_report_duet_idx").on(t.duetId)],
 );
