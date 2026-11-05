@@ -10,7 +10,7 @@ import { api, type Song } from "@/lib/api";
 import { currentTake } from "@/lib/hum";
 import { shareSong, songMaking } from "@/lib/songs";
 
-const STEPS = ["Reading your tune", "Writing the words", "Singing it", "Mixing"];
+const STEPS = ["Reading your tune", "Adding the band", "Singing it", "Mixing"];
 // Songs take about a minute; the bar fills over that and waits near the end.
 const EXPECTED_SEC = 75;
 

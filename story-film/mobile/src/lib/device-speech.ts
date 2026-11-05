@@ -61,7 +61,9 @@ export async function transcribeOnDevice(uri: string, language: string, timeoutM
       m.addListener("end", done),
     );
     try {
-      m.start({ lang: LOCALES[language] ?? "en-IN", interimResults: false, continuous: true, addsPunctuation: true, audioSource: { uri } });
+      const lang = LOCALES[language] ?? "en-IN";
+      // On the phone itself when it can (nothing leaves it); otherwise Apple's servers, as the permission prompt says.
+      m.start({ lang, interimResults: false, continuous: true, addsPunctuation: true, requiresOnDeviceRecognition: m.supportsOnDeviceRecognition(), audioSource: { uri } });
     } catch {
       done();
     }

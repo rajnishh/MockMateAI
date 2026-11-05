@@ -174,7 +174,7 @@ export default function HumRecord() {
     setPhase("sending");
     setError(null);
     try {
-      // The phone's own speech recognition first (free, private); the server listens again if it heard little.
+      // The phone's own speech recognition first (free); the server listens again if it heard little.
       setStep("Listening closely…");
       const transcript = file.video ? "" : await transcribeOnDevice(file.uri, language);
       setStep("Working out if you hummed, sang or asked");
@@ -185,6 +185,7 @@ export default function HumRecord() {
       setPhase("review");
       router.push("/hum/confirm");
     } catch (err) {
+      console.warn("Hum it upload failed:", (err as Error).message);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => undefined);
       setError({ text: err instanceof ApiError ? err.message : "Couldn't send that. Check your internet. Your recording is safe.", credits: err instanceof ApiError && err.needCredits });
       setPhase("error");
@@ -313,7 +314,7 @@ export default function HumRecord() {
         <Banner
           kind="info"
           title="Say it to Siri"
-          text="“Hey Siri, make with Reelkar”, or tell Gemini and share it to Reelkar."
+          text="“Hey Siri, make with Reelkar”, or send it from Gemini or any app with the Shortcuts app."
           action={
             <View style={{ alignItems: "flex-end" }}>
               <Pressable accessibilityRole="button" accessibilityLabel="Hide this tip" hitSlop={10} onPress={() => (setHint(false), setItem(HINT_KEY, "1"))} style={styles.close}>

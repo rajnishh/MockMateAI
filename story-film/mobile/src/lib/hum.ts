@@ -1,4 +1,5 @@
 import type { AudioPlayer } from "expo-audio";
+import { File } from "expo-file-system";
 
 import { ApiError, type Film, type Song } from "./api";
 import { authClient } from "./auth-client";
@@ -75,8 +76,8 @@ export const hum = {
   // Nothing is charged: the server works out what it heard and sends back a plan.
   upload: (file: Picked, opts: { transcript?: string; language?: string } = {}) => {
     const form = new FormData();
-    // React Native's FormData takes { uri, name, type } for files.
-    form.append("file", file as unknown as Blob);
+    // Expo's fetch sends files given as Blobs (expo-file-system's File is one), not React Native's { uri, name, type }.
+    form.append("file", new File(file.uri) as unknown as Blob, file.name);
     if (opts.transcript) form.append("transcript", opts.transcript);
     if (opts.language) form.append("language", opts.language);
     return send<Take>("/api/voice/takes", { method: "POST", body: form });
