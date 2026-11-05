@@ -229,6 +229,8 @@ export interface Song {
   error: string | null;
   createdAt: string;
   audioUrl: string | null;
+  // Square AI cover art, made just after the song; null until then.
+  coverUrl?: string | null;
 }
 export type RemixKind = "cover" | "extend" | "replace";
 export interface SongStudio {
@@ -248,13 +250,23 @@ export interface SongOptions {
   durationSec: 30 | 60 | 120;
   kidSafe: boolean;
 }
+// Simple: one sentence, AI writes the rest. Custom: every control. Instrumental: no vocals.
+export type SongMode = "simple" | "custom" | "instrumental";
 export interface NewSong extends SongOptions {
+  mode?: SongMode;
   title: string;
   lyrics: string;
   style?: string;
   vocal: SongVocal;
   takes: 1 | 2;
   model: SongModel;
+  // Simple mode: the structure blocks AI writes the lyrics in.
+  structure?: string[];
+  // 0-100 sliders: Experiment (safe to wild) and Follow my style (loose to strict).
+  experiment?: number;
+  strictness?: number;
+  bpm?: number;
+  keyScale?: string;
 }
 export interface SongEdit {
   startSec: number;
@@ -388,14 +400,18 @@ const real = {
   videoUrl: (film: Film) => (film.videoUrl ? `${API_URL}${film.videoUrl}` : null),
   songs: () => call<SongStudio>("/api/songs"),
   song: (id: string) => call<Song>(`/api/songs/${id}`),
-  createSong: (input: NewSong) => call<{ id: string; ids: string[] }>("/api/songs", { method: "POST", body: JSON.stringify(input) }),
+  createSong: (input: NewSong) => call<{ id: string; ids: string[]; title?: string }>("/api/songs", { method: "POST", body: JSON.stringify(input) }),
+  // "✨ Write a rap verse": rap bars for the song's [Rap] block.
+  songRap: async (input: SongOptions & { lyrics: string; bars?: 8 | 12 | 16 }) =>
+    (await call<{ bars: string }>("/api/songs/lyrics/rap", { method: "POST", body: JSON.stringify(input) })).bars,
   // "✨ Write lyrics with AI" from the topic, or "✨ Enhance my lyrics" with the creator's own lines as the draft.
-  songLyrics: (input: SongOptions & { draft?: string }) => call<{ title: string; lyrics: string }>("/api/songs/lyrics", { method: "POST", body: JSON.stringify(input) }),
+  songLyrics: (input: SongOptions & { draft?: string; structure?: string[]; duet?: boolean }) => call<{ title: string; lyrics: string }>("/api/songs/lyrics", { method: "POST", body: JSON.stringify(input) }),
   songStyle: async (input: Partial<SongOptions> & { genre: string; idea: string; vocal?: SongVocal }) =>
     (await call<{ style: string }>("/api/songs/style", { method: "POST", body: JSON.stringify(input) })).style,
   editSong: (id: string, edit: SongEdit) => call<Song>(`/api/songs/${id}/edit`, { method: "POST", body: JSON.stringify(edit) }),
   remixSong: (id: string, remix: SongRemix) => call<{ id: string }>(`/api/songs/${id}/remix`, { method: "POST", body: JSON.stringify(remix) }),
   songAudioUrl: (song: Song) => (song.audioUrl ? `${API_URL}${song.audioUrl}` : null),
+  songCoverUrl: (song: Song) => (song.coverUrl ? `${API_URL}${song.coverUrl}` : null),
   videoHeaders: async (): Promise<Record<string, string>> => {
     const cookie = await authClient.getCookie();
     return cookie ? { Cookie: cookie } : {};
@@ -757,6 +773,7 @@ const demo: typeof real = {
     { title: input.topic ? input.topic.slice(0, 40) : "Meri kahani", lyrics: `${input.draft ? `${input.draft}\n\n` : ""}[Verse]\nBaarish ki boondein, khidki pe gaana\nChai ki pyaali, maa ka bulaana\n\n[Chorus]\nYe pal hai mera, ye ghar hai mera\nHar subah naya, har din sunehra` }
   ),
   songStyle: async (input) => (await wait(400), `${input.idea || "soft"}, acoustic guitar, tabla, warm female vocals, mid tempo`),
+  songRap: async () => (await wait(600), "Subah ki chai, haath mein phone\nSapne bade, raaste anjaan, chal akela hi zone\nGalli se studio tak, beat pe mera naam\nMehnat ki syahi se likhta apna kaam"),
   editSong: async (id) => {
     await wait(400);
     const s = demoSongs.find((x) => x.id === id)!;
@@ -775,6 +792,7 @@ const demo: typeof real = {
   videoUrl: () => null,
   previewUri: () => null,
   videoHeaders: async () => ({}),
+  songCoverUrl: () => null,
 };
 
 export const api = DEMO ? demo : real;

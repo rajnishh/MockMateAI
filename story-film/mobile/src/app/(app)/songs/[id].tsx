@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
+import { SongCover } from "@/components/song-cover";
 import { SongPlayerRow, useSongPlayer } from "@/components/song-player";
 import { Banner, Button, Card, ChipRow, Field, Header, Row, Screen, Skeleton, Txt } from "@/components/ui";
 import { api, ApiError, type RemixKind, type Song } from "@/lib/api";
@@ -51,6 +52,9 @@ export default function SongScreen() {
         <Skeleton height={160} />
       ) : (
         <>
+          <View style={{ alignItems: "center" }}>
+            <SongCover song={s} size={240} />
+          </View>
           <Card>
             <SongPlayerRow song={s} player={player} />
           </Card>
