@@ -11,7 +11,7 @@ import { pendingPosts, publishPost } from "@/lib/posts";
 import { provenanceFromEnv, trySign } from "@/lib/provenance";
 import { grantCredits } from "@/lib/billing/credits";
 import { creatorMessage } from "@/lib/creator-errors";
-import { buildDanceSinger, buildPipelineDeps, buildShortSongProvider, buildSinger, buildSingDeps, buildSongEditor, buildSongProvider, buildTranscriber, type Quality, songsAvailable } from "@/lib/providers";
+import { buildDanceSinger, buildPipelineDeps, buildProSongEditor, buildShortSongProvider, buildSinger, buildSingDeps, buildSongEditor, buildSongProvider, buildTranscriber, proRemixAvailable, type Quality, songsAvailable } from "@/lib/providers";
 import { type MyVoiceJob, type RemixJob, SONG_QUEUE, type SongJob, type SongQueueJob } from "@/lib/queue/songs";
 import { singInMyVoice } from "@/lib/voice/sing";
 import { runRemix } from "@/lib/songs/remix";
@@ -146,6 +146,7 @@ if (songsAvailable(env)) {
   const singer = buildSongProvider(env);
   const singDeps = buildSingDeps(env);
   const songEditor = buildSongEditor(env);
+  const proSongEditor = proRemixAvailable(env) ? buildProSongEditor(env) : undefined;
   const shortSinger = buildShortSongProvider(env);
   const songWorker = new Worker<SongQueueJob>(
     SONG_QUEUE,
@@ -162,7 +163,7 @@ if (songsAvailable(env)) {
         await rename(mixed, outputPath);
         await rm(path.join(dir, `${songId}-work`), { recursive: true, force: true });
       } else if (job.name === "remix") {
-        const audio = await runRemix(songEditor, (job.data as RemixJob).call, { workDir: dir, ffmpeg: defaultFfmpeg, probeDuration });
+        const audio = await runRemix(songEditor, (job.data as RemixJob).call, { workDir: dir, ffmpeg: defaultFfmpeg, probeDuration, pro: proSongEditor, separator: singDeps.separator });
         outputPath = path.join(dir, `${songId}.${audio.ext}`);
         await writeFile(outputPath, audio.data);
       } else {

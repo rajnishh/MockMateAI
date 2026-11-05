@@ -448,3 +448,9 @@ Prices move monthly; waoowaoo and several other licenses unverified; EvoLink is 
     - **Safety:** the Ollama address comes only from the server's `.env`, never from creators, so the server can't be pointed at other addresses. Only chat changes; reels are still made the usual way.
     - **Where:** web Ask Reelkar page ("Who answers you"), mobile Ask Reelkar → "Who answers you" screen. Not yet tried against the real APIs.
 
+
+39. **Pro remixes on ACE-Step 1.5 via Runware (2026-11-05).** fal hosts ACE-Step 1.5 only as text-to-music; its edit endpoints are the older v1 model. Runware (`runware:ace-step@v1.5-xl-base`, the base model, which supports every 1.5 task) was the only host with documented 1.5 cover and repaint over HTTP; WaveSpeed and RunComfy only have v1 edits, and no host exposes 1.5's lego/extract (add a track) yet. Runware's terms say you own outputs and allow commercial use; ACE-Step 1.5 is MIT.
+    - **Key:** `RUNWARE_API_KEY` (with `FAL_KEY`). Without it, remixes run on fal's v1 as before and the new kinds aren't listed in `remixKinds` on GET `/api/songs`.
+    - **With it:** Cover takes a `strength` (0 close to the original, 1 far; `coverStrength: true` on GET `/api/songs`), and Cover, Replace and Extend use 1.5 repaint (Extend repaints past the end, from just before the fade-out).
+    - **Add vocals / Add instrumental (6 credits):** ACE-Step 1.5 covers the song close to the original with the new part named in the style, Demucs splits both the original and the cover, and only the new part (the cover's vocals, or its backing) is mixed with the original's own stems. About $0.2 for a 2-minute song.
+    - **Untested live:** built from Runware's docs with fake-fetch tests. Check that audio uploads to Runware's media storage work, that higher Runware `strength` really stays closer to the input, and how well the cover's timing lines up with the original stems. If 1.5 lego becomes available on a host, switch the add kinds to it.

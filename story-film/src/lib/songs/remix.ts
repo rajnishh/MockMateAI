@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { rm } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { z } from "zod";
 import { REMIX_CREDITS } from "@/lib/billing/catalog";
+import { readMedia } from "@/lib/media";
+import { buildMixArgs } from "@/lib/voice/sing";
 import type { SongAudio } from "@/lib/providers/fal-music";
 import {
   FAL_MAX_INPAINT_SEC,
@@ -11,9 +13,19 @@ import {
   type FalSongEditor,
   type ReplaceSectionInput,
 } from "@/lib/providers/fal-song-edit";
+import { COVER_STRENGTH, type RunwareSongEditor } from "@/lib/providers/runware-song-edit";
+import type { Stems } from "@/lib/providers/voice";
 
-export const REMIX_KINDS = ["cover", "extend", "replace"] as const;
+export const REMIX_KINDS = ["cover", "extend", "replace", "add-vocals", "add-instrumental"] as const;
 export type RemixKind = (typeof REMIX_KINDS)[number];
+
+// Kinds that need ACE-Step 1.5 on Runware (RUNWARE_API_KEY); the rest run on fal alone.
+export const PRO_REMIX_KINDS: readonly RemixKind[] = ["add-vocals", "add-instrumental"];
+
+// What the Studio offers: pro kinds only when Runware is set up.
+export function remixKinds(proAvailable: boolean): RemixKind[] {
+  return REMIX_KINDS.filter((k) => proAvailable || !PRO_REMIX_KINDS.includes(k));
+}
 
 // A remixed song stays within what fal can still edit afterwards (inpaint works up to 240s).
 export const MAX_REMIXED_SEC = FAL_MAX_INPAINT_SEC;
@@ -31,10 +43,15 @@ export const remixRequestSchema = z
     startSec: z.number().min(0).max(MAX_REMIXED_SEC).optional(),
     endSec: z.number().min(0).max(MAX_REMIXED_SEC).optional(),
     extendSec: z.number().int().min(EXTEND_SEC.min).max(EXTEND_SEC.max).optional(),
+    // Covers only: how far from the original, 0 (close) to 1 (far). Needs Runware; fal ignores it.
+    strength: z.number().min(COVER_STRENGTH.min).max(COVER_STRENGTH.max).optional(),
   })
   .superRefine((r, ctx) => {
     if (r.kind === "cover" && !r.style) {
       ctx.addIssue({ code: "custom", path: ["style"], message: "Pick a style for the cover" });
+    }
+    if (r.kind === "add-vocals" && !r.lyrics) {
+      ctx.addIssue({ code: "custom", path: ["lyrics"], message: "Write the lyrics to sing" });
     }
     if (r.kind === "replace") {
       if (r.startSec === undefined || r.endSec === undefined) {
@@ -88,21 +105,42 @@ export interface ExtendByRepaintInput {
   extendSec: number;
 }
 
+// Adds a part to a song: new vocals over its music, or new music under its vocals. Runware has no
+// "add a track" call, so ACE-Step 1.5 covers the song with the new part, the cover is split into
+// stems, and only the new part is mixed with the original's own stems: what the creator keeps
+// stays exactly as it was. A cover close to the original keeps the timing so the parts line up.
+export interface AddPartInput {
+  // A local file:// song.
+  audioUrl: string;
+  style: string;
+  lyrics: string;
+}
+
+export const ADD_PART_STRENGTH = 0.3;
+
 export type RemixCall =
-  | { kind: "cover"; input: CoverInput }
+  | { kind: "cover"; input: CoverInput & { strength?: number } }
   | { kind: "extend"; input: ExtendByRepaintInput }
-  | { kind: "replace"; input: ReplaceSectionInput };
+  | { kind: "replace"; input: ReplaceSectionInput }
+  | { kind: "add-vocals"; input: AddPartInput }
+  | { kind: "add-instrumental"; input: AddPartInput };
 
 export function remixCall(req: RemixRequest, song: RemixSource): RemixCall {
   const style = req.style ?? song.style;
   const lyrics = req.lyrics ?? song.lyrics;
   switch (req.kind) {
     case "cover":
-      return { kind: "cover", input: { audioUrl: song.audioUrl, style, originalStyle: song.style, lyrics, originalLyrics: song.lyrics } };
+      return {
+        kind: "cover",
+        input: { audioUrl: song.audioUrl, style, originalStyle: song.style, lyrics, originalLyrics: song.lyrics, ...(req.strength !== undefined ? { strength: req.strength } : {}) },
+      };
     case "extend":
       return { kind: "extend", input: { audioUrl: song.audioUrl, style, lyrics, extendSec: req.extendSec ?? EXTEND_SEC.default } };
     case "replace":
       return { kind: "replace", input: { audioUrl: song.audioUrl, style, lyrics, startSec: req.startSec!, endSec: req.endSec! } };
+    case "add-vocals":
+    case "add-instrumental":
+      return { kind: req.kind, input: { audioUrl: song.audioUrl, style, lyrics } };
   }
 }
 
@@ -111,6 +149,11 @@ export interface RemixTools {
   workDir: string;
   ffmpeg: (args: string[]) => Promise<void>;
   probeDuration: (file: string) => Promise<number>;
+  // ACE-Step 1.5 on Runware: when set, covers, extensions and replaced parts use it instead of fal's v1.
+  pro?: Pick<RunwareSongEditor, "cover" | "repaint">;
+  // Stem separation (Demucs on fal), for adding vocals or music.
+  separator?: { separate(audioUrl: string): Promise<Stems> };
+  fetchFn?: typeof fetch;
 }
 
 // Where the original ends in the lengthened song (its fade-out is dropped).
@@ -130,12 +173,22 @@ export function loopPadArgs(input: string, output: string, songSec: number, exte
 }
 
 export async function runRemix(editor: Pick<FalSongEditor, "cover" | "replaceSection">, call: RemixCall, tools: RemixTools): Promise<SongAudio> {
+  const { pro } = tools;
   switch (call.kind) {
     case "cover":
-      return editor.cover(call.input);
+      return pro ? pro.cover(call.input) : editor.cover(call.input);
     case "replace":
-      return editor.replaceSection(call.input);
+      return pro ? pro.repaint(call.input) : editor.replaceSection(call.input);
+    case "add-vocals":
+    case "add-instrumental":
+      return addPart(call.kind, call.input, tools);
     case "extend": {
+      // ACE-Step 1.5 repaints past the end of a song to continue it, starting before the fade-out.
+      if (pro) {
+        const songSec = await tools.probeDuration(fileURLToPath(call.input.audioUrl));
+        const { audioUrl, extendSec, style, lyrics } = call.input;
+        return pro.repaint({ audioUrl, style, lyrics, startSec: Math.max(0, extendCutSec(songSec) - EXTEND_BLEND_SEC), endSec: songSec + extendSec });
+      }
       const { audioUrl, extendSec, style, lyrics } = call.input;
       const source = fileURLToPath(audioUrl);
       const songSec = await tools.probeDuration(source);
@@ -153,6 +206,51 @@ export async function runRemix(editor: Pick<FalSongEditor, "cover" | "replaceSec
         await rm(padded, { force: true });
       }
     }
+  }
+}
+
+export const ADD_PART_PROMPT = {
+  "add-vocals": "lead vocals singing the lyrics",
+  "add-instrumental": "full instrumental backing arrangement",
+} as const;
+
+async function addPart(kind: "add-vocals" | "add-instrumental", input: AddPartInput, tools: RemixTools): Promise<SongAudio> {
+  const { pro, separator } = tools;
+  if (!pro || !separator) throw new Error("Adding vocals or music needs Runware and fal");
+  const fetchFn = tools.fetchFn ?? fetch;
+  const work = path.join(tools.workDir, `${randomUUID()}-add`);
+  await mkdir(work, { recursive: true });
+  // fal can't reach local files, so songs go to Demucs inline as MP3.
+  const inline = async (file: string, name: string) => {
+    const mp3 = path.join(work, name);
+    await tools.ffmpeg(["-y", "-loglevel", "error", "-i", file, "-ac", "2", "-b:a", "192k", mp3]);
+    return `data:audio/mpeg;base64,${(await readFile(mp3)).toString("base64")}`;
+  };
+  const download = (urls: string[], prefix: string) =>
+    Promise.all(
+      urls.map(async (url, i) => {
+        const file = path.join(work, `${prefix}-${i}.wav`);
+        await writeFile(file, await readMedia(url, fetchFn));
+        return file;
+      }),
+    );
+  try {
+    const source = fileURLToPath(input.audioUrl);
+    const [original, cover] = await Promise.all([
+      inline(source, "original.mp3").then((uri) => separator.separate(uri)),
+      pro.cover({ audioUrl: input.audioUrl, style: `${input.style}, ${ADD_PART_PROMPT[kind]}`, lyrics: input.lyrics, strength: ADD_PART_STRENGTH }),
+    ]);
+    const coverFile = path.join(work, `cover-out.${cover.ext}`);
+    await writeFile(coverFile, cover.data);
+    const covered = await separator.separate(await inline(coverFile, "cover.mp3"));
+    // add-vocals: the cover's singing over the original's music; add-instrumental: the other way round.
+    const [vocals] = await download([kind === "add-vocals" ? covered.vocalsUrl : original.vocalsUrl], "vocals");
+    const backing = await download(kind === "add-vocals" ? original.accompanimentUrls : covered.accompanimentUrls, "backing");
+    const output = path.join(work, "mixed.mp3");
+    await tools.ffmpeg(buildMixArgs(vocals, backing, output));
+    return { data: await readFile(output), ext: "mp3" };
+  } finally {
+    await rm(work, { recursive: true, force: true });
   }
 }
 
