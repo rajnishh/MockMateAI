@@ -314,6 +314,55 @@ export interface NewSong extends SongOptions {
   strictness?: number;
   bpm?: number;
   keyScale?: string;
+  // The token of a gift this song answers; the reply goes back to its sender, and the first one is free.
+  replyTo?: string;
+  // The name the reply is signed with.
+  fromName?: string;
+}
+// A reply's own gift link, made with the song.
+export interface ReplyGiftLink {
+  token: string;
+  url: string;
+  free: boolean;
+}
+
+// Song gifts (mirrors ownGiftView in story-film/src/lib/gifts.ts).
+export type Occasion = "birthday" | "wedding" | "eid" | "diwali" | "anniversary" | "rakhi" | "just_because";
+export interface Gift {
+  id: string;
+  url: string;
+  token: string;
+  toName: string;
+  occasion: Occasion;
+  note: string;
+  songId: string;
+  songTitle: string;
+  songReady: boolean;
+  isReply: boolean;
+  opened: boolean;
+  playCount: number;
+  lastPlayedAt: string | null;
+  sharing: boolean;
+  takenDown: boolean;
+  createdAt: string;
+}
+export interface SentGift extends Gift {
+  replies: number;
+}
+export interface ReceivedReply extends Gift {
+  fromName: string;
+  replyToGiftId: string;
+}
+export interface NewGift {
+  toName: string;
+  // How it's signed ("Bhaiya"); empty uses the account's name.
+  fromName: string;
+  occasion: Occasion;
+  note: string;
+  // A photo id from uploadPhoto; without one the song's own cover is used.
+  photo?: string;
+  // How the Arabic gift page speaks to them; null is neutral.
+  address?: "her" | "him" | null;
 }
 export interface SongEdit {
   startSec: number;
@@ -486,7 +535,11 @@ const real = {
   videoUrl: (film: Film) => (film.videoUrl ? `${API_URL}${film.videoUrl}` : null),
   songs: () => call<SongStudio>("/api/songs"),
   song: (id: string) => call<Song>(`/api/songs/${id}`),
-  createSong: (input: NewSong) => call<{ id: string; ids: string[]; title?: string }>("/api/songs", { method: "POST", body: JSON.stringify(input) }),
+  createSong: (input: NewSong) => call<{ id: string; ids: string[]; title?: string; gift?: ReplyGiftLink }>("/api/songs", { method: "POST", body: JSON.stringify(input) }),
+  createGift: (songId: string, input: NewGift) => call<Gift>(`/api/songs/${songId}/gift`, { method: "POST", body: JSON.stringify(input) }),
+  gifts: () => call<{ sent: SentGift[]; replies: ReceivedReply[] }>("/api/gifts"),
+  setGiftSharing: (id: string, sharing: boolean) => call<Gift>(`/api/gifts/${id}`, { method: "PATCH", body: JSON.stringify({ sharing }) }),
+  replyInfo: (token: string) => call<{ toName: string; occasion: Occasion; free: boolean }>(`/api/gifts/reply?to=${encodeURIComponent(token)}`),
   // "✨ Write a rap verse": rap bars for the song's [Rap] block.
   songRapVerse: async (input: SongOptions & { lyrics: string; bars?: 8 | 12 | 16 }) =>
     (await call<{ bars: string }>("/api/songs/lyrics/rap", { method: "POST", body: JSON.stringify(input) })).bars,
@@ -524,6 +577,12 @@ const demoFilms: Film[] = [
   { ...sample("d4", "Baarish dance: chham chham chham", "completed", 4), format: "dance" },
 ];
 let demoBalance = 20;
+const demoGifts: SentGift[] = [
+  { id: "g1", url: "https://reelkar.app/g/demoGift1x", token: "demoGift1x", toName: "Priya", occasion: "birthday", note: "Play it loud!", songId: "s1", songTitle: "Baarish wali chai", songReady: true, isReply: false, opened: true, playCount: 2, lastPlayedAt: new Date(Date.now() - 3 * 3600_000).toISOString(), sharing: true, takenDown: false, createdAt: new Date(Date.now() - 86400_000).toISOString(), replies: 1 },
+];
+const demoReplies: ReceivedReply[] = [
+  { id: "g2", url: "https://reelkar.app/g/demoReply1", token: "demoReply1", toName: "You", occasion: "birthday", note: "", songId: "s2", songTitle: "Thank you bhaiya", songReady: true, isReply: true, opened: false, playCount: 0, lastPlayedAt: null, sharing: true, takenDown: false, createdAt: new Date(Date.now() - 3600_000).toISOString(), fromName: "Priya", replyToGiftId: "g1" },
+];
 const demoAccounts: Account[] = [];
 const at = (days: number, h: number, m = 0) => {
   const d = new Date();
@@ -938,11 +997,47 @@ const demo: typeof real = {
   },
   createSong: async (input) => {
     await wait(500);
-    if (demoBalance < 4) throw new ApiError("A song costs 4 credits.", 402, true);
-    demoBalance -= 4;
+    const free = Boolean(input.replyTo);
+    if (!free && demoBalance < 4) throw new ApiError("A song costs 4 credits.", 402, true);
+    if (!free) demoBalance -= 4;
     const ids = Array.from({ length: input.takes }, (_, i) => `s${Date.now()}${i}`);
     ids.forEach((id, i) => demoSongs.unshift({ ...demoSong(id, input.takes > 1 ? `${input.title} (v${i + 1})` : input.title, input.genre), status: "queued", audioUrl: null, lyrics: input.lyrics }));
-    return { id: ids[0], ids };
+    const gift = input.replyTo ? { token: "demoReply2", url: "https://reelkar.app/g/demoReply2", free } : undefined;
+    return { id: ids[0], ids, gift };
+  },
+  createGift: async (songId, input) => {
+    await wait(400);
+    const s = demoSongs.find((x) => x.id === songId);
+    const g: SentGift = {
+      id: `g${Date.now()}`,
+      url: "https://reelkar.app/g/x7Kp2abcdE",
+      token: "x7Kp2abcdE",
+      toName: input.toName,
+      occasion: input.occasion,
+      note: input.note,
+      songId,
+      songTitle: s?.title ?? "Song",
+      songReady: s?.status === "completed",
+      isReply: false,
+      opened: false,
+      playCount: 0,
+      lastPlayedAt: null,
+      sharing: true,
+      takenDown: false,
+      createdAt: new Date().toISOString(),
+      replies: 0,
+    };
+    demoGifts.unshift(g);
+    return g;
+  },
+  gifts: async () => (await wait(300), { sent: [...demoGifts], replies: [...demoReplies] }),
+  replyInfo: async () => (await wait(200), { toName: "Priya", occasion: "birthday" as const, free: true }),
+  setGiftSharing: async (id, sharing) => {
+    await wait(200);
+    const g = demoGifts.find((x) => x.id === id);
+    if (!g) throw new ApiError("Gift not found", 404);
+    g.sharing = sharing;
+    return g;
   },
   songLyrics: async (input) => (
     await wait(600),

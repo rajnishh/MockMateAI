@@ -573,3 +573,18 @@ New tables (Drizzle, `src/lib/db/app-schema.ts`, then `npm run db:generate`):
 6. **Digits in Arabic:** follow the phone's setting, Western by default.
 7. **Links:** `reelkar.app/g/{token}` and `/j/{token}` on the main domain with a 10-character token. A separate short domain saves only a few characters, and WhatsApp shows the preview card, not the URL. Unknown short domains look like spam to people and to WhatsApp's link checks, and it's one more domain to buy and keep. The domain is a placeholder until the real one is set.
 8. **Arabic address:** optional لها / له / not set on the gift step; neutral wording everywhere else.
+
+## Build status (v1, song gifts)
+
+Built:
+- Gift step on iPhone (from Song Studio and the Hum it result): to, from, occasion, note, cover (song cover or my photo), the Arabic "لها / له" choice for Arabic phones, then WhatsApp / Copy link / More.
+- Public page `/g/{token}` with no sign-in, in English, Hindi or Arabic (from the browser's language, right to left for Arabic): open your gift, player, timed lyrics (the app's cached Whisper analysis), note, Made with AI, Report, and the link preview picture.
+- Reply: sign in with the existing login page, then a one-line song back on the web, or Hum it in the app (Inbox › Reply again). The first reply to each gift is free; a reply whose song failed doesn't use it up.
+- Inbox › Gifts and duets: opened, plays (one per browser per day), replies, stop and restart sharing.
+
+Not built yet:
+- AI cover from the occasion, push notifications, and the merged one-screen sign-up (the existing login is used).
+- Hum it on the web (W5) and universal links from the gift page into the app.
+- A screen for reviewing reports: reports are stored in `gift_report` and need a person to read them.
+
+Changed from the spec: each gift stores the name it's signed with (`fromName`, "Bhaiya"), because phone sign-ups are named "Creator 1234"; and the token is kept on the gift row (no separate `share_link` table until duets need one).

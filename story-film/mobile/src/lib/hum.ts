@@ -1,7 +1,7 @@
 import type { AudioPlayer } from "expo-audio";
 import { File } from "expo-file-system";
 
-import { ApiError, type Film, type Song } from "./api";
+import { ApiError, type Film, type ReplyGiftLink, type Song } from "./api";
 import { authClient } from "./auth-client";
 import { API_URL } from "./config";
 
@@ -40,6 +40,9 @@ export interface TuneSong {
   language: string;
   topic: string;
   lyrics: string;
+  // A gift this song answers (see lib/gifts.ts).
+  replyTo?: string;
+  fromName?: string;
 }
 
 export interface Mix {
@@ -85,7 +88,7 @@ export const hum = {
   // A typed request, or one handed over by Siri or another app.
   understand: (text: string) => send<Omit<Take, "takeId" | "durationSec" | "video">>("/api/voice/understand", { method: "POST", body: JSON.stringify({ text }) }),
   tuneSong: (takeId: string, input: TuneSong) =>
-    send<{ id: string; credits: number }>(`/api/voice/takes/${takeId}/song`, { method: "POST", body: JSON.stringify(input) }),
+    send<{ id: string; credits: number; gift?: ReplyGiftLink }>(`/api/voice/takes/${takeId}/song`, { method: "POST", body: JSON.stringify(input) }),
   mix: (input: Mix) => send<{ song?: Song; film?: Film }>("/api/voice/mix", { method: "POST", body: JSON.stringify(input) }),
 };
 

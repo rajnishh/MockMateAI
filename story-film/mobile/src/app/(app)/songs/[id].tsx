@@ -121,6 +121,7 @@ export default function SongScreen() {
           <Card>
             <SongPlayerRow song={s} player={player} />
           </Card>
+          <Button label="Make it a gift" icon="gift" block disabled={s.status === "failed"} onPress={() => router.push({ pathname: "/gift/[songId]", params: { songId: s.id } })} />
           <Button label="Save or share" icon="share" kind="secondary" block loading={sharing} disabled={!s.audioUrl} onPress={share} />
           {error ? <Banner kind="error" text={error} /> : null}
           <Button label="Make music video" icon="film" kind="secondary" block disabled={s.status !== "completed"} onPress={() => router.push(`/songs/video/${s.id}`)} />

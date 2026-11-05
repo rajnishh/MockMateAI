@@ -218,7 +218,8 @@ if (songsAvailable(env)) {
     console.error(`song ${job?.data.songId} failed:`, err.message);
     if (job && job.attemptsMade >= (job.opts.attempts ?? 1)) {
       await updateSong(db, job.data.songId, { status: "failed", error: creatorMessage(err) });
-      await grantCredits(db, job.data.userId, job.data.credits, "refund", `song:${job.data.songId}`);
+      // A free song (the first reply to a gift) has nothing to give back.
+      if (job.data.credits > 0) await grantCredits(db, job.data.userId, job.data.credits, "refund", `song:${job.data.songId}`);
     }
   });
   console.log(`song worker listening on queue "${SONG_QUEUE}"`);
