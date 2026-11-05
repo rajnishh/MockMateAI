@@ -96,4 +96,7 @@ export function findPlan(id: string): Plan | undefined {
 // Song remixes (ACE-Step edit endpoints on fal, ~$0.0002 per second of audio, so a 2-minute
 // song costs under 3 cents): a cover or extension regenerates the whole song, a replaced part
 // only a slice of it. Verify fal's prices before launch.
-export const REMIX_CREDITS = { cover: 2, extend: 2, replace: 1 } as const;
+export const REMIX_CREDITS = { cover: 2, extend: 2, replace: 1, rap: 1 } as const;
+// Splitting a song into vocals, drums, bass and music (Demucs on fal, ~$0.04 a minute). Made once per
+// song; mixing them afterwards is free.
+export const STEMS_CREDITS = 1;

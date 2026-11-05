@@ -14,7 +14,7 @@ import { assertNoRealArtists, SongSafetyError } from "@/lib/songs/safety";
 import { createSong, getSong } from "@/lib/songs/songs";
 import { findGenre, GENRES, stylePrompt } from "@/lib/songs/styles";
 
-const SUFFIX: Record<RemixKind, string> = { cover: "cover", extend: "extended", replace: "new part" };
+const SUFFIX: Partial<Record<RemixKind, string>> = { cover: "cover", extend: "extended", replace: "new part", rap: "rap" };
 
 // Remix a finished song like Suno: a cover in another style, a longer version, or one part redone.
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -50,7 +50,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: `This costs ${credits} credits.`, needCredits: true }, { status: 402 });
   }
   try {
-    const title = `${song.title} (${SUFFIX[request.kind]})`.slice(0, 80);
+    const title = `${song.title} (${SUFFIX[request.kind] ?? request.kind})`.slice(0, 80);
     await createSong(db, {
       id: songId,
       userId,

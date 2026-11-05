@@ -1,4 +1,5 @@
 import { Queue } from "bullmq";
+import type { MixInput } from "@/lib/songs/mix";
 import type { RemixCall } from "@/lib/songs/remix";
 import type { SongModel } from "@/lib/songs/request";
 import { getRedis } from "./films";
@@ -38,7 +39,17 @@ export interface RemixJob {
   credits: number;
 }
 
-export type SongQueueJob = SongJob | MyVoiceJob | RemixJob;
+// Job name "studio": a free mix of a song's stems and/or a sound preset, made with ffmpeg.
+export interface StudioJob {
+  songId: string;
+  userId: string;
+  title: string;
+  // Built by the API route from the worker's own paths, never taken from the request.
+  mix: Omit<MixInput, "output">;
+  credits: number;
+}
+
+export type SongQueueJob = SongJob | MyVoiceJob | RemixJob | StudioJob;
 
 let queue: Queue<SongQueueJob> | undefined;
 

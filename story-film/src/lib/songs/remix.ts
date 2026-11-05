@@ -11,8 +11,9 @@ import {
   type FalSongEditor,
   type ReplaceSectionInput,
 } from "@/lib/providers/fal-song-edit";
+import { lyricsWithRap, rapStyle } from "./rap";
 
-export const REMIX_KINDS = ["cover", "extend", "replace"] as const;
+export const REMIX_KINDS = ["cover", "extend", "replace", "rap"] as const;
 export type RemixKind = (typeof REMIX_KINDS)[number];
 
 // A remixed song stays within what fal can still edit afterwards (inpaint works up to 240s).
@@ -31,12 +32,17 @@ export const remixRequestSchema = z
     startSec: z.number().min(0).max(MAX_REMIXED_SEC).optional(),
     endSec: z.number().min(0).max(MAX_REMIXED_SEC).optional(),
     extendSec: z.number().int().min(EXTEND_SEC.min).max(EXTEND_SEC.max).optional(),
+    // "rap": the new bars for the chosen part (written with AI or by the creator).
+    bars: z.string().trim().min(10).max(1200).optional(),
   })
   .superRefine((r, ctx) => {
     if (r.kind === "cover" && !r.style) {
       ctx.addIssue({ code: "custom", path: ["style"], message: "Pick a style for the cover" });
     }
-    if (r.kind === "replace") {
+    if (r.kind === "rap" && !r.bars) {
+      ctx.addIssue({ code: "custom", path: ["bars"], message: "Write the rap bars first" });
+    }
+    if (r.kind === "replace" || r.kind === "rap") {
       if (r.startSec === undefined || r.endSec === undefined) {
         ctx.addIssue({ code: "custom", path: ["startSec"], message: "Choose the part to replace" });
         return;
@@ -53,7 +59,7 @@ export type RemixRequest = z.infer<typeof remixRequestSchema>;
 // The request schema plus checks against the song's length.
 export function remixSchemaFor(songDurationSec: number) {
   return remixRequestSchema.superRefine((r, ctx) => {
-    if (r.kind === "replace" && r.endSec !== undefined && r.endSec > songDurationSec) {
+    if ((r.kind === "replace" || r.kind === "rap") && r.endSec !== undefined && r.endSec > songDurationSec) {
       ctx.addIssue({ code: "custom", path: ["endSec"], message: "The part runs past the end of the song" });
     }
     if (r.kind === "extend" && songDurationSec + (r.extendSec ?? EXTEND_SEC.default) > MAX_REMIXED_SEC) {
@@ -103,6 +109,12 @@ export function remixCall(req: RemixRequest, song: RemixSource): RemixCall {
       return { kind: "extend", input: { audioUrl: song.audioUrl, style, lyrics, extendSec: req.extendSec ?? EXTEND_SEC.default } };
     case "replace":
       return { kind: "replace", input: { audioUrl: song.audioUrl, style, lyrics, startSec: req.startSec!, endSec: req.endSec! } };
+    // A rap is a replaced part sung with rap tags and the part's lines swapped for the bars.
+    case "rap":
+      return {
+        kind: "replace",
+        input: { audioUrl: song.audioUrl, style: rapStyle(style), lyrics: lyricsWithRap(lyrics, song.durationSec, req.startSec!, req.endSec!, req.bars!), startSec: req.startSec!, endSec: req.endSec! },
+      };
   }
 }
 
@@ -163,4 +175,37 @@ export function remixedDurationSec(req: RemixRequest, songDurationSec: number): 
 
 export function remixCredits(kind: RemixKind): number {
   return REMIX_CREDITS[kind];
+}
+
+// What the Studio's Remix tab shows for each kind, sent with GET /api/songs so new kinds appear
+// without app changes. A kind missing here still shows, with its name and the style and lyrics fields.
+export interface RemixKindInfo {
+  kind: RemixKind;
+  label: string;
+  help: string;
+  credits: number;
+  // Which inputs the kind takes. style "required" means it can't run without one.
+  style: "required" | "optional" | "none";
+  part: boolean;
+  extend: boolean;
+  lyrics: boolean;
+  bars: boolean;
+}
+
+type KindFields = Omit<RemixKindInfo, "kind" | "credits">;
+const DEFAULT_FIELDS: Omit<KindFields, "label"> = { help: "", style: "optional", part: false, extend: false, lyrics: true, bars: false };
+
+export const REMIX_KIND_INFO: Partial<Record<RemixKind, Partial<KindFields>>> = {
+  cover: { label: "Cover", help: "Sing it again in another style.", style: "required", lyrics: false },
+  extend: { label: "Extend", help: "Make it longer. Add new lines at the end of the lyrics for the new part.", extend: true },
+  replace: { label: "Replace part", help: "Pick a part you don't like and redo it. Change those lines in the lyrics for new words.", part: true },
+  rap: { label: "Add a rap", help: "Pick a part and AI writes rap bars; that part is re-sung as a rap.", part: true, lyrics: false, bars: true },
+};
+
+export function remixKindList(): RemixKindInfo[] {
+  return REMIX_KINDS.map((kind) => {
+    const info = REMIX_KIND_INFO[kind] ?? {};
+    const label = info.label ?? kind.replace(/[-_]/g, " ").replace(/^./, (c) => c.toUpperCase());
+    return { ...DEFAULT_FIELDS, ...info, label, kind, credits: remixCredits(kind) };
+  });
 }

@@ -11,8 +11,11 @@ import { pendingPosts, publishPost } from "@/lib/posts";
 import { provenanceFromEnv, trySign } from "@/lib/provenance";
 import { grantCredits } from "@/lib/billing/credits";
 import { creatorMessage } from "@/lib/creator-errors";
-import { buildDanceSinger, buildPipelineDeps, buildShortSongProvider, buildSinger, buildSingDeps, buildSongEditor, buildSongProvider, buildTranscriber, type Quality, songsAvailable } from "@/lib/providers";
-import { type MyVoiceJob, type RemixJob, SONG_QUEUE, type SongJob, type SongQueueJob } from "@/lib/queue/songs";
+import { buildDanceSinger, buildPipelineDeps, buildShortSongProvider, buildSinger, buildSingDeps, buildSongEditor, buildSongProvider, buildStemSeparator, buildTranscriber, type Quality, songsAvailable } from "@/lib/providers";
+import { type MyVoiceJob, type RemixJob, SONG_QUEUE, type SongJob, type SongQueueJob, type StudioJob } from "@/lib/queue/songs";
+import { SONG_STEMS_QUEUE, type StemsJob } from "@/lib/queue/song-stems";
+import { mixArgs, writeStemsState } from "@/lib/songs/mix";
+import { separateSongStems } from "@/lib/songs/stems";
 import { singInMyVoice } from "@/lib/voice/sing";
 import { runRemix } from "@/lib/songs/remix";
 import { updateSong } from "@/lib/songs/songs";
@@ -161,6 +164,10 @@ if (songsAvailable(env)) {
         outputPath = path.join(dir, `${songId}.mp3`);
         await rename(mixed, outputPath);
         await rm(path.join(dir, `${songId}-work`), { recursive: true, force: true });
+      } else if (job.name === "studio") {
+        outputPath = path.join(dir, `${songId}.mp3`);
+        await defaultFfmpeg(mixArgs({ ...(job.data as StudioJob).mix, output: outputPath }));
+        await updateSong(db, songId, { durationSec: Math.round(await probeDuration(outputPath)) });
       } else if (job.name === "remix") {
         const audio = await runRemix(songEditor, (job.data as RemixJob).call, { workDir: dir, ffmpeg: defaultFfmpeg, probeDuration });
         outputPath = path.join(dir, `${songId}.${audio.ext}`);
@@ -178,6 +185,8 @@ if (songsAvailable(env)) {
             ? "AI-generated song, re-sung with AI voice conversion in the account holder's own consented voice"
             : job.name === "remix"
               ? "AI-generated song, remixed with generative AI (ACE-Step)"
+              : job.name === "studio"
+                ? "AI-generated song, remixed with audio effects (AI stem separation with Demucs)"
               : "AI-generated song: lyrics, music and vocals made with generative AI models",
       });
       await updateSong(db, songId, { status: "completed", outputPath, contentCredentials, completedAt: new Date() });
@@ -192,6 +201,20 @@ if (songsAvailable(env)) {
     }
   });
   console.log(`song worker listening on queue "${SONG_QUEUE}"`);
+
+  // The Studio's stems, made once per song on demand and saved next to it.
+  const stemSeparator = buildStemSeparator(env);
+  const stemsWorker = new Worker<StemsJob>(
+    SONG_STEMS_QUEUE,
+    async (job) => separateSongStems(stemSeparator, job.data.songFile, job.data.dir, { ffmpeg: defaultFfmpeg }),
+    { connection: getRedis(), concurrency: 2 },
+  );
+  stemsWorker.on("failed", async (job, err) => {
+    console.error(`stems for song ${job?.data.songId} failed:`, err.message);
+    if (!job) return;
+    await writeStemsState(job.data.dir, { status: "failed", error: creatorMessage(err) });
+    if (job.data.credits > 0) await grantCredits(db, job.data.userId, job.data.credits, "refund", job.data.ref);
+  });
 }
 
 // Publishing runs when YouTube and/or Instagram is configured.

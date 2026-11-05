@@ -3,8 +3,6 @@
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { LANGUAGES } from "@/lib/languages";
 import { STYLE_CHIPS } from "@/lib/songs/styles";
-import { RemixPanel, type RemixPrices } from "./remix-panel";
-import { SongEditor } from "./song-editor";
 import { MusicVideoPanel, type MusicVideoPrices } from "./music-video-panel";
 import { MyVoices, type Voice } from "./my-voice";
 
@@ -63,9 +61,6 @@ export default function SongsPage() {
   const [available, setAvailable] = useState(true);
   const [writing, setWriting] = useState(false);
   const [styling, setStyling] = useState(false);
-  const [editFor, setEditFor] = useState<string | null>(null);
-  const [remixFor, setRemixFor] = useState<string | null>(null);
-  const [remixPrices, setRemixPrices] = useState<RemixPrices>({ cover: 2, extend: 2, replace: 1 });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [needCredits, setNeedCredits] = useState(false);
@@ -82,7 +77,6 @@ export default function SongsPage() {
     const d = await res.json();
     setSongs(d.songs);
     setCredits(d.credits);
-    if (d.remixCredits) setRemixPrices(d.remixCredits);
     setAvailable(d.available);
   }, []);
 
@@ -295,33 +289,7 @@ export default function SongsPage() {
                   <>
                     <audio src={s.audioUrl} controls preload="none" />
                     <a href={s.audioUrl} download>Download</a>
-                    {editFor === s.id ? (
-                      <SongEditor
-                        songId={s.id}
-                        durationSec={s.durationSec}
-                        onDone={() => {
-                          setEditFor(null);
-                          load();
-                        }}
-                      />
-                    ) : (
-                      <button type="button" className="secondary" onClick={() => setEditFor(s.id)}>✂️ Trim, fade, speed</button>
-                    )}
-                    {available && (remixFor === s.id ? (
-                      <RemixPanel
-                        songId={s.id}
-                        genre={s.genre}
-                        lyrics={s.lyrics}
-                        durationSec={s.durationSec}
-                        prices={remixPrices}
-                        onDone={() => {
-                          setRemixFor(null);
-                          load();
-                        }}
-                      />
-                    ) : (
-                      <button type="button" className="secondary" onClick={() => setRemixFor(s.id)}>🎛️ Remix: cover, extend, replace a part</button>
-                    ))}
+                    <a href={`/songs/${s.id}`} style={{ minHeight: 44, display: "inline-flex", alignItems: "center" }}>🎛️ Open in Studio: mix, remix, edit</a>
                     {s.contentCredentials && (
                       <span className="muted cc">
                         <span className="cc-badge">cr</span> Content Credentials: marked as AI-generated

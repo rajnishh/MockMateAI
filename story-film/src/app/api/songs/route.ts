@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { REMIX_CREDITS, SONG_CREDITS } from "@/lib/billing/catalog";
+import { REMIX_CREDITS, SONG_CREDITS, STEMS_CREDITS } from "@/lib/billing/catalog";
 import { grantCredits, spendCredits } from "@/lib/billing/credits";
 import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
@@ -9,6 +9,8 @@ import { buildLlm, songsAvailable } from "@/lib/providers";
 import { getSongQueue } from "@/lib/queue/songs";
 import { getUserId, unauthorized } from "@/lib/session";
 import { cleanLyrics } from "@/lib/songs/lyrics";
+import { SOUND_PRESETS } from "@/lib/songs/mix";
+import { remixKindList } from "@/lib/songs/remix";
 import { newSongSchema, songLength, vocalLanguage } from "@/lib/songs/request";
 import { assertNoRealArtists, SongSafetyError } from "@/lib/songs/safety";
 import { createSong, listSongs, songView, takeCredits } from "@/lib/songs/songs";
@@ -17,7 +19,7 @@ import { findGenre, stylePrompt } from "@/lib/songs/styles";
 export async function GET() {
   const userId = await getUserId();
   if (!userId) return unauthorized();
-  return NextResponse.json({ songs: (await listSongs(getDb(), userId)).map(songView), credits: SONG_CREDITS, remixCredits: REMIX_CREDITS, available: songsAvailable(loadEnv()) });
+  return NextResponse.json({ songs: (await listSongs(getDb(), userId)).map(songView), credits: SONG_CREDITS, remixCredits: REMIX_CREDITS, remixKinds: remixKindList(), soundPresets: SOUND_PRESETS, stemsCredits: STEMS_CREDITS, available: songsAvailable(loadEnv()) });
 }
 
 export async function POST(req: Request) {

@@ -84,6 +84,11 @@ export function buildSongEditor(env: Env): FalSongEditor {
   return new FalSongEditor(new FalQueueClient(requireKey(env.FAL_KEY, "FAL_KEY")));
 }
 
+// The Studio's stems: Demucs on fal.
+export function buildStemSeparator(env: Env): FalDemucs {
+  return new FalDemucs(new FalQueueClient(requireKey(env.FAL_KEY, "FAL_KEY")));
+}
+
 // "Sing in my voice" needs fal (separation) and Whisper (consent check).
 export function myVoiceAvailable(env: Env): boolean {
   return Boolean(env.FAL_KEY && env.CLOUDFLARE_ACCOUNT_ID && env.CLOUDFLARE_API_TOKEN);
