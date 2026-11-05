@@ -10,7 +10,7 @@ import { LocalMediaStore } from "@/lib/media";
 import { loadStoryboard, type MusicVideoDeps, type MusicVideoRequest, runMusicVideo, SINGER_SHOT } from "@/lib/music-video/pipeline";
 import { defaultFfmpeg, PHOTO_LIKENESS } from "@/lib/pipeline/orchestrator";
 import { FalQueueClient } from "@/lib/providers/fal";
-import { FalKling3Scene, FalMotionControl, FalOmniHuman, type Singer, SingerWithFallback } from "@/lib/providers/fal-music-video";
+import { FalKling3Scene, FalMotionControl, FalOmniHuman, FalStorage, type Singer, SingerWithFallback } from "@/lib/providers/fal-music-video";
 import { KenBurnsVideo } from "@/lib/providers/kenburns";
 import { musicVideoKind, musicVideoRequestSchema } from "@/lib/queue/films";
 
@@ -86,6 +86,22 @@ describe("fal music video models", () => {
     await new FalKling3Scene(client).animate({ imageUrl: "https://frame", prompt: "walks", durationSec: 1.5 });
     expect(bodies[1].body.duration).toBe("3");
     expect(bodies[1].body.elements).toBeUndefined();
+  });
+
+  it("uploads local files to fal storage, since OmniHuman and motion control refuse data URIs", async () => {
+    const file = path.join(dir, "vocals.mp3");
+    writeFileSync(file, Buffer.from("mp3"));
+    const calls: { url: string; init?: RequestInit }[] = [];
+    const fn = (async (url: string, init?: RequestInit) => {
+      calls.push({ url, init });
+      return url.includes("initiate") ? Response.json({ upload_url: "https://up/put", file_url: "https://v3.fal.media/vocals.mp3" }) : new Response(null, { status: 200 });
+    }) as unknown as typeof fetch;
+    const host = new FalStorage("k", fn).host;
+    expect(await host(`file://${file}`)).toBe("https://v3.fal.media/vocals.mp3");
+    expect(JSON.parse(calls[0].init!.body as string)).toEqual({ content_type: "audio/mpeg", file_name: "vocals.mp3" });
+    expect(calls[1]).toMatchObject({ url: "https://up/put", init: { method: "PUT", headers: { "Content-Type": "audio/mpeg" } } });
+    expect(await host("https://already/there.jpg")).toBe("https://already/there.jpg");
+    expect(calls).toHaveLength(2);
   });
 
   it("falls back to Kling AI Avatar when OmniHuman fails", async () => {

@@ -107,6 +107,18 @@ describe("captions and prompts", () => {
     expect(out.shots.map((s) => s.imagePrompt)).toEqual(["a", "a"]);
   });
 
+  it("accepts a list named scenes, and asks again once when the reply is unusable", async () => {
+    let calls = 0;
+    const llm = {
+      modelId: "llama-3.3-70b",
+      writeScript: async () => { throw new Error(); },
+      completeJson: async () => (++calls === 1 ? { star: "x" } : { scenes: [{ imagePrompt: "b" }] }),
+    } as LlmProvider;
+    const out = await writeShotPrompts(llm, req, [{ start: 0, end: 4, lines: [], type: "scene" }]);
+    expect(calls).toBe(2);
+    expect(out.shots[0].imagePrompt).toBe("b");
+  });
+
   it("frames each shot for its model: a close-up to sing, the whole body to dance, no people in lyric art", () => {
     const board = { star: { description: "a girl in a yellow raincoat" }, look: { style: "animated" as const, photoUrl: "file:///me.jpg" } };
     expect(framePrompt(board, { type: "sing", imagePrompt: "on a rooftop" })).toContain(SINGER_SHOT);

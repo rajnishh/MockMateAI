@@ -158,7 +158,8 @@ const demo: typeof real = {
     };
     return { id: demoVideo.id, credits: demoVideo.storyboard!.credits };
   },
-  get: async () => (await wait(200), demoVideo!),
+  // Opened from My videos without starting one here: a sample full music video storyboard.
+  get: async (songId) => (await wait(200), demoVideo ?? (await demo.start(songId, { kind: "full", style: "photoreal", danceStyle: "bollywood", range: { start: 0, end: 15 }, captions: true, kidSafe: false }), demoVideo!)),
   change: async (_songId, _id, shots) => {
     await wait(300);
     demoVideo!.storyboard!.shots = demoVideo!.storyboard!.shots.map((s, i) => ({ ...s, ...shots[i] }));

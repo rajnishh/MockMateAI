@@ -88,7 +88,8 @@ export const STORYBOARD_FILE = "storyboard.json";
 // What every singing shot shows: the star's face and mouth clearly.
 export const SINGER_SHOT = "the star is singing towards the camera in a medium close-up, face and mouth clearly visible";
 // Motion control needs the whole body in the picture.
-export const DANCER_SHOT = "the star is shown full body from head to toe, standing in the middle of the frame with open space around them, facing the camera";
+// Alone, too: with other people in the picture it may animate the wrong dancer.
+export const DANCER_SHOT = "the star is alone, with no other people in the picture, shown full body from head to toe, standing in the middle of the frame with open space around them, facing the camera";
 const LYRIC_ART = "vivid illustrated background art, no people, no text, no letters, no words";
 
 const promptsSchema = z.object({
@@ -116,7 +117,9 @@ export function buildShotPrompt(req: MusicVideoRequest, shots: PlannedShot[]): s
     req.kidSafe ? "Audience is young children: gentle, bright, safe imagery only." : "",
     req.danceStyle ? `Dance shots are ${DANCE_STYLE_INFO[req.danceStyle].label} dancing.` : "",
     "Shots follow the lyrics' meaning and build visually, in varied settings and camera angles.",
-    "Don't describe the star's face or outfit in imagePrompt; just say \"the star\". Never depict real singers, celebrities or brands.",
+    // No quote marks in the instructions: small models copy them into their JSON strings unescaped.
+    "In imagePrompt call the lead the star, without describing their face or outfit. Never depict real singers, celebrities or brands.",
+    "Don't use quote marks inside any string.",
     "imagePrompt and motionPrompt are in English. motionPrompt is one short camera and movement direction.",
     `Return exactly ${shots.length} shots, in order.`,
     'Reply with JSON only: {"star":string,"shots":[{"imagePrompt":string,"motionPrompt":string}]}',
@@ -127,8 +130,19 @@ export function buildShotPrompt(req: MusicVideoRequest, shots: PlannedShot[]): s
     .join("\n");
 }
 
+// Smaller models sometimes name the list "scenes", or wrap it; one retry covers the rest.
+function readPrompts(raw: unknown) {
+  const o = (raw ?? {}) as Record<string, unknown>;
+  const shots = o.shots ?? o.scenes ?? (Array.isArray(raw) ? raw : undefined);
+  return promptsSchema.safeParse({ ...o, shots });
+}
+
 export async function writeShotPrompts(llm: LlmProvider, req: MusicVideoRequest, shots: PlannedShot[]) {
-  const out = promptsSchema.parse(await llm.completeJson(buildShotPrompt(req, shots)));
+  const prompt = buildShotPrompt(req, shots);
+  let parsed = readPrompts(await llm.completeJson(prompt));
+  if (!parsed.success) parsed = readPrompts(await llm.completeJson(`${prompt}\n\nYour last reply didn't match. Reply with exactly that JSON shape, with a "shots" array.`));
+  if (!parsed.success) throw new Error("The shot list came out garbled; try again");
+  const out = parsed.data;
   // Models occasionally miscount; reuse the last shot rather than fail the video.
   return { star: out.star.trim(), shots: shots.map((_, i) => out.shots[Math.min(i, out.shots.length - 1)]) };
 }
@@ -171,7 +185,7 @@ export async function saveStoryboard(workDir: string, board: Storyboard): Promis
   await writeFile(path.join(workDir, STORYBOARD_FILE), JSON.stringify(board, null, 2));
 }
 
-const MAX_CAPTION_CHARS = 32;
+const MAX_CAPTION_CHARS = 22;
 
 // Long lines become two captions so the text stays large enough to read.
 export function lyricCues(lines: TimedLine[]): Cue[] {

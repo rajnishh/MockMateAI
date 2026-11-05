@@ -36,6 +36,33 @@ export async function falUrl(url: string): Promise<string> {
   return `data:${type};base64,${(await readMedia(url)).toString("base64")}`;
 }
 
+// Turns a local file into a URL fal can fetch. OmniHuman and motion control refuse data URIs
+// ("Failed to download the file", "Video URL is invalid"), so the worker uploads to fal storage.
+export type HostFile = (url: string) => Promise<string>;
+
+export class FalStorage {
+  constructor(
+    private readonly key: string,
+    private readonly fetchFn: typeof fetch = fetch,
+  ) {}
+
+  readonly host: HostFile = async (url) => {
+    if (!url.startsWith("file://")) return url;
+    const file = fileURLToPath(url);
+    const contentType = TYPES[path.extname(file).toLowerCase()] ?? "application/octet-stream";
+    const init = await this.fetchFn("https://rest.alpha.fal.ai/storage/upload/initiate?storage_type=fal-cdn-v3", {
+      method: "POST",
+      headers: { Authorization: `Key ${this.key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ content_type: contentType, file_name: path.basename(file) }),
+    });
+    if (!init.ok) throw new Error(`fal storage ${init.status}: ${await init.text()}`);
+    const { upload_url, file_url } = (await init.json()) as { upload_url: string; file_url: string };
+    const put = await this.fetchFn(upload_url, { method: "PUT", headers: { "Content-Type": contentType }, body: new Uint8Array(await readMedia(url)) });
+    if (!put.ok) throw new Error(`fal storage upload ${put.status}`);
+    return file_url;
+  };
+}
+
 export interface Singer {
   readonly modelId: string;
   sing(input: { imageUrl: string; audioUrl: string; prompt: string }): Promise<{ url: string }>;
@@ -44,12 +71,15 @@ export interface Singer {
 export class FalOmniHuman implements Singer {
   readonly modelId = "omnihuman-1.5";
 
-  constructor(private readonly client: FalQueueClient) {}
+  constructor(
+    private readonly client: FalQueueClient,
+    private readonly hostFile: HostFile = falUrl,
+  ) {}
 
   async sing(input: { imageUrl: string; audioUrl: string; prompt: string }): Promise<{ url: string }> {
     const out = await this.client.run<{ video: { url: string } }>(MUSIC_VIDEO_FAL_MODELS.omnihuman, {
-      image_url: await falUrl(input.imageUrl),
-      audio_url: await falUrl(input.audioUrl),
+      image_url: await this.hostFile(input.imageUrl),
+      audio_url: await this.hostFile(input.audioUrl),
       prompt: input.prompt,
       // 720p is fal's recommendation: faster, better, and allows up to 60 s of audio.
       resolution: "720p",
@@ -65,6 +95,7 @@ export class SingerWithFallback implements Singer {
   constructor(
     private readonly main: Singer,
     private readonly fallback: Singer,
+    private readonly hostFile: HostFile = falUrl,
   ) {
     this.modelId = main.modelId;
   }
@@ -74,7 +105,7 @@ export class SingerWithFallback implements Singer {
       return await this.main.sing(input);
     } catch (err) {
       console.error(`${this.main.modelId} failed, singing with ${this.fallback.modelId}:`, (err as Error).message);
-      return this.fallback.sing({ ...input, imageUrl: await falUrl(input.imageUrl), audioUrl: await falUrl(input.audioUrl) });
+      return this.fallback.sing({ ...input, imageUrl: await this.hostFile(input.imageUrl), audioUrl: await this.hostFile(input.audioUrl) });
     }
   }
 }
@@ -88,13 +119,16 @@ export interface Dancer {
 export class FalMotionControl implements Dancer {
   readonly modelId = "kling-3.0-motion";
 
-  constructor(private readonly client: FalQueueClient) {}
+  constructor(
+    private readonly client: FalQueueClient,
+    private readonly hostFile: HostFile = falUrl,
+  ) {}
 
   async dance(input: { imageUrl: string; referenceUrl: string; prompt: string; starUrl?: string }): Promise<{ url: string }> {
-    const star = input.starUrl ? await falUrl(input.starUrl) : undefined;
+    const star = input.starUrl ? await this.hostFile(input.starUrl) : undefined;
     const out = await this.client.run<{ video: { url: string } }>(MUSIC_VIDEO_FAL_MODELS.motion, {
-      image_url: await falUrl(input.imageUrl),
-      video_url: await falUrl(input.referenceUrl),
+      image_url: await this.hostFile(input.imageUrl),
+      video_url: await this.hostFile(input.referenceUrl),
       // "video" follows the dancer's body (better for complex moves) and allows the face element.
       character_orientation: "video",
       keep_original_sound: false,
@@ -113,12 +147,15 @@ export interface SceneAnimator {
 export class FalKling3Scene implements SceneAnimator {
   readonly modelId = "kling-3.0";
 
-  constructor(private readonly client: FalQueueClient) {}
+  constructor(
+    private readonly client: FalQueueClient,
+    private readonly hostFile: HostFile = falUrl,
+  ) {}
 
   async animate(input: { imageUrl: string; prompt: string; durationSec: number; starUrl?: string }): Promise<{ url: string }> {
-    const star = input.starUrl ? await falUrl(input.starUrl) : undefined;
+    const star = input.starUrl ? await this.hostFile(input.starUrl) : undefined;
     const out = await this.client.run<{ video: { url: string } }>(MUSIC_VIDEO_FAL_MODELS.kling3, {
-      start_image_url: await falUrl(input.imageUrl),
+      start_image_url: await this.hostFile(input.imageUrl),
       prompt: star ? `${input.prompt}. The lead character is @Element1.` : input.prompt,
       duration: String(Math.min(15, Math.max(3, Math.ceil(input.durationSec)))),
       // The song is the only sound; native audio would also double the price.
@@ -137,11 +174,13 @@ export interface MusicVideoProviders {
 }
 
 export function buildMusicVideoProviders(env: Env): MusicVideoProviders {
-  const fal = new FalQueueClient(requireKey(env.FAL_KEY, "FAL_KEY"));
+  const key = requireKey(env.FAL_KEY, "FAL_KEY");
+  const fal = new FalQueueClient(key);
+  const host = new FalStorage(key).host;
   return {
-    singer: new SingerWithFallback(new FalOmniHuman(fal), new FalAvatarSinger(fal, DEFAULT_FAL_MODELS.avatar)),
-    dancer: new FalMotionControl(fal),
-    scenes: new FalKling3Scene(fal),
+    singer: new SingerWithFallback(new FalOmniHuman(fal, host), new FalAvatarSinger(fal, DEFAULT_FAL_MODELS.avatar), host),
+    dancer: new FalMotionControl(fal, host),
+    scenes: new FalKling3Scene(fal, host),
     stems: new FalDemucs(fal),
   };
 }

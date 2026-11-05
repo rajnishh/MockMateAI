@@ -368,11 +368,12 @@ export function MusicVideoPanel({ songId, durationSec, characters }: { songId: s
 const CSS = `
 .mv { display: grid; gap: 14px; }
 .mv-kinds { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
-.mv-kind { display: grid; gap: 4px; align-content: start; text-align: left; min-height: 132px; padding: 14px; border-radius: 16px;
-  background: var(--surface-raised); color: var(--ink); border: 2px solid var(--line); box-shadow: var(--shadow); cursor: pointer; font: inherit; }
-.mv-kind:hover:not(:disabled) { border-color: var(--line-strong); }
-.mv-kind.on { border-color: var(--action); background: var(--coral-tint); }
-.mv-kind:disabled { opacity: .5; cursor: not-allowed; }
+.mv button.mv-kind { display: grid; gap: 4px; align-content: start; justify-items: start; text-align: left; width: auto; min-height: 132px; padding: 14px; border-radius: 16px;
+  background: var(--surface-raised); color: var(--ink); border: 2px solid var(--line); box-shadow: var(--shadow); cursor: pointer; font: inherit; font-weight: 400; }
+.mv button.mv-kind:active:not(:disabled) { transform: scale(0.98); box-shadow: var(--shadow); }
+.mv button.mv-kind:hover:not(:disabled) { border-color: var(--line-strong); }
+.mv button.mv-kind.on { border-color: var(--action); background: var(--coral-tint); }
+.mv button.mv-kind:disabled { opacity: .5; cursor: not-allowed; }
 .mv-kind b { font-family: var(--font-display); font-size: 1.05rem; }
 .mv-kind .muted { font-size: .85rem; line-height: 1.3; }
 .mv-icon { font-size: 1.4rem; }
@@ -380,8 +381,9 @@ const CSS = `
 .mv-group { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; }
 .mv-group legend { font-weight: 600; margin-bottom: 6px; }
 .mv-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.mv-chip { min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1.5px solid var(--line-strong); background: transparent; color: var(--ink); font: inherit; cursor: pointer; }
-.mv-chip.on { background: var(--deep); color: var(--on-deep); border-color: var(--deep); }
+.mv button.mv-chip { width: auto; min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1.5px solid var(--line-strong); background: var(--surface-raised); color: var(--ink); box-shadow: none; font-weight: 700; font-size: 14px; }
+.mv button.mv-chip:active:not(:disabled) { transform: scale(0.97); box-shadow: none; }
+.mv button.mv-chip.on { background: var(--deep); color: var(--on-deep); border-color: var(--deep); }
 .mv-range { display: grid; gap: 6px; font-size: .9rem; }
 .mv-error { color: var(--danger); font-weight: 600; }
 .mv-progress { display: grid; gap: 6px; justify-items: center; text-align: center; padding: 24px 8px; }
@@ -402,4 +404,7 @@ const CSS = `
 .mv-lines { font-size: .85rem; font-style: italic; }
 .mv-shot textarea { font-size: .85rem; }
 .mv-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.mv-actions button { flex: 1 1 200px; }
+.mv-shot button.secondary { min-height: 40px; }
+.mv-group legend { padding: 0; font-size: 13px; color: var(--ink-muted); font-weight: 700; }
 `;
