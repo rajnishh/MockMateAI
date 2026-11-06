@@ -151,6 +151,9 @@ export function LoginForm({ googleEnabled, next = "/" }: { googleEnabled: boolea
         </form>
       )}
       {error && <div className="status">{error}</div>}
+      <p className="muted" style={{ textAlign: "center", marginTop: 20 }}>
+        By continuing you agree to the <a href="https://reelkar.istari-ai.dev/terms">Terms</a> and <a href="https://reelkar.istari-ai.dev/privacy">Privacy Policy</a>.
+      </p>
     </>
   );
 }

@@ -41,5 +41,19 @@ export class ResendEmail implements EmailSender {
   }
 }
 
+// A plain notice to the team (e.g. "a song was hidden after reports"), through Resend. Throws when
+// Resend says no; callers log it and carry on.
+export async function sendNotice(cfg: { apiKey: string; from: string }, to: string, subject: string, text: string, fetchFn: typeof fetch = fetch): Promise<void> {
+  const res = await fetchFn("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { authorization: `Bearer ${cfg.apiKey}`, "content-type": "application/json" },
+    body: JSON.stringify({ from: cfg.from, to: [to], subject, text }),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { message?: string };
+    throw new Error(`Resend: ${body.message ?? res.status}`);
+  }
+}
+
 // Phone-only accounts get a placeholder address on this domain (see auth-config.ts); it can't receive mail.
 export const PLACEHOLDER_EMAIL_DOMAIN = "phone.storyfilm.invalid";

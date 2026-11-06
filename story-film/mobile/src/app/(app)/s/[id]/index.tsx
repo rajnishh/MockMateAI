@@ -7,6 +7,7 @@ import { Avatar } from "@/components/avatar";
 import { SongCover } from "@/components/song-cover";
 import { useSongPlayer } from "@/components/song-player";
 import { RemixFamily } from "@/components/remix-family";
+import { SafetyActions } from "@/components/safety-actions";
 import { SongRail } from "@/components/song-rail";
 import { Banner, Button, Card, Empty, Header, ListRow, Row, Screen, Sheet, Skeleton, Txt, Win } from "@/components/ui";
 import { api, type Reaction } from "@/lib/api";
@@ -17,7 +18,7 @@ import { useData } from "@/lib/use-data";
 import { radius, useTheme } from "@/theme";
 
 // A public song: play, lyrics, plays, Like / Not for me, one reaction, its remix family, two rails,
-// Remix, Share and Report. The maker sees their remix numbers and the Allow remixes switch.
+// Remix, Share, Report and Block. The maker sees their remix numbers and the Allow remixes switch.
 export default function SongPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
@@ -213,12 +214,11 @@ export default function SongPage() {
 
       <Card flat>
         <Txt variant="cap">Made with AI on Reelkar.</Txt>
-        <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: "/listen/report/[id]", params: { id: s.publicId } })} hitSlop={8} style={styles.report}>
-          <Icon name="flag" size={18} color={colors.inkMuted} />
-          <Txt variant="label" color="inkMuted">
-            Report this song
-          </Txt>
-        </Pressable>
+        <SafetyActions
+          report={{ kind: "song", id: s.publicId, label: "Report this song" }}
+          block={s.mine ? undefined : { target: { handle: s.handle }, name: `@${s.handle}`, blocked: s.creatorBlocked }}
+          onBlockChange={(on) => (on ? router.back() : undefined)}
+        />
       </Card>
 
       <Sheet visible={stopping} onClose={() => setStopping(false)}>
@@ -239,5 +239,4 @@ const styles = StyleSheet.create({
   vote: { flex: 1, minHeight: 48, borderRadius: radius.pill, borderWidth: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   reactions: { flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center" },
   reaction: { minWidth: 52, minHeight: 48, borderRadius: radius.pill, borderWidth: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingHorizontal: 10 },
-  report: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 44 },
 });

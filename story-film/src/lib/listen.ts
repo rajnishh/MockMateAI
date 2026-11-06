@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Db } from "@/lib/db";
 import { creatorProfile, giftReportReason, profileAvatar, remixLink, song, songPlay, songReaction, songReactionKind, songReport, songVote } from "@/lib/db/schema";
 import { newGiftToken } from "@/lib/gifts";
+import { isBlocked, songVisibleTo } from "@/lib/moderation";
 import { avatarView, creatorPhotoUrl } from "@/lib/profile";
 import { findLanguage } from "@/lib/languages";
 import { findGenre } from "@/lib/songs/styles";
@@ -134,7 +135,8 @@ export async function unpublishSong(db: Db, userId: string, id: string): Promise
 
 // ---------- Public songs ----------
 
-export const listed = () => and(isNotNull(song.publishedAt), isNull(song.takenDownAt), eq(song.status, "completed"), isNotNull(song.outputPath));
+// Hidden after reports (hidden_at) counts as taken down until someone reviews it (src/lib/moderation.ts).
+export const listed = () => and(isNotNull(song.publishedAt), isNull(song.takenDownAt), isNull(song.hiddenAt), eq(song.status, "completed"), isNotNull(song.outputPath));
 
 // Every query selecting these left-joins profile_avatar, for the creator's photo on the card.
 // (Flat columns: Drizzle nulls a whole nested object from a left join when any one of its fields is null.)
@@ -144,7 +146,7 @@ export type PublicRow = { song: Song; handle: string; avatarPreset?: string | nu
 export type PublicState = "public" | "private" | "taken_down";
 
 export function publicState(s: Song): PublicState {
-  if (s.takenDownAt) return "taken_down";
+  if (s.takenDownAt || s.hiddenAt) return "taken_down";
   return s.publishedAt && s.status === "completed" && s.outputPath ? "public" : "private";
 }
 
@@ -228,6 +230,8 @@ export async function publicSongView(db: Db, r: PublicRow, viewerId?: string) {
     remixOf: parent && parent.song.userId !== s.userId ? { publicId: parent.song.publicId!, title: parent.song.title, handle: parent.handle } : null,
     // "A remix of a song that's no longer public": the parent was deleted, made private or taken down.
     remixOfGone: Boolean(link && !parent),
+    // The viewer blocked this song's maker (the page shows Unblock instead of Block).
+    creatorBlocked: Boolean(viewerId && !mine && (await isBlocked(db, viewerId, s.userId))),
   };
 }
 
@@ -238,12 +242,13 @@ export type PublicSongView = Awaited<ReturnType<typeof publicSongView>>;
 const DAY_MS = 86400_000;
 const dayKey = (d: Date) => d.toISOString().slice(0, 10);
 
-async function listedSongs(db: Db, where: SQL | undefined, order: SQL, limit: number): Promise<PublicRow[]> {
+// Every list leaves out songs by people the viewer blocked and songs they reported.
+async function listedSongs(db: Db, where: SQL | undefined, order: SQL, limit: number, viewerId?: string): Promise<PublicRow[]> {
   return db
     .select(publicColumns)
     .from(song)
     .innerJoin(creatorProfile, eq(creatorProfile.userId, song.userId)).leftJoin(profileAvatar, eq(profileAvatar.userId, song.userId))
-    .where(and(listed(), where))
+    .where(and(listed(), songVisibleTo(viewerId), where))
     .orderBy(order)
     .limit(limit);
 }
@@ -274,12 +279,13 @@ function trendingScore(now: Date) {
 
 export type RailKind = "new" | "trending" | "genre" | "language";
 
-export async function rail(db: Db, kind: RailKind, opts: { lang?: string; genre?: string; limit?: number; now?: Date } = {}): Promise<PublicRow[]> {
+export async function rail(db: Db, kind: RailKind, opts: { lang?: string; genre?: string; limit?: number; now?: Date; viewerId?: string } = {}): Promise<PublicRow[]> {
   const now = opts.now ?? new Date();
   const limit = opts.limit ?? 12;
+  const v = opts.viewerId;
   const lang = opts.lang ? eq(song.language, opts.lang) : undefined;
   if (kind === "new") {
-    return spreadCreators(await listedSongs(db, and(lang), desc(song.publishedAt), limit * 5), 2, limit);
+    return spreadCreators(await listedSongs(db, and(lang), desc(song.publishedAt), limit * 5, v), 2, limit);
   }
   if (kind === "trending") {
     const score = trendingScore(now);
@@ -287,7 +293,7 @@ export async function rail(db: Db, kind: RailKind, opts: { lang?: string; genre?
       .select({ ...publicColumns, score })
       .from(song)
       .innerJoin(creatorProfile, eq(creatorProfile.userId, song.userId)).leftJoin(profileAvatar, eq(profileAvatar.userId, song.userId))
-      .where(and(listed(), lang))
+      .where(and(listed(), songVisibleTo(v), lang))
       .orderBy(desc(score), desc(song.publishedAt))
       .limit(limit * 3);
     return spreadCreators(
@@ -299,13 +305,13 @@ export async function rail(db: Db, kind: RailKind, opts: { lang?: string; genre?
   if (kind === "genre") {
     if (!opts.genre) return [];
     const best = sql`(${song.likeCount} * 3 + ${song.playCount})`;
-    return spreadCreators(await listedSongs(db, and(lang, eq(song.genre, opts.genre)), desc(best), limit * 3), 3, limit);
+    return spreadCreators(await listedSongs(db, and(lang, eq(song.genre, opts.genre)), desc(best), limit * 3, v), 3, limit);
   }
-  return opts.lang ? spreadCreators(await listedSongs(db, lang, desc(song.publishedAt), limit * 3), 3, limit) : [];
+  return opts.lang ? spreadCreators(await listedSongs(db, lang, desc(song.publishedAt), limit * 3, v), 3, limit) : [];
 }
 
-// Everything the Listen screen shows, optionally for one language.
-export async function listenHome(db: Db, opts: { lang?: string; now?: Date } = {}) {
+// Everything the Listen screen shows, optionally for one language, for this viewer.
+export async function listenHome(db: Db, opts: { lang?: string; now?: Date; viewerId?: string } = {}) {
   const now = opts.now ?? new Date();
   const lang = opts.lang ? eq(song.language, opts.lang) : undefined;
   const genres = await db
@@ -326,9 +332,9 @@ export async function listenHome(db: Db, opts: { lang?: string; now?: Date } = {
     .from(song)
     .where(and(listed(), lang, gte(song.publishedAt, new Date(now.getTime() - 7 * DAY_MS))));
   const [newRows, trendingRows, ...bestOf] = await Promise.all([
-    rail(db, "new", { lang: opts.lang, now }),
-    rail(db, "trending", { lang: opts.lang, now }),
-    ...genres.map((g) => rail(db, "genre", { genre: g.genre, lang: opts.lang, now })),
+    rail(db, "new", { lang: opts.lang, now, viewerId: opts.viewerId }),
+    rail(db, "trending", { lang: opts.lang, now, viewerId: opts.viewerId }),
+    ...genres.map((g) => rail(db, "genre", { genre: g.genre, lang: opts.lang, now, viewerId: opts.viewerId })),
   ]);
   return {
     newThisWeek: week?.n ?? 0,
@@ -377,6 +383,7 @@ export async function relatedSongs(db: Db, opts: { seed?: string; exclude?: stri
     .where(
       and(
         listed(),
+        songVisibleTo(opts.viewerId),
         exclude.length ? notInArray(song.publicId, exclude) : undefined,
         opts.viewerId ? ne(song.userId, opts.viewerId) : undefined,
         disliked ? notInArray(song.id, disliked) : undefined,
@@ -402,7 +409,7 @@ export async function relatedSongs(db: Db, opts: { seed?: string; exclude?: stri
 // The song page's two rails.
 export async function songRails(db: Db, r: PublicRow, viewerId?: string) {
   const more = await relatedSongs(db, { seed: r.song.publicId!, viewerId, limit: 8, random: () => 0 });
-  const byCreator = await listedSongs(db, and(eq(song.userId, r.song.userId), ne(song.id, r.song.id)), desc(song.publishedAt), 8);
+  const byCreator = await listedSongs(db, and(eq(song.userId, r.song.userId), ne(song.id, r.song.id)), desc(song.publishedAt), 8, viewerId);
   return { moreLikeThis: more.map(publicSongCard), byCreator: byCreator.map(publicSongCard) };
 }
 

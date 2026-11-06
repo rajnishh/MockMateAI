@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { PUBLIC_ID, publicSong, publicState } from "@/lib/listen";
 import { familyTree } from "@/lib/remixes";
+import { getUserId } from "@/lib/session";
 
 const querySchema = z.object({
   sort: z.enum(["top", "new"]).default("top"),
@@ -20,5 +21,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ publicId
   const found = await publicSong(db, publicId);
   if (!found) return NextResponse.json({ error: "We couldn't find that song." }, { status: 404 });
   if (publicState(found.song) !== "public") return NextResponse.json({ error: "This song isn't public any more." }, { status: 410 });
-  return NextResponse.json(await familyTree(db, found.song, parsed.data));
+  const viewerId = await getUserId().catch(() => undefined);
+  return NextResponse.json(await familyTree(db, found.song, { ...parsed.data, viewerId }));
 }
