@@ -10,9 +10,11 @@ export type Queue<T extends QueueTrack> = {
   index: number;
   // Keys heard this session, so Autoplay doesn't repeat them.
   heard: string[];
+  // Keys the listener removed from the queue: Autoplay leaves them out even when it starts repeating.
+  skipped: string[];
 };
 
-export const emptyQueue = <T extends QueueTrack>(): Queue<T> => ({ items: [], index: -1, heard: [] });
+export const emptyQueue = <T extends QueueTrack>(): Queue<T> => ({ items: [], index: -1, heard: [], skipped: [] });
 
 const MAX_HEARD = 300;
 
@@ -27,12 +29,12 @@ export const upNext = <T extends QueueTrack>(q: Queue<T>): T[] => q.items.slice(
 // Tapping a song in a list plays it, and the rest of that list becomes the queue.
 export function playList<T extends QueueTrack>(q: Queue<T>, list: T[], start: number): Queue<T> {
   const items = list.slice(start);
-  return { items, index: items.length ? 0 : -1, heard: hear(q, items[0]?.key) };
+  return { items, index: items.length ? 0 : -1, heard: hear(q, items[0]?.key), skipped: q.skipped };
 }
 
 // One song on its own, keeping what was next.
 export function playOne<T extends QueueTrack>(q: Queue<T>, track: T): Queue<T> {
-  return { items: [track, ...upNext(q).filter((t) => t.key !== track.key)], index: 0, heard: hear(q, track.key) };
+  return { items: [track, ...upNext(q).filter((t) => t.key !== track.key)], index: 0, heard: hear(q, track.key), skipped: q.skipped };
 }
 
 export function playNext<T extends QueueTrack>(q: Queue<T>, track: T): Queue<T> {
@@ -74,7 +76,7 @@ export function skipTo<T extends QueueTrack>(q: Queue<T>, index: number): Queue<
 export function remove<T extends QueueTrack>(q: Queue<T>, key: string): Queue<T> {
   const i = q.items.findIndex((t, n) => t.key === key && n > q.index);
   if (i === -1) return q;
-  return { ...q, items: q.items.filter((_, n) => n !== i), heard: hear(q, key) };
+  return { ...q, items: q.items.filter((_, n) => n !== i), heard: hear(q, key), skipped: [...q.skipped.filter((k) => k !== key), key].slice(-MAX_HEARD) };
 }
 
 // "Clear": everything after the current song goes; songs already played stay for Previous.
@@ -99,9 +101,17 @@ export function seedId<T extends QueueTrack>(q: Queue<T>): string | undefined {
   return pub?.key.slice(2);
 }
 
-// Adds Autoplay's picks at the end, marked so the queue sheet can show them apart.
-export function appendAuto<T extends QueueTrack>(q: Queue<T>, tracks: T[]): Queue<T> {
-  const have = new Set([...q.items.map((t) => t.key), ...q.heard]);
+// When every song has been heard, Autoplay starts again rather than stopping: these are the
+// public ids to skip then (what's playing or queued, the last two heard, and removed songs).
+export function repeatExcludeIds<T extends QueueTrack>(q: Queue<T>): string[] {
+  const keys = new Set([...q.items.slice(Math.max(0, q.index)).map((t) => t.key), ...q.heard.slice(-2), ...q.skipped]);
+  return [...keys].filter((k) => k.startsWith("s:")).map((k) => k.slice(2));
+}
+
+// Adds Autoplay's picks at the end, marked so the queue sheet can show them apart. With `repeat`,
+// songs heard earlier may come back (see repeatExcludeIds).
+export function appendAuto<T extends QueueTrack>(q: Queue<T>, tracks: T[], repeat = false): Queue<T> {
+  const have = new Set(repeat ? [...q.items.slice(Math.max(0, q.index)).map((t) => t.key), ...q.skipped] : [...q.items.map((t) => t.key), ...q.heard]);
   const fresh = tracks.filter((t) => !have.has(t.key)).map((t) => ({ ...t, auto: true }));
   return fresh.length ? { ...q, items: [...q.items, ...fresh] } : q;
 }
