@@ -47,3 +47,17 @@ export function giftOpenedText(lang: PushLang, toName: string, occasion: Occasio
   if (lang === "ar") return { title: `تم فتح هديتك إلى ${to}`, body: plain ? "وصلت أغنيتك." : `وصلت أغنيتك بمناسبة ${occasionName("ar", occasion)}.` };
   return { title: `${to} opened your gift`, body: plain ? "Your song has been played." : `Your ${occasionName("en", occasion)} song has been played.` };
 }
+
+// Earnings in hundredths as the app shows them: one decimal ("0.1", "2.3"), two when needed ("0.08").
+export function creditAmount(lang: PushLang, hundredths: number): string {
+  return (hundredths / 100).toLocaleString(lang === "ar" ? "ar" : "en-IN", { minimumFractionDigits: 1, maximumFractionDigits: 2 });
+}
+
+// design/community/remix-spec.md X12: the first remix of a song in a day. No amount when it earned nothing.
+export function remixedText(lang: PushLang, title: string, hundredths: number): PushText {
+  const t = short(title);
+  const amount = hundredths > 0 ? creditAmount(lang, hundredths) : null;
+  if (lang === "hi") return { title: "आपके गाने का रीमिक्स बन रहा है", body: `किसी ने "${t}" का रीमिक्स बनाया।${amount ? ` आपने ${amount} क्रेडिट कमाए।` : ""}` };
+  if (lang === "ar") return { title: "يُصنع ريمكس لأغنيتك", body: `صُنع ريمكس لأغنية «${t}».${amount ? ` ربحت ${amount} رصيد.` : ""}` };
+  return { title: "Your song is being remixed", body: `Someone made a remix of "${t}".${amount ? ` You earned ${amount} credit.` : ""}` };
+}

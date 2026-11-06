@@ -2,6 +2,7 @@ import { router, type Href } from "expo-router";
 import type { ReactNode } from "react";
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -399,7 +400,19 @@ export function Row({ children, style }: { children: ReactNode; style?: StylePro
   return <View style={[styles.row, style]}>{children}</View>;
 }
 
+// A bottom sheet over a scrim, e.g. "Stop new remixes?" or "How earning works". Tapping outside closes it.
+export function Sheet({ visible, onClose, children }: { visible: boolean; onClose: () => void; children: ReactNode }) {
+  const { colors } = useTheme();
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={[{ flex: 1 }, { backgroundColor: colors.scrim }]} onPress={onClose} accessibilityLabel="Close" />
+      <View style={[styles.sheet, { backgroundColor: colors.surfaceRaised }]}>{children}</View>
+    </Modal>
+  );
+}
+
 const styles = StyleSheet.create({
+  sheet: { padding: space[5], gap: space[3], borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, paddingBottom: space[7] },
   scroll: { paddingHorizontal: space[4], paddingBottom: space[6] },
   screenBody: { gap: space[4], paddingTop: space[2], width: "100%", maxWidth: 720, alignSelf: "center" },
   footer: { paddingHorizontal: space[4], paddingVertical: space[3], gap: space[2] },

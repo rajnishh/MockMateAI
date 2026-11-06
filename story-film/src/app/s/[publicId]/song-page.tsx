@@ -7,7 +7,10 @@ import { Report } from "@/app/g/[token]/gift-page";
 import g from "@/app/g/[token]/gift.module.css";
 import type { PublicSongCard, PublicSongView, Reaction } from "@/lib/listen";
 import { ReelLogo } from "../../reel-logo";
+import type { SongFamily } from "@/lib/remixes";
 import { REACTION_EMOJI, songCopy } from "./copy";
+import { Remixes } from "./remixes";
+import r from "./remixes.module.css";
 import s from "./song.module.css";
 
 const REACTIONS = Object.keys(REACTION_EMOJI) as Reaction[];
@@ -20,11 +23,24 @@ function send(url: string, method: "POST" | "PUT", body?: unknown) {
 
 // A public song: play, lyrics, likes and reactions, two rails, and Report. When the song ends,
 // the first "More like this" song plays after a short countdown, so the music keeps going.
-export function SongPage({ view, rails, lang, signedIn, url }: { view: PublicSongView; rails: { moreLikeThis: PublicSongCard[]; byCreator: PublicSongCard[] }; lang: PageLang; signedIn: boolean; url: string }) {
+export function SongPage({
+  view,
+  rails,
+  family,
+  lang,
+  signedIn,
+  url,
+}: {
+  view: PublicSongView;
+  rails: { moreLikeThis: PublicSongCard[]; byCreator: PublicSongCard[] };
+  family: SongFamily | null;
+  lang: PageLang;
+  signedIn: boolean;
+  url: string;
+}) {
   const t = songCopy(lang);
   const gt = giftCopy(lang);
   const router = useRouter();
-  const dir = lang === "ar" ? "rtl" : "ltr";
   const audio = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
@@ -33,7 +49,6 @@ export function SongPage({ view, rails, lang, signedIn, url }: { view: PublicSon
   const [vote, setVote] = useState(view.myVote);
   const [likes, setLikes] = useState(view.likeCount);
   const [reaction, setReaction] = useState<Reaction | null>(view.myReaction);
-  const [reporting, setReporting] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const counted = useRef(false);
@@ -58,7 +73,7 @@ export function SongPage({ view, rails, lang, signedIn, url }: { view: PublicSon
 
   if (view.state !== "public") {
     return (
-      <Shell lang={lang} dir={dir} onReport={() => setReporting(true)} reporting={reporting} closeReport={() => setReporting(false)} publicId={view.publicId} t={t} gt={gt}>
+      <Shell lang={lang} publicId={view.publicId}>
         <section className={`${g.hero} ${g.center}`}>
           <p className={g.headline}>{view.state === "taken_down" ? t.takenDown : t.private}</p>
           <a className={g.ghostBtn} href="/songs">
@@ -99,7 +114,7 @@ export function SongPage({ view, rails, lang, signedIn, url }: { view: PublicSon
   }
 
   return (
-    <Shell lang={lang} dir={dir} onReport={() => setReporting(true)} reporting={reporting} closeReport={() => setReporting(false)} publicId={view.publicId} t={t} gt={gt}>
+    <Shell lang={lang} publicId={view.publicId} wide={Boolean(family)}>
       <audio
         ref={audio}
         src={view.audioUrl}
@@ -122,7 +137,8 @@ export function SongPage({ view, rails, lang, signedIn, url }: { view: PublicSon
         onLoadedMetadata={(e) => Number.isFinite(e.currentTarget.duration) && setDuration(e.currentTarget.duration)}
         onError={() => setFailed(true)}
       />
-      <section className={g.opened}>
+      <div className={r.split}>
+      <section className={`${g.opened} ${r.mainCol}`}>
         {/* eslint-disable-next-line @next/next/no-img-element -- per-song art straight from the API */}
         {view.coverUrl ? <img className={g.cover} src={view.coverUrl} alt="" /> : <div className={`${g.cover} ${g.coverFallback}`} aria-hidden="true" />}
         <h1 className={g.title} dir="auto">
@@ -137,6 +153,8 @@ export function SongPage({ view, rails, lang, signedIn, url }: { view: PublicSon
           <a className={g.replyBanner} href={`/s/${view.remixOf.publicId}`}>
             {t.remixOf(iso(view.remixOf.title), view.remixOf.handle)}
           </a>
+        ) : view.remixOfGone ? (
+          <p className={g.meta}>{t.remix.goneParent}</p>
         ) : null}
         <div className={g.player} dir="ltr">
           <button type="button" className={g.play} onClick={toggle} aria-label={playing ? t.pause : t.play}>
@@ -229,9 +247,17 @@ export function SongPage({ view, rails, lang, signedIn, url }: { view: PublicSon
             </p>
           </div>
         ) : null}
+      </section>
+      {family ? (
+        <aside className={r.side}>
+          <Remixes family={family.family} lang={lang} title={view.title} handle={view.handle} publicId={view.publicId} canRemix={!family.remix.blocked} signedIn={signedIn} />
+        </aside>
+      ) : null}
+      <div className={r.rails}>
         <Rail title={t.more} songs={rails.moreLikeThis} />
         <Rail title={t.byCreator(view.handle)} songs={rails.byCreator} />
-      </section>
+      </div>
+      </div>
       <div className={g.cta}>
         <a className={g.replyBtn} href="/songs">
           {t.makeOwn}
@@ -269,27 +295,12 @@ function Rail({ title, songs }: { title: string; songs: PublicSongCard[] }) {
   );
 }
 
-function Shell({
-  lang,
-  dir,
-  children,
-  onReport,
-  reporting,
-  closeReport,
-  publicId,
-  t,
-  gt,
-}: {
-  lang: PageLang;
-  dir: "rtl" | "ltr";
-  children: React.ReactNode;
-  onReport: () => void;
-  reporting: boolean;
-  closeReport: () => void;
-  publicId: string;
-  t: ReturnType<typeof songCopy>;
-  gt: ReturnType<typeof giftCopy>;
-}) {
+// The public pages' frame (song page and family tree): "Made with AI" and Report on every one.
+export function Shell({ lang, children, publicId, wide }: { lang: PageLang; children: React.ReactNode; publicId: string; wide?: boolean }) {
+  const t = songCopy(lang);
+  const gt = giftCopy(lang);
+  const dir = lang === "ar" ? "rtl" : "ltr";
+  const [reporting, setReporting] = useState(false);
   return (
     <div className={g.page} lang={lang} dir={dir}>
       <header className={g.top}>
@@ -299,14 +310,14 @@ function Shell({
         </a>
         <span className={g.aiPill}>{gt.madeWithAi}</span>
       </header>
-      <main className={g.main}>{children}</main>
+      <main className={`${g.main} ${wide ? r.wide : ""}`}>{children}</main>
       <footer className={g.foot}>
         <span>{gt.madeWithAi} · Reelkar</span>
-        <button type="button" className={g.linkBtn} onClick={onReport}>
+        <button type="button" className={g.linkBtn} onClick={() => setReporting(true)}>
           ⚑ {gt.report}
         </button>
       </footer>
-      {reporting ? <Report endpoint={`/api/listen/songs/${publicId}/report`} lang={lang} title={t.reportTitle} onClose={closeReport} /> : null}
+      {reporting ? <Report endpoint={`/api/listen/songs/${publicId}/report`} lang={lang} title={t.reportTitle} onClose={() => setReporting(false)} /> : null}
     </div>
   );
 }

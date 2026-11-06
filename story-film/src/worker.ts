@@ -9,7 +9,9 @@ import { type PipelineDeps, runFilm } from "@/lib/pipeline/orchestrator";
 import { instagramAvailable, instagramClient, youtubeAvailable } from "@/lib/connect";
 import { pendingPosts, publishPost } from "@/lib/posts";
 import { provenanceFromEnv, trySign } from "@/lib/provenance";
-import { notifyReel, notifySong } from "@/lib/push";
+import { notifyReel, notifyRemix, notifySong } from "@/lib/push";
+import { dropEarning } from "@/lib/billing/earnings";
+import { remixFinished } from "@/lib/remixes";
 import { grantCredits } from "@/lib/billing/credits";
 import { creatorMessage } from "@/lib/creator-errors";
 import { buildDanceSinger, buildImage, buildPipelineDeps, buildProSongEditor, buildShortSongProvider, buildSinger, buildSingDeps, buildSongEditor, buildSongProvider, buildStemSeparator, buildTranscriber, proRemixAvailable, type Quality, songsAvailable, stemsAvailable } from "@/lib/providers";
@@ -220,6 +222,11 @@ if (songsAvailable(env)) {
       // A Jugalbandi tells both singers itself; other songs get "Your song is ready" before the cover is drawn.
       if ((job.data as RemixJob).duet) await duetSongDone(db, songId);
       else await notifySong(db, songId);
+      // A remix of someone's song: their share of it counts now (design/community/remix-spec.md).
+      if (job.name === "remix") {
+        const earned = await remixFinished(db, songId).catch((err) => console.error(`earning for song ${songId} failed:`, (err as Error).message));
+        if (earned) await notifyRemix(db, earned.earning);
+      }
       // Cover art comes after the song is playable, and a failed picture never fails the song.
       const made = coverImage ? await getSongById(db, songId) : undefined;
       const coverPath = made
@@ -239,6 +246,8 @@ if (songsAvailable(env)) {
       if (!(job.data as RemixJob).duet) await notifySong(db, job.data.songId);
       // A free song (the first reply to a gift) has nothing to give back.
       if (job.data.credits > 0) await grantCredits(db, job.data.userId, job.data.credits, "refund", `song:${job.data.songId}`);
+      // A failed remix earns its parent's maker nothing.
+      if (job.name === "remix") await dropEarning(db, "remix", job.data.songId);
     }
   });
   console.log(`song worker listening on queue "${SONG_QUEUE}"`);
