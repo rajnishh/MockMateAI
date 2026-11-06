@@ -19,6 +19,8 @@ import {
   extendDuet,
   dueReminders,
   finishSolo,
+  getDuet,
+  JOIN_START_MS,
   inviteByHandle,
   joinArgs,
   joinDuet,
@@ -283,8 +285,33 @@ describe("a join that fails to start", () => {
     d = await savePart(db, dir, d, "b", part("hum"));
     const broken = { ...deps(), ffmpeg: async () => Promise.reject(new Error("ffmpeg died")) };
     await expect(startJoin(db, broken, d)).rejects.toThrow(/ffmpeg/);
+    d = (await getDuet(db, d.id))!;
+    expect(d.joinStartedAt).toBeNull();
     expect(phaseOf(d, null)).toBe("join_failed");
     expect((await startJoin(db, deps(), d)).status).toBe("joining");
+  });
+
+  it("reads joining, not failed, while the second part's join is starting", async () => {
+    const db = await setup();
+    const now = new Date();
+    let d = await savePart(db, dir, await start(db), "a", part("hum"));
+    d = await joinDuet(db, d, "sana", { name: "Sana", ig: "", split: false });
+    d = await savePart(db, dir, d, "b", part("hum"), now);
+    // Both parts are saved but the song isn't queued yet.
+    expect(d.status).toBe("waiting");
+    expect(phaseOf(d, null, now)).toBe("joining");
+    const joined = await startJoin(db, deps(), d);
+    expect(joined.joinStartedAt).toBeNull();
+    expect(phaseOf(joined, "queued")).toBe("joining");
+  });
+
+  it("offers to try again if a join never finished starting", async () => {
+    const db = await setup();
+    const now = new Date();
+    let d = await savePart(db, dir, await start(db), "a", part("hum"));
+    d = await joinDuet(db, d, "sana", { name: "Sana", ig: "", split: false });
+    d = await savePart(db, dir, d, "b", part("hum"), now);
+    expect(phaseOf(d, null, new Date(now.getTime() + JOIN_START_MS + 1000))).toBe("join_failed");
   });
 });
 

@@ -29,9 +29,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     let row = await savePart(db, env.OUTPUT_DIR, d, role, { mp3: take.files.mp3, kind: take.meta.kind, transcript: take.meta.transcript, durationSec: take.meta.durationSec });
     if (row.partAPath && row.partBPath) {
       // The part is kept either way; if joining fails here, the duet shows "Try again".
-      row = await startJoin(db, await duetMakeDeps(db, env, row.starterId, row.genre, row.language), row).catch((err) => {
-        console.error(`duet ${row.id} join failed:`, (err as Error).message);
-        return row;
+      const saved = row;
+      row = await startJoin(db, await duetMakeDeps(db, env, row.starterId, row.genre, row.language), row).catch(async (err) => {
+        console.error(`duet ${saved.id} join failed:`, (err as Error).message);
+        return (await getDuet(db, saved.id)) ?? saved;
       });
     }
     if (role === "b") notify(db, [row.starterId], { title: `${row.partnerName} sang their part`, body: `“${row.topic}” · joining it into one song now`, kind: "gifts", path: `/duets/${row.id}` });

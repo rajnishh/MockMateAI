@@ -706,6 +706,8 @@ export const duet = pgTable(
     paidVoiceB: integer("paid_voice_b").notNull().default(0),
     // The 24-hour reminder went out.
     remindedAt: timestamp("reminded_at"),
+    // Both parts are in and the song is being started (cleared once it's queued or the start fails).
+    joinStartedAt: timestamp("join_started_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [index("duet_starter_idx").on(t.starterId, t.createdAt), index("duet_partner_idx").on(t.partnerId, t.createdAt)],
