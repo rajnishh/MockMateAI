@@ -18,6 +18,7 @@ import { useData } from "@/lib/use-data";
 import { useTheme } from "@/theme";
 
 type Kind = "story" | "motion" | "dance" | "edit";
+const KINDS: Kind[] = ["story", "motion", "dance", "edit"];
 type Ending = "auto" | "none" | "follow" | "comment";
 type Picked = { uri: string; name: string; type: string; seconds: number | null; mb: number | null };
 
@@ -37,11 +38,20 @@ export default function Create() {
   const { colors } = useTheme();
   const billing = useData(() => api.billing());
   // "Use this recipe" opens Create with ?recipe={publicId}; the recipe locks the kind, look and length.
-  const params = useLocalSearchParams<{ recipe?: string }>();
+  // Studio's Lab opens Create with ?kind=dance.
+  const params = useLocalSearchParams<{ recipe?: string; kind?: string }>();
   const [used, setUsed] = useState<RecipePage | null>(null);
   const [recipeGone, setRecipeGone] = useState<string | null>(null);
   const recipesHome = useData(() => api.recipesHome("en", Intl.DateTimeFormat().resolvedOptions().timeZone ?? ""));
-  const [kind, setKind] = useState<Kind>("story");
+  const asKind = (k?: string) => (KINDS.includes(k as Kind) ? (k as Kind) : null);
+  const [kind, setKind] = useState<Kind>(() => asKind(params.kind) ?? "story");
+  // Create stays mounted as a tab, so a later ?kind= switches the kind when it arrives.
+  const [kindParam, setKindParam] = useState(params.kind);
+  if (params.kind !== kindParam) {
+    setKindParam(params.kind);
+    const k = asKind(params.kind);
+    if (k) setKind(k);
+  }
   const [ending, setEnding] = useState<Ending>("auto");
   const [keyword, setKeyword] = useState("");
   const [style, setStyle] = useState<Style>("animated");

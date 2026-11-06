@@ -13,11 +13,12 @@ export default function TabsLayout() {
         </>
       )}
       screenOptions={{ headerShown: false }}>
+      {/* design/v3.0/navigation.md: Create sits in the centre; Calendar and Inbox live under You (and Home's bell). */}
       <Tabs.Screen name="home" options={{ title: "Home" }} />
+      <Tabs.Screen name="studio" options={{ title: "Studio" }} />
       <Tabs.Screen name="create" options={{ title: "Create" }} />
-      <Tabs.Screen name="calendar" options={{ title: "Calendar" }} />
-      <Tabs.Screen name="inbox" options={{ title: "Inbox" }} />
       <Tabs.Screen name="listen" options={{ title: "Listen" }} />
+      <Tabs.Screen name="you" options={{ title: "You" }} />
     </Tabs>
   );
 }

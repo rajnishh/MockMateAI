@@ -16,7 +16,7 @@ export default function CreditsScreen() {
   return (
     <Screen>
       <Header title="Credits and plans" back right={<Credits count={b?.balance ?? null} onPress={() => undefined} />} />
-      <Banner kind="info" title="Free beta" text="Buying credits opens after the beta. Need more for testing? Tell us in Account → Send feedback." />
+      <Banner kind="info" title="Free beta" text="Buying credits opens after the beta. Need more for testing? Tell us in You → Send feedback." />
       {!b ? (
         <Skeleton height={240} />
       ) : (
