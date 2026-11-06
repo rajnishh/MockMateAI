@@ -99,7 +99,7 @@ export async function POST(req: Request) {
       );
     }
     const replyGift = reply ? await createReplyGift(db, { userId, songId: ids[0], original: reply.original, senderName: reply.senderName, free: reply.free, fromName }) : undefined;
-    if (replyGift && reply) notify(db, [reply.original.senderId], { title: `${replyGift.fromName || "Someone"} is making you a song back`, body: "Your gift got a reply. It plays in about a minute.", kind: "gifts", path: "/inbox" });
+    if (replyGift && reply && !reply.blocked) notify(db, [reply.original.senderId], { title: `${replyGift.fromName || "Someone"} is making you a song back`, body: "Your gift got a reply. It plays in about a minute.", kind: "gifts", path: "/inbox" });
     const gift = replyGift ? { token: replyGift.token, url: giftUrl(env.BETTER_AUTH_URL, replyGift.token), free: replyGift.freeReply } : undefined;
     return NextResponse.json({ id: ids[0], ids, title: prepared.title, gift }, { status: 202 });
   } catch (err) {

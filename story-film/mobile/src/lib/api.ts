@@ -31,6 +31,25 @@ export interface Offer {
   name: string;
   credits: number;
   price: Record<Currency, number>;
+  // Packs only: the consumable In-App Purchase sold on the iPhone (story-film/src/lib/billing/catalog.ts).
+  appStoreProductId?: string;
+}
+
+// GET /api/billing/apple: what the iPhone app needs before buying with the App Store.
+export interface AppleBilling {
+  // Passed to StoreKit as appAccountToken, so the server credits only this account.
+  appAccountToken: string;
+  products: { packId: string; productId: string; credits: number }[];
+}
+
+// POST /api/billing/apple: the server verified a signed transaction (credited is false when it was
+// already credited before, or was refunded). The app finishes the transaction only after this.
+export interface AppleCredit {
+  credited: boolean;
+  revoked: boolean;
+  credits: number;
+  transactionId: string;
+  balance: number;
 }
 
 export interface Billing {
@@ -294,6 +313,8 @@ export interface PublicSong extends PublicSongCard {
   remixOf: { publicId: string; title: string; handle: string } | null;
   // The parent was deleted, made private or taken down. Missing on older servers.
   remixOfGone?: boolean;
+  // I blocked this song's maker (the page offers Unblock). Missing on older servers.
+  creatorBlocked?: boolean;
 }
 export interface PublicSongPage {
   song: PublicSong;
@@ -435,6 +456,8 @@ export interface RecipePage {
   makerEarns?: MakerEarns;
   // The maker's own.
   stats?: { useCount: number; earnedHundredths: number; thisWeek: number };
+  // Signed in: I blocked this recipe's maker.
+  creatorBlocked?: boolean;
 }
 export interface FestivalInfo {
   slug: string;
@@ -520,6 +543,15 @@ export interface HandleInfo {
   suggestions: string[];
 }
 export type ReportReason = "voice_or_likeness" | "copyright" | "hateful" | "minor_sexual" | "other";
+// Who to block: a creator's @handle, the sender of a gift (its token), or the other person in a Jugalbandi (its id).
+export type BlockTarget = { handle: string } | { gift: string } | { duet: string };
+export interface BlockedCreator {
+  userId: string;
+  handle: string | null;
+  // "@handle", or their account name when they have no handle.
+  name: string;
+  createdAt: string;
+}
 // The server lists its remix kinds (remixKinds), so kinds it adds later work without an app update.
 export type RemixKind = "cover" | "extend" | "replace" | "rap" | (string & {});
 export interface RemixKindInfo {
@@ -815,6 +847,8 @@ const real = {
   film: (id: string) => call<Film>(`/api/films/${id}`),
   createFilm: (input: NewFilm | NewRecipeFilm) => call<{ id: string; credits: number }>("/api/films", { method: "POST", body: JSON.stringify(input) }),
   billing: () => call<Billing>("/api/billing"),
+  appleBilling: () => call<AppleBilling>("/api/billing/apple"),
+  applePurchase: (signedTransaction: string) => call<AppleCredit>("/api/billing/apple", { method: "POST", body: JSON.stringify({ signedTransaction }) }),
   ideas: async (niche: string, language: string, more: { format?: Idea["format"]; avoid?: string[] } = {}) =>
     (await call<{ ideas: Idea[] }>("/api/suggestions", { method: "POST", body: JSON.stringify({ niche, language, ...more }) })).ideas,
   caption: (id: string, platform: Platform) => call<PostCopy>(`/api/films/${id}/copy`, { method: "POST", body: JSON.stringify({ platform }) }),
@@ -963,6 +997,14 @@ const real = {
   voteSong: (publicId: string, value: -1 | 0 | 1) => call<unknown>(`/api/listen/songs/${publicId}/vote`, { method: "PUT", body: JSON.stringify({ value }) }),
   reactSong: (publicId: string, kind: Reaction | null) => call<unknown>(`/api/listen/songs/${publicId}/reaction`, { method: "PUT", body: JSON.stringify({ kind }) }),
   reportSong: (publicId: string, reason: ReportReason, details: string) => call<unknown>(`/api/listen/songs/${publicId}/report`, { method: "POST", body: JSON.stringify({ reason, details }) }),
+  // A song sent back (the gift's token) and a Jugalbandi (its invite token), from the Inbox.
+  reportGift: (token: string, reason: ReportReason, details: string) => call<unknown>(`/api/g/${token}/report`, { method: "POST", body: JSON.stringify({ reason, details }) }),
+  reportDuet: (token: string, reason: ReportReason, details: string) => call<unknown>(`/api/j/${token}/report`, { method: "POST", body: JSON.stringify({ reason, details }) }),
+  // Blocking: their songs, recipes and remixes stop showing for me; their gifts and invites don't reach me.
+  blocks: async () => (await call<{ blocks: BlockedCreator[] }>("/api/me/blocks")).blocks,
+  block: (target: BlockTarget) => call<unknown>("/api/me/blocks", { method: "POST", body: JSON.stringify(target) }),
+  unblock: (target: BlockTarget) => call<unknown>("/api/me/blocks", { method: "DELETE", body: JSON.stringify(target) }),
+  unblockUser: (userId: string) => call<unknown>(`/api/me/blocks?user=${encodeURIComponent(userId)}`, { method: "DELETE" }),
   // The page the native share sheet links to. Built on the address the phone reaches (in
   // development that's a LAN IP or tunnel, like shareLink), which is the public URL in production.
   publicSongLink: (publicId: string) => `${API_URL}/s/${publicId}`,
@@ -1016,6 +1058,7 @@ const demoReplies: ReceivedReply[] = [
   { id: "g2", url: "https://reelkar.app/g/demoReply1", token: "demoReply1", toName: "You", occasion: "birthday", note: "", songId: "s2", songTitle: "Thank you bhaiya", songReady: true, isReply: true, opened: false, playCount: 0, lastPlayedAt: null, sharing: true, takenDown: false, createdAt: new Date(Date.now() - 3600_000).toISOString(), fromName: "Priya", replyToGiftId: "g1" },
 ];
 const demoPush: PushPrefs = { songs: true, reels: true, gifts: true, remixes: true };
+let demoBlocks: BlockedCreator[] = [];
 const demoAccounts: Account[] = [];
 const at = (days: number, h: number, m = 0) => {
   const d = new Date();
@@ -1280,9 +1323,9 @@ const demo: typeof real = {
       cinematicCreditsPerShot: 30,
       // Mirrors story-film/src/lib/billing/catalog.ts.
       packs: [
-        { id: "starter", name: "Starter", credits: 50, price: { INR: 24900, USD: 399, AED: 1500 } },
-        { id: "creator", name: "Creator", credits: 150, price: { INR: 64900, USD: 999, AED: 3700 } },
-        { id: "pro", name: "Pro", credits: 400, price: { INR: 149900, USD: 2499, AED: 9200 } },
+        { id: "starter", name: "Starter", credits: 50, price: { INR: 24900, USD: 399, AED: 1500 }, appStoreProductId: "app.reelkar.credits.starter" },
+        { id: "creator", name: "Creator", credits: 150, price: { INR: 64900, USD: 999, AED: 3700 }, appStoreProductId: "app.reelkar.credits.creator" },
+        { id: "pro", name: "Pro", credits: 400, price: { INR: 149900, USD: 2499, AED: 9200 }, appStoreProductId: "app.reelkar.credits.pro" },
       ],
       plans: [
         { id: "creator_monthly", name: "Creator monthly", credits: 120, price: { INR: 49900, USD: 799, AED: 2900 } },
@@ -1290,6 +1333,24 @@ const demo: typeof real = {
       ],
     }
   ),
+  appleBilling: async () => (
+    await wait(150),
+    {
+      appAccountToken: "00000000-0000-4000-8000-000000000000",
+      products: [
+        { packId: "starter", productId: "app.reelkar.credits.starter", credits: 50 },
+        { packId: "creator", productId: "app.reelkar.credits.creator", credits: 150 },
+        { packId: "pro", productId: "app.reelkar.credits.pro", credits: 400 },
+      ],
+    }
+  ),
+  // The demo can't read Apple's signed transaction; it credits a Starter pack.
+  applePurchase: async () => {
+    await wait(300);
+    const credits = 50;
+    demoBalance += credits;
+    return { credited: true, revoked: false, credits, transactionId: `demo-${Date.now()}`, balance: demoBalance };
+  },
   ideas: async (niche) => {
     await wait(500);
     const n = niche || "your topic";
@@ -1676,6 +1737,23 @@ const demo: typeof real = {
   voteSong: async () => ({}),
   reactSong: async () => ({}),
   reportSong: async () => (await wait(300), {}),
+  reportGift: async () => (await wait(300), {}),
+  reportDuet: async () => (await wait(300), {}),
+  blocks: async () => (await wait(200), [...demoBlocks]),
+  block: async (target) => {
+    await wait(300);
+    const name = "handle" in target ? `@${target.handle.replace(/^@/, "")}` : "gift" in target ? "Priya" : "Arjun";
+    const userId = `demo-${name}`;
+    if (!demoBlocks.some((b) => b.userId === userId)) demoBlocks.unshift({ userId, handle: "handle" in target ? target.handle.replace(/^@/, "") : null, name, createdAt: new Date().toISOString() });
+    return {};
+  },
+  unblock: async (target) => {
+    await wait(200);
+    const name = "handle" in target ? `@${target.handle.replace(/^@/, "")}` : "gift" in target ? "Priya" : "Arjun";
+    demoBlocks = demoBlocks.filter((b) => b.name !== name);
+    return {};
+  },
+  unblockUser: async (userId) => (await wait(200), (demoBlocks = demoBlocks.filter((b) => b.userId !== userId)), {}),
   publicSongLink: (publicId) => `https://reelkar.app/s/${publicId}`,
   familyTree: async (publicId, sort) => {
     await wait(300);

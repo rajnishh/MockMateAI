@@ -5,6 +5,7 @@ import { View } from "react-native";
 
 import { DuetAudio } from "@/components/duet-audio";
 import { ReelLogo } from "@/components/logo";
+import { SafetyActions } from "@/components/safety-actions";
 import { Banner, Button, Card, Chip, ChipRow, Field, Header, Hero, Row, Screen, Skeleton, Status, Txt, Win } from "@/components/ui";
 import { api, ApiError, type Duet, type DuetAction } from "@/lib/api";
 import { duetPart, hoursLeft, inviteMessage } from "@/lib/duets";
@@ -121,6 +122,9 @@ export default function DuetScreen() {
         <Chip label={`Offer to pay half (${d.half} ${d.half === 1 ? "credit" : "credits"})`} selected={split} onPress={() => setSplit(!split)} />
         <Txt variant="cap">{d.starterName} pays unless you offer. Sung by an AI singer or your own voice, never theirs.</Txt>
         <Field label={`A note if you say no (optional)`} value={note} onChangeText={setNote} maxLength={140} />
+        <Card flat>
+          <SafetyActions report={{ kind: "duet", id: d.token, label: "Report this invite" }} block={{ target: { duet: d.id }, name: d.starterName, blocked: false }} onBlockChange={(on) => (on ? router.back() : undefined)} />
+        </Card>
       </Screen>
     );
   }
@@ -270,6 +274,11 @@ export default function DuetScreen() {
 
       {d.phase === "cancelled" ? <Banner kind="info" text="This Jugalbandi was cancelled. Any credits paid went back." /> : null}
       {(d.phase === "expired" || d.phase === "declined") && d.role === "b" ? <Banner kind="info" text={`This Jugalbandi has closed. ${d.starterName} may send a new invite.`} /> : null}
+      {d.role === "b" || d.partnerName ? (
+        <Card flat>
+          <SafetyActions report={{ kind: "duet", id: d.token, label: "Report this Jugalbandi" }} block={{ target: { duet: d.id }, name: other, blocked: false }} />
+        </Card>
+      ) : null}
     </Screen>
   );
 }

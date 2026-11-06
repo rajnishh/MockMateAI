@@ -6,6 +6,7 @@ import { Icon } from "@/components/icon";
 import { RecipeHasList, RecipeRail, ShapeList } from "@/components/recipes";
 import { ReelThumb } from "@/components/reel-thumb";
 import { ReelVideo } from "@/components/reel-video";
+import { SafetyActions } from "@/components/safety-actions";
 import { Banner, Button, Card, Empty, Header, Row, Screen, Skeleton, Txt } from "@/components/ui";
 import { api, type Film } from "@/lib/api";
 import { earnsLine, FORMAT_WORD, qualityLabel } from "@/lib/recipes";
@@ -13,7 +14,7 @@ import { useData } from "@/lib/use-data";
 import { radius, useTheme } from "@/theme";
 
 // A recipe (C4), or the maker's own (M5): the preview, what you bring and what the recipe has, the
-// price for you and what the maker earns, Use this recipe, rails and Report.
+// price for you and what the maker earns, Use this recipe, rails, Report and Block.
 export default function RecipeScreen() {
   const { publicId } = useLocalSearchParams<{ publicId: string }>();
   const { colors } = useTheme();
@@ -171,7 +172,15 @@ export default function RecipeScreen() {
           ) : null}
           <RecipeRail title="More for this festival" cards={p.rails.sameFestival} onSeeAll={p.rails.occasion ? () => router.push({ pathname: "/recipes/c/[slug]", params: { slug: p.rails.occasion! } }) : undefined} />
           <RecipeRail title={`By @${r.handle}`} cards={p.rails.byMaker} />
-          {!p.mine ? <Button label="Report this recipe" kind="ghost" icon="flag" onPress={report} style={{ alignSelf: "center" }} /> : null}
+          {!p.mine ? (
+            <Card flat>
+              <SafetyActions
+                report={{ kind: "recipe", id: publicId, label: "Report this recipe" }}
+                block={{ target: { handle: r.handle }, name: `@${r.handle}`, blocked: p.creatorBlocked }}
+                onBlockChange={(on) => (on ? router.back() : undefined)}
+              />
+            </Card>
+          ) : null}
         </>
       )}
     </Screen>

@@ -15,7 +15,7 @@ import { SongPage } from "./song-page";
 export async function generateMetadata({ params }: { params: Promise<{ publicId: string }> }): Promise<Metadata> {
   const { publicId } = await params;
   const found = await publicSong(getDb(), publicId);
-  if (!found || !found.song.publishedAt || found.song.takenDownAt) return { title: "Reelkar" };
+  if (!found || !found.song.publishedAt || found.song.takenDownAt || found.song.hiddenAt) return { title: "Reelkar" };
   const base = loadEnv().BETTER_AUTH_URL;
   const title = `${found.song.title} · @${found.handle}`;
   const description = "A song made with AI on Reelkar. Tap to listen.";

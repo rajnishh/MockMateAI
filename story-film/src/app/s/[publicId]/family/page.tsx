@@ -6,6 +6,7 @@ import g from "@/app/g/[token]/gift.module.css";
 import { getDb } from "@/lib/db";
 import { PUBLIC_ID, publicSong, publicState } from "@/lib/listen";
 import { familyTree } from "@/lib/remixes";
+import { getUserId } from "@/lib/session";
 import { songCopy } from "../copy";
 import { FamilyOutline } from "../remixes";
 import { Shell } from "../song-page";
@@ -20,7 +21,8 @@ export default async function FamilyPage({ params, searchParams }: { params: Pro
   const db = getDb();
   const found = await publicSong(db, publicId);
   if (!found || publicState(found.song) !== "public") notFound();
-  const tree = await familyTree(db, found.song, { sort: q.sort === "new" ? "new" : "top", branch: q.branch && PUBLIC_ID.test(q.branch) ? q.branch : undefined });
+  const viewerId = await getUserId().catch(() => undefined);
+  const tree = await familyTree(db, found.song, { sort: q.sort === "new" ? "new" : "top", branch: q.branch && PUBLIC_ID.test(q.branch) ? q.branch : undefined, viewerId });
   const lang = pickLang((await headers()).get("accept-language"));
   const t = songCopy(lang).remix;
   return (

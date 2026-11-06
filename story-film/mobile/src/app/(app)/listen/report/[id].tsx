@@ -7,11 +7,20 @@ import { api, type ReportReason } from "@/lib/api";
 import { REPORT_REASONS } from "@/lib/listen";
 import { radius, useTheme } from "@/theme";
 
-// Report a public song (or, with ?kind=recipe, a reel recipe), with the same reasons as the gift
-// page's Report. A person reviews each one.
+type Kind = "song" | "recipe" | "gift" | "duet";
+const SEND: Record<Kind, (id: string, reason: ReportReason, details: string) => Promise<unknown>> = {
+  song: (...a) => api.reportSong(...a),
+  recipe: (...a) => api.reportRecipe(...a),
+  gift: (...a) => api.reportGift(...a),
+  duet: (...a) => api.reportDuet(...a),
+};
+const TITLE: Record<Kind, string> = { song: "Report this song", recipe: "Report this recipe", gift: "Report this song", duet: "Report this Jugalbandi" };
+
+// Report a public song (or, with ?kind=, a reel recipe, a song sent back by gift token or a
+// Jugalbandi by invite token), with the same reasons as the gift page's Report. A person reviews each one.
 export default function ReportSong() {
-  const { id, kind } = useLocalSearchParams<{ id: string; kind?: "recipe" }>();
-  const recipe = kind === "recipe";
+  const { id, kind: rawKind } = useLocalSearchParams<{ id: string; kind?: Kind }>();
+  const kind: Kind = rawKind && rawKind in SEND ? rawKind : "song";
   const { colors } = useTheme();
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [details, setDetails] = useState("");
@@ -24,7 +33,7 @@ export default function ReportSong() {
     setBusy(true);
     setError(null);
     try {
-      await (recipe ? api.reportRecipe : api.reportSong)(id, reason, details.trim());
+      await SEND[kind](id, reason, details.trim());
       setDone(true);
     } catch (err) {
       setError((err as Error).message);
@@ -35,7 +44,7 @@ export default function ReportSong() {
 
   return (
     <Screen>
-      <Header title={recipe ? "Report this recipe" : "Report this song"} back />
+      <Header title={TITLE[kind]} back />
       {done ? (
         <>
           <Win text="Thanks. We'll review it within 24 hours." />

@@ -3,6 +3,7 @@ import * as WebBrowser from "expo-web-browser";
 import { useCallback, useState } from "react";
 import { View } from "react-native";
 
+import { SafetyActions } from "@/components/safety-actions";
 import { Banner, Button, Card, Empty, Header, ListRow, Row, Screen, Skeleton, Txt } from "@/components/ui";
 import { api, type Duet, type ReceivedReply, type RemixInboxItem, type SentGift } from "@/lib/api";
 import { KIND_NOUN, plusAmount } from "@/lib/remixes";
@@ -114,7 +115,7 @@ export default function Inbox() {
       ))}
       <Button label="Start a Jugalbandi" icon="mic" kind="secondary" block onPress={() => router.push("/duets/new")} />
       {replies.map((r) => (
-        <ReplyCard key={r.id} reply={r} />
+        <ReplyCard key={r.id} reply={r} onBlocked={gifts.reload} />
       ))}
       {sent.map((g) => (
         <Card key={g.id}>
@@ -154,7 +155,8 @@ export default function Inbox() {
   );
 }
 
-function ReplyCard({ reply }: { reply: ReceivedReply }) {
+// A song sent back to me, with Report and Block for its sender (their later songs then don't reach me).
+function ReplyCard({ reply, onBlocked }: { reply: ReceivedReply; onBlocked: () => void }) {
   return (
     <Card>
       <ListRow icon="music" title={`${reply.fromName} sent you a song back`} sub={`${reply.songTitle} · ${occasionLabel(reply.occasion)} · ${ago(reply.createdAt)}`} />
@@ -162,6 +164,7 @@ function ReplyCard({ reply }: { reply: ReceivedReply }) {
         <Button label={reply.songReady ? "Play reply" : "Still being made"} icon="play" small disabled={!reply.songReady} onPress={() => WebBrowser.openBrowserAsync(reply.url).catch(() => undefined)} />
         <Button label="Reply again" icon="mic" small kind="secondary" onPress={() => replyTo(reply.token, reply.fromName, reply.occasion)} />
       </View>
+      <SafetyActions report={{ kind: "gift", id: reply.token, label: "Report this song" }} block={{ target: { gift: reply.token }, name: reply.fromName }} onBlockChange={(on) => (on ? onBlocked() : undefined)} />
     </Card>
   );
 }

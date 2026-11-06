@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { Db } from "@/lib/db";
 import { singableLines } from "@/lib/music-video/timing";
 import { gift, giftOccasion, giftPlay, giftReport, giftReportReason, song, user } from "@/lib/db/schema";
+import { giftVisibleTo, isBlocked } from "@/lib/moderation";
 
 // Song gifts: a song sent as a link (mostly on WhatsApp) that opens with no sign-in, with a big
 // "Reply with your own song". Design: design/community/flow-spec.md.
@@ -109,7 +110,8 @@ async function giftById(db: Db, id: string): Promise<Gift | undefined> {
 export type GiftState = "ready" | "processing" | "failed" | "removed" | "taken_down";
 
 export function giftState(g: Pick<PublicGift, "gift" | "song">): GiftState {
-  if (g.gift.takenDownAt) return "taken_down";
+  // Hidden after reports (src/lib/moderation.ts) shows as taken down until it's reviewed.
+  if (g.gift.takenDownAt || g.gift.hiddenAt) return "taken_down";
   if (g.gift.revokedAt) return "removed";
   if (g.song.status === "failed") return "failed";
   return g.song.status === "completed" && g.song.outputPath ? "ready" : "processing";
@@ -134,7 +136,7 @@ export function publicGiftView(g: PublicGift) {
     audioUrl: ready ? `/api/g/${g.gift.token}/audio` : null,
     coverUrl: (g.gift.coverPath ?? g.song.coverPath) ? `/api/g/${g.gift.token}/cover` : null,
     // A reply shows "A reply to your birthday song" and links back to it while that is shared.
-    replyTo: g.original && !g.original.revokedAt && !g.original.takenDownAt ? { token: g.original.token, occasion: g.original.occasion } : null,
+    replyTo: g.original && !g.original.revokedAt && !g.original.takenDownAt && !g.original.hiddenAt ? { token: g.original.token, occasion: g.original.occasion } : null,
   };
 }
 
@@ -177,7 +179,9 @@ export async function saveReport(db: Db, giftId: string, r: z.infer<typeof repor
 
 // Replies: whether the first reply to this gift is still free for this person. A free reply whose
 // song failed doesn't use it up. Replying to your own gift isn't a reply.
-export async function replyTarget(db: Db, userId: string, token: string): Promise<{ original: Gift; senderName: string; free: boolean } | { error: string; status: number }> {
+// `blocked`: the original's sender blocked this person, so the reply is made but never reaches them
+// (no push, not in their Inbox); the replier isn't told.
+export async function replyTarget(db: Db, userId: string, token: string): Promise<{ original: Gift; senderName: string; free: boolean; blocked: boolean } | { error: string; status: number }> {
   const found = await publicGift(db, token);
   if (!found) return { error: "We couldn't find that gift.", status: 404 };
   const state = giftState(found);
@@ -189,7 +193,7 @@ export async function replyTarget(db: Db, userId: string, token: string): Promis
     .innerJoin(song, eq(song.id, gift.songId))
     .where(and(eq(gift.replyToGiftId, found.gift.id), eq(gift.senderId, userId), eq(gift.freeReply, true), ne(song.status, "failed")))
     .limit(1);
-  return { original: found.gift, senderName: found.senderName, free: used.length === 0 };
+  return { original: found.gift, senderName: found.senderName, free: used.length === 0, blocked: await isBlocked(db, found.gift.senderId, userId) };
 }
 
 // The reply is itself a gift, to the person who sent the original, with the same occasion.
@@ -221,8 +225,9 @@ export async function listGifts(db: Db, userId: string, limit = 50) {
     .innerJoin(original, eq(original.id, gift.replyToGiftId))
     .innerJoin(song, eq(song.id, gift.songId))
     .innerJoin(user, eq(user.id, gift.senderId))
-    // A reply whose song failed never reached anyone; its maker can just reply again.
-    .where(and(eq(original.senderId, userId), isNull(gift.revokedAt), isNull(gift.takenDownAt), ne(song.status, "failed")))
+    // A reply whose song failed never reached anyone; its maker can just reply again. Replies from
+    // someone I blocked, ones I reported and ones hidden after reports don't show.
+    .where(and(eq(original.senderId, userId), isNull(gift.revokedAt), isNull(gift.takenDownAt), isNull(gift.hiddenAt), ne(song.status, "failed"), giftVisibleTo(userId)))
     .orderBy(desc(gift.createdAt))
     .limit(limit);
   return { sent, replies: replies.map((r) => ({ ...r, fromName: senderDisplayName(r.gift.fromName, r.fromName) })) };
@@ -244,7 +249,7 @@ export function ownGiftView(baseUrl: string, g: Gift, songTitle: string, songSta
     playCount: g.playCount,
     lastPlayedAt: g.lastPlayedAt?.toISOString() ?? null,
     sharing: !g.revokedAt,
-    takenDown: Boolean(g.takenDownAt),
+    takenDown: Boolean(g.takenDownAt || g.hiddenAt),
     createdAt: g.createdAt.toISOString(),
   };
 }

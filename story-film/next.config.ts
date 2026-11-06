@@ -15,7 +15,7 @@ const tunnelHosts = (process.env.PUBLIC_ORIGINS ?? "")
 
 const nextConfig: NextConfig = {
   // Server-only packages with native code or workers that must not be bundled.
-  serverExternalPackages: ["bullmq", "ioredis", "@napi-rs/canvas", "@contentauth/c2pa-node"],
+  serverExternalPackages: ["bullmq", "ioredis", "@napi-rs/canvas", "@contentauth/c2pa-node", "@apple/app-store-server-library"],
   allowedDevOrigins: ["*.trycloudflare.com", ...tunnelHosts],
   // The connector's consent screen must never be framed (clickjacking an Allow click).
   async headers() {

@@ -42,6 +42,8 @@ const schema = z.object({
   RESEND_API_KEY: z.string().optional(),
   // Sender on a domain verified in Resend, e.g. "Reelkar <login@reelkar.app>".
   EMAIL_FROM: z.string().optional(),
+  // Where "hidden after reports" notices go (src/lib/moderation.ts); sent with Resend. Always logged too.
+  REPORTS_EMAIL: z.string().optional(),
   OPENROUTER_API_KEY: z.string().optional(),
   OPENROUTER_MODEL: z.string().default("google/gemini-2.5-flash"),
   // Ask Reelkar's brain: "free" (Workers AI / OpenRouter, one-shot plan), "gemini" (tool use, free
