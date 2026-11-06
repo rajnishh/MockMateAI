@@ -95,6 +95,8 @@ Title "Loop" (`md`). Rows (`ListRow`):
 | Gesture | Does | Feedback |
 |---|---|---|
 | Swipe up / down | Next / previous reel in the list | Paging snap. At either end, a rubber-band bounce (none with Reduce Motion). |
+| Swipe left | Opens this reel's menu (`/reel/{id}`: Post it, caption, schedule, edit); the reel pauses underneath | Standard push |
+| Swipe right | Back to where the viewer was opened from | Standard close |
 | Single tap (`Gesture.Exclusive(double, single)`) | Pause / resume | 72 pt round icon in the centre (`scrim` fill, white `PlayGlyph`/`PauseGlyph`): fades in over 120 ms, holds 500 ms, fades out over 200 ms. While paused, a small play icon stays. |
 | Double tap | Toggle **Fit** (`contain`) / **Fill** (`cover`, the default) | A chip at the top: "Fit to screen" / "Fill screen", for 1 s. The choice is remembered for the session. |
 | Pinch | Zooms 1×–4× around the focal point; two-finger pan while zoomed | On release, springs back to 1× (`withSpring`, damping 20). Paging is off while scale > 1. |

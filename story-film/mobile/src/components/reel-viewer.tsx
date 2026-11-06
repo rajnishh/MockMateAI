@@ -1,5 +1,5 @@
 import { useEvent } from "expo";
-import { router } from "expo-router";
+import { router, useIsFocused } from "expo-router";
 import { useVideoPlayer, type VideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
@@ -37,7 +37,7 @@ function setMutedOn(player: VideoPlayer, muted: boolean) {
   player.muted = muted;
 }
 
-// Full-screen reels, one per page (design/home-v3/spec.md §3): swipe up or down (or flick left or right) for the next, tap
+// Full-screen reels, one per page (design/home-v3/spec.md §3): swipe up or down for the next, swipe left for its menu, right to go back, tap
 // to pause, hold to look, double-tap to fit or fill, pinch to zoom (it springs back). Mute is
 // remembered. VoiceOver gets the same as actions: swipe up or down on the reel for next and
 // previous, plus pause, mute, fit and share.
@@ -129,7 +129,6 @@ export function ReelViewer({ films: initial, startId, onSound }: { films: Film[]
                 muted={muted}
                 fit={fit}
                 position={`${index + 1} of ${films.length}`}
-                first={index === 0}
                 onMute={() => setMuted(!muted)}
                 onFit={() => setFit(fit === "cover" ? "contain" : "cover")}
                 onZoom={setZoomed}
@@ -159,7 +158,6 @@ type PageProps = {
   muted: boolean;
   fit: Fit;
   position: string;
-  first: boolean;
   onMute: () => void;
   onFit: () => void;
   onZoom: (zoomed: boolean) => void;
@@ -168,7 +166,7 @@ type PageProps = {
   onMore: () => void;
 };
 
-function ReelPage({ film, headers, active, paused, onPause, muted, fit, position, first, onMute, onFit, onZoom, onNext, onPrevious, onMore }: PageProps) {
+function ReelPage({ film, headers, active, paused, onPause, muted, fit, position, onMute, onFit, onZoom, onNext, onPrevious, onMore }: PageProps) {
   const insets = useSafeAreaInsets();
   const reduced = useReducedMotion();
   const url = api.videoUrl(film);
@@ -186,8 +184,10 @@ function ReelPage({ film, headers, active, paused, onPause, muted, fit, position
   const [sharing, setSharing] = useState(false);
   const timers = useRef<{ flash?: ReturnType<typeof setTimeout>; fit?: ReturnType<typeof setTimeout> }>({});
 
-  // Only the reel on screen plays; one you swipe away starts again from the top next time.
-  useEffect(() => playOnly(player, active && !paused && !holding, !active), [active, paused, holding, player]);
+  // Only the reel on screen plays; one you swipe away starts again from the top next time. It also
+  // waits while the reel's menu (swipe left) is open on top.
+  const focused = useIsFocused();
+  useEffect(() => playOnly(player, active && focused && !paused && !holding, !active), [active, focused, paused, holding, player]);
   useEffect(() => setMutedOn(player, muted), [muted, player]);
   useEffect(() => {
     const t = timers.current;
@@ -241,9 +241,10 @@ function ReelPage({ film, headers, active, paused, onPause, muted, fit, position
   const doubleTap = useTapGesture({ numberOfTaps: 2, maxDuration: 250, runOnJS: true, onActivate: fitToggle });
   const singleTap = useTapGesture({ maxDuration: 250, runOnJS: true, onActivate: toggle });
   const hold = useLongPressGesture({ minDuration: 300, runOnJS: true, onActivate: () => setHolding(true), onFinalize: () => setHolding(false) });
-  // Sideways flicks page too: left for the next reel, right for the one before (or closes on the first).
-  const flickLeft = useFlingGesture({ direction: Directions.LEFT, runOnJS: true, onActivate: onNext });
-  const flickRight = useFlingGesture({ direction: Directions.RIGHT, runOnJS: true, onActivate: first ? () => router.back() : onPrevious });
+  // Up and down move between reels; sideways moves between screens, as on Instagram: left opens
+  // this reel's menu (post, caption, schedule, edit), right goes back to where you came from.
+  const flickLeft = useFlingGesture({ direction: Directions.LEFT, runOnJS: true, onActivate: () => router.push(`/reel/${film.id}`) });
+  const flickRight = useFlingGesture({ direction: Directions.RIGHT, runOnJS: true, onActivate: () => router.back() });
   const gestures = useSimultaneousGestures(pinch, flickLeft, flickRight, useExclusiveGestures(doubleTap, singleTap, hold));
   const zoom = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
@@ -262,7 +263,7 @@ function ReelPage({ film, headers, active, paused, onPause, muted, fit, position
           accessibilityRole="adjustable"
           accessibilityLabel={`${title}, reel ${position}`}
           accessibilityValue={{ text: `${paused ? "Paused" : "Playing"}${muted ? ", muted" : ""}` }}
-          accessibilityHint="Swipe up or down for another reel. Double-tap to pause or play."
+          accessibilityHint="Swipe up or down for another reel. Double-tap to pause or play. Actions has Post it and Close."
           accessibilityActions={[
             { name: "activate", label: paused ? "Play" : "Pause" },
             { name: "magicTap", label: paused ? "Play" : "Pause" },
