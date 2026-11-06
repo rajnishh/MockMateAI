@@ -37,9 +37,10 @@ export function DuetPage({ token, signedIn, myName, view, invite }: { token: str
   const [reporting, setReporting] = useState(false);
   const closed = invite.phase === "cancelled" || invite.phase === "solo" || invite.phase === "declined" || invite.phase === "expired";
 
-  // While the song is being joined, look again every 10 s.
+  // While the song is being joined, look again every 10 s. "join_failed" too: it also shows for the
+  // few seconds between the second part arriving and the song starting.
   useEffect(() => {
-    if (view?.phase !== "joining") return;
+    if (view?.phase !== "joining" && view?.phase !== "join_failed") return;
     const t = setInterval(() => router.refresh(), 10_000);
     return () => clearInterval(t);
   }, [view?.phase, router]);
@@ -163,7 +164,7 @@ function Join({ token, invite, signedIn, myName }: { token: string; invite: Invi
           </label>
           <label style={{ display: "flex", gap: 10, alignItems: "center", minHeight: 44 }}>
             <input type="checkbox" checked={split} onChange={(e) => setSplit(e.target.checked)} />
-            Offer to pay half ({invite.half} credits). {invite.starterName} pays unless you offer.
+            Offer to pay half ({invite.half} {invite.half === 1 ? "credit" : "credits"}). {invite.starterName} pays unless you offer.
           </label>
           {error ? (
             <div className={s.error} role="alert">
