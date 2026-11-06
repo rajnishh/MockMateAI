@@ -16,7 +16,17 @@ export const GENRES = [
   { value: "pop", label: "Pop" },
   { value: "edm", label: "EDM" },
   { value: "sufi", label: "Sufi" },
+  { value: "bhangra", label: "Bhangra" },
+  { value: "garba", label: "Garba" },
+  { value: "lofi-hindi", label: "Lo-fi Hindi" },
+  { value: "qawwali", label: "Qawwali" },
+  { value: "indie-pop", label: "Indie pop" },
+  { value: "khaleeji", label: "Khaleeji" },
 ];
+
+// The Style chips on Create: the Indian and Gulf presets first (mirrors FEATURED_GENRES on the backend).
+const FEATURED = ["desi-hip-hop", "bollywood-romantic", "punjabi-pop", "bhangra", "sufi", "garba", "lofi-hindi", "khaleeji", "qawwali", "indie-pop"];
+export const STYLE_PRESETS = [...FEATURED.map((id) => GENRES.find((g) => g.value === id)!), ...GENRES.filter((g) => !FEATURED.includes(g.value))];
 
 export const MOODS = ["happy", "romantic", "sad", "energetic", "peaceful", "funny", "motivational"].map((m) => ({ value: m, label: m[0].toUpperCase() + m.slice(1) }));
 
@@ -33,7 +43,7 @@ export const STYLE_CHIPS = [
 ];
 
 // Songs can also be sung in Hinglish (mostly Hindi words, written in Latin letters).
-export const SONG_LANGUAGES = [...LANGUAGES.map((l) => ({ value: l.code as string, label: l.label as string })), { value: "hinglish", label: "Hinglish" }];
+export const SONG_LANGUAGES = [...LANGUAGES.map((l) => ({ value: l.code as string, label: l.label as string })), { value: "hinglish", label: "Hinglish" }, { value: "pa", label: "ਪੰਜਾਬੀ" }];
 
 export const genreLabel = (id: string) => GENRES.find((g) => g.value === id)?.label ?? id;
 

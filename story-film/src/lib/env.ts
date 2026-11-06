@@ -43,10 +43,27 @@ const schema = z.object({
   ANTHROPIC_API_KEY: z.string().optional(),
   ASK_REELKAR_CLAUDE_MODEL: z.string().default("claude-haiku-5-5"),
   GEMINI_API_KEY: z.string().optional(),
-  // Optional: an Ollama server creators can pick for Ask Reelkar (e.g. http://localhost:11434).
+  // A free Groq key: the last engine in Reelkar's own AI lane.
+  GROQ_API_KEY: z.string().optional(),
+  // Optional: an Ollama server (e.g. http://127.0.0.1:11434). It becomes the last engine in Reelkar's
+  // own AI lane, and creators can pick it in their engine lists.
   OLLAMA_URL: z.string().url().optional(),
-  ASK_REELKAR_GEMINI_MODEL: z.string().default("gemini-2.5-flash"),
+  // The model in Reelkar's lane on that server.
+  OLLAMA_LLM_MODEL: z.string().default("gemma3:12b"),
+  // Optional: whisper.cpp on this computer (a ggml model file), the backup for listening when Workers AI's
+  // free allowance runs out. `brew install whisper-cpp` gives whisper-cli.
+  WHISPER_CPP_MODEL: z.string().optional(),
+  WHISPER_CPP_BIN: z.string().default("whisper-cli"),
+  // Google retires Gemini models for new keys (2.5 Flash was, by 2026-11-05).
+  ASK_REELKAR_GEMINI_MODEL: z.string().default("gemini-3.5-flash"),
+  // Gemini's model in Reelkar's own AI lane.
+  GEMINI_LLM_MODEL: z.string().default("gemini-3.5-flash"),
   FAL_KEY: z.string().optional(),
+  // Optional: an Expo access token, needed only once "Enhanced security for push notifications" is on
+  // in the Expo project. Pushes work without it (src/lib/push.ts reads it from the environment).
+  EXPO_ACCESS_TOKEN: z.string().optional(),
+  // Optional: ACE-Step 1.5 on Runware for pro remixes (cover strength, add vocals, add music).
+  RUNWARE_API_KEY: z.string().optional(),
   VIDEO_MODEL: z.enum(["wan", "kling"]).default("wan"),
   FAL_IMAGE_MODEL_ID: z.string().optional(),
   FAL_IMAGE_EDIT_MODEL_ID: z.string().optional(),

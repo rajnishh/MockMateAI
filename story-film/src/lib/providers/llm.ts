@@ -14,7 +14,8 @@ export class OpenAiCompatibleLlm implements LlmProvider {
     private readonly baseUrl: string,
     private readonly apiKey: string,
     private readonly model: string,
-    private readonly opts: { licenseId: string; jsonMode: boolean },
+    // extraBody: provider-specific fields, such as Gemini's reasoning_effort.
+    private readonly opts: { licenseId: string; jsonMode: boolean; extraBody?: Record<string, unknown> },
     private readonly fetchFn: typeof fetch = fetch,
   ) {
     this.modelId = opts.licenseId;
@@ -53,6 +54,7 @@ export class OpenAiCompatibleLlm implements LlmProvider {
         max_tokens: MAX_TOKENS,
         ...(this.opts.jsonMode ? { response_format: { type: "json_object" } } : {}),
         messages: [{ role: "user", content: prompt }],
+        ...this.opts.extraBody,
       }),
     });
     if (!res.ok) throw new Error(`LLM ${res.status}: ${await res.text()}`);
@@ -62,3 +64,4 @@ export class OpenAiCompatibleLlm implements LlmProvider {
     return choice.message.content;
   }
 }
+

@@ -2,8 +2,9 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { probeDuration } from "@/lib/ffmpeg";
 import { assertCommercialSafe } from "@/lib/models/licenses";
-import { mapLimit, type Stage } from "@/lib/pipeline/orchestrator";
+import { mapLimit, recipeTrack, type Stage } from "@/lib/pipeline/orchestrator";
 import type { LlmProvider, MusicProvider, NarrationLanguage, TtsProvider } from "@/lib/providers/types";
+import type { RecipeJob } from "@/lib/recipe-spec";
 import { type Brand, MOTION_SIZE, renderMotionVideo, type RenderInput } from "./render";
 import { applyEnding, buildMotionPrompt, type Ending, type MotionScript, motionScriptSchema, slideDurations } from "./script";
 
@@ -28,6 +29,8 @@ export interface MotionRequest {
   brand?: Brand;
   // Written by the creator's own assistant; otherwise the LLM writes the slides from the story.
   motionScript?: MotionScript;
+  // Made with a reel recipe: its slide plan and track.
+  recipe?: RecipeJob;
 }
 
 const MUSIC_BY_THEME: Record<MotionScript["theme"], string> = {
@@ -48,8 +51,11 @@ export async function runMotionReel(
   await mkdir(workDir, { recursive: true });
 
   await onStage("script");
-  const raw = req.motionScript ?? (await deps.llm.completeJson(buildMotionPrompt({ ...req, handle: req.brand?.handle })));
-  const script = applyEnding(motionScriptSchema.parse(raw), req.ending);
+  const plan = req.recipe?.slidePlan;
+  const raw = req.motionScript ?? (await deps.llm.completeJson(buildMotionPrompt({ ...req, handle: req.brand?.handle, slidePlan: plan })));
+  const parsed = applyEnding(motionScriptSchema.parse(raw), req.ending);
+  // The recipe's theme wins over the model's pick.
+  const script = plan ? { ...parsed, theme: plan.theme } : parsed;
   await writeFile(path.join(workDir, "script.json"), JSON.stringify(script, null, 2));
 
   await onStage("audio");
@@ -60,8 +66,8 @@ export async function runMotionReel(
   });
   const spoken = await Promise.all(narration.map(deps.probeDuration ?? probeDuration));
   const durations = slideDurations(script, spoken);
-  let music: string | undefined;
-  if (deps.music) {
+  let music = await recipeTrack(req.recipe, workDir);
+  if (!music && deps.music) {
     music = path.join(workDir, "music.wav");
     const total = durations.reduce((a, b) => a + b, 0);
     await writeFile(music, await deps.music.compose({ prompt: MUSIC_BY_THEME[script.theme], durationSec: Math.ceil(total) }));

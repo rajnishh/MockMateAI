@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Listen mockups</title>
+<meta name="description" content="Reelkar Listen, phase 1: the Listen tab, full player, Up next queue with Autoplay, mini player, public song page, Publish with a handle step, and the public web song page. Masala Pop v3.0, light and dark, English, Hindi and Arabic." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Inter:wght@400..700&family=Hind:wght@400;600;700&family=Noto+Sans+Arabic:wght@400..800&family=Noto+Sans+Tamil:wght@500;700&family=Noto+Sans+Bengali:wght@500;700&family=Noto+Sans+Telugu:wght@500;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+<style>
+/* Masala Pop tokens (design/v3.0/tokens.json), by name */
+.t-light{--surface:#fff7ee;--surface-raised:#fff;--surface-sunken:#fbebdb;--surface-overlay:#fff;--line:#f0ddcb;--line-strong:#9a7f8c;--ink:#2a1235;--ink-muted:#6e5866;
+ --brand:#ff7a1a;--on-brand:#2a1235;--on-brand-muted:#47243d;--hero:linear-gradient(135deg,#ffb21a 0%,#ff7a1a 100%);--hero-ring:rgba(255,255,255,.22);--chip:rgba(42,18,53,.12);
+ --deep:#2a1235;--on-deep:#fff;--deep-muted:#cdb7c4;--action:#d9381c;--on-action:#fff;--teal:#14d9a0;--on-teal:#062b22;--teal-text:#0a7a58;--teal-tint:#ddf8ee;
+ --coral:#ff4d2e;--coral-text:#c2330f;--coral-tint:#ffe4da;--pop:#ffb21a;--on-pop:#2a1235;--success:#1e7a4c;--warning:#8a5a00;--danger:#b42318;--focus-ring:#2a1235;--scrim:rgba(42,18,53,.55);
+ --mini:#2a1235;--e2:0 -2px 6px rgba(17,24,39,.06),0 -12px 32px rgba(17,24,39,.1)}
+.t-dark{--surface:#150a1a;--surface-raised:#24142b;--surface-sunken:#0e0611;--surface-overlay:#2e1a36;--line:#3a2443;--line-strong:#7a5f86;--ink:#fff1e6;--ink-muted:#c2a9b8;
+ --brand:#ff7a1a;--on-brand:#2a1235;--on-brand-muted:#47243d;--hero:linear-gradient(135deg,#ffb21a 0%,#ff7a1a 100%);--hero-ring:rgba(255,255,255,.2);--chip:rgba(42,18,53,.14);
+ --deep:#0b050d;--on-deep:#fff1e6;--deep-muted:#a993a2;--action:#ff5a3c;--on-action:#150a1a;--teal:#2bf0b5;--on-teal:#062b22;--teal-text:#2bf0b5;--teal-tint:#0e2a24;
+ --coral:#ff5a3c;--coral-text:#ff8a6b;--coral-tint:#2e1218;--pop:#ffc23d;--on-pop:#2a1235;--success:#5fd39a;--warning:#f6c454;--danger:#ff8b7e;--focus-ring:#2bf0b5;--scrim:rgba(0,0,0,.65);
+ --mini:#2e1a36;--e2:0 -2px 6px rgba(0,0,0,.45),0 -12px 32px rgba(0,0,0,.5)}
+:root{--page:#ece6df;--page-ink:#2a1235;--page-muted:#6e5866;--page-line:rgba(42,18,53,.16)}
+:root[data-theme="dark"]{--page:#060308;--page-ink:#fff1e6;--page-muted:#c2a9b8;--page-line:rgba(255,241,230,.16)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--page:#060308;--page-ink:#fff1e6;--page-muted:#c2a9b8;--page-line:rgba(255,241,230,.16)}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--page);color:var(--page-ink);font:15px/1.5 Inter,system-ui,sans-serif}
+button{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--focus-ring,#2a1235);outline-offset:2px}
+svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+svg.f{fill:currentColor;stroke:none}
+.wrap{max-width:1400px;margin:0 auto;padding:28px 16px 64px}
+h1.pg{font:800 clamp(28px,4vw,40px)/1.1 "Bricolage Grotesque",sans-serif;margin:0 0 6px;letter-spacing:-.02em}
+.lede{color:var(--page-muted);margin:0 0 16px;max-width:860px}
+.bar{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px;align-items:center}
+.seg{display:inline-flex;gap:4px;flex-wrap:wrap;align-items:center}
+.seg>span{font:700 12px Inter,sans-serif;color:var(--page-muted);margin-inline-end:4px}
+.seg button{font:600 14px Inter,Hind,"Noto Sans Arabic",sans-serif;min-height:40px;padding:6px 14px;border-radius:999px;border:1px solid var(--page-line);background:transparent;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--page-ink);color:var(--page);border-color:var(--page-ink)}
+h2.sec{font:800 26px "Bricolage Grotesque",sans-serif;margin:44px 0 4px}
+.cap{color:var(--page-muted);font-size:14px;margin:0 0 18px;max-width:900px}
+.grid{display:flex;flex-wrap:wrap;gap:36px 28px;align-items:flex-start}
+.shot{display:flex;flex-direction:column;gap:10px;width:375px;max-width:100%}
+.shot h3{font:800 18px "Bricolage Grotesque",sans-serif;margin:0}
+.shot h3 b{font:700 12px "JetBrains Mono",monospace;color:var(--page-muted);margin-inline-end:6px}
+.shot ul{margin:0;padding-inline-start:18px;font-size:13.5px;color:var(--page-muted)}
+.shot li{margin:0 0 4px}
+
+/* iPhone frame */
+.ph{width:375px;height:780px;border-radius:52px;border:11px solid #0b0b0e;box-shadow:0 30px 70px -28px rgba(0,0,0,.5);position:relative;overflow:hidden;background:var(--surface);color:var(--ink);flex:none}
+@media (max-width:420px){.ph{zoom:.86}}
+.island{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:112px;height:32px;border-radius:20px;background:#000;z-index:40}
+.sbar{position:absolute;top:0;inset-inline:0;height:50px;display:flex;justify-content:space-between;align-items:center;padding:6px 30px 0;font:600 15px Inter,sans-serif;z-index:35;direction:ltr;pointer-events:none}
+.sbar .r{display:flex;gap:5px;align-items:center}.sbar .r i{display:block;width:24px;height:11px;border:1.5px solid currentColor;border-radius:4px;position:relative}.sbar .r i::after{content:"";position:absolute;inset:1.5px;width:60%;background:currentColor;border-radius:1px}
+.homei{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:130px;height:5px;border-radius:5px;background:var(--ink);opacity:.85;z-index:40;pointer-events:none}
+.scr{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;padding-top:50px;scrollbar-width:none}
+.scr::-webkit-scrollbar{display:none}
+.bd{padding:6px 16px 190px;display:flex;flex-direction:column;gap:18px}
+.bd.nb{padding-bottom:40px}
+
+/* app parts */
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ttl{font:800 28px/34px "Bricolage Grotesque",sans-serif;letter-spacing:-.02em;margin:0}
+.cr{display:inline-flex;align-items:center;gap:6px;font:700 13px Inter,sans-serif;padding:6px 12px;border-radius:99px;background:var(--surface-raised);border:1px solid var(--line);white-space:nowrap;min-height:36px}
+.cr svg.i{width:16px;height:16px;color:var(--coral-text)}
+.ib{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;border:0;background:transparent;cursor:pointer;color:var(--ink);flex:none}
+.hero{background:var(--hero);color:var(--on-brand);position:relative;overflow:hidden;border-radius:28px;padding:18px}
+.hero::after{content:"";position:absolute;inset-inline-end:-70px;top:-60px;width:220px;height:220px;border-radius:50%;border:26px solid var(--hero-ring);pointer-events:none}
+.hero>*{position:relative;z-index:1}
+.ov{font:700 12px Inter,sans-serif;letter-spacing:.06em;color:var(--on-brand-muted);text-transform:uppercase}
+.hd{font:800 26px/1.15 "Bricolage Grotesque",sans-serif;letter-spacing:-.01em;margin:4px 0}
+.hero p{margin:0;color:var(--on-brand-muted);font-size:14px}
+.stack{display:flex;margin:12px 0 14px}.stack .cv{border:2px solid #ffb21a;margin-inline-end:-10px}
+.card{background:var(--surface-raised);border:1px solid var(--line);border-radius:22px;padding:14px}
+.well{background:var(--surface-sunken);border-radius:14px;padding:16px}
+.b{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:8px 22px;border-radius:999px;border:0;cursor:pointer;font:700 15px/1.25 Inter,sans-serif;background:var(--action);color:var(--on-action);box-shadow:0 3px 0 color-mix(in srgb,var(--action) 55%,#000);text-align:center}
+.b.block{width:100%}
+.b.sm{min-height:44px;padding:6px 16px;font-size:14px}
+.b.sec{background:var(--surface-raised);color:var(--ink);border:1.5px solid var(--line-strong);box-shadow:none}
+.b.ghost{background:transparent;color:var(--ink);box-shadow:none}
+.b.deep{background:var(--deep);color:var(--on-deep);box-shadow:0 3px 0 rgba(0,0,0,.35)}
+.b[disabled]{background:var(--surface-sunken);color:var(--ink-muted);box-shadow:none;border:1.5px dashed var(--line-strong);cursor:not-allowed}
+.pill{display:inline-flex;align-items:center;gap:5px;font:700 12px Inter,Hind,sans-serif;padding:5px 10px;border-radius:99px;background:var(--chip);white-space:nowrap}
+.pill svg.i{width:14px;height:14px}
+.pill.ai{background:var(--deep);color:var(--on-deep)}
+.chips{display:flex;gap:8px;overflow-x:auto;margin:0 -16px;padding:2px 16px;scrollbar-width:none}
+.ch{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:6px 14px;border-radius:999px;border:1.5px solid var(--line-strong);background:transparent;font:600 14px Inter,Hind,"Noto Sans Arabic","Noto Sans Tamil",sans-serif;cursor:pointer;color:var(--ink);white-space:nowrap;flex:none}
+.ch.on{background:var(--deep);color:var(--on-deep);border-color:var(--deep)}
+.t-dark .ch.on{background:var(--teal-tint);color:var(--teal-text);border-color:var(--teal-text)}
+.sh{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:10px}
+.sh h4{font:700 20px/26px "Bricolage Grotesque",sans-serif;margin:0}
+.sh a{font:700 14px Inter,sans-serif;color:var(--coral-text);text-decoration:none;min-height:44px;display:inline-flex;align-items:center}
+.rail{display:flex;gap:12px;overflow-x:auto;margin:0 -16px;padding:0 16px;scrollbar-width:none}
+.rail::-webkit-scrollbar,.chips::-webkit-scrollbar{display:none}
+.tile{width:148px;flex:none}
+.cvw{position:relative}
+.cv{display:block;position:relative;overflow:hidden;flex:none}
+.cv svg{position:absolute;inset:0;width:100%;height:100%}
+.pdot{position:absolute;inset-inline-end:8px;bottom:8px;width:40px;height:40px;border-radius:50%;background:rgba(26,11,32,.72);color:#fff;display:grid;place-items:center}
+.pdot.on{background:var(--pop);color:var(--on-pop)}
+.pdot svg.i{width:18px;height:18px}
+.rank{position:absolute;inset-inline-start:8px;top:8px;min-width:28px;height:28px;padding:0 8px;border-radius:99px;background:var(--pop);color:var(--on-pop);font:800 14px Inter,sans-serif;display:grid;place-items:center}
+.tile b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font:600 15px/20px Inter,Hind,"Noto Sans Arabic","Noto Sans Tamil","Noto Sans Bengali",sans-serif;margin-top:8px}
+.tile small,.meta{display:block;font:500 13px/18px Inter,sans-serif;color:var(--ink-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.eq{display:inline-flex;gap:2px;align-items:flex-end;height:14px}.eq i{width:3px;background:currentColor;border-radius:1px}
+.eq i:nth-child(1){height:60%}.eq i:nth-child(2){height:100%}.eq i:nth-child(3){height:40%}
+.langs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.lt{background:var(--surface-raised);border:1px solid var(--line);border-radius:14px;padding:12px 14px;min-height:84px;display:flex;flex-direction:column;justify-content:space-between}
+.lt b{font:700 20px/1.35 "Bricolage Grotesque",Hind,"Noto Sans Arabic","Noto Sans Tamil","Noto Sans Bengali","Noto Sans Telugu",sans-serif}
+.lt small{font:500 13px Inter,sans-serif;color:var(--ink-muted)}
+.lr{display:flex;align-items:center;gap:12px;min-height:64px;padding:8px 0;border-bottom:1px solid var(--line)}
+.lr:last-child{border-bottom:0}
+.lr>div{flex:1;min-width:0}
+.lr b{display:block;font:600 15px/20px Inter,Hind,"Noto Sans Arabic","Noto Sans Tamil",sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row{display:flex;align-items:center;gap:12px}.row>div{flex:1;min-width:0}
+.skel{background:var(--surface-sunken);border-radius:12px}
+
+/* mini player + tab bar */
+.dock{position:absolute;inset-inline:0;bottom:0;z-index:20;background:var(--surface);padding:6px 12px 26px}
+.mini{display:flex;align-items:center;gap:10px;background:var(--mini);color:#fff1e6;border-radius:18px;padding:8px 6px 8px 8px;position:relative;overflow:hidden;margin-bottom:8px}
+.mini>div{flex:1;min-width:0}.mini b{display:block;font:600 15px/20px Inter,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini small{display:block;font:500 12px Inter,sans-serif;color:rgba(255,241,230,.72);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini .pp{width:44px;height:44px;border-radius:50%;background:var(--pop);color:var(--on-pop);display:grid;place-items:center;border:0;flex:none}
+.mini .nx{width:44px;height:44px;border-radius:50%;background:transparent;color:#fff1e6;display:grid;place-items:center;border:0;flex:none}
+.mini .trk{position:absolute;left:14px;right:14px;bottom:3px;height:3px;border-radius:2px;background:rgba(255,241,230,.14)}
+.mini .trk i{display:block;height:100%;width:38%;background:var(--teal);border-radius:2px}
+.tabs{display:flex;align-items:center;background:var(--deep);border-radius:24px;padding:6px 4px;box-shadow:0 8px 16px rgba(42,18,53,.3)}
+.tabs>div{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:52px;justify-content:center;font:600 11px Inter,sans-serif;color:rgba(255,241,230,.68)}
+.tabs>div.on{color:var(--teal)}
+.tabs .mk{width:50px;height:50px;border-radius:50%;background:var(--action);color:var(--on-action);display:grid;place-items:center}
+
+/* full player */
+.fp{background:radial-gradient(120% 70% at 50% 25%,#5b2366 0%,#2a1235 55%,#150a1a 100%);color:#fff1e6}
+.fp .homei{background:#fff1e6}
+.fp .bd{padding:0 20px 24px;gap:12px;height:100%;}
+.fpt{display:flex;align-items:center;gap:8px;height:52px}
+.fpt>div{flex:1;text-align:center}.fpt small{display:block;font:700 11px Inter,sans-serif;letter-spacing:.1em;color:rgba(255,241,230,.7);text-transform:uppercase}.fpt span{font:500 13px Inter,sans-serif}
+.fp .ib{color:#fff1e6;position:relative}
+.badge{position:absolute;top:4px;inset-inline-end:2px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--pop);color:#2a1235;font:800 11px/18px Inter,sans-serif}
+.fpc{align-self:center;border-radius:22px;box-shadow:0 10px 40px rgba(255,122,26,.35)}
+.fph{text-align:center}.fph b{display:block;font:800 24px/30px "Bricolage Grotesque",sans-serif}.fph a{font:600 15px Inter,sans-serif;color:rgba(255,241,230,.78);text-decoration:none}
+.acts{display:flex;justify-content:space-around}
+.act{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:64px;min-height:48px;font:600 12px Inter,sans-serif;background:none;border:0;cursor:pointer;color:inherit}
+.act svg.i{width:24px;height:24px}
+.act.on svg{color:var(--pop)}
+.lyr{text-align:center;font:600 17px/25px Hind,Inter,sans-serif;color:rgba(255,241,230,.55)}
+.lyr p{margin:0 0 6px}.lyr .now{color:#fff1e6;font-size:21px;line-height:30px;font-weight:700;text-shadow:0 0 12px #ff7a1a}
+.wave{display:flex;align-items:center;gap:2px;height:36px}.wave i{flex:1;background:rgba(255,241,230,.35);border-radius:2px}.wave i.p{background:#ffb21a}
+.tc{display:flex;justify-content:space-between;font:500 13px "JetBrains Mono",monospace;color:rgba(255,241,230,.7);direction:ltr}
+.ctr{display:flex;align-items:center;justify-content:center;gap:10px;direction:ltr}
+.ctr .ib{width:48px;height:48px}.ctr .ib.s{width:44px;height:44px;opacity:.85}
+.ctr .big{width:76px;height:76px;border-radius:50%;background:#ffb21a;color:#2a1235;display:grid;place-items:center;border:0}
+
+/* sheet */
+.dim{position:absolute;inset:0;background:var(--scrim);z-index:22}
+.sheet{position:absolute;inset-inline:0;bottom:0;z-index:24;background:var(--surface-raised);color:var(--ink);border-radius:20px 20px 0 0;box-shadow:var(--e2);padding:8px 16px 30px;display:flex;flex-direction:column;gap:14px}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--line-strong);opacity:.6;align-self:center}
+.sht{display:flex;align-items:center;justify-content:space-between}
+.sht h4{font:700 20px/26px "Bricolage Grotesque",sans-serif;margin:0}
+.lnk{font:700 15px Inter,sans-serif;color:var(--coral-text);background:none;border:0;min-height:44px;min-width:44px;cursor:pointer}
+.lab{font:700 13px Inter,sans-serif;color:var(--ink-muted)}
+.rm{width:44px;height:44px;border-radius:50%;border:0;background:transparent;color:var(--ink-muted);display:grid;place-items:center;flex:none;cursor:pointer}
+.sw{width:51px;height:31px;border-radius:16px;background:var(--line-strong);position:relative;flex:none;border:0;cursor:pointer;padding:0}
+.sw::after{content:"";position:absolute;top:2px;inset-inline-start:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.2);transition:inset-inline-start .15s}
+.sw[aria-checked="true"]{background:var(--teal-text)}
+.t-dark .sw[aria-checked="true"]{background:#14b386}
+.sw[aria-checked="true"]::after{inset-inline-start:22px}
+@media (prefers-reduced-motion:reduce){.sw::after{transition:none}}
+.soft b{color:var(--ink-muted)}
+.fld{display:flex;align-items:center;gap:2px;min-height:52px;border-radius:14px;border:1.5px solid var(--line-strong);background:var(--surface-raised);padding:0 14px;font:500 17px Inter,sans-serif}
+.fld.ok{border-color:var(--teal-text)}
+.fld .at{color:var(--ink-muted)}
+.st{display:flex;align-items:center;gap:6px;font:600 14px Inter,sans-serif}
+.st.ok{color:var(--success)}.st.warn{color:var(--warning)}.st.bad{color:var(--danger)}
+.st svg.i{width:18px;height:18px}
+.dots{display:flex;gap:6px;justify-content:center}.dots i{width:8px;height:8px;border-radius:50%;background:var(--line-strong)}.dots i.on{background:var(--ink);width:20px;border-radius:4px}
+.ban{display:flex;gap:10px;align-items:flex-start;border-radius:16px;padding:12px 14px;font-size:14px;background:var(--teal-tint);color:var(--ink)}
+.ban svg.i{color:var(--teal-text);margin-top:1px}
+.ban.err{background:var(--coral-tint)}.ban.err svg.i{color:var(--danger)}
+.win{display:flex;align-items:center;gap:10px;background:var(--teal-tint);color:var(--teal-text);border-radius:16px;padding:12px 14px;font-weight:700}
+.win i{width:28px;height:28px;border-radius:50%;background:var(--teal);color:var(--on-teal);display:grid;place-items:center;flex:none}
+.reacts{display:flex;flex-wrap:wrap;gap:8px}
+.rx{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border-radius:999px;border:1.5px solid var(--line-strong);background:var(--surface-raised);font:600 15px Inter,sans-serif;cursor:pointer;color:var(--ink)}
+.rx .e{font-size:18px;line-height:1}
+.rx[aria-pressed="true"]{background:var(--teal-tint);border-color:var(--teal-text);color:var(--teal-text)}
+.rx[aria-pressed="true"] .ck{display:inline}.rx .ck{display:none}
+.sacts{display:flex;justify-content:space-between;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:6px 0}
+.sacts .act{color:var(--ink)}
+.sacts .act.on svg{color:var(--action)}
+.prow{display:flex;align-items:center;gap:12px;direction:ltr}
+.pbtn{width:56px;height:56px;border-radius:50%;background:var(--action);color:var(--on-action);display:grid;place-items:center;border:0;flex:none}
+.trk2{height:6px;border-radius:3px;background:var(--surface-sunken);overflow:hidden}.trk2 i{display:block;height:100%;width:22%;background:var(--teal)}
+.mono{font:500 13px "JetBrains Mono",monospace;color:var(--ink-muted)}
+.board{background:var(--surface);color:var(--ink);border-radius:24px;padding:18px;display:flex;flex-direction:column;gap:14px;width:375px;max-width:100%}
+.stat{display:inline-flex;align-items:center;gap:6px;font:700 13px Inter,sans-serif;padding:4px 10px;border-radius:99px}
+.stat.ok{background:var(--teal-tint);color:var(--success)}.stat.bad{background:var(--coral-tint);color:var(--danger)}
+.ico{width:40px;height:40px;border-radius:12px;background:var(--teal-tint);color:var(--teal-text);display:grid;place-items:center;flex:none}
+.toast{position:absolute;inset-inline:16px;bottom:200px;z-index:21;background:var(--deep);color:var(--on-deep);border-radius:14px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;font:600 14px Inter,sans-serif}
+.toast b{color:var(--teal)}
+
+/* web */
+.browser{border-radius:14px;overflow:hidden;border:1px solid var(--page-line);box-shadow:0 30px 70px -30px rgba(0,0,0,.45);background:#ddd;flex:none}
+.chrome{height:40px;background:#e8e2dc;display:flex;align-items:center;gap:8px;padding:0 12px;direction:ltr}
+.chrome i{width:11px;height:11px;border-radius:50%;background:#c9bfb6}
+.chrome span{flex:1;max-width:460px;margin:0 auto;background:#fff;border-radius:8px;height:26px;display:flex;align-items:center;padding:0 12px;font:500 13px Inter,sans-serif;color:#6e5866}
+.scrollx{overflow-x:auto;max-width:100%;padding-bottom:6px}
+.web{background:var(--surface);color:var(--ink);font-family:Inter,system-ui,sans-serif}
+.web.l-hi{font-family:Inter,Hind,sans-serif}
+.web.l-ar,.web.l-ar *:not(.mono):not(.ltrtxt){font-family:"Noto Sans Arabic",system-ui,sans-serif!important;letter-spacing:0!important}
+.wtop{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--line)}
+.logo{display:flex;align-items:center;gap:8px;font:800 20px "Bricolage Grotesque",sans-serif;direction:ltr}
+.wbody{display:grid;grid-template-columns:400px 1fr;gap:32px;padding:28px 32px 40px;max-width:1200px;margin:0 auto}
+.wbody.one{grid-template-columns:1fr;padding:16px 16px 120px;gap:18px}
+.wl{display:flex;flex-direction:column;gap:16px;position:sticky;top:0;align-self:start}
+.wr{display:flex;flex-direction:column;gap:22px;min-width:0}
+.whero{text-align:center}
+.whero .cv{margin:0 auto 14px;border-radius:18px}
+.whero b.t{display:block;font:800 30px/1.2 "Bricolage Grotesque",sans-serif}
+.l-hi .whero b.t,.l-hi h4,.l-hi .hd{line-height:1.3!important}
+.whero .by{font:600 16px Inter,sans-serif;color:var(--on-brand-muted)}
+.whero .chips2{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:10px 0 14px}
+.wplay{display:flex;align-items:center;gap:12px;direction:ltr;background:rgba(42,18,53,.1);border-radius:999px;padding:6px 14px 6px 6px}
+.wplay .pb{width:56px;height:56px;border-radius:50%;background:var(--deep);color:var(--on-deep);display:grid;place-items:center;border:0;flex:none}
+.wplay .tr{flex:1;height:6px;border-radius:3px;background:rgba(42,18,53,.2)}.wplay .tr i{display:block;height:100%;width:22%;background:var(--deep);border-radius:3px}
+.wplay .mono{color:var(--on-brand)}
+.kar{background:var(--surface-sunken);border-radius:16px;padding:16px 18px;font:400 17px/1.75 Hind,Inter,sans-serif;max-height:300px;overflow:hidden}
+.kar ol{list-style:none;margin:0;padding:0}
+.kar li{color:var(--ink)}.kar li.past{color:var(--ink-muted)}
+.kar li.now{font-weight:700}
+.kar li.now em{font-style:normal;background:var(--action);color:var(--on-action);border-radius:4px;padding:0 2px}
+.nextc{display:flex;align-items:center;gap:12px;background:var(--deep);color:var(--on-deep);border-radius:18px;padding:12px}
+.nextc>div{flex:1;min-width:0}
+.nextc small{display:block;color:var(--deep-muted);font-size:13px}
+.nextc .b.sm{min-height:44px}
+.cta{position:sticky;bottom:0;background:linear-gradient(to top,var(--surface) 70%,transparent);padding:14px 0 6px;display:flex;flex-direction:column;gap:4px;align-items:stretch}
+.cta small{text-align:center;color:var(--ink-muted);font-size:13px}
+.wfoot{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--ink-muted);border-top:1px solid var(--line);padding-top:14px}
+.wfoot a{color:var(--ink);font-weight:600}
+.twocol{display:grid;grid-template-columns:1fr 1fr;gap:6px 22px}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <defs>
+  <symbol id="play" viewBox="0 0 24 24"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12.4-7.5a1 1 0 0 0 0-1.72L8.5 3.64A1 1 0 0 0 7 4.5z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="pause" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1.5" fill="currentColor" stroke="none"/><rect x="14" y="4" width="4" height="16" rx="1.5" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="next" viewBox="0 0 24 24"><path d="M5 5.5v13a1 1 0 0 0 1.5.86L16 13.5V18a1 1 0 0 0 2 0V6a1 1 0 0 0-2 0v4.5L6.5 4.64A1 1 0 0 0 5 5.5z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="prev" viewBox="0 0 24 24"><g transform="translate(24 0) scale(-1 1)"><path d="M5 5.5v13a1 1 0 0 0 1.5.86L16 13.5V18a1 1 0 0 0 2 0V6a1 1 0 0 0-2 0v4.5L6.5 4.64A1 1 0 0 0 5 5.5z" fill="currentColor" stroke="none"/></g></symbol>
+  <symbol id="back10" viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 3.5v4h4"/><text x="12" y="15.2" text-anchor="middle" font-size="7.5" font-weight="700" fill="currentColor" stroke="none" font-family="Inter">10</text></symbol>
+  <symbol id="fwd10" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 3.5v4h-4"/><text x="12" y="15.2" text-anchor="middle" font-size="7.5" font-weight="700" fill="currentColor" stroke="none" font-family="Inter">10</text></symbol>
+  <symbol id="heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></symbol>
+  <symbol id="heartf" viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" fill="currentColor"/></symbol>
+  <symbol id="down" viewBox="0 0 24 24"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.7a2 2 0 0 0-2 1.7l-1.4 9A2 2 0 0 0 4.3 15z"/><path d="M17 2h3v11h-3"/></symbol>
+  <symbol id="remix" viewBox="0 0 24 24"><path d="M3 7h11a4 4 0 0 1 0 8H8"/><path d="M6 4 3 7l3 3"/><path d="M21 17H10"/><path d="m18 14 3 3-3 3"/></symbol>
+  <symbol id="share" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 8 5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></symbol>
+  <symbol id="queue" viewBox="0 0 24 24"><path d="M3 6h13M3 12h13M3 18h8"/><path d="M16 15v6l5-3z" fill="currentColor"/></symbol>
+  <symbol id="x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+  <symbol id="more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/></symbol>
+  <symbol id="hp" viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="5" height="7" rx="2"/><rect x="16" y="14" width="5" height="7" rx="2"/></symbol>
+  <symbol id="home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="cal" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></symbol>
+  <symbol id="inbox" viewBox="0 0 24 24"><path d="M3 13l3-8h12l3 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M3 13h5l1 3h6l1-3h5"/></symbol>
+  <symbol id="lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+  <symbol id="globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+  <symbol id="check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="alert" viewBox="0 0 24 24"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/></symbol>
+  <symbol id="info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/></symbol>
+  <symbol id="flag" viewBox="0 0 24 24"><path d="M5 21V4h11l-2 4 2 4H5"/></symbol>
+  <symbol id="coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9h6M9 12h6M12 12l-3 4"/></symbol>
+  <symbol id="grip" viewBox="0 0 24 24"><path d="M8 7h8M8 12h8M8 17h8"/></symbol>
+  <symbol id="spark" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></symbol>
+  <!-- cover motifs -->
+  <symbol id="m-drops" viewBox="0 0 100 100"><g fill="rgba(255,255,255,.55)"><path d="M30 18c6 9 9 14 9 18a9 9 0 0 1-18 0c0-4 3-9 9-18z"/><path d="M66 40c5 7 7 11 7 14a7 7 0 0 1-14 0c0-3 2-7 7-14z"/><path d="M44 62c4 6 6 9 6 12a6 6 0 0 1-12 0c0-3 2-6 6-12z"/></g><rect x="26" y="80" width="48" height="6" rx="3" fill="rgba(42,18,53,.35)"/></symbol>
+  <symbol id="m-sun" viewBox="0 0 100 100"><circle cx="50" cy="56" r="22" fill="rgba(255,247,238,.85)"/><g stroke="rgba(255,247,238,.7)" stroke-width="4" stroke-linecap="round"><path d="M50 18v10M22 30l7 7M78 30l-7 7M12 56h10M88 56h-10"/></g><rect y="78" width="100" height="22" fill="rgba(42,18,53,.3)"/></symbol>
+  <symbol id="m-waves" viewBox="0 0 100 100"><g fill="none" stroke="rgba(255,255,255,.7)" stroke-width="4" stroke-linecap="round"><path d="M0 58c12-8 25-8 37 0s25 8 37 0 20-8 26-4"/><path d="M0 72c12-8 25-8 37 0s25 8 37 0 20-8 26-4"/><path d="M0 86c12-8 25-8 37 0s25 8 37 0 20-8 26-4"/></g><circle cx="72" cy="28" r="10" fill="rgba(255,255,255,.8)"/></symbol>
+  <symbol id="m-dune" viewBox="0 0 100 100"><path d="M0 70c20-14 40-14 60-4s30 8 40 2v32H0z" fill="rgba(42,18,53,.35)"/><path d="M0 82c25-10 45-8 65 0s28 6 35 2v16H0z" fill="rgba(42,18,53,.5)"/><path d="M68 22a14 14 0 1 0 8 25 11 11 0 1 1-8-25z" fill="rgba(255,247,238,.9)"/></symbol>
+  <symbol id="m-moon" viewBox="0 0 100 100"><path d="M58 18a24 24 0 1 0 18 40 19 19 0 1 1-18-40z" fill="rgba(255,194,61,.95)"/><g fill="rgba(255,241,230,.8)"><circle cx="22" cy="24" r="2"/><circle cx="30" cy="70" r="1.6"/><circle cx="80" cy="18" r="1.6"/><circle cx="84" cy="74" r="2"/></g><path d="M34 100V82a16 16 0 0 1 32 0v18" fill="rgba(11,5,13,.5)"/></symbol>
+  <symbol id="m-dots" viewBox="0 0 100 100"><g fill="rgba(255,255,255,.85)"><circle cx="30" cy="32" r="12"/><circle cx="68" cy="40" r="8"/><circle cx="44" cy="70" r="10"/><circle cx="78" cy="76" r="5"/></g></symbol>
+  <symbol id="m-ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="28" fill="none" stroke="rgba(255,247,238,.85)" stroke-width="8"/><circle cx="50" cy="22" r="7" fill="rgba(255,194,61,1)"/><g fill="rgba(255,247,238,.6)"><circle cx="20" cy="80" r="3"/><circle cx="82" cy="78" r="3"/></g></symbol>
+  <symbol id="m-leaf" viewBox="0 0 100 100"><path d="M24 80C24 44 48 22 80 20c-2 32-24 58-56 60z" fill="rgba(255,255,255,.65)"/><path d="M24 80 66 34" stroke="rgba(42,18,53,.4)" stroke-width="3"/></symbol>
+  <symbol id="m-bars" viewBox="0 0 100 100"><g fill="rgba(255,255,255,.85)"><rect x="18" y="44" width="10" height="36" rx="4"/><rect x="34" y="26" width="10" height="54" rx="4"/><rect x="50" y="36" width="10" height="44" rx="4"/><rect x="66" y="18" width="10" height="62" rx="4"/></g></symbol>
+ </defs>
+</svg>
+
+<div class="wrap">
+ <h1 class="pg">Listen, phase 1</h1>
+ <p class="lede">A player that keeps going: other creators' songs, across languages, in Reelkar's Masala Pop look. iPhone first, then the public web song page. Spec: <code>design/listen/flow-spec.md</code>. Listen takes the 5th tab (in place of Earn, which is a coming-soon placeholder today).</p>
+ <div class="bar">
+  <div class="seg" role="group" aria-label="Phone theme"><span>Phones</span><button data-theme-btn="light" aria-pressed="true">Light</button><button data-theme-btn="dark" aria-pressed="false">Dark</button></div>
+  <div class="seg" role="group" aria-label="Web page language"><span>Web page</span><button data-lang-btn="en" aria-pressed="true">English</button><button data-lang-btn="hi" aria-pressed="false">हिन्दी</button><button data-lang-btn="ar" aria-pressed="false">العربية</button></div>
+ </div>
+
+ <h2 class="sec">iPhone</h2>
+ <p class="cap">Real songs and handles are made up for the mockup. Rails scroll sideways; one primary action per screen.</p>
+ <div class="grid" id="phones"></div>
+
+ <h2 class="sec">States</h2>
+ <p class="cap">Loading uses skeletons, not spinners. Empty states say what to do next. The mini player and the Song Studio card in each of their states.</p>
+ <div class="grid" id="states"></div>
+
+ <h2 class="sec">Web: public song page <code style="font-size:18px">reelkar.app/s/k3Lm9Qx2Ab</code></h2>
+ <p class="cap">No sign-in, like the gift page. Desktop (two columns from 1024 px) and phone width. Switch the language above: Hindi uses Hind at 1.6+ line height; Arabic mirrors the page but not the player, timecodes or the @handle. The song's own title and lyrics stay as the creator wrote them.</p>
+ <div class="scrollx"><div class="browser" style="width:1180px"><div class="chrome"><i></i><i></i><i></i><span>reelkar.app/s/k3Lm9Qx2Ab</span></div><div id="webDesk"></div></div></div>
+ <div style="height:28px"></div>
+ <div class="grid">
+  <div class="shot"><h3><b>W1</b>Phone browser, playing</h3><div class="ph" id="webPhoneWrap"><div class="island"></div><div class="sbar"><span>9:41</span><span class="r"><i></i></span></div><div class="scr" id="webPhone"></div><div class="homei"></div></div>
+   <ul><li>Like or a reaction when signed out opens the one-screen sign-in sheet; the tap is applied after.</li><li>"Next: … in 5" auto-advances only after the visitor pressed play once.</li><li>Make your own song pins to the bottom after 10 s of play.</li></ul></div>
+  <div class="shot"><h3><b>W1</b>Made private / taken down</h3><div class="ph" id="webGoneWrap"><div class="island"></div><div class="sbar"><span>9:41</span><span class="r"><i></i></span></div><div class="scr" id="webGone"></div><div class="homei"></div></div>
+   <ul><li>Same shell; never a blank page. Taken down reads "This song was removed after a report."</li><li>Report stays in the footer of every state.</li></ul></div>
+ </div>
+</div>
+
+<script>
+const S=[
+ {t:"Baarish Wali Chai",h:"chai.with.meera",g:"Lo-fi Hindi",l:"हिन्दी",d:"2:48",c:["#14d9a0","#0a5a58"],m:"drops"},
+ {t:"Pind Di Kudi",h:"harjot.beats",g:"Punjabi pop",l:"Hinglish",d:"2:14",c:["#ffb21a","#d9381c"],m:"sun"},
+ {t:"கடல் காற்று",h:"vidya.sings",g:"Indie acoustic",l:"தமிழ்",d:"3:05",c:["#3aa0ff","#203a8c"],m:"waves"},
+ {t:"يا بحر",h:"noor.dxb",g:"Khaleeji",l:"العربية",d:"2:56",c:["#f6c454","#c2700f"],m:"dune"},
+ {t:"Sufi Raat",h:"faiz.raat",g:"Sufi",l:"हिन्दी",d:"3:12",c:["#5b2366","#150a1a"],m:"moon"},
+ {t:"Gol Gappa Song",h:"tinytunes.in",g:"Kids rhyme",l:"Hinglish",d:"1:32",c:["#ff7aa8","#ffb21a"],m:"dots"},
+ {t:"Shubh Vivah",h:"band.baaja",g:"Bollywood romantic",l:"हिन्दी",d:"3:40",c:["#ff4d2e","#7a1235"],m:"ring"},
+ {t:"বন্ধু রে",h:"ritwik.gaan",g:"Indie pop",l:"বাংলা",d:"2:51",c:["#7bd389","#1e6a4c"],m:"leaf"},
+ {t:"Dil Ki Gully",h:"kabir.raps",g:"Desi hip-hop",l:"Hinglish",d:"2:22",c:["#2a1235","#d9381c"],m:"bars"},
+];
+const ic=(id,cls="i",sz)=>`<svg class="${cls}" ${sz?`style="width:${sz}px;height:${sz}px"`:""} aria-hidden="true"><use href="#${id}"/></svg>`;
+const cv=(i,z,r=12)=>{const s=S[i];return `<span class="cv" role="img" aria-label="Cover of ${s.t}" style="width:${z}px;height:${z}px;border-radius:${r}px;background:linear-gradient(135deg,${s.c[0]},${s.c[1]})"><svg viewBox="0 0 100 100" aria-hidden="true"><use href="#m-${s.m}"/></svg></span>`};
+const eq=`<span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>`;
+const tile=(i,o={})=>{const s=S[i];return `<div class="tile"><div class="cvw">${cv(i,148,12)}${o.rank?`<span class="rank">${o.rank}</span>`:""}<span class="pdot ${o.on?"on":""}" aria-label="${o.on?"Pause":"Play"} ${s.t}">${o.on?ic("pause"):ic("play")}</span></div><b dir="auto">${s.t}</b><small>@${s.h} · ${s.d}</small></div>`};
+const row=(i,trail)=>{const s=S[i];return `<div class="lr">${cv(i,48,8)}<div><b dir="auto">${s.t}</b><span class="meta">@${s.h} · ${s.d}</span></div>${trail||""}</div>`};
+const sbar=(light)=>`<div class="island"></div><div class="sbar" ${light?'style="color:#fff1e6"':""}><span>9:41</span><span class="r"><i></i></span></div>`;
+const mini=(i,sub)=>{const s=S[i];return `<div class="mini" role="button" aria-label="Now playing ${s.t} by @${s.h}. Opens the player">${cv(i,42,10)}<div><b dir="auto">${s.t}</b><small>${sub||"@"+s.h+" · "+s.g}</small></div><button class="pp" aria-label="Pause ${s.t}">${ic("pause","i",18)}</button><button class="nx" aria-label="Next song">${ic("next","i",22)}</button><span class="trk"><i></i></span></div>`};
+const tabs=(on="listen")=>`<div class="tabs" role="tablist">${[["home","Home","home"],["create","","plus"],["cal","Calendar","cal"],["inbox","Inbox","inbox"],["listen","Listen","hp"]].map(([k,l,i])=>k==="create"?`<div><span class="mk">${ic("plus")}</span></div>`:`<div class="${k===on?"on":""}" role="tab" aria-selected="${k===on}">${ic(i,"i",22)}<span>${l}</span></div>`).join("")}</div>`;
+const dock=(i)=>`<div class="dock">${i==null?"":mini(i)}${tabs()}</div>`;
+const phone=(id,title,inner,notes,cls="")=>`<div class="shot"><h3><b>${id}</b>${title}</h3><div class="ph th ${cls}">${inner}<div class="homei"></div></div><ul>${notes.map(n=>`<li>${n}</li>`).join("")}</ul></div>`;
+const langTiles=[["हिन्दी","Hindi","412"],["Hinglish","Hinglish","288"],["தமிழ்","Tamil","96"],["العربية","Arabic","74"],["বাংলা","Bengali","41"],["తెలుగు","Telugu","38"]];
+
+/* L1 Listen */
+const L1=`${sbar()}<div class="scr"><div class="bd">
+ <div class="top"><h2 class="ttl">Listen</h2><span class="cr">${ic("coin")}42</span></div>
+ <div class="hero"><div class="ov">This week</div><div class="hd">128 new songs from creators</div><p>Hindi, Tamil, Arabic and more</p>
+  <div class="stack">${cv(0,40,20)}${cv(2,40,20)}${cv(3,40,20)}${cv(4,40,20)}</div>
+  <button class="b deep">${ic("play","i",18)}Play all</button></div>
+ <div class="chips" role="radiogroup" aria-label="Language">${["All","हिन्दी","Hinglish","தமிழ்","العربية","বাংলা","తెలుగు","मराठी","English"].map((c,k)=>`<button class="ch ${k===0?"on":""}" role="radio" aria-checked="${k===0}">${k===0?ic("check","i",16):""}${c}</button>`).join("")}</div>
+ <section><div class="sh"><h4>New</h4><a href="#">See all</a></div><div class="rail">${tile(4,{on:1})}${tile(3)}${tile(2)}${tile(5)}</div></section>
+ <section><div class="sh"><h4>Trending this week</h4><a href="#">See all</a></div><div class="rail">${tile(1,{rank:1})}${tile(0,{rank:2})}${tile(6,{rank:3})}</div></section>
+ <section><div class="sh"><h4>Best of Sufi</h4><a href="#">See all</a></div><div class="rail">${tile(4)}${tile(6)}${tile(0)}</div></section>
+ <section><div class="sh"><h4>By language</h4></div><div class="langs">${langTiles.map(([n,e,c])=>`<div class="lt"><b>${n}</b><small>${e} · ${c} songs</small></div>`).join("")}</div></section>
+ <div class="lr"><span class="ico">${ic("globe")}</span><div><b>You have 2 songs on Listen</b><span class="meta">214 plays this week</span></div>${ic("back","i",18).replace('class="i"','class="i" style="transform:scaleX(-1);color:var(--ink-muted)"')}</div>
+</div></div>${dock(4)}`;
+
+/* FP full player */
+const wave=Array.from({length:46},(_,k)=>`<i class="${k<17?"p":""}" style="height:${20+Math.round(70*Math.abs(Math.sin(k*1.7)*Math.cos(k*.4)))}%"></i>`).join("");
+const FPbody=(extra="")=>`${sbar(1)}<div class="scr" style="overflow:hidden"><div class="bd">
+ <div class="fpt"><button class="ib" aria-label="Close player">${ic("chev","i",26)}</button><div><small>Playing from</small><span>Trending this week</span></div><button class="ib" aria-label="Up next, 3 songs">${ic("queue","i",24)}<span class="badge">3</span></button></div>
+ ${cv(4,212,22).replace('class="cv"','class="cv fpc"')}
+ <div class="fph"><b>Sufi Raat</b><a href="#">@faiz.raat</a></div>
+ <div class="acts"><button class="act on" aria-pressed="true">${ic("heartf","i f")}Liked</button><button class="act">${ic("down")}Not for me</button><button class="act">${ic("spark")}React</button><button class="act">${ic("share")}Share</button></div>
+ <div class="lyr"><p>चाँद की चादर ओढ़ के आई रात</p><p class="now">तेरी याद में भीगी हर इक बात</p><p>दरगाह की चौखट पे जलता दिया</p></div>
+ <div><div class="wave">${wave}</div><div class="tc"><span>1:12</span><span>3:12</span></div></div>
+ <div class="ctr"><button class="ib" aria-label="Previous song">${ic("prev","i",28)}</button><button class="ib s" aria-label="Back 10 seconds">${ic("back10","i",30)}</button><button class="big" aria-label="Pause Sufi Raat">${ic("pause","i",30)}</button><button class="ib s" aria-label="Forward 10 seconds">${ic("fwd10","i",30)}</button><button class="ib" aria-label="Next song">${ic("next","i",28)}</button></div>
+</div></div>${extra}`;
+
+/* Q1 queue */
+const Q1=FPbody(`<div class="dim"></div><div class="sheet" role="dialog" aria-label="Up next">
+ <span class="grab"></span>
+ <div class="sht"><h4>Up next</h4><button class="lnk">Clear</button></div>
+ <div><div class="lab">Now playing</div><div class="lr">${cv(4,56,8)}<div><b>Sufi Raat</b><span class="meta">@faiz.raat · Sufi</span></div><span style="color:var(--action)">${eq}</span></div></div>
+ <div><div class="lab">Next up · 2</div>
+  ${row(6,`<button class="rm" aria-label="Remove Shubh Vivah from queue">${ic("x")}</button>`)}
+  ${row(0,`<button class="rm" aria-label="Remove Baarish Wali Chai from queue">${ic("x")}</button>`)}
+ </div>
+ <div class="well">
+  <div class="row"><div><b style="font:700 16px Inter,sans-serif">Keep the music going</b></div><button class="sw" role="switch" aria-checked="true" aria-label="Keep the music going"></button></div>
+  <p style="margin:6px 0 10px;font-size:13px;color:var(--ink-muted)">When your queue ends, we'll play songs like these: same style, language or mood.</p>
+  <div class="lab">Coming up from Autoplay</div>
+  <div class="soft">${row(3,`<button class="rm" aria-label="Not for me: يا بحر">${ic("down","i",18)}</button>`)}${row(7,`<button class="rm" aria-label="Not for me">${ic("down","i",18)}</button>`)}</div>
+ </div>
+</div>`);
+
+/* S1 song page */
+const S1=`${sbar()}<div class="scr"><div class="bd">
+ <div class="top" style="margin:0 -8px"><button class="ib" aria-label="Back">${ic("back")}</button><div style="display:flex"><button class="ib" aria-label="Share">${ic("share")}</button><button class="ib" aria-label="More">${ic("more")}</button></div></div>
+ <div class="hero" style="text-align:center">${cv(1,188,16).replace('class="cv"','class="cv" style="margin:0 auto 12px;')}<div class="hd">Pind Di Kudi</div><div style="font:600 16px Inter,sans-serif;color:var(--on-brand-muted)">@harjot.beats</div>
+  <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:10px"><span class="pill">Punjabi pop</span><span class="pill">Hinglish</span><span class="pill">2:14</span><span class="pill ai">${ic("spark")}Made with AI</span></div></div>
+ <div class="card"><div class="prow"><button class="pbtn" aria-label="Play Pind Di Kudi">${ic("play","i",24)}</button><div style="flex:1"><div class="trk2"><i></i></div><div class="mono" style="margin-top:6px">0:29 / 2:14</div></div></div>
+  <div style="margin-top:10px;font:600 14px Inter,sans-serif">12.4K plays · 1.1K likes</div></div>
+ <div class="sacts"><button class="act on" aria-pressed="true">${ic("heartf","i f")}Liked</button><button class="act">${ic("down")}Not for me</button><button class="act">${ic("remix")}Remix</button><button class="act">${ic("share")}Share</button></div>
+ <div class="reacts" aria-label="Reactions">
+  <button class="rx" aria-pressed="true"><span class="ck">${ic("check","i",16)}</span><span class="e">🔥</span>214</button>
+  <button class="rx" aria-pressed="false"><span class="e">💃</span>187</button>
+  <button class="rx" aria-pressed="false"><span class="e">🥹</span>23</button>
+  <button class="rx" aria-pressed="false"><span class="e">😂</span>9</button>
+  <button class="rx" aria-pressed="false" aria-label="Respect, fewer than 3"><span class="e">🙏</span></button>
+  <button class="rx" aria-pressed="false"><span class="e">🎉</span>41</button>
+ </div>
+ <div class="card"><div class="sh" style="margin-bottom:6px"><h4>Lyrics</h4></div>
+  <div style="font:400 16px/1.7 Hind,Inter,sans-serif">Pind di galiyan, dhoop sunehri<br>Kudi chali, hawa vi theheri<br>Dhol vajje, sab nachde jaande<br>Saade dil vich mele lagde…</div>
+  <button class="lnk" style="padding:0">Show all lyrics</button></div>
+ <section><div class="sh"><h4>More like this</h4></div><div class="rail">${tile(8)}${tile(6)}${tile(0)}</div></section>
+ <section><div class="sh"><h4>By @harjot.beats</h4><span class="meta">4 songs</span></div><div class="rail">${tile(6)}${tile(5)}</div></section>
+ <button class="b ghost" style="color:var(--ink-muted)">${ic("flag","i",18)}Report this song</button>
+</div></div>${dock(1)}`;
+
+/* SC + P1 handle */
+const studioTop=`<div class="top" style="margin:0 -8px"><button class="ib" aria-label="Back">${ic("back")}</button></div>
+ <div><h2 class="ttl" style="font-size:24px">Sufi Raat</h2><span class="meta">Studio · Sufi · 3:12</span></div>
+ <div style="align-self:center">${cv(4,170,16)}</div>
+ <button class="b block">Make it a gift</button>
+ <div class="card"><div class="row"><span class="ico">${ic("lock")}</span><div><b style="font:700 16px Inter,sans-serif">Only you can hear this</b><span class="meta" style="white-space:normal">Publish it to Listen so anyone on Reelkar and anyone with the link can play it.</span></div></div><button class="b sec block" style="margin-top:12px">${ic("globe","i",18)}Publish</button></div>`;
+const P1=`${sbar()}<div class="scr"><div class="bd nb">${studioTop}</div></div>
+<div class="dim"></div><div class="sheet" role="dialog" aria-label="Pick your name on Listen">
+ <span class="grab"></span><div class="dots"><i class="on"></i><i></i></div>
+ <div><h4 style="font:700 20px 'Bricolage Grotesque',sans-serif;margin:0 0 4px">Pick your name on Listen</h4><p style="margin:0;color:var(--ink-muted)">This is how people find your songs. You can change it later.</p></div>
+ <div><label class="lab" style="display:block;margin-bottom:6px;color:var(--ink)">Your handle</label><div class="fld"><span class="at">@</span>rajnish<span style="border-inline-start:2px solid var(--action);height:22px;margin-inline-start:1px"></span></div>
+  <div class="st warn" style="margin-top:8px">${ic("alert")}Taken. Try one of these:</div>
+  <div class="chips" style="margin:8px 0 0;padding:0;flex-wrap:wrap"><button class="ch">rajnish.sings</button><button class="ch">rajnish.music</button><button class="ch">sings.rajnish</button></div>
+  <p style="margin:10px 0 0;font-size:13px;color:var(--ink-muted)">3 to 20 letters (a to z), numbers, dot or underscore.</p></div>
+ <button class="b block" disabled>Continue</button>
+</div>`;
+
+/* P2 publish */
+const P2=`${sbar()}<div class="scr"><div class="bd nb">${studioTop}</div></div>
+<div class="dim"></div><div class="sheet" role="dialog" aria-label="Publish to Listen">
+ <span class="grab"></span><div class="dots"><i></i><i class="on"></i></div>
+ <h4 style="font:700 20px 'Bricolage Grotesque',sans-serif;margin:0">Publish to Listen</h4>
+ <div class="row">${cv(4,64,10)}<div><b style="font:600 15px Inter,sans-serif">Sufi Raat</b><span class="meta">@rajnish.sings · Sufi · हिन्दी · 3:12</span></div></div>
+ <div><label class="lab" style="display:block;margin-bottom:6px;color:var(--ink)">Title</label><div class="fld" style="font-size:16px">Sufi Raat</div><div style="text-align:end;font-size:12px;color:var(--ink-muted);margin-top:4px">9 / 60</div></div>
+ <div class="row"><div><b style="font:600 16px Inter,sans-serif">Show lyrics</b><span class="meta">People can read along.</span></div><button class="sw" role="switch" aria-checked="true" aria-label="Show lyrics"></button></div>
+ <div class="row"><div><b style="font:600 16px Inter,sans-serif">Allow remixes</b><span class="meta" style="white-space:normal">Others can make a cover or remix. You're always credited.</span></div><button class="sw" role="switch" aria-checked="true" aria-label="Allow remixes"></button></div>
+ <div class="ban">${ic("info")}<div>Your song will show <b>Made with AI</b>. Anyone on Reelkar, and anyone with the link, can play it. You can make it private any time.</div></div>
+ <button class="b block">Publish song</button>
+</div>`;
+
+/* P3 done */
+const P3=`${sbar()}<div class="scr"><div class="bd nb">${studioTop}</div></div>
+<div class="dim"></div><div class="sheet" role="dialog" aria-label="Published">
+ <span class="grab"></span>
+ <div style="align-self:center;margin-top:6px">${cv(4,120,16)}</div>
+ <div class="win"><i>${ic("check","i",16)}</i>Your song is on Listen</div>
+ <p style="margin:0;color:var(--ink-muted);text-align:center">People can find it in New today.<br><span class="mono">reelkar.app/s/k3Lm9Qx2Ab</span></p>
+ <button class="b block">${ic("share","i",18)}Share link</button>
+ <button class="b sec block">See it on Listen</button>
+ <button class="b ghost block">Done</button>
+</div>`;
+
+document.getElementById("phones").innerHTML=[
+ phone("L1","Listen tab",L1,["Hero: the number that matters (new songs), one <b>Play all</b> in deep plum (chilli fails on saffron).","Language chips use native names and filter every rail; By language shows only when All is picked.","Tile = play (queue becomes the rest of the rail); title opens the song page; long-press for Play next, Add to queue, Not for me, Report.","Earn moves to a Home card and Account."]),
+ phone("FP","Full player",FPbody(),["Keeps the beat cover, sparkle dust, timed lyrics, waveform and themes.","New: @handle (opens the song page), Like / Not for me / React / Share, Previous and Next around the ±10 s buttons, and Queue with a count.","Not for me skips and tunes Autoplay: toast \"Got it. Fewer songs like this.\""],"fp"),
+ phone("Q1","Up next (queue sheet)",Q1,["Now playing, Next up with Remove (× or swipe, with Undo), and Clear (undoable, no dialog).","Autoplay is on by default: \"Keep the music going\". The 3 Autoplay picks are real, so what you see is what plays; thumb-down removes one.","Related = same genre +3, language +2, mood +1; skips songs heard this session, Not-for-me songs and your own; no creator twice in a row."],"fp"),
+ phone("S1","Song page (someone else's)",S1,["One hero; the chilli Play sits on the raised card where it passes contrast.","Reactions: 🔥 Fire, 💃 Dance, 🥹 Touched, 😂 Haha, 🙏 Respect, 🎉 Celebrate. One per person; counts show from 3 (Respect has 2 here, so no number). Selected = check + border.","Remix opens Song Studio's remix panel with this song; hidden if the creator turned remixes off or it's in their own voice.","Report on every public song, here and in ⋯."]),
+ phone("P1","Publish, step 1: handle",P1,["Only on first publish. Prefilled from the brand kit's Instagram handle, else the name; phone sign-ups (\"Creator 1234\") get suggestions only.","Live check with an icon and a word: yours / taken / rule error. Latin a–z, 0–9, dot, underscore.","Publish is a secondary button on the Studio card; the Studio's primary stays Make it a gift."]),
+ phone("P2","Publish, step 2",P2,["Title is editable; genre and language come from the song.","Show lyrics and Allow remixes on by default. Own-voice songs hide Allow remixes (forced off) and add \"Sung in your own voice\".","Publish re-runs the song safety checks; a blocked title says why and stays private. Free, no credits."]),
+ phone("P3","Published",P3,["Share link is the one primary: native share sheet with \"Listen to my new song 'Sufi Raat' 🎶 reelkar.app/s/…\".","The Studio card then shows On Listen, plays, likes and Make private."]),
+].join("");
+
+/* States */
+const skelTile=`<div class="tile"><div class="skel" style="width:148px;height:148px"></div><div class="skel" style="height:14px;margin-top:10px;width:80%"></div><div class="skel" style="height:12px;margin-top:6px;width:55%"></div></div>`;
+const Lload=`${sbar()}<div class="scr"><div class="bd"><div class="top"><h2 class="ttl">Listen</h2><span class="cr">${ic("coin")}42</span></div>
+ <div class="skel" style="height:190px;border-radius:28px"></div><div class="skel" style="height:40px;border-radius:99px"></div>
+ <div><div class="skel" style="height:22px;width:90px;margin-bottom:12px"></div><div class="rail">${skelTile+skelTile+skelTile}</div></div>
+ <div><div class="skel" style="height:22px;width:170px;margin-bottom:12px"></div><div class="rail">${skelTile+skelTile+skelTile}</div></div></div></div>${dock(null)}`;
+const Lempty=`${sbar()}<div class="scr"><div class="bd"><div class="top"><h2 class="ttl">Listen</h2><span class="cr">${ic("coin")}42</span></div>
+ <div class="chips">${["All","हिन्दी","Hinglish","தமிழ்","العربية"].map((c,k)=>`<button class="ch ${k===2+1?"on":""}">${k===3?ic("check","i",16):""}${c}</button>`).join("")}</div>
+ <div class="card" style="text-align:center;padding:28px 18px;display:flex;flex-direction:column;gap:10px;align-items:center">
+  <span class="ico" style="width:64px;height:64px;border-radius:20px">${ic("hp","i",32)}</span>
+  <div style="font:700 20px/1.3 'Bricolage Grotesque',sans-serif">No தமிழ் songs yet.<br>Make the first one?</div>
+  <p style="margin:0;color:var(--ink-muted)">Songs creators publish in Tamil will show up here.</p>
+  <button class="b">${ic("plus","i",18)}Make a song in Tamil</button>
+  <button class="lnk">Show all languages</button>
+ </div>
+ <div class="ban err">${ic("alert")}<div><b>Couldn't load songs.</b> Check your internet.<br><button class="b sec sm" style="margin-top:8px">Try again</button></div></div>
+</div></div>${dock(null)}`;
+const board=`<div class="shot"><h3><b>M1 · SC</b>Mini player and Studio card</h3><div class="board th">
+ <div class="lab">Mini player · queue playing (Next shown, × hidden; swipe down to close)</div>${mini(4)}
+ <div class="lab">Mini player · Autoplay picked this one</div>${mini(3,"Autoplay · @noor.dxb")}
+ <div class="lab">Mini player · your own private song (today's bar, × kept)</div>
+ <div class="mini">${cv(0,42,10)}<div><b>Baarish Wali Chai</b><small>Your song · Lo-fi Hindi</small></div><button class="pp" aria-label="Play">${ic("play","i",18)}</button><button class="nx" aria-label="Stop and close">${ic("x","i",20)}</button><span class="trk"><i style="width:12%"></i></span></div>
+ <div class="lab">Studio card · public</div>
+ <div class="card"><div class="row"><span class="ico">${ic("globe")}</span><div><span class="stat ok">${ic("check","i",14)}On Listen</span><span class="meta" style="margin-top:4px">214 plays · 31 likes · 12 reactions</span><span class="mono">reelkar.app/s/k3Lm9Qx2Ab</span></div></div>
+  <div style="display:flex;gap:8px;margin-top:12px"><button class="b sec sm" style="flex:1">${ic("share","i",16)}Share link</button><button class="b ghost sm" style="flex:1">Make private</button></div></div>
+ <div class="lab">Studio card · taken down</div>
+ <div class="card"><div class="row"><span class="ico" style="background:var(--coral-tint);color:var(--danger)">${ic("alert")}</span><div><span class="stat bad">${ic("alert","i",14)}Removed after a report</span><span class="meta" style="margin-top:4px;white-space:normal">It's private again. Reason: Copyright.</span></div></div>
+  <button class="b sec sm block" style="margin-top:12px">Ask for a review</button></div>
+</div><ul><li>The mini player keeps today's deep-plum bar; it adds Next and the @handle.</li><li>Make private asks first: "It leaves Listen and its link stops working. Plays and likes are kept if you publish it again."</li></ul></div>`;
+const toastPh=`${sbar()}<div class="scr"><div class="bd"><div class="top" style="margin:0 -8px"><button class="ib" aria-label="Back">${ic("back")}</button></div>
+ <div class="card" style="text-align:center;padding:28px 18px;display:flex;flex-direction:column;gap:10px;align-items:center;margin-top:40px">
+  <span class="ico" style="width:64px;height:64px;border-radius:20px">${ic("lock","i",30)}</span>
+  <div style="font:700 20px/1.3 'Bricolage Grotesque',sans-serif">This song is private now</div>
+  <p style="margin:0;color:var(--ink-muted)">The creator took it off Listen.</p>
+  <button class="b">Back to Listen</button></div></div></div>
+ <div class="toast" role="status"><span>Queue cleared</span><b>Undo</b></div>${dock(6)}`;
+document.getElementById("states").innerHTML=[
+ phone("L1","Loading",Lload,["Skeletons in surface-sunken, the same shapes as the content; no spinner."]),
+ phone("L1","Empty language, and an error",Lempty,["Empty filter offers to make the first song in that language (prefills Song Studio).","Error keeps cached rails visible under the banner."]),
+ phone("S1","Song made private + an Undo toast",toastPh,["Taken down: \"This song was removed after a report.\" Not found: \"We couldn't find this song. Check the link and try again.\"","Toasts are 4 s with Undo for Remove and Clear."]),
+ board,
+].join("");
+
+/* Web public page */
+const W={
+ en:{dir:"ltr",cls:"",app:"Get the app",ai:"Made with AI",plays:"12.4K plays · 1.1K likes",like:"Like",liked:"Liked",nfm:"Not for me",remix:"Remix in the app",share:"Share",lyr:"Lyrics",follow:"Follow along",more:"More like this",by:"By",next:"Next: Shubh Vivah by",in:"in 5",now:"Play now",cancel:"Cancel",own:"Make your own song",ownSub:"Free to start · about a minute",report:"Report",terms:"Terms",privacy:"Privacy",foot:"Made with AI on Reelkar",gone:"This song is private now. The creator took it off Listen.",find:"Find more songs",chips:["Sufi","हिन्दी","3:12"],rx:["Fire","Dance","Touched","Haha","Respect","Celebrate"]},
+ hi:{dir:"ltr",cls:"l-hi",app:"ऐप लें",ai:"AI से बना",plays:"12 हज़ार बार सुना गया · 1.1 हज़ार पसंद",like:"पसंद",liked:"पसंद किया",nfm:"मेरे लिए नहीं",remix:"ऐप में रीमिक्स करें",share:"शेयर करें",lyr:"बोल",follow:"साथ-साथ पढ़ें",more:"ऐसे और गाने",by:"",byAfter:" के गाने",next:"अगला: band.baaja का 'Shubh Vivah',",in:"5 सेकंड में",now:"अभी चलाएँ",cancel:"रद्द करें",own:"अपना गाना बनाएँ",ownSub:"शुरू करना मुफ़्त · लगभग एक मिनट",report:"शिकायत करें",terms:"शर्तें",privacy:"निजता",foot:"Reelkar पर AI से बना",gone:"यह गाना अब निजी है। बनाने वाले ने इसे हटा लिया है।",find:"और गाने खोजें",chips:["सूफ़ी","हिन्दी","3:12"],rx:["आग","नाचने वाला","दिल छू गया","मज़ेदार","सलाम","जश्न"]},
+ ar:{dir:"rtl",cls:"l-ar",app:"حمّل التطبيق",ai:"صُنع بالذكاء الاصطناعي",plays:"12 ألف مرة استماع · 1.1 ألف إعجاب",like:"إعجاب",liked:"أُعجبت",nfm:"ليست لي",remix:"ريمكس في التطبيق",share:"مشاركة",lyr:"الكلمات",follow:"تابع الكلمات",more:"أغانٍ مشابهة",by:"من ",next:"التالي: Shubh Vivah من",in:"خلال 5",now:"شغّل الآن",cancel:"إلغاء",own:"اصنع أغنيتك",ownSub:"البدء مجاني · دقيقة تقريبًا",report:"إبلاغ",terms:"الشروط",privacy:"الخصوصية",foot:"صُنع بالذكاء الاصطناعي على Reelkar",gone:"هذه الأغنية خاصة الآن. أزالها صانعها.",find:"اكتشف أغاني أخرى",chips:["صوفي","हिन्दी","3:12"],rx:["نار","رقص","مؤثّرة","مضحكة","احترام","احتفال"]},
+};
+const LYR=["चाँद की चादर ओढ़ के आई रात","तेरी याद में भीगी हर इक बात","दरगाह की चौखट पे जलता दिया","मेरे दिल ने बस तेरा नाम लिया","मौला मेरे, रौशन कर दे राह","सुबह तलक ये सफ़र चलता रहा"];
+const logo=`<div class="logo"><svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="#2a1235"/><circle cx="16" cy="16" r="9" fill="none" stroke="#ffb21a" stroke-width="3"/><circle cx="16" cy="16" r="2.5" fill="#ffb21a"/></svg>Reelkar</div>`;
+const handleIso=h=>`<bdi class="ltrtxt" dir="ltr">@${h}</bdi>`;
+function webParts(L){
+ const rx=["🔥","💃","🥹","😂","🙏","🎉"],n=[214,187,23,9,0,41];
+ const hero=`<div class="hero whero">${cv(4,280,18)}<b class="t" lang="hi" dir="auto">Sufi Raat</b><div class="by">${handleIso("faiz.raat")}</div>
+  <div class="chips2">${L.chips.map(c=>`<span class="pill">${c}</span>`).join("")}<span class="pill ai">${ic("spark")}${L.ai}</span></div>
+  <div class="wplay" dir="ltr"><button class="pb" aria-label="Pause Sufi Raat">${ic("pause","i",24)}</button><span class="tr"><i style="width:37%"></i></span><span class="mono">1:12 / 3:12</span></div></div>`;
+ const stats=`<div style="font:600 15px inherit">${L.plays}</div>
+  <div class="sacts" style="justify-content:flex-start;gap:6px"><button class="act on" aria-pressed="true">${ic("heartf","i f")}${L.liked}</button><button class="act">${ic("down")}${L.nfm}</button><button class="act">${ic("remix")}${L.remix}</button><button class="act">${ic("share")}${L.share}</button></div>
+  <div class="reacts">${rx.map((e,k)=>`<button class="rx" aria-pressed="${k===0}" aria-label="${L.rx[k]}${n[k]>=3?", "+n[k]:""}">${k===0?`<span class="ck">${ic("check","i",16)}</span>`:""}<span class="e">${e}</span>${n[k]>=3?n[k]:""}</button>`).join("")}</div>`;
+ const kar=`<div><div class="sh" style="margin-bottom:8px"><h4>${L.lyr}</h4><span class="meta">${L.follow}</span></div><div class="kar" lang="hi" dir="ltr"><ol aria-label="${L.lyr}">${LYR.map((l,k)=>k<1?`<li class="past">${l}</li>`:k===1?`<li class="now" aria-current="true"><em>तेरी याद में</em> भीगी हर इक बात</li>`:`<li>${l}</li>`).join("")}</ol></div></div>`;
+ const next=`<div class="nextc" role="status">${cv(6,48,10)}<div><b>${L.next} ${L===W.hi?"":handleIso("band.baaja")}</b><small>${L.in}</small></div><button class="b sm mint" style="background:var(--teal);color:var(--on-teal);box-shadow:none">${L.now}</button><button class="b ghost sm" style="color:var(--on-deep)">${L.cancel}</button></div>`;
+ const more=`<div><div class="sh"><h4>${L.more}</h4></div>${[6,0,2].map(i=>row(i,`<button class="rm" aria-label="Play">${ic("play","i",18)}</button>`)).join("")}</div>`;
+ const by=`<div><div class="sh"><h4>${L.by}${handleIso("faiz.raat")}${L.byAfter||""}</h4></div>${[7,3].map(i=>row(i)).join("")}</div>`;
+ const cta=`<div class="cta"><button class="b block">${L.own}</button><small>${L.ownSub}</small></div>`;
+ const foot=`<div class="wfoot"><span>${L.foot}</span><a href="#">${L.report}</a><a href="#">${L.terms}</a><a href="#">${L.privacy}</a></div>`;
+ return {hero,stats,kar,next,more,by,cta,foot};
+}
+function renderWeb(lang){
+ const L=W[lang],p=webParts(L);
+ const top=`<div class="wtop">${logo}<button class="b sec sm">${L.app}</button></div>`;
+ document.getElementById("webDesk").innerHTML=`<div class="web th ${L.cls}" dir="${L.dir}" lang="${lang}">${top}<div class="wbody"><div class="wl">${p.hero}${p.stats}</div><div class="wr">${p.kar}${p.next}<div class="twocol">${p.more}${p.by}</div>${p.cta}${p.foot}</div></div></div>`;
+ document.getElementById("webPhone").innerHTML=`<div class="web th ${L.cls}" dir="${L.dir}" lang="${lang}" style="min-height:100%">${top.replace('padding:14px 24px','')}<div class="wbody one">${p.hero}${p.stats}${p.kar}${p.next}${p.more}${p.by}${p.foot}${p.cta}</div></div>`;
+ document.getElementById("webGone").innerHTML=`<div class="web th ${L.cls}" dir="${L.dir}" lang="${lang}" style="min-height:100%">${top}<div class="wbody one"><div class="card" style="text-align:center;padding:30px 18px;display:flex;flex-direction:column;gap:12px;align-items:center;margin-top:30px"><span class="ico" style="width:64px;height:64px;border-radius:20px">${ic("lock","i",30)}</span><div style="font:700 20px/1.4 'Bricolage Grotesque',Hind,sans-serif">${L.gone}</div><button class="b">${L.find}</button></div>${p.foot}</div></div>`;
+ applyTheme();
+}
+let theme="light";
+function applyTheme(){document.querySelectorAll(".th").forEach(e=>{e.classList.toggle("t-light",theme==="light");e.classList.toggle("t-dark",theme==="dark")});
+ document.querySelectorAll(".ph").forEach(e=>{if(!e.classList.contains("th")){e.classList.add("th");}}); document.querySelectorAll(".ph").forEach(e=>{e.classList.toggle("t-light",theme==="light");e.classList.toggle("t-dark",theme==="dark")});}
+document.querySelectorAll("[data-theme-btn]").forEach(b=>b.onclick=()=>{theme=b.dataset.themeBtn;document.querySelectorAll("[data-theme-btn]").forEach(x=>x.setAttribute("aria-pressed",x===b));applyTheme()});
+document.querySelectorAll("[data-lang-btn]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-lang-btn]").forEach(x=>x.setAttribute("aria-pressed",x===b));renderWeb(b.dataset.langBtn)});
+document.addEventListener("click",e=>{const s=e.target.closest(".sw");if(s)s.setAttribute("aria-checked",s.getAttribute("aria-checked")!=="true");const r=e.target.closest(".rx");if(r)r.setAttribute("aria-pressed",r.getAttribute("aria-pressed")!=="true")});
+renderWeb("en");
+</script>
+</body>
+</html>

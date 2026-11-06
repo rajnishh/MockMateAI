@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Remix Chains</title>
+<meta name="description" content="Reelkar community feature 4: remix chains with credit. Clickable iPhone mockups (song page Remixes section, Remix, family tree, maker controls, Inbox, Earnings) and the web song page's Remixes section at desktop and phone width, in light and dark, English, Hindi and Arabic." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Inter:wght@400..700&family=Hind:wght@400;600;700&family=Noto+Sans+Arabic:wght@400..800&display=swap" rel="stylesheet" />
+<style>
+/* Masala Pop tokens (design/v3.0/tokens.json), by name; same mapping as design/community/mockups.html */
+.t-light{--surface:#fff7ee;--surface-raised:#fff;--surface-sunken:#fbebdb;--surface-overlay:#fff;--line:#f0ddcb;--line-strong:#9a7f8c;--ink:#2a1235;--ink-muted:#6e5866;
+ --brand:#ff7a1a;--on-brand:#2a1235;--on-brand-muted:#47243d;--hero:linear-gradient(135deg,#ffb21a 0%,#ff7a1a 100%);--hero-ring:rgba(255,255,255,.22);--chip:rgba(42,18,53,.10);
+ --deep:#2a1235;--on-deep:#fff;--deep-muted:#cdb7c4;--action:#d9381c;--on-action:#fff;--teal:#14d9a0;--on-teal:#062b22;--teal-text:#0a7a58;--teal-tint:#ddf8ee;
+ --coral:#ff4d2e;--coral-text:#c2330f;--coral-tint:#ffe4da;--pop:#ffb21a;--on-pop:#2a1235;--success:#1e7a4c;--danger:#b42318;--focus-ring:#2a1235;--scrim:rgba(42,18,53,.55)}
+.t-dark{--surface:#150a1a;--surface-raised:#24142b;--surface-sunken:#0e0611;--surface-overlay:#2e1a36;--line:#3a2443;--line-strong:#7a5f86;--ink:#fff1e6;--ink-muted:#c2a9b8;
+ --brand:#ff7a1a;--on-brand:#2a1235;--on-brand-muted:#47243d;--hero:linear-gradient(135deg,#ffb21a 0%,#ff7a1a 100%);--hero-ring:rgba(255,255,255,.2);--chip:rgba(255,241,230,.12);
+ --deep:#0b050d;--on-deep:#fff1e6;--deep-muted:#a993a2;--action:#ff5a3c;--on-action:#150a1a;--teal:#2bf0b5;--on-teal:#062b22;--teal-text:#2bf0b5;--teal-tint:#0e2a24;
+ --coral:#ff5a3c;--coral-text:#ff8a6b;--coral-tint:#2e1218;--pop:#ffc23d;--on-pop:#2a1235;--success:#5fd39a;--danger:#ff8b7e;--focus-ring:#2bf0b5;--scrim:rgba(0,0,0,.65)}
+:root{--page:#ece6df;--page-ink:#2a1235;--page-muted:#6e5866;--page-line:rgba(42,18,53,.16)}
+:root[data-theme="dark"]{--page:#060308;--page-ink:#fff1e6;--page-muted:#c2a9b8;--page-line:rgba(255,241,230,.16)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--page:#060308;--page-ink:#fff1e6;--page-muted:#c2a9b8;--page-line:rgba(255,241,230,.16)}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--page);color:var(--page-ink);font:15px/1.5 Inter,system-ui,sans-serif}
+button{font:inherit;color:inherit}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--focus-ring,#2a1235);outline-offset:2px}
+svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.wrap{max-width:1360px;margin:0 auto;padding:28px 16px 64px}
+h1.pg{font:800 clamp(28px,4vw,40px)/1.1 "Bricolage Grotesque",sans-serif;margin:0 0 6px;letter-spacing:-.02em}
+.lede{color:var(--page-muted);margin:0 0 16px;max-width:860px}
+.bar{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:24px;align-items:center}
+.seg{display:inline-flex;gap:4px;flex-wrap:wrap;align-items:center}
+.seg>span{font:700 12px Inter,sans-serif;color:var(--page-muted);margin-inline-end:4px}
+.seg button{font:600 14px Inter,Hind,"Noto Sans Arabic",sans-serif;min-height:40px;padding:6px 14px;border-radius:999px;border:1px solid var(--page-line);background:transparent;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--page-ink);color:var(--page);border-color:var(--page-ink)}
+h2.sec{font:800 24px "Bricolage Grotesque",sans-serif;margin:40px 0 4px}
+.cap{color:var(--page-muted);font-size:14px;margin:0 0 14px;max-width:880px}
+.ph-row{display:grid;grid-template-columns:230px 395px minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:1180px){.ph-row{grid-template-columns:1fr}.stage{justify-self:center}}
+.idx{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;padding-inline-end:4px}
+@media (max-width:1180px){.idx{position:static;max-height:none;display:flex;flex-wrap:wrap;gap:6px}.idx h4{width:100%}}
+.idx h4{font:700 11px Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--page-muted);margin:14px 0 4px}
+.idx button{display:flex;gap:8px;align-items:center;width:100%;text-align:start;min-height:36px;padding:6px 10px;border:0;border-radius:10px;background:transparent;cursor:pointer;font-size:14px}
+@media (max-width:1180px){.idx button{width:auto;border:1px solid var(--page-line)}}
+.idx button b{font:700 11px ui-monospace,monospace;color:var(--page-muted);min-width:30px}
+.idx button[aria-current="true"]{background:var(--page-ink);color:var(--page)}
+.idx button[aria-current="true"] b{color:inherit}
+.stage{display:flex;flex-direction:column;align-items:center;gap:10px}
+.pn{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--page-muted)}
+.pn button{min-width:44px;min-height:44px;border-radius:999px;border:1px solid var(--page-line);background:transparent;cursor:pointer;display:grid;place-items:center}
+.notes{background:color-mix(in srgb,var(--page-ink) 5%,transparent);border:1px solid var(--page-line);border-radius:20px;padding:18px 20px;font-size:14px}
+.notes h3{font:800 20px "Bricolage Grotesque",sans-serif;margin:0 0 4px}
+.notes .rt{font:12px ui-monospace,monospace;color:var(--page-muted);margin:0 0 10px;word-break:break-word}
+.notes ul{margin:0;padding-inline-start:18px}.notes li{margin:0 0 6px}
+.notes .re{margin:10px 0 0;color:var(--page-muted)}
+.notes .seg{margin:12px 0 0}
+.tag{display:inline-block;font:700 10px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:6px;background:var(--pop,#ffb21a);color:#2a1235;vertical-align:middle}
+.tag.g{background:var(--page-line);color:inherit}
+
+/* iPhone frame */
+.ph{width:375px;height:800px;border-radius:52px;border:11px solid #0b0b0e;box-shadow:0 30px 70px -28px rgba(0,0,0,.5);position:relative;overflow:hidden;background:var(--surface);color:var(--ink);flex:none}
+@media (max-width:420px){.ph{zoom:.86}}
+.island{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:112px;height:32px;border-radius:20px;background:#000;z-index:30}
+.sbar{position:absolute;top:0;inset-inline:0;height:50px;display:flex;justify-content:space-between;align-items:center;padding:6px 30px 0;font:600 15px Inter,sans-serif;z-index:25;direction:ltr;pointer-events:none}
+.sbar .r{display:flex;gap:5px;align-items:center}.sbar .r i{display:block;width:24px;height:11px;border:1.5px solid currentColor;border-radius:4px;position:relative}.sbar .r i::after{content:"";position:absolute;inset:1.5px;width:60%;background:currentColor;border-radius:1px}
+.homei{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:130px;height:5px;border-radius:5px;background:var(--ink);opacity:.85;z-index:30;pointer-events:none}
+.scr{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;padding-top:50px;scrollbar-width:none;font-family:Inter,system-ui,sans-serif}
+.scr::-webkit-scrollbar{display:none}
+.bd{padding:6px 16px 16px;display:flex;flex-direction:column;gap:14px}
+.l-hi{font-family:Inter,Hind,sans-serif;line-height:1.6}
+.l-hi .hd,.l-hi h3,.l-hi .sh{font-family:"Bricolage Grotesque",Hind,sans-serif;line-height:1.3!important;letter-spacing:0!important}
+.l-ar,.l-ar *{font-family:"Noto Sans Arabic",system-ui,sans-serif!important;letter-spacing:0!important}
+.l-ar{line-height:1.6}.l-ar .hd,.l-ar .sh,.l-ar h3{line-height:1.35!important}
+.ltr{direction:ltr;unicode-bidi:isolate}
+bdi{unicode-bidi:isolate}
+
+/* app parts */
+.hdr{display:flex;align-items:center;gap:10px;padding:6px 12px}
+.hdr .tt{flex:1;min-width:0}.hdr .tt b{display:block;font:800 22px/1.2 "Bricolage Grotesque",sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hdr .tt small{display:block;color:var(--ink-muted);font-size:13px}
+.ib{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;border:0;background:transparent;cursor:pointer;color:var(--ink);flex:none}
+[dir="rtl"] .flip{transform:scaleX(-1)}
+.cr{display:inline-flex;align-items:center;gap:6px;font:700 13px Inter,sans-serif;padding:6px 12px;border-radius:99px;background:var(--surface-raised);border:1px solid var(--line);white-space:nowrap}
+.cr svg.i{width:16px;height:16px;color:var(--coral-text)}
+.hero{background:var(--hero);color:var(--on-brand);position:relative;overflow:hidden;border-radius:28px;padding:18px}
+.hero::after{content:"";position:absolute;inset-inline-end:-70px;top:-60px;width:220px;height:220px;border-radius:50%;border:26px solid var(--hero-ring);pointer-events:none}
+.hero>*{position:relative;z-index:1}
+.hero .ov{font:700 13px Inter,sans-serif;color:var(--on-brand-muted)}
+.hd{font:800 26px/1.15 "Bricolage Grotesque",sans-serif;letter-spacing:-.01em;margin:4px 0}
+.hero p{margin:0;color:var(--on-brand-muted);font-size:14px}
+.card{background:var(--surface-raised);border:1px solid var(--line);border-radius:22px;padding:14px}
+.card.flat{background:var(--surface-sunken);border-color:transparent}
+.card.tint{background:var(--teal-tint);border-color:transparent}
+.dcard{background:var(--deep);color:var(--on-deep);border-radius:22px;padding:14px;display:flex;gap:12px;align-items:center}
+.dcard small{display:block;color:var(--deep-muted);font-size:13px}
+.dcard b{display:block;font:800 18px/1.25 "Bricolage Grotesque",sans-serif}
+.sh{font:800 18px/1.25 "Bricolage Grotesque",sans-serif;margin:0}
+.b{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:8px 22px;border-radius:999px;border:0;cursor:pointer;font:700 15px/1.25 Inter,sans-serif;background:var(--action);color:var(--on-action);box-shadow:0 3px 0 color-mix(in srgb,var(--action) 55%,#000);text-align:center;text-decoration:none}
+.b.block{width:100%}
+.b.sm{min-height:44px;padding:6px 16px;font-size:14px}
+.b.sec{background:var(--surface-raised);color:var(--ink);border:1.5px solid var(--line-strong);box-shadow:none}
+.b.ghost{background:transparent;color:var(--ink);box-shadow:none}
+.b.deep{background:var(--deep);color:var(--on-deep);box-shadow:0 3px 0 rgba(0,0,0,.35)}
+.t-dark .b.deep{background:var(--ink);color:var(--surface)}
+.b.tweak{background:var(--teal);color:var(--on-teal);box-shadow:0 3px 0 color-mix(in srgb,var(--teal) 55%,#000)}
+.b[disabled]{background:var(--surface-sunken);color:var(--ink-muted);box-shadow:none;border:1.5px dashed var(--line-strong);cursor:not-allowed}
+.new{outline:3px dashed var(--teal-text);outline-offset:3px}
+.pill{display:inline-flex;align-items:center;gap:5px;font:700 12px/1.3 Inter,sans-serif;padding:4px 9px;border-radius:99px;background:var(--chip);color:var(--ink);white-space:nowrap}
+.pill svg.i{width:13px;height:13px}
+.pill.org{background:var(--pop);color:var(--on-pop)}
+.pill.here{background:var(--teal);color:var(--on-teal)}
+.pill.ai{background:var(--deep);color:var(--on-deep)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.ch{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:6px 14px;border-radius:999px;border:1.5px solid var(--line-strong);background:transparent;font:600 14px Inter,sans-serif;cursor:pointer;color:var(--ink);text-align:start}
+.ch.on{background:var(--deep);color:var(--on-deep);border-color:var(--deep)}
+.t-dark .ch.on{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.ch small{font-weight:700;opacity:.8}
+.ch[disabled]{border-style:dashed;color:var(--ink-muted);cursor:not-allowed}
+.lb{display:block;font:700 13px Inter,sans-serif;margin:0 0 6px}
+.in{min-height:48px;border-radius:14px;border:1.5px solid var(--line-strong);background:var(--surface-raised);padding:12px 14px;font-size:15px;display:flex;align-items:center;gap:8px}
+.in.ta{align-items:flex-start;min-height:96px;white-space:pre-line}
+.in .pt{color:var(--ink-muted)}
+.capn{font-size:13px;color:var(--ink-muted);margin:0}
+.ft{position:sticky;bottom:0;margin-top:auto;padding:12px 16px 30px;background:linear-gradient(to top,var(--surface) 75%,transparent);display:flex;flex-direction:column;gap:6px;z-index:5;text-align:center}
+.win{display:flex;align-items:center;gap:10px;background:var(--teal-tint);color:var(--teal-text);border-radius:16px;padding:12px 14px;font-weight:700}
+.ban{display:flex;gap:10px;align-items:flex-start;border-radius:16px;padding:12px 14px;font-size:14px;background:var(--teal-tint);color:var(--ink)}
+.ban.err{background:var(--coral-tint)}
+.ban.err>svg.i{color:var(--danger)}
+.ban div{flex:1}.ban b{display:block}
+.row{display:flex;align-items:center;gap:12px}
+.row>div:not(.cov){flex:1;min-width:0}
+.row small{display:block;color:var(--ink-muted);font-size:13px}
+.lr{display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 0;border:0;border-bottom:1px solid var(--line);cursor:pointer;background:none;width:100%;text-align:start;color:var(--ink);text-decoration:none}
+.lr:last-child{border-bottom:0}
+.lr .ico{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:var(--coral-tint);color:var(--coral-text);flex:none}
+.lr>div:not(.cov){flex:1;min-width:0}.lr b{display:block;font-size:15px;line-height:1.3}.lr small{display:block;color:var(--ink-muted);font-size:13px}
+.lr .amt{font:800 15px Inter,sans-serif;white-space:nowrap}
+.av{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font:800 15px Inter,sans-serif;flex:none;color:#2a1235}
+.pl{display:flex;align-items:center;gap:12px;direction:ltr}
+.pbtn{width:56px;height:56px;border-radius:50%;border:0;display:grid;place-items:center;background:var(--deep);color:var(--on-deep);cursor:pointer;flex:none}
+.pbtn.sm{width:44px;height:44px}
+.t-dark .pbtn{background:var(--ink);color:var(--surface)}
+.dcard .pbtn{background:var(--on-deep);color:var(--deep)}
+.pbtn svg.i{width:22px;height:22px}
+.trk{flex:1;height:6px;border-radius:99px;background:var(--surface-sunken);position:relative;overflow:hidden}
+.trk i{position:absolute;inset-block:0;left:0;background:var(--action);border-radius:99px}
+.tc{font:600 12px ui-monospace,monospace;color:var(--ink-muted);white-space:nowrap}
+.cov{border-radius:12px;overflow:hidden;flex:none!important;position:relative}
+.cov svg{display:block;width:100%;height:100%}
+.tabbar{position:sticky;bottom:12px;margin:auto 12px 12px;background:var(--deep);color:var(--on-deep);border-radius:24px;display:flex;justify-content:space-around;align-items:center;padding:8px 4px;font:600 10px Inter,sans-serif;z-index:6}
+.tabbar span{display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--deep-muted);min-width:48px}
+.tabbar span.on{color:var(--teal)}
+.tabbar .plus{width:46px;height:46px;border-radius:50%;background:var(--action);color:var(--on-action);display:grid;place-items:center}
+.sheet{background:var(--surface-overlay);border-radius:28px 28px 0 0;padding:10px 16px 30px;display:flex;flex-direction:column;gap:14px}
+.grab{width:40px;height:5px;border-radius:5px;background:var(--line-strong);margin:0 auto 4px;opacity:.6}
+.ovl{position:absolute;inset:0;background:var(--scrim);z-index:20;display:flex;flex-direction:column;justify-content:flex-end}
+.dim{opacity:.35;pointer-events:none;filter:saturate(.6)}
+.tgl{display:flex;align-items:center;gap:12px;min-height:52px}
+.tgl>div{flex:1}
+.sw{width:51px;height:31px;border-radius:99px;background:var(--line-strong);position:relative;flex:none;border:0;cursor:pointer}
+.sw::after{content:"";position:absolute;top:2px;inset-inline-start:2px;width:27px;height:27px;border-radius:50%;background:#fff;transition:inset-inline-start .2s}
+.sw[aria-checked="true"]{background:var(--teal-text)}
+.sw[aria-checked="true"]::after{inset-inline-start:22px}
+.vote{flex:1;min-height:48px;border-radius:99px;border:1px solid var(--line-strong);display:flex;align-items:center;justify-content:center;gap:8px;font:700 14px Inter,sans-serif;background:transparent;color:var(--ink)}
+.wave{display:flex;align-items:center;gap:2px;height:64px;direction:ltr;position:relative;border-radius:12px;background:var(--surface-sunken);padding:0 8px;overflow:hidden}
+.wave i{flex:1;background:var(--line-strong);border-radius:2px}
+.wave i.in{background:var(--action)}
+.wave .hdl{position:absolute;top:4px;bottom:4px;width:4px;border-radius:3px;background:var(--ink)}
+.lock-s .sbar{color:#fff}.lock-s .homei{background:#fff}
+.lock-s .scr{background:linear-gradient(180deg,#2a1235 0%,#4a1f3f 55%,#ff7a1a 140%);color:#fff}
+.notif{background:rgba(255,255,255,.18);border-radius:22px;padding:12px 14px;display:flex;gap:10px;cursor:pointer;border:0;color:#fff;text-align:start;width:100%}
+.notif div{flex:1}.notif b{display:block;font-size:15px}.notif small{opacity:.9}
+
+/* Remixes section + family tree */
+.path{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.path li{display:flex;align-items:center;gap:10px;min-height:52px;position:relative;padding-inline-start:4px}
+.path li+li::before{content:"";position:absolute;inset-inline-start:23px;top:-12px;height:16px;border-inline-start:2px solid var(--line-strong)}
+.path a,.path .me{display:flex;align-items:center;gap:10px;flex:1;min-width:0;text-decoration:none;color:var(--ink);min-height:48px}
+.path .me b{font-weight:800}
+.path div:not(.cov){flex:1;min-width:0}.path b{display:block;font-size:14px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.path small{display:block;color:var(--ink-muted);font-size:12.5px}
+.path .moreN{width:40px;height:40px;border-radius:12px;border:1.5px dashed var(--line-strong);display:grid;place-items:center;font:800 12px Inter,sans-serif;color:var(--ink-muted);flex:none}
+.rrow{display:flex;align-items:center;gap:12px;min-height:64px;padding:8px 0;border-bottom:1px solid var(--line);text-decoration:none;color:var(--ink);cursor:pointer;background:none;border-inline:0;border-top:0;width:100%;text-align:start}
+.rrow:last-of-type{border-bottom:0}
+.rrow>div:not(.cov){flex:1;min-width:0}
+.rrow b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:15px;line-height:1.3;overflow:hidden}
+.rrow small{display:block;color:var(--ink-muted);font-size:13px}
+.rmeta{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:none}
+.foot-link{display:flex;align-items:center;gap:10px;min-height:52px;padding:4px 0 0;font-weight:700;color:var(--ink);text-decoration:none;cursor:pointer;background:none;border:0;width:100%;text-align:start;border-top:1px solid var(--line);margin-top:4px}
+.foot-link span{flex:1}
+.tree{list-style:none;margin:0;padding:0}
+.tree ul{list-style:none;margin:0;padding:0;padding-inline-start:12px;margin-inline-start:14px;border-inline-start:2px solid var(--line-strong)}
+.tree ul.flat{padding-inline-start:0;margin-inline-start:0;border:0}
+.tree li{position:relative;padding-top:8px}
+.tree ul>li::before{content:"";position:absolute;inset-inline-start:-12px;top:36px;width:10px;border-top:2px solid var(--line-strong)}
+.tn{display:flex;align-items:center;gap:10px;min-height:60px;padding:8px 10px;border-radius:16px;background:var(--surface-raised);border:1px solid var(--line);text-decoration:none;color:var(--ink);cursor:pointer;width:100%;text-align:start}
+.tn>div:not(.cov){flex:1;min-width:0}
+.tn b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:14.5px;line-height:1.3;overflow:hidden}
+.tn small{display:block;color:var(--ink-muted);font-size:12.5px}
+.tn.root{background:var(--surface-sunken);border-color:transparent}
+.tn.here{background:var(--teal-tint);border-color:var(--teal-text)}
+.tn.gone{background:transparent;border:1.5px dashed var(--line-strong);cursor:default}
+.tn.gone i.gc{width:40px;height:40px;border-radius:10px;border:1.5px dashed var(--line-strong);flex:none;display:grid;place-items:center;color:var(--ink-muted)}
+.lvl{font:700 11px Inter,sans-serif;color:var(--ink-muted)}
+.smore{min-height:44px;border:0;background:none;cursor:pointer;font:700 14px Inter,sans-serif;color:var(--coral-text);padding:6px 4px;display:inline-flex;align-items:center;gap:6px}
+.tree li.appear{animation:fadeIn .25s ease-out both}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.rm .tree li.appear{animation:none}
+@media (prefers-reduced-motion:reduce){.tree li.appear{animation:none}.sw::after{transition:none}}
+.big{font:800 46px/1.05 "Bricolage Grotesque",sans-serif;margin:2px 0 4px}
+.how{margin:0;padding-inline-start:20px;display:flex;flex-direction:column;gap:8px;font-size:14px}
+.skel{border-radius:12px;background:linear-gradient(90deg,var(--surface-sunken),var(--line),var(--surface-sunken));background-size:200% 100%;animation:sk 1.4s linear infinite}
+@keyframes sk{to{background-position:-200% 0}}
+.rm .skel{animation:none}
+@media (prefers-reduced-motion:reduce){.skel{animation:none}}
+
+/* web */
+.desk{border-radius:16px;overflow:hidden;box-shadow:0 30px 70px -30px rgba(0,0,0,.45);border:1px solid var(--page-line);max-width:1060px}
+.chrome{height:36px;background:#1b1b1f;display:flex;align-items:center;gap:6px;padding:0 12px;direction:ltr}
+.chrome i{width:11px;height:11px;border-radius:50%;background:#555}
+.chrome span{margin-left:14px;font:12px Inter,sans-serif;color:#bbb;background:#2a2a30;padding:3px 16px;border-radius:6px}
+.dview{height:720px;overflow:auto;position:relative}
+.webrow{display:grid;grid-template-columns:minmax(0,1fr) 395px;gap:24px;align-items:start}
+@media (max-width:1180px){.webrow{grid-template-columns:1fr}.webrow .ph{justify-self:center}}
+.deskscroll{overflow-x:auto}
+.deskscroll .desk{min-width:900px}
+.safari{display:flex;align-items:center;gap:8px;padding:2px 12px 8px;direction:ltr;color:var(--ink)}
+.safari span{flex:1;background:var(--surface-sunken);border-radius:12px;min-height:36px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px}
+.wp{background:var(--surface);color:var(--ink);min-height:100%;display:flex;flex-direction:column}
+.wph{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.wph .wm{font:800 18px "Bricolage Grotesque",sans-serif;flex:1;display:flex;align-items:center;gap:8px}
+.wbody{padding:16px;display:flex;flex-direction:column;gap:16px;flex:1}
+.wide .wph{padding:16px 32px}
+.wide .wbody{padding:24px 32px;display:grid;grid-template-columns:minmax(0,1fr) 350px;gap:32px;align-items:start}
+.wide .side{position:sticky;top:0}
+.wide.fam .wbody{display:flex;flex-direction:column;max-width:760px}
+.row>.b{flex:1}
+.wsong{display:flex;flex-direction:column;gap:12px}
+
+.wsong .top{display:flex;flex-direction:column;gap:12px}
+.wide .wsong .top{flex-direction:row;gap:24px;align-items:flex-end}
+.wtitle{font:800 30px/1.15 "Bricolage Grotesque",sans-serif;margin:0}
+.wide .wtitle{font-size:40px}
+.l-hi .wtitle,.l-ar .wtitle{line-height:1.35}
+.credit{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:8px 14px;border-radius:14px;background:var(--teal-tint);color:var(--teal-text);font-weight:700;font-size:14px;text-decoration:none;align-self:flex-start}
+.acts{display:flex;flex-wrap:wrap;gap:8px}
+.acts .vote{flex:0 1 auto;padding:0 16px}
+.wfoot{padding:14px 16px 20px;font-size:13px;color:var(--ink-muted);display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;border-top:1px solid var(--line)}
+.wide .wfoot{padding:16px 32px 24px}
+.wfoot a{color:var(--ink);font-weight:700;min-height:44px;display:inline-flex;align-items:center;gap:6px;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.lyr{white-space:pre-line;margin:0;font-size:15px;line-height:1.7}
+.note{margin-top:40px;color:var(--page-muted);font-size:14px;max-width:920px;border-top:1px solid var(--page-line);padding-top:18px}
+.note b{color:var(--page-ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="pg">Remix chains with credit</h1>
+  <p class="lede">Reelkar community feature 4, on Masala Pop v3.0. Tap inside a phone to move through the flow, or pick a screen from the index. Spec: <code>design/community/remix-spec.md</code>. The 10% share is a <span class="tag">placeholder</span>; prices are today’s catalog (cover, extend, rap 1 credit; new words, new beat 6).</p>
+  <div class="bar">
+    <div class="seg" role="group" aria-label="Theme"><span>Theme</span><button type="button" data-theme-btn="light">Light</button><button type="button" data-theme-btn="dark">Dark</button></div>
+    <div class="seg" role="group" aria-label="Language"><span>Language</span><button type="button" data-lang-btn="en">English</button><button type="button" data-lang-btn="hi">हिन्दी</button><button type="button" data-lang-btn="ar">العربية · RTL</button></div>
+    <div class="seg" role="group" aria-label="Motion"><span>Motion</span><button type="button" data-rm-btn="0">Full</button><button type="button" data-rm-btn="1">Reduced</button></div>
+  </div>
+  <p class="cap">Language switches the screens marked <b>EN·HI·AR</b> and the web page. Song titles and @handles are the creators’ own and stay as written. Dashed mint outlines mark what is new on an existing screen.</p>
+
+  <h2 class="sec">iPhone screens</h2>
+  <p class="cap">Listener → remixer, the family tree, the original maker’s controls and notifications, and the Earnings screen shared with reel recipes.</p>
+  <div class="ph-row">
+    <nav class="idx" id="idx" aria-label="Screen index"></nav>
+    <div class="stage">
+      <div id="phone"></div>
+      <div class="pn"><button type="button" id="prev" aria-label="Previous screen"><svg class="i" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button><span id="pos" aria-live="polite"></span><button type="button" id="next" aria-label="Next screen"><svg class="i" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button></div>
+    </div>
+    <aside class="notes" id="notes" aria-live="polite"></aside>
+  </div>
+
+  <h2 class="sec">Web song page: Remixes section</h2>
+  <p class="cap"><code>/s/{publicId}</code>, no sign-in needed to see it. Desktop (≥ 960 px) puts Remixes in a sticky right column; phone width stacks it after the lyrics. Pick a state; both widths show it.</p>
+  <div class="seg" role="group" aria-label="Web page state" id="wstates" style="margin-bottom:16px"></div>
+  <div class="webrow">
+    <div class="deskscroll"><div class="desk"><div class="chrome"><i></i><i></i><i></i><span id="wurl">reelkar.app/s/Lq8vT2mXk4</span></div><div class="dview" id="wdesk"></div></div></div>
+    <div id="wphone"></div>
+  </div>
+
+  <div class="note">
+    <p><b>Decisions in these mocks.</b> Remix stays the second button on a song page (Play is primary); on the Remix screen the one primary says what it makes and what it costs (“Make cover · 1 credit”). The credit card names exactly one person who earns: the maker of the song you remixed. The family tree is an outline, not a node graph, so it scrolls, wraps at 200% text, mirrors in Arabic and works on the web without JavaScript.</p>
+    <p><b>Voice rule.</b> Remixes are sung by AI singers. Songs in someone’s own voice show no Remix button. The original maker’s voice is never offered to anyone.</p>
+    <p><b>Legally required only.</b> Report and “Made with AI” on every public page (song page and family tree page). Nothing else is gated.</p>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
+const I={
+back:'<path d="M15 18l-6-6 6-6"/>',chev:'<path d="M9 6l6 6-6 6"/>',music:'<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
+play:'<path d="M8 5.5v13l11-6.5z" fill="currentColor"/>',pause:'<path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor" stroke="none"/>',
+share:'<path d="M12 3v12M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/>',flag:'<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
+heart:'<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/>',down:'<path d="M7 14V4M7 14l4 7c1.5 0 2.5-1 2.3-2.5L13 15h5.5a2 2 0 0 0 2-2.3l-1.2-7A2 2 0 0 0 17.3 4H7"/>',
+coin:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 9.5c0-1.4 1.3-2.5 3-2.5s3 1 3 2.3c0 2.9-6 1.8-6 4.9 0 1.3 1.3 2.3 3 2.3s3-1.1 3-2.5"/>',
+lock:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',check:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',spark:'<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>',
+x:'<path d="M6 6l12 12M18 6L6 18"/>',inbox:'<path d="M3 13l3-8h12l3 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M3 13h5l1 2h6l1-2h5"/>',home:'<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>',
+plus:'<path d="M12 5v14M5 12h14"/>',cal:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>',head:'<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="7" rx="2"/><rect x="17" y="14" width="4" height="7" rx="2"/>',
+tree:'<circle cx="6" cy="5" r="2.5"/><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="12" r="2.5"/><path d="M6 7.5v9M6 12h9.5"/>',info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',
+wifi:'<path d="M2 2l20 20M8.5 16.5a5 5 0 0 1 7 0M5 12.5a10 10 0 0 1 4-2.4M19 12.5a10 10 0 0 0-3-2M12 20h.01"/>',refresh:'<path d="M20 11a8 8 0 0 0-14.6-4.6L4 8M4 4v4h4M4 13a8 8 0 0 0 14.6 4.6L20 16M20 20v-4h-4"/>',
+user:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',eye:'<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'
+};
+const ic=(n,c='')=>`<svg class="i ${c}" viewBox="0 0 24 24" aria-hidden="true">${I[n]||''}</svg>`;
+const logo=(s=28)=>`<svg width="${s}" height="${s}" viewBox="0 0 40 40" aria-hidden="true" style="flex:none"><rect width="40" height="40" rx="11" fill="#2a1235"/><circle cx="20" cy="20" r="11" fill="#ffb21a"/><g fill="#2a1235"><circle cx="20" cy="13.5" r="2.6"/><circle cx="26.2" cy="18" r="2.6"/><circle cx="23.8" cy="25.3" r="2.6"/><circle cx="16.2" cy="25.3" r="2.6"/><circle cx="13.8" cy="18" r="2.6"/><circle cx="20" cy="20" r="1.4"/></g></svg>`;
+/* Flat covers, no images */
+const PAL=[['#2a1235','#ffb21a','#ff7a1a'],['#14d9a0','#2a1235','#ffb21a'],['#ff4d2e','#2a1235','#fff1e6'],['#3a1640','#ff7a1a','#14d9a0'],['#ffb21a','#2a1235','#ff4d2e'],['#0e2a24','#2bf0b5','#ffb21a'],['#b5552e','#ffe4da','#2a1235']];
+function cov(n,px,r){const [a,b,c]=PAL[n%PAL.length];const v=n%3;
+ const art=v===0?`<rect width="100" height="100" fill="${a}"/><circle cx="74" cy="30" r="30" fill="${b}"/><path d="M0 78c20-14 40-14 60 0s30 14 40 6v16H0z" fill="${c}"/>`
+ :v===1?`<rect width="100" height="100" fill="${a}"/><g fill="${b}"><rect x="14" y="40" width="9" height="40" rx="4"/><rect x="30" y="24" width="9" height="56" rx="4"/><rect x="46" y="34" width="9" height="46" rx="4"/><rect x="62" y="16" width="9" height="64" rx="4"/><rect x="78" y="44" width="9" height="36" rx="4"/></g><circle cx="20" cy="18" r="8" fill="${c}"/>`
+ :`<rect width="100" height="100" fill="${a}"/><circle cx="50" cy="56" r="34" fill="${b}"/><circle cx="50" cy="56" r="12" fill="${c}"/><path d="M50 22v-12" stroke="${c}" stroke-width="6"/>`;
+ return `<div class="cov" style="width:${px}px;height:${px}px;border-radius:${r||Math.round(px/4)}px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${art}</svg></div>`;}
+
+/* ---------- strings ---------- */
+const STR={
+en:{remixes:'Remixes',ofThis:'Remixes of this song',cameFrom:'Where it came from',original:'Original',thisSong:'This song',empty:'No remixes yet. Be the first.',
+ tree:n=>`See the family tree · ${n} songs`,treeT:'Family tree',songsN:n=>`${n} songs`,gone:'No longer available',goneSub:'Removed or made private',more:n=>`Show ${n} more`,top:'Top',newest:'Newest',
+ off:h=>`${h} has turned off new remixes.`,remixing:'Remixing',pick:'What do you want to make?',
+ k:{cover:'Cover',extend:'Extend',rap:'Rap over it',words:'New words',beat:'New beat'},
+ kh:{cover:'Sing it again in another style.',extend:'Make it longer. Write the new lines.',rap:'Pick a part. AI writes the bars, or you do.',words:'Your words on this music.',beat:'New music under these vocals.'},
+ p:{cover:'Cover',extend:'Extended',rap:'Rap',words:'New words',beat:'New beat'},mk:{cover:'cover',extend:'longer version',rap:'rap',words:'new words',beat:'new beat'},
+ make:(k,n)=>`Make ${k} · ${n} ${n===1?'credit':'credits'}`,cN:n=>`${n} ${n===1?'credit':'credits'}`,
+ creditTo:h=>`Credit goes to ${h}`,creditBody:(t,h)=>`Your remix says “A remix of ${t} by ${h}”. They earn a share of the credits you spend.`,
+ voice:'Remixes use AI singers. You can make a version in your own voice after.',noCharge:n=>`You have ${n} credits. Nothing is charged if it fails.`,how:'How earning works',
+ remix:'Remix',play:'Play',like:'Like',nfm:'Not for me',share:'Share',lyrics:'Lyrics',report:'Report this song',ai:'Made with AI on Reelkar.',plays:n=>`${n} plays`,rN:n=>`${n} ${n===1?'remix':'remixes'}`,level:n=>`Level ${n}`,
+ remixOf:(t,h)=>`A remix of “${t}” by ${h}`,stopT:'Stop new remixes?',stopB:(t,n)=>`People won’t be able to remix ${t} from now on. The ${n} remixes already made stay up, with credit to you.`,stopY:'Stop new remixes',stopN:'Keep remixes on',
+ earnT:'Earnings',earned:'You’ve earned',cr:a=>`${a} credits`,split:(w,r)=>`${w} added to your balance · ${r} on the way`,all:'All',rem:'Remixes',rec:'Recipes',uses:n=>`${n} uses`,
+ noCash:'Earned credits work like any credits. They can’t be cashed out yet.',got:'Got it',
+ howL:p=>[`When someone remixes your public song, or makes a reel with your recipe, you get ${p}% of the credits they paid for.`,'Free credits, like your welcome credits, don’t count.','You earn when their remix or reel is made. If it fails, nothing is earned.','You never earn from your own songs or recipes.','Small amounts add up: every 1.0 goes into your balance.','Earned credits can’t be cashed out yet.'],
+ styleL:'New style',stylePh:'Lo-fi chill, soft piano, 75 bpm',enh:'Enhance style',str:['Close to the original','In between','A whole new take'],lenL:'How much longer?',lens:['15 seconds','30 seconds','60 seconds'],
+ partL:'Part to rap over',playPart:'Play part',ideaL:'What’s the rap about? (optional)',ideaPh:'Village fairs, bikes and big dreams',bars:'Write rap bars',barsL:'Rap bars',wordsL:'Your words',beatL:'New music style',
+ back:'Back to the song',signIn:'Sign in to remix',allowL:'Allow remixes',allowH:'Others can make a cover or remix. You’re always credited.',yours:'Your song',
+ stat:'23 remixes · 4 published',earnRow:'You earned 2.3 credits from remixes',inRemix:'Remixed by people',makeOwn:'Make your own song',terms:'Terms'},
+hi:{remixes:'रीमिक्स',ofThis:'इस गाने के रीमिक्स',cameFrom:'यह कहाँ से आया',original:'ओरिजिनल',thisSong:'यह गाना',empty:'अभी कोई रीमिक्स नहीं। पहला आप बनाइए।',
+ tree:n=>`पूरा परिवार देखें · ${n} गाने`,treeT:'रीमिक्स परिवार',songsN:n=>`${n} गाने`,gone:'अब उपलब्ध नहीं',goneSub:'हटाया गया या प्राइवेट किया गया',more:n=>`${n} और दिखाएँ`,top:'टॉप',newest:'नए',
+ off:h=>`${h} ने नए रीमिक्स बंद कर दिए हैं।`,remixing:'रीमिक्स कर रहे हैं',pick:'आप क्या बनाना चाहते हैं?',
+ k:{cover:'कवर',extend:'लंबा करें',rap:'इस पर रैप',words:'नए बोल',beat:'नया संगीत'},
+ kh:{cover:'किसी और अंदाज़ में फिर से गाएँ।',extend:'गाना लंबा करें। नई लाइनें लिखें।',rap:'एक हिस्सा चुनें। बार AI लिखेगा, या आप।',words:'इस संगीत पर आपके बोल।',beat:'इन्हीं आवाज़ों के नीचे नया संगीत।'},
+ p:{cover:'कवर',extend:'लंबा किया',rap:'रैप',words:'नए बोल',beat:'नया संगीत'},mk:{cover:'कवर',extend:'लंबा वर्ज़न',rap:'रैप',words:'नए बोल',beat:'नया संगीत'},
+ make:(k,n)=>`${k} बनाएँ · ${n} क्रेडिट`,cN:n=>`${n} क्रेडिट`,
+ creditTo:h=>`श्रेय ${h} को मिलेगा`,creditBody:(t,h)=>`आपके रीमिक्स पर लिखा होगा “${h} के ${t} का रीमिक्स”। आप जो क्रेडिट खर्च करेंगे, उसका एक हिस्सा उन्हें मिलेगा।`,
+ voice:'रीमिक्स AI गायक गाते हैं। बाद में आप अपनी आवाज़ में भी बना सकते हैं।',noCharge:n=>`आपके पास ${n} क्रेडिट हैं। फ़ेल होने पर कुछ नहीं कटेगा।`,how:'कमाई कैसे होती है',
+ remix:'रीमिक्स',play:'चलाएँ',like:'पसंद',nfm:'मेरे लिए नहीं',share:'शेयर',lyrics:'बोल',report:'इस गाने की शिकायत करें',ai:'Reelkar पर AI से बना।',plays:n=>`${n} बार सुना`,rN:n=>`${n} रीमिक्स`,level:n=>`लेवल ${n}`,
+ remixOf:(t,h)=>`${h} के “${t}” का रीमिक्स`,stopT:'नए रीमिक्स बंद करें?',stopB:(t,n)=>`अब से कोई ${t} का रीमिक्स नहीं बना पाएगा। पहले बने ${n} रीमिक्स बने रहेंगे, आपके श्रेय के साथ।`,stopY:'नए रीमिक्स बंद करें',stopN:'रीमिक्स चालू रखें',
+ earnT:'कमाई',earned:'आपने कमाए',cr:a=>`${a} क्रेडिट`,split:(w,r)=>`${w} आपके बैलेंस में जुड़े · ${r} और आने वाले`,all:'सब',rem:'रीमिक्स',rec:'रेसिपी',uses:n=>`${n} बार इस्तेमाल`,
+ noCash:'कमाए क्रेडिट बाक़ी क्रेडिट की तरह चलते हैं। अभी इन्हें कैश नहीं किया जा सकता।',got:'समझ गया',
+ howL:p=>[`जब कोई आपके पब्लिक गाने का रीमिक्स बनाता है, या आपकी रेसिपी से रील बनाता है, तो उनके ख़रीदे क्रेडिट का ${p}% आपको मिलता है।`,'मुफ़्त क्रेडिट, जैसे वेलकम क्रेडिट, नहीं गिने जाते।','उनका रीमिक्स या रील बनते ही आपकी कमाई होती है। फ़ेल हुआ तो कुछ नहीं।','अपने ही गानों या रेसिपी से कमाई नहीं होती।','छोटी रक़म जुड़ती रहती है: हर 1.0 आपके बैलेंस में जाता है।','अभी कमाए क्रेडिट कैश नहीं हो सकते।'],
+ styleL:'नया अंदाज़',stylePh:'लो-फ़ाई, धीमा पियानो, 75 bpm',enh:'अंदाज़ बेहतर करें',str:['ओरिजिनल के क़रीब','बीच का','बिल्कुल नया'],lenL:'कितना लंबा?',lens:['15 सेकंड','30 सेकंड','60 सेकंड'],
+ partL:'रैप के लिए हिस्सा',playPart:'हिस्सा सुनें',ideaL:'रैप किस बारे में है? (चाहें तो)',ideaPh:'गाँव के मेले, बाइक और बड़े सपने',bars:'रैप बार लिखें',barsL:'रैप बार',wordsL:'आपके बोल',beatL:'नए संगीत का अंदाज़',
+ back:'गाने पर वापस',signIn:'रीमिक्स के लिए साइन इन करें',allowL:'रीमिक्स की इजाज़त',allowH:'दूसरे कवर या रीमिक्स बना सकते हैं। श्रेय हमेशा आपको।',yours:'आपका गाना',
+ stat:'23 रीमिक्स · 4 शेयर हुए',earnRow:'रीमिक्स से आपने 2.3 क्रेडिट कमाए',inRemix:'लोगों के रीमिक्स',makeOwn:'अपना गाना बनाएँ',terms:'नियम'},
+ar:{remixes:'ريمكسات',ofThis:'ريمكسات هذه الأغنية',cameFrom:'من أين جاءت',original:'الأصلية',thisSong:'هذه الأغنية',empty:'لا ريمكسات بعد. كن أول من يصنع واحدًا.',
+ tree:n=>`شاهد شجرة العائلة · ${n} أغنية`,treeT:'شجرة العائلة',songsN:n=>`${n} أغنية`,gone:'لم تعد متاحة',goneSub:'أُزيلت أو صارت خاصة',more:n=>`اعرض ${n} أخرى`,top:'الأكثر',newest:'الأحدث',
+ off:h=>`أوقف ${h} الريمكسات الجديدة.`,remixing:'ريمكس لأغنية',pick:'ماذا تريد أن تصنع؟',
+ k:{cover:'غلاف',extend:'إطالة',rap:'راب عليها',words:'كلمات جديدة',beat:'لحن جديد'},
+ kh:{cover:'غنِّها من جديد بأسلوب آخر.',extend:'اجعلها أطول. اكتب الأسطر الجديدة.',rap:'اختر جزءًا. يكتب الذكاء الاصطناعي المقاطع، أو تكتبها أنت.',words:'كلماتك على هذه الموسيقى.',beat:'موسيقى جديدة تحت هذا الغناء.'},
+ p:{cover:'غلاف',extend:'مُطوَّلة',rap:'راب',words:'كلمات جديدة',beat:'لحن جديد'},mk:{cover:'الغلاف',extend:'النسخة الأطول',rap:'الراب',words:'الكلمات الجديدة',beat:'اللحن الجديد'},
+ make:(k,n)=>`اصنع ${k} · ${n} رصيد`,cN:n=>`${n} رصيد`,
+ creditTo:h=>`الفضل لـ ${h}`,creditBody:(t,h)=>`سيظهر على الريمكس “ريمكس لأغنية ${t} من ${h}”. سيحصل على جزء من الرصيد الذي تنفقه.`,
+ voice:'يغني الريمكس مغنٍّ بالذكاء الاصطناعي. يمكنك صنع نسخة بصوتك بعد ذلك.',noCharge:n=>`لديك ${n} رصيد. لن يُخصم شيء إن فشل.`,how:'كيف تربح',
+ remix:'ريمكس',play:'تشغيل',like:'إعجاب',nfm:'ليست لي',share:'مشاركة',lyrics:'الكلمات',report:'الإبلاغ عن الأغنية',ai:'صُنعت بالذكاء الاصطناعي على Reelkar.',plays:n=>`${n} تشغيل`,rN:n=>`${n} ريمكس`,level:n=>`المستوى ${n}`,
+ remixOf:(t,h)=>`ريمكس لأغنية «${t}» من ${h}`,stopT:'إيقاف الريمكسات الجديدة؟',stopB:(t,n)=>`لن يتمكن أحد من عمل ريمكس لـ ${t} من الآن. تبقى الريمكسات الـ${n} الموجودة، مع ذكر اسمك.`,stopY:'أوقف الريمكسات الجديدة',stopN:'أبقِ الريمكس متاحًا',
+ earnT:'الأرباح',earned:'ربحت',cr:a=>`${a} رصيد`,split:(w,r)=>`أُضيف ${w} إلى رصيدك · ${r} في الطريق`,all:'الكل',rem:'ريمكسات',rec:'وصفات',uses:n=>`${n} استخدام`,
+ noCash:'الرصيد الذي تربحه يعمل كأي رصيد. لا يمكن صرفه نقدًا حاليًا.',got:'حسنًا',
+ howL:p=>[`عندما يصنع أحدهم ريمكس لأغنيتك العامة، أو فيديو بوصفتك، تحصل على ${p}٪ من الرصيد الذي دفع ثمنه.`,'الرصيد المجاني، مثل رصيد الترحيب، لا يُحتسب.','تربح عندما يكتمل الريمكس أو الفيديو. إن فشل، لا ربح.','لا تربح من أغانيك أو وصفاتك أنت.','المبالغ الصغيرة تتجمع: كل 1.0 يُضاف إلى رصيدك.','لا يمكن صرف الرصيد المكتسب نقدًا حاليًا.'],
+ styleL:'أسلوب جديد',stylePh:'هادئ، بيانو ناعم، 75 bpm',enh:'حسّن الأسلوب',str:['قريب من الأصل','بين بين','نسخة جديدة تمامًا'],lenL:'كم تريدها أطول؟',lens:['15 ثانية','30 ثانية','60 ثانية'],
+ partL:'الجزء الذي تغني عليه الراب',playPart:'شغّل الجزء',ideaL:'عن ماذا الراب؟ (اختياري)',ideaPh:'أسواق القرية والدراجات والأحلام الكبيرة',bars:'اكتب مقاطع الراب',barsL:'مقاطع الراب',wordsL:'كلماتك',beatL:'أسلوب الموسيقى الجديدة',
+ back:'عودة إلى الأغنية',signIn:'سجّل الدخول لعمل ريمكس',allowL:'السماح بالريمكس',allowH:'يمكن للآخرين صنع غلاف أو ريمكس. يُذكر اسمك دائمًا.',yours:'أغنيتك',
+ stat:'23 ريمكس · 4 منشورة',earnRow:'ربحت 2.3 رصيد من الريمكسات',inRemix:'ريمكسات الآخرين',makeOwn:'اصنع أغنيتك',terms:'الشروط'}
+};
+const PRICE={cover:1,extend:1,rap:1,words:6,beat:6};
+const BAL=37;
+
+/* ---------- the family (one root, chains, a gone node in the middle) ---------- */
+const F=[
+ {id:'root',par:null,t:'Pind Di Kudi',h:'harjot.beats',k:null,pl:'18.2k',pn:18200,d:40,c:0},
+ {id:'sana',par:'root',t:'Pind Di Kudi (lo-fi cover)',h:'sana.sings',k:'cover',pl:'4.1k',pn:4100,d:20,c:1},
+ {id:'bunty',par:'root',t:'Kudi Bars',h:'bars.by.bunty',k:'rap',pl:'2.3k',pn:2300,d:12,c:2},
+ {id:'shaadi',par:'root',t:'Pind Di Kudi (wedding mix)',h:'shaadi.beats',k:'extend',pl:'1.9k',pn:1900,d:3,c:3},
+ {id:'layla',par:'root',t:'بنت القرية',h:'layla.sings',k:'cover',pl:'1.2k',pn:1200,d:1,c:4},
+ {id:'kuthu',par:'root',t:'Kudi (Tamil kuthu)',h:'kuthu.karthik',k:'cover',pl:'860',pn:860,d:6,c:5},
+ {id:'drill',par:'root',t:'Pind Di Kudi (drill beat)',h:'mehul.mix',k:'beat',pl:'540',pn:540,d:0,c:6},
+ {id:'roohi',par:'sana',t:'Kudi Lo-fi Bars',h:'dj.roohi',k:'rap',pl:'920',pn:920,d:9,c:2},
+ {id:'faiz',par:'sana',t:'Pind Di Kudi (qawwali)',h:'faiz.sufi',k:'cover',pl:'610',pn:610,d:4,c:3},
+ {id:'gone1',par:'sana',gone:true,pn:0,d:7},
+ {id:'arjun',par:'gone1',t:'Kudi, long drive',h:'arjun.k',k:'extend',pl:'140',pn:140,d:2,c:4},
+ {id:'noor',par:'roohi',t:'Kudi Bars, long ride',h:'noor.dxb',k:'extend',pl:'210',pn:210,d:2,c:5},
+ {id:'hamad',par:'noor',t:'Kudi Bars (Khaleeji)',h:'hamad.music',k:'cover',pl:'88',pn:88,d:1,c:6}
+];
+const byId=id=>F.find(n=>n.id===id);
+const kids=(id,sort)=>F.filter(n=>n.par===id).sort((a,b)=>((!!a.gone)-(!!b.gone))||(sort==='new'?a.d-b.d:b.pn-a.pn));
+const depth=n=>n.par?1+depth(byId(n.par)):0;
+const descCount=id=>kids(id).reduce((s,n)=>s+1+descCount(n.id),0);
+const pubFamily=F.filter(n=>!n.gone).length;
+
+/* ---------- state ---------- */
+const S={theme:'light',lang:'en',rm:false,screen:'x1',x1:'has',kind:'cover',x4:'off',sort:'top',open:{},allow:true,stop:false,chip:'all',web:'remix',wsort:'top',wopen:{}};
+const L=()=>STR[S.lang];
+const sysDark=matchMedia('(prefers-color-scheme: dark)').matches;S.theme=sysDark?'dark':'light';
+if(matchMedia('(prefers-reduced-motion: reduce)').matches)S.rm=true;
+const tcls=()=>S.theme==='dark'?'t-dark':'t-light';
+const langAttrs=i18=>{if(!i18||S.lang==='en')return {cls:'',attr:'lang="en"'};return S.lang==='hi'?{cls:'l-hi',attr:'lang="hi"'}:{cls:'l-ar',attr:'lang="ar" dir="rtl"'};};
+const H=h=>`<bdi class="ltr">@${h}</bdi>`;
+const T=t=>`<bdi>${t}</bdi>`;
+
+/* ---------- pieces ---------- */
+function btn(l,o={}){const c=['b',o.k||'',o.block?'block':'',o.sm?'sm':'',o.cls||''].join(' ');const at=o.go?`data-go="${o.go}"`:o.act?`data-act="${o.act}"`:'';return `<button type="button" class="${c}" ${at} ${o.dis?'disabled':''} ${o.al?`aria-label="${o.al}"`:''}>${o.ic?ic(o.ic):''}${l}</button>`;}
+const hdr=(t,sub,back,right='')=>`<div class="hdr">${back?`<button type="button" class="ib" data-go="${back}" aria-label="Back">${ic('back','flip')}</button>`:''}<div class="tt"><b>${t}</b>${sub?`<small>${sub}</small>`:''}</div>${right}</div>`;
+const ft=h=>`<div class="ft">${h}</div>`;
+const credChip=n=>`<span class="cr" aria-label="${n} credits">${ic('coin')}${n}</span>`;
+const kpill=k=>k?`<span class="pill">${L().p[k]}</span>`:`<span class="pill org">${L().original}</span>`;
+const tabbar=on=>`<div class="tabbar" aria-hidden="true">${[['home','Home'],['cal','Calendar'],['plus',''],['inbox','Inbox'],['head','Listen']].map(([i,l])=>i==='plus'?`<span><i class="plus">${ic('plus')}</i></span>`:`<span class="${on===i?'on':''}">${ic(i)}${l}</span>`).join('')}</div>`;
+const player=(cur='0:42',tot='2:36',w=27)=>`<div class="pl"><button type="button" class="pbtn" aria-label="Play">${ic('play')}</button><div class="trk"><i style="width:${w}%"></i></div><span class="tc">${cur} / ${tot}</span></div>`;
+
+/* Path: root → … → this */
+function pathList(hereId,go){const l=L();const chain=[];let n=byId(hereId);while(n){chain.unshift(n);n=n.par?byId(n.par):null}
+ let rows=chain;let hidden=0;if(chain.length>4){hidden=chain.length-3;rows=[chain[0],{more:hidden},chain[chain.length-2],chain[chain.length-1]]}
+ return `<ul class="path" aria-label="${l.cameFrom}">${rows.map(r=>{if(r.more)return `<li><a href="#" data-go="${go}"><span class="moreN">+${r.more}</span><div><b>${l.more(r.more)}</b></div></a></li>`;
+  const me=r.id===hereId;const inner=`${cov(r.c,40,10)}<div><b>${T(r.t)}</b><small>${H(r.h)}</small></div>${me?`<span class="pill here">${l.thisSong}</span>`:kpill(r.k)}`;
+  return `<li>${me?`<span class="me" aria-current="true">${inner}</span>`:`<a href="#" data-go="${go}">${inner}</a>`}</li>`}).join('')}</ul>`;}
+/* Direct remixes list */
+function remixRows(id,max,go){const l=L();return kids(id,'top').filter(n=>!n.gone).slice(0,max).map(n=>{const rc=kids(n.id).filter(x=>!x.gone).length;
+ return `<a class="rrow" href="#" data-go="${go}" aria-label="${l.p[n.k]}: ${n.t}, @${n.h}, ${l.plays(n.pl)}${rc?', '+l.rN(rc):''}">${cov(n.c,48)}<div><b>${T(n.t)}</b><small>${H(n.h)} · ${l.plays(n.pl)}</small></div><span class="rmeta">${kpill(n.k)}${rc?`<small>${l.rN(rc)}</small>`:''}</span></a>`}).join('');}
+/* The Remixes section (app + web) */
+function remixSection(hereId,state,go,treeGo,wide){const l=L();const here=byId(hereId);const n=kids(hereId).filter(x=>!x.gone).length;
+ const head=`<div class="row" style="gap:8px"><h3 class="sh" style="flex:1">${l.remixes}</h3>${ic('tree')}</div>`;
+ const path=here.par?`<div><p class="lb" style="color:var(--ink-muted)">${l.cameFrom}</p>${pathList(hereId,go)}</div>`:'';
+ let list;
+ if(state==='empty')list=`<div class="card flat" style="display:flex;flex-direction:column;gap:10px;align-items:flex-start"><p style="margin:0;font-weight:700">${l.empty}</p>${btn(l.remix,{k:'sec',sm:true,ic:'music',go:'x2'})}</div>`;
+ else if(state==='loading')list=[0,1,2].map(()=>`<div class="row" style="min-height:64px"><div class="skel" style="width:48px;height:48px;flex:none"></div><div><div class="skel" style="height:14px;width:70%;margin-bottom:8px"></div><div class="skel" style="height:12px;width:40%"></div></div></div>`).join('');
+ else list=`${state==='off'?`<div class="ban" style="background:var(--surface-sunken)">${ic('info')}<div>${l.off(H(here.h))}</div></div>`:''}<p class="lb" style="color:var(--ink-muted);margin-top:4px">${l.ofThis} · ${n}</p>${remixRows(hereId,3,go)}`;
+ const foot=state==='empty'?'':`<a class="foot-link" href="#" data-go="${treeGo}">${ic('tree')}<span>${l.tree(pubFamily)}</span>${ic('chev','flip')}</a>`;
+ return `<section class="card ${wide?'':'new'}" aria-label="${l.remixes}" style="display:flex;flex-direction:column;gap:12px">${head}${path}${list}${foot}</section>`;}
+/* Family tree outline */
+function treeHTML(rootId,hereId,sort,openMap,pre,go){const l=L();
+ function node(n,lvl){const d=lvl;const lv=d>3?`<span class="lvl">${l.level(d)}</span>`:'';
+  if(n.gone)return `<div class="tn gone" role="treeitem" aria-level="${d+1}" aria-label="${l.gone}"><i class="gc">${ic('eye')}</i><div><b style="color:var(--ink-muted)">${l.gone}</b><small>${l.goneSub}</small></div>${lv}</div>`;
+  const rc=descCount(n.id);
+  return `<a href="#" class="tn ${n.id===rootId?'root':''} ${n.id===hereId?'here':''}" data-go="${go}" role="treeitem" aria-level="${d+1}" ${n.id===hereId?'aria-current="true"':''}>${cov(n.c,n.id===rootId?56:40,10)}<div><b>${T(n.t)}</b><small>${H(n.h)} · ${l.plays(n.pl)}${rc?' · '+l.rN(rc):''}</small>${lv}</div>${n.id===hereId?`<span class="pill here">${l.thisSong}</span>`:kpill(n.k)}</a>`;}
+ function branch(id,lvl){const ks=kids(id,sort);if(!ks.length)return '';const open=openMap[id];const shown=open?ks:ks.slice(0,3);const rest=ks.length-shown.length;
+  return `<ul role="group" class="${lvl>3?'flat':''}">${shown.map((k,i)=>`<li class="${open&&i>=3?'appear':''}">${node(k,lvl)}${branch(k.id,lvl+1)}</li>`).join('')}${rest?`<li><button type="button" class="smore" data-act="${pre}:${id}" aria-label="${l.more(rest)}: ${byId(id).t}">${ic('plus')}${l.more(rest)}</button></li>`:''}</ul>`;}
+ return `<ul class="tree" role="tree" aria-label="${l.treeT}"><li>${node(byId(rootId),0)}${branch(rootId,1)}</li></ul>`;}
+
+/* ---------- screens ---------- */
+const SCR=[
+{id:'x1',g:'Listener',t:'Song page · Remixes',i18n:1,route:'s/[id] (existing) · new RemixFamily section',reuse:'s/[id].tsx, SongCover, ListRow, Button',
+ notes:['This is <b>@sana.sings</b>’s cover of <b>@harjot.beats</b>’s song, so the section opens with <b>Where it came from</b>: original at the top, this song last.','<b>Remixes of this song</b> lists up to 3 public remixes, Top first (plays in 30 days + likes). Private remixes are never listed or counted.','The footer opens the whole family. The count is every public song in it.','Remix stays secondary; Play is the one primary. The credit line under the title is the Listen phase 1 one.'],
+ states:[['has','Has remixes'],['empty','No remixes yet'],['off','Remixes off'],['loading','Loading']],
+ r:()=>{const l=L();const off=S.x1==='off';return `${hdr(T('Pind Di Kudi (lo-fi cover)'),H('sana.sings'),'x1')}<div class="bd"><div style="display:flex;flex-direction:column;align-items:center;gap:8px">${cov(1,200,28)}<p class="capn">Punjabi · Lo-fi · ${l.plays('4.1k')} · <span class="ltr">2:36</span></p><a href="#" data-go="x1" style="color:var(--teal-text);font-weight:700;font-size:14px;text-align:center;min-height:44px;display:flex;align-items:center"><span>${l.remixOf('Pind Di Kudi',H('harjot.beats'))}</span></a></div>${btn(l.play,{block:true,ic:'play'})}<div class="row" style="gap:8px"><span class="vote">${ic('heart')}${l.like} · 312</span><span class="vote">${ic('down')}${l.nfm}</span></div><div class="row" style="gap:8px">${off?'':btn(l.remix,{k:'sec',ic:'music',go:'x2',cls:'grow'})}${btn(l.share,{k:'sec',ic:'share'})}</div><div class="card flat"><b>${l.lyrics}</b><p class="capn" style="margin-top:6px;white-space:pre-line">Pind di kudi, chaanan wargi\nKhetan vich gaaundi, hawa naal\n…</p></div>${remixSection('sana',S.x1==='has'?'has':S.x1,'x1','x8')}<div class="card flat" style="display:flex;flex-direction:column;gap:4px"><p class="capn">${l.ai}</p><a href="#" class="row" style="min-height:44px;color:var(--ink-muted);font-weight:700;text-decoration:none">${ic('flag')}${l.report}</a></div></div>`}},
+{id:'x2',g:'Listener',t:'Remix · pick a kind',i18n:1,route:'listen/remix/[id] (existing screen, all open kinds)',reuse:'StudioRemix, Card, ChipRow, Credits',
+ notes:['Open on someone else’s song: <b>Cover, Extend, Rap over it</b> (1 credit each). <b>New words</b> and <b>New beat</b> (6) only when the pro lane is set up. <b>Replace part</b> is never offered here; the API refuses it for a public id.','Tap a kind: the options below are today’s <code>StudioRemix</code>, and the primary changes to “Make {kind} · {price}”.','The credit card names one person: the maker of the song you remixed. “How earning works” opens X15.','Voice caption shows only if the remixer has a cloned voice.'],
+ r:()=>{const l=L();const k=S.kind;const kinds=['cover','extend','rap','words','beat'];
+  const opts=k==='cover'?`<div><label class="lb">${l.styleL}</label><div class="in"><span class="pt">${l.stylePh}</span></div></div>${btn(l.enh,{k:'sec',sm:true,ic:'spark'})}<div class="chips">${l.str.map((s,i)=>`<span class="ch ${i===1?'on':''}">${s}</span>`).join('')}</div>`
+  :k==='extend'?`<div><label class="lb">${l.lenL}</label><div class="chips">${l.lens.map((s,i)=>`<span class="ch ${i===1?'on':''}">${s}</span>`).join('')}</div></div><div><label class="lb">${l.lyrics}</label><div class="in ta"><span>…Khetan vich gaaundi, hawa naal\n<b>Mele di raat, gal teri baat</b></span></div></div>`
+  :k==='rap'?rapOpts():k==='words'?`<div><label class="lb">${l.wordsL}</label><div class="in ta"><span class="pt">Write your own lines, one per line.</span></div></div>`
+  :`<div><label class="lb">${l.beatL}</label><div class="in"><span class="pt">Drill, heavy 808, 140 bpm</span></div></div>`;
+  return `${hdr(l.remix,`${T('Pind Di Kudi')} · ${H('harjot.beats')}`,'x1',credChip(BAL))}<div class="bd"><div class="dcard">${cov(0,64,16)}<div style="flex:1;min-width:0"><small>${l.remixing}</small><b>${T('Pind Di Kudi')}</b><small>${H('harjot.beats')}</small></div><button type="button" class="pbtn sm" aria-label="Play the original">${ic('play')}</button></div>
+  <div><h3 class="sh" style="margin-bottom:10px">${l.pick}</h3><div class="chips" role="radiogroup">${kinds.map(x=>`<button type="button" role="radio" aria-checked="${x===k}" class="ch ${x===k?'on':''}" data-act="kind:${x}" aria-label="${l.k[x]}, ${l.cN(PRICE[x])}">${l.k[x]} <small>· ${PRICE[x]}</small></button>`).join('')}</div><p class="capn" style="margin-top:8px">${l.kh[k]}${PRICE[k]>1?' <span class="tag g">pro lane</span>':''}</p></div>
+  <div class="card" style="display:flex;flex-direction:column;gap:12px">${opts}</div>
+  <div class="card tint new" style="display:flex;gap:10px;align-items:flex-start">${ic('coin')}<div style="flex:1"><b>${l.creditTo(H('harjot.beats'))}</b><p class="capn" style="margin:2px 0 6px;color:var(--ink)">${l.creditBody(T('Pind Di Kudi'),H('harjot.beats'))}</p><a href="#" data-go="x15" style="font-weight:700;color:var(--teal-text);min-height:44px;display:inline-flex;align-items:center">${l.how}</a></div></div>
+  <p class="capn">${l.voice}</p></div>${ft(`${btn(l.make(l.mk[k],PRICE[k]),{block:true,ic:'spark',go:'x6'})}<small class="capn">${l.noCharge(BAL)}</small>`)}`}},
+{id:'x3',g:'Listener',t:'Rap over it',i18n:1,route:'listen/remix/[id] · kind rap',reuse:'StudioRemix part picker, Waveform, Field',
+ notes:['Part handles 3–60 s (today’s limits). The waveform, play buttons and timecodes stay left to right in Arabic.','“Write rap bars” is the existing <code>tweak</code> button (AI writes; free text AI).','The primary stays disabled until there are bars, and says why in the caption.'],
+ r:()=>{const l=L();return `${hdr(l.k.rap,`${T('Pind Di Kudi')} · ${H('harjot.beats')}`,'x2',credChip(BAL))}<div class="bd"><div class="card" style="display:flex;flex-direction:column;gap:12px">${rapOpts(true)}</div></div>${ft(`${btn(l.make(l.mk.rap,1),{block:true,ic:'spark',dis:true})}<small class="capn">Write the bars or let AI write them.</small>`)}`}},
+{id:'x4',g:'Listener',t:'Remix not possible',route:'listen/remix/[id] · blocked',reuse:'Banner, Button',
+ notes:['One banner in place of the kinds, one way back. Nothing charged in any of these.','Remixes off can happen while someone is on X2: Make returns 403 and this banner shows.','Too long: only Extend is disabled when the result would pass 4 minutes; Cover and Rap stay.'],
+ states:[['off','Remixes off'],['voice','Own voice'],['long','Too long to extend'],['gone','Not public'],['offline','Offline']],
+ r:()=>{const m={off:['Remixes are off','@harjot.beats has turned off remixes for this song.'],voice:['Sung in their own voice','This song is sung in @harjot.beats’s own voice, so it can’t be remixed.'],gone:['Not public any more','This song isn’t public any more.'],offline:['You’re offline','Connect to make a remix.']};
+  if(S.x4==='long')return `${hdr('Remix','Wedding Night Medley · @shaadi.beats','x1',credChip(BAL))}<div class="bd"><div class="chips"><span class="ch on">Cover <small>· 1</small></span><span class="ch" aria-disabled="true" style="border-style:dashed;color:var(--ink-muted)">Extend · Too long to extend</span><span class="ch">Rap over it <small>· 1</small></span></div><p class="capn">This song is 3:52. Remixes can be up to 4 minutes, so it can’t get longer.</p></div>`;
+  const [t,x]=m[S.x4];return `${hdr('Remix','Pind Di Kudi · @harjot.beats','x1',credChip(BAL))}<div class="bd"><div class="ban ${S.x4==='offline'?'':'err'}">${ic(S.x4==='offline'?'wifi':'info')}<div><b>${t}</b>${x}</div></div>${S.x4==='offline'?`<div class="chips dim"><span class="ch on">Cover · 1</span><span class="ch">Extend · 1</span><span class="ch">Rap over it · 1</span></div>`:''}${btn('Back to the song',{k:'sec',block:true,go:'x1'})}</div>${S.x4==='offline'?ft(btn('Make cover · 1 credit',{block:true,dis:true})):''}`}},
+{id:'x5',g:'Listener',t:'Not enough credits',route:'listen/remix/[id] · 402',reuse:'Banner + Get credits (as today)',
+ notes:['Same as Song Studio today. Nothing is charged; the choices stay as they were.','New words and New beat cost 6, so this shows more often there.'],
+ r:()=>`${hdr('Remix','Pind Di Kudi · @harjot.beats','x2',credChip(2))}<div class="bd"><div class="chips"><span class="ch">Cover <small>· 1</small></span><span class="ch">Extend <small>· 1</small></span><span class="ch">Rap over it <small>· 1</small></span><span class="ch">New words <small>· 6</small></span><span class="ch on">New beat <small>· 6</small></span></div><div class="ban err">${ic('coin')}<div><b>Not enough credits</b>Make new beat costs 6 credits and you have 2.</div></div>${btn('Get credits',{sm:true})}</div>${ft(btn('Make new beat · 6 credits',{block:true,ic:'spark'}))}`},
+{id:'x6',g:'Remixer',t:'Ready · Share on Listen',route:'songs/[id] (existing Song Studio)',reuse:'Song Studio making state, Win, Share on Listen card',
+ notes:['Existing making screen, then ready. The <b>Share on Listen</b> card previews the credit line, locked.','If it fails: the existing failure banner plus “1 credit is back in your balance.” No earning for anyone.','The title suffix (“(rap)”) is today’s; rename at publish.'],
+ r:()=>`${hdr('Kudi Lo-fi Bars (rap)','Song Studio','x2')}<div class="bd"><div class="win" role="status">${ic('check')}Your rap is ready</div><div class="card" style="display:flex;gap:12px;align-items:center">${cov(2,64,16)}<div style="flex:1"><b>Kudi Lo-fi Bars (rap)</b><small class="capn">Punjabi · 2:36 · private</small></div></div>${player('0:00','2:36',0)}<div class="card new" style="display:flex;flex-direction:column;gap:10px"><b>Share on Listen</b><p class="capn">Anyone can find and play it. You can make it private again any time.</p><div class="row" style="background:var(--surface-sunken);border-radius:14px;padding:10px 12px">${ic('lock')}<div><b style="font-size:14px">Credit: A remix of “Pind Di Kudi (lo-fi cover)” by <bdi class="ltr">@sana.sings</bdi></b><small>This stays on your song.</small></div></div>${btn('Share on Listen',{block:true,go:'x7'})}</div>${btn('Make a video for this song',{k:'sec',block:true,ic:'music'})}</div>`},
+{id:'x7',g:'Remixer',t:'Publish a remix',route:'songs/publish/[id] (existing)',reuse:'Publish sheet: Field, Switch',
+ notes:['One new read-only row: the credit line. It can’t be removed.','Allow remixes is on by default, so chains keep going; the remixer can turn it off like anyone.','Publishing re-runs today’s safety checks.'],
+ r:()=>`${hdr('Share on Listen','Kudi Lo-fi Bars (rap)','x6')}<div class="bd"><div class="row new" style="background:var(--surface-sunken);border-radius:16px;padding:12px">${ic('lock')}<div><b style="font-size:14px">Credit: A remix of “Pind Di Kudi (lo-fi cover)” by <bdi class="ltr">@sana.sings</bdi></b><small>This stays on your song.</small></div></div><div><label class="lb">Title</label><div class="in">Kudi Lo-fi Bars</div></div><div class="card"><div class="tgl"><div><b>Show lyrics</b></div><button class="sw" role="switch" aria-checked="true" aria-label="Show lyrics"></button></div><div class="tgl"><div><b>Allow remixes</b><small class="capn" style="display:block">Others can make a cover or remix. You’re always credited.</small></div><button class="sw" role="switch" aria-checked="true" aria-label="Allow remixes"></button></div></div><span class="pill ai" style="align-self:flex-start">Made with AI · always on</span></div>${ft(btn('Publish',{block:true,go:'x8'}))}`},
+{id:'x8',g:'Family',t:'Family tree',i18n:1,route:'s/[id]/family (new) · web /s/{publicId}/family',reuse:'Screen, Header, ChipRow, SongCover',
+ notes:['An outline: original on top, each remix indented under the song it came from, kind pill on every row. Indent stops after level 3; deeper rows say “Level 4”.','Each parent shows 3 children, then <b>Show n more</b> (try it on the original). Sort Top or Newest.','A removed or private song in the middle stays as a grey dashed node so its public remixes stay attached.','Screen readers: tree with level and position; “Show 3 more” names its parent.'],
+ r:()=>{const l=L();return `${hdr(l.treeT,`${T('Pind Di Kudi')} · ${l.songsN(pubFamily)}`,'x1')}<div class="bd"><div class="chips" role="radiogroup" aria-label="Sort">${[['top',l.top],['new',l.newest]].map(([v,t])=>`<button type="button" role="radio" aria-checked="${S.sort===v}" class="ch ${S.sort===v?'on':''}" data-act="sort:${v}">${t}</button>`).join('')}</div>${treeHTML('root','sana',S.sort,S.open,'open','x1')}</div>`}},
+{id:'x9',g:'Original maker',t:'Own song · remixes',i18n:1,route:'s/[id] (mine) · “Your song” card',reuse:'existing Your song card, Switch, ListRow',
+ notes:['The maker sees all remixes, published or not (numbers only for private ones).','Turning <b>Allow remixes</b> off opens X10. Turning it back on is instant.','“You earned …” opens Earnings filtered to this song.'],
+ r:()=>{const l=L();return `${hdr(T('Pind Di Kudi'),H('harjot.beats'),'x11')}<div class="bd"><div style="display:flex;justify-content:center">${cov(0,180,26)}</div>${btn(l.play,{block:true,ic:'play'})}<div class="card flat new" style="display:flex;flex-direction:column;gap:8px"><b>${l.yours}</b><p class="capn">${l.plays('18.2k')} · 1,204 likes · 41 Not for me (only you see this)</p><a href="#" class="lr" data-go="x14"><span class="ico">${ic('tree')}</span><div><b>${l.stat}</b><small>${l.earnRow}</small></div>${ic('chev','flip')}</a><div class="tgl"><div><b>${l.allowL}</b><small class="capn" style="display:block">${l.allowH}</small></div><button type="button" class="sw" role="switch" aria-checked="${S.allow}" aria-label="${l.allowL}" data-act="allow"></button></div></div>${remixSection('root',S.allow?'has':'off','x9','x8')}</div>${S.stop?stopSheet():''}`}},
+{id:'x10',g:'Original maker',t:'Stop new remixes?',i18n:1,route:'sheet on s/[id] (mine)',reuse:'sheet pattern (report sheet)',
+ notes:['Says what stops and what stays. One primary, one way out.','After stopping: Remix disappears for others; the section shows “@harjot.beats has turned off new remixes.” and the existing list.'],
+ r:()=>{S.stop=true;const h=SCR.find(s=>s.id==='x9').r();S.stop=false;return h}},
+{id:'x11',g:'Original maker',t:'Inbox · remixes',route:'(tabs)/inbox · new Remixes group',reuse:'Inbox list, ListRow',
+ notes:['Published remix: named, opens that song.','Private remix: “Someone made a cover…”, no name, opens Earnings detail. The remixer’s privacy holds until they publish.','More than 3 in a day: one batched row.','Paid with free credits: same row, no amount (we never show “+0”).'],
+ r:()=>`${hdr('Inbox','',null)}<div class="bd"><p class="lb" style="color:var(--ink-muted)">Remixes</p><div class="card new" style="padding:4px 14px"><a href="#" class="lr" data-go="x1"><span class="av" style="background:#14d9a0">S</span><div><b><bdi class="ltr">@sana.sings</bdi> published a cover of Pind Di Kudi</b><small>2 h ago · +0.1 credit</small></div>${ic('chev','flip')}</a><a href="#" class="lr" data-go="x14"><span class="ico">${ic('coin')}</span><div><b>Someone made a rap of Pind Di Kudi</b><small>Yesterday · +0.1 credit</small></div>${ic('chev','flip')}</a><a href="#" class="lr" data-go="x14"><span class="ico">${ic('tree')}</span><div><b>5 new remixes of Pind Di Kudi</b><small>Mon · +0.4 credit</small></div>${ic('chev','flip')}</a><a href="#" class="lr" data-go="x14"><span class="ico">${ic('music')}</span><div><b>Someone made a cover of Mitti Ki Khushboo</b><small>Sun</small></div>${ic('chev','flip')}</a></div><p class="lb" style="color:var(--ink-muted)">Gifts and duets</p><div class="card" style="padding:4px 14px"><a href="#" class="lr"><span class="ico">${ic('heart')}</span><div><b>Birthday song for Priya</b><small>Opened · 2 plays</small></div>${ic('chev','flip')}</a></div></div>${tabbar('inbox')}`},
+{id:'x12',g:'Original maker',t:'Push',lock:1,route:'push kind “remixes” (new)',reuse:'src/lib/push.ts',
+ notes:['At most one push a day per song. Settings: “Remixes and earnings”, on by default.','A new whole credit doesn’t get its own push.'],
+ r:()=>`<div style="padding:40px 16px;display:flex;flex-direction:column;gap:12px;align-items:center"><div style="font:300 76px/1 Inter,sans-serif;direction:ltr">9:41</div><div style="opacity:.85;margin-bottom:24px">Friday 6 November</div><button type="button" class="notif" data-go="x14">${logo(38)}<div><b>Reelkar</b><span>3 new remixes of Pind Di Kudi. You earned 0.3 credit.</span><small style="display:block">now</small></div></button></div>`},
+{id:'x13',g:'Earnings (shared)',t:'Earnings',i18n:1,route:'earn (replaces today’s placeholder) · from Account › Earn, Credits, X9, Inbox',reuse:'Screen, Hero, ChipRow, ListRow, Credits',
+ notes:['One screen for remixes and reel recipes. Recipes chip appears when recipes ship.','Paid credits are counted in proportion to what the payer bought (same rule as recipes). Amounts are kept in hundredths of a credit; whole credits go into the balance as they add up; the rest is “on the way”.','Never public. Counts of remixes are public; amounts are not.'],
+ r:()=>{const l=L();const rows=[{t:'Pind Di Kudi',c:0,n:l.rN(18),a:'+1.8',s:'remix'},{t:'Mitti Ki Khushboo',c:3,n:l.rN(5),a:'+0.3',s:'remix'},{t:'Diwali Diya Reel',c:4,n:l.uses(2),a:'+0.2',s:'recipe'}].filter(r=>S.chip==='all'||S.chip===r.s);
+  return `${hdr(l.earnT,'','x9',credChip(BAL))}<div class="bd"><div class="hero"><div class="ov">${l.earned}</div><div class="big">${l.cr('2.3')}</div><p>${l.split('2','0.3')}</p></div><div class="chips" role="radiogroup">${[['all',l.all],['remix',l.rem],['recipe',l.rec]].map(([v,t])=>`<button type="button" role="radio" aria-checked="${S.chip===v}" class="ch ${S.chip===v?'on':''}" data-act="chip:${v}">${t}</button>`).join('')}</div><div class="card" style="padding:4px 14px">${rows.map(r=>`<a href="#" class="lr" data-go="x14">${cov(r.c,44)}<div><b>${T(r.t)}</b><small>${r.n}</small></div><span class="amt ltr">${r.a}</span></a>`).join('')}</div><a href="#" class="lr card" data-go="x15" style="padding:8px 14px">${ic('info')}<div><b>${l.how}</b></div>${ic('chev','flip')}</a><p class="capn">${l.noCash}</p></div>`}},
+{id:'x14',g:'Earnings (shared)',t:'Earnings · one song',route:'earn/[ref] (new)',reuse:'ListRow',
+ notes:['Newest first. Public remixes are named and link to their page; private ones are “A private remix”.','A remix paid with free credits shows “Free credits, nothing earned”, so the count and the total always add up.'],
+ r:()=>`${hdr('Pind Di Kudi','18 remixes · +1.8 credits','x13')}<div class="bd"><div class="card" style="padding:4px 14px">${[['Cover by @sana.sings','2 Nov','+0.1'],['A private remix','1 Nov','+0.1'],['Rap by @bars.by.bunty','31 Oct','+0.1'],['New beat by @mehul.mix','30 Oct','+0.6'],['Cover by @layla.sings','29 Oct',''],['A private remix','28 Oct','+0.1']].map(([t,d,a])=>`<div class="lr" style="cursor:default"><div><b>${t.replace(/@([\w.]+)/,'<bdi class="ltr">@$1</bdi>')}</b><small>${d}${a?'':' · Free credits, nothing earned'}</small></div><span class="amt ltr" style="${a?'':'color:var(--ink-muted)'}">${a||'—'}</span></div>`).join('')}</div>${btn('Load more',{k:'ghost',block:true})}</div>`},
+{id:'x15',g:'Earnings (shared)',t:'How earning works',i18n:1,route:'sheet from X2, X13',reuse:'sheet',
+ notes:['Six plain lines. The percentage comes from the API (<code>earnRateBp</code>), never hard-coded.','Same sheet for recipes.'],
+ r:()=>{const l=L();return `<div class="ovl" style="position:relative;inset:auto;min-height:100%;"><div style="flex:1" data-go="x13"></div><div class="sheet"><div class="grab"></div><h3 class="sh" style="font-size:22px">${l.how}</h3><ol class="how">${l.howL(10).map(x=>`<li>${x}</li>`).join('')}</ol>${btn(l.got,{block:true,go:'x13'})}</div></div>`}}
+];
+function rapOpts(big){const l=L();const bars=Array.from({length:44},(_,i)=>{const h=18+Math.round(Math.abs(Math.sin(i*1.7)*36+Math.cos(i*.6)*10));return `<i class="${i>=16&&i<28?'in':''}" style="height:${Math.min(56,h)}px"></i>`}).join('');
+ return `<div><label class="lb">${l.partL}</label><div class="wave" role="slider" aria-label="${l.partL}" aria-valuetext="0:58 to 1:22">${bars}<span class="hdl" style="left:37%"></span><span class="hdl" style="left:63%"></span></div><div class="row" style="justify-content:space-between;margin-top:6px;direction:ltr"><span class="tc">0:58 – 1:22 · 24 s</span>${btn(l.playPart,{k:'sec',sm:true,ic:'play'})}</div></div><div><label class="lb">${l.ideaL}</label><div class="in"><span class="pt">${l.ideaPh}</span></div></div>${btn(l.bars,{k:'tweak',block:true,ic:'spark'})}<div><label class="lb">${l.barsL}</label><div class="in ta" style="${big?'min-height:120px':''}"><span class="pt">Your own bars, one per line, or let AI write them.</span></div></div>`;}
+function stopSheet(){const l=L();return `<div class="ovl"><div style="flex:1" data-act="stopno"></div><div class="sheet" role="dialog" aria-label="${l.stopT}"><div class="grab"></div><h3 class="sh" style="font-size:22px">${l.stopT}</h3><p style="margin:0">${l.stopB(T('Pind Di Kudi'),23)}</p>${btn(l.stopY,{block:true,act:'stopyes'})}${btn(l.stopN,{k:'ghost',block:true,act:'stopno'})}</div></div>`;}
+
+/* ---------- web song page ---------- */
+const WST=[['remix','A remix, with remixes'],['original','The original, signed out'],['empty','No remixes yet'],['off','Remixes off'],['family','Family tree page']];
+function webPage(wide){const l=L();const st=S.web;
+ const isRemix=st==='remix'||st==='empty';const id=st==='original'||st==='off'?'root':st==='empty'?'hamad':'sana';const n=byId(id);
+ const top=`<div class="wph">${logo(28)}<span class="wm">Reelkar</span>${st==='original'?`<a class="b sm sec" href="#">Sign in</a>`:`<span class="av" style="width:36px;height:36px;background:#ffb21a">R</span>`}</div>`;
+ const foot=`<div class="wfoot"><span>${l.ai}</span><a>${ic('flag')}${l.report}</a><a>${l.terms}</a></div>`;
+ if(st==='family')return `<div class="wp ${wide?'wide fam':''}">${top}<div class="wbody"><div><h1 class="wtitle" style="font-size:${wide?32:26}px">${l.treeT}</h1><p class="capn">${T('Pind Di Kudi')} · ${H('harjot.beats')} · ${l.songsN(pubFamily)}</p></div><div class="chips" role="radiogroup">${[['top',l.top],['new',l.newest]].map(([v,t])=>`<button type="button" role="radio" aria-checked="${S.wsort===v}" class="ch ${S.wsort===v?'on':''}" data-act="wsort:${v}">${t}</button>`).join('')}</div>${treeHTML('root','sana',S.wsort,S.wopen,'wopen','')}</div>${foot}</div>`;
+ const remixBtn=st==='off'?'':st==='original'?`<a class="b sec" href="#">${ic('music')}${l.signIn}</a>`:`<a class="b sec" href="#">${ic('music')}${l.remix}</a>`;
+ const song=`<div class="wsong"><div class="top">${cov(n.c,wide?220:300,28)}<div style="display:flex;flex-direction:column;gap:6px"><h1 class="wtitle">${T(n.t)}</h1><p style="margin:0;font-weight:700">${H(n.h)}</p><p class="capn">Punjabi · Lo-fi · ${l.plays(n.pl)} · <span class="ltr">2:36</span></p>${n.par?`<a class="credit" href="#">${ic('tree')}<span>${l.remixOf(T(byId(n.par).t),H(byId(n.par).h))}</span></a>`:''}</div></div>${player()}<div class="acts"><span class="vote">${ic('heart')}${st==='original'?'1,204':l.like+' · 312'}</span>${st==='original'?'':`<span class="vote">${ic('down')}${l.nfm}</span>`}<span class="vote">${ic('share')}${l.share}</span>${remixBtn}</div><div class="card flat"><b>${l.lyrics}</b><p class="lyr">Pind di kudi, chaanan wargi\nKhetan vich gaaundi, hawa naal\nMele di raat, gal teri baat\n…</p></div></div>`;
+ const side=`<aside class="side">${remixSection(id,st==='remix'||st==='original'?'has':st,'','',true)}</aside>`;
+ return `<div class="wp ${wide?'wide':''}">${top}<div class="wbody">${song}${side}</div>${foot}</div>`;}
+function langWrap(inner){const la=langAttrs(true);return `<div class="${tcls()} ${S.rm?'rm':''} ${la.cls}" ${la.attr} style="min-height:100%">${inner}</div>`;}
+function renderWeb(){$('#wstates').innerHTML='<span>State</span>'+WST.map(([k,t])=>`<button type="button" data-act="web:${k}" aria-pressed="${S.web===k}">${t}</button>`).join('');
+ $('#wurl').textContent=S.web==='family'?'reelkar.app/s/Hd3kQp7Lm2/family':'reelkar.app/s/Lq8vT2mXk4';
+ $('#wdesk').innerHTML=langWrap(webPage(true));
+ const la=langAttrs(true);$('#wphone').innerHTML=`<div class="ph ${tcls()} ${S.rm?'rm':''}"><div class="island"></div><div class="sbar"><span>9:41</span><span class="r">●●●● <i></i></span></div><div class="scr ${la.cls}" ${la.attr}><div class="safari"><span>${ic('lock')}reelkar.app</span></div>${webPage(false)}</div><div class="homei"></div></div>`;}
+
+/* ---------- render ---------- */
+function renderIdx(){let g='',h='';SCR.forEach(s=>{if(s.g!==g){g=s.g;h+=`<h4>${g}</h4>`}h+=`<button type="button" data-go="${s.id}" aria-current="${S.screen===s.id}"><b>${s.id.toUpperCase()}</b>${s.t}${s.i18n?' <span class="tag g">EN·HI·AR</span>':''}</button>`});$('#idx').innerHTML=h;}
+function renderPhone(){const s=SCR.find(x=>x.id===S.screen);const la=langAttrs(!!s.i18n);
+ $('#phone').innerHTML=`<div class="ph ${tcls()} ${s.lock?'lock-s':''} ${S.rm?'rm':''}"><div class="island"></div><div class="sbar"><span>9:41</span><span class="r">●●●● <i></i></span></div><div class="scr ${la.cls}" ${la.attr} aria-label="${s.t}">${s.r()}</div><div class="homei"></div></div>`;
+ const i=SCR.indexOf(s);$('#pos').textContent=`${i+1} / ${SCR.length} · ${s.t}`;
+ const stKey=s.id==='x1'?'x1':'x4';
+ $('#notes').innerHTML=`<h3>${s.id.toUpperCase()} · ${s.t}</h3><p class="rt">${s.route}</p><ul>${s.notes.map(n=>`<li>${n}</li>`).join('')}</ul>${s.states?`<div class="seg" role="group" aria-label="State"><span>State</span>${s.states.map(([k,t])=>`<button type="button" data-act="st:${stKey}:${k}" aria-pressed="${S[stKey]===k}">${t}</button>`).join('')}</div>`:''}<p class="re"><b>Reuses:</b> ${s.reuse}</p>${s.i18n&&S.lang!=='en'?`<p class="re">${S.lang==='ar'?'Arabic, right to left: layout, chevrons, the path rail and the tree indent mirror; play buttons, the waveform, timecodes, @handles and amounts stay left to right.':'Hindi in Hind, line height 1.6 body and 1.3 headings; chips wrap, no fixed widths.'}</p>`:''}`;}
+function render(){document.documentElement.setAttribute('data-theme',S.theme);
+ $$('[data-theme-btn]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.themeBtn===S.theme));
+ $$('[data-lang-btn]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.langBtn===S.lang));
+ $$('[data-rm-btn]').forEach(b=>b.setAttribute('aria-pressed',String(S.rm?1:0)===b.dataset.rmBtn));
+ renderIdx();renderPhone();renderWeb();}
+function go(id){if(!id||!SCR.find(s=>s.id===id))return;S.screen=id;renderIdx();renderPhone();const sc=$('#phone .scr');if(sc)sc.scrollTop=0;}
+document.addEventListener('click',e=>{const t=e.target.closest('[data-theme-btn],[data-lang-btn],[data-rm-btn],[data-go],[data-act]');if(!t)return;
+ if(t.tagName==='A')e.preventDefault();
+ if(t.dataset.themeBtn){S.theme=t.dataset.themeBtn;return render()}
+ if(t.dataset.langBtn){S.lang=t.dataset.langBtn;return render()}
+ if(t.dataset.rmBtn){S.rm=t.dataset.rmBtn==='1';return render()}
+ const a=t.dataset.act;
+ if(a){const [k,v,w]=a.split(':');const keep=$('#phone .scr')?.scrollTop||0;
+  if(k==='kind'){S.kind=v;renderPhone();}
+  else if(k==='sort'){S.sort=v;renderPhone();}
+  else if(k==='open'){S.open[v]=true;renderPhone();}
+  else if(k==='wopen'){S.wopen[v]=true;renderWeb();return}
+  else if(k==='wsort'){S.wsort=v;renderWeb();return}
+  else if(k==='chip'){S.chip=v;renderPhone();}
+  else if(k==='allow'){if(S.allow){S.stop=true}else{S.allow=true}renderPhone();}
+  else if(k==='stopyes'){S.allow=false;S.stop=false;if(S.screen==='x10')S.screen='x9';renderIdx();renderPhone();}
+  else if(k==='stopno'){S.stop=false;if(S.screen==='x10')S.screen='x9';renderIdx();renderPhone();}
+  else if(k==='st'){S[v]=w;renderPhone();}
+  else if(k==='web'){S.web=v;renderWeb();return}
+  const sc=$('#phone .scr');if(sc)sc.scrollTop=keep;return;}
+ if(t.dataset.go!==undefined&&t.dataset.go!==''){go(t.dataset.go)}
+});
+$('#prev').onclick=()=>{const i=SCR.findIndex(s=>s.id===S.screen);go(SCR[(i-1+SCR.length)%SCR.length].id)};
+$('#next').onclick=()=>{const i=SCR.findIndex(s=>s.id===S.screen);go(SCR[(i+1)%SCR.length].id)};
+render();
+})();
+</script>
+</body>
+</html>

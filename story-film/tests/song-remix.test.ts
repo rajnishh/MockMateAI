@@ -178,8 +178,8 @@ describe("remix requests", () => {
     expect(remixedDurationSec({ kind: "cover", style: "rock" }, 60)).toBe(60);
   });
 
-  it("charges more for a whole-song remix than for one part", () => {
+  it("prices a whole-song remix like one ACE-Step take", () => {
     expect(remixCredits("cover")).toBe(REMIX_CREDITS.cover);
-    expect([remixCredits("cover"), remixCredits("extend"), remixCredits("replace")]).toEqual([2, 2, 1]);
+    expect([remixCredits("cover"), remixCredits("extend"), remixCredits("replace")]).toEqual([1, 1, 1]);
   });
 });

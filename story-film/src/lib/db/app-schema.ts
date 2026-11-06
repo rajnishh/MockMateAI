@@ -1,5 +1,5 @@
 import { STYLE_IDS } from "@/lib/styles";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { type AnyPgColumn, boolean, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { user } from "./auth-schema";
 
@@ -40,6 +40,8 @@ export const film = pgTable(
     characterId: uuid("character_id").references(() => character.id, { onDelete: "set null" }),
     // Set for music videos: the song this video was made for.
     songId: uuid("song_id").references((): AnyPgColumn => song.id, { onDelete: "set null" }),
+    // Set for a reel made with someone's recipe (design/community/recipes-spec.md).
+    recipeId: uuid("recipe_id").references((): AnyPgColumn => recipe.id, { onDelete: "set null" }),
     story: text("story").notNull(),
     style: filmStyle("style").notNull(),
     format: filmFormat("format").notNull().default("story"),
@@ -109,6 +111,8 @@ export const scheduledPost = pgTable(
     privacy: postPrivacy("privacy").notNull().default("public"),
     madeForKids: boolean("made_for_kids").notNull().default(false),
     scheduledAt: timestamp("scheduled_at").notNull(),
+    // Instagram usernames shown as co-authors (a Jugalbandi's partner); only for an approved duet.
+    collaborators: text("collaborators").array().notNull().default([]),
     status: postStatus("status").notNull().default("scheduled"),
     externalId: text("external_id"),
     externalUrl: text("external_url"),
@@ -119,7 +123,9 @@ export const scheduledPost = pgTable(
   (t) => [index("scheduled_post_user_time_idx").on(t.userId, t.scheduledAt)],
 );
 
-export const ledgerReason = pgEnum("ledger_reason", ["purchase", "subscription", "video", "refund", "grant", "song"]);
+// "earning": whole credits a creator earned from remixes of their songs or uses of their recipes
+// (src/lib/billing/earnings.ts). Earned credits count as free, like "grant".
+export const ledgerReason = pgEnum("ledger_reason", ["purchase", "subscription", "video", "refund", "grant", "song", "earning"]);
 export const purchaseStatus = pgEnum("purchase_status", ["created", "paid", "failed"]);
 export const currency = pgEnum("currency", ["INR", "USD", "AED"]);
 
@@ -128,6 +134,10 @@ export const creditBalance = pgTable("credit_balance", {
     .primaryKey()
     .references(() => user.id, { onDelete: "cascade" }),
   balance: integer("balance").notNull().default(0),
+  // Earnings, in hundredths of a credit: everything earned so far, and how many whole credits of
+  // it are already in the balance. The rest is "on the way".
+  earnedHundredths: integer("earned_hundredths").notNull().default(0),
+  earnedCredited: integer("earned_credited").notNull().default(0),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
@@ -237,12 +247,144 @@ export const song = pgTable(
     credits: integer("credits").notNull().default(0),
     status: filmStatus("status").default("queued").notNull(),
     outputPath: text("output_path"),
+    // AI cover art, a square JPEG made after the song; null until then, or if the picture failed.
+    coverPath: text("cover_path"),
     contentCredentials: boolean("content_credentials").notNull().default(false),
     error: text("error"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     completedAt: timestamp("completed_at"),
+    // Listen (docs/PLAN.md item 44): a song is private until its maker publishes it. The public
+    // link is /s/{publicId}, made at first publish and kept, so an old link works again after a re-publish.
+    publicId: text("public_id").unique(),
+    publishedAt: timestamp("published_at"),
+    showLyrics: boolean("show_lyrics").notNull().default(true),
+    allowRemix: boolean("allow_remix").notNull().default(true),
+    // Set by the owner after a report; a taken-down song can't be published again by its maker.
+    takenDownAt: timestamp("taken_down_at"),
+    // Counters for sorting; the rows behind them are in song_play and song_vote.
+    playCount: integer("play_count").notNull().default(0),
+    likeCount: integer("like_count").notNull().default(0),
+    dislikeCount: integer("dislike_count").notNull().default(0),
   },
-  (t) => [index("song_user_created_idx").on(t.userId, t.createdAt)],
+  (t) => [index("song_user_created_idx").on(t.userId, t.createdAt), index("song_published_idx").on(t.publishedAt)],
+);
+
+// A creator's public name on Listen. Handles are lowercase a-z, 0-9, dot and underscore.
+export const creatorProfile = pgTable("creator_profile", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  handle: text("handle").notNull().unique(),
+  handleChangedAt: timestamp("handle_changed_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// One row per listener per song per day; the listener is a user id, or "v:" plus a browser cookie id.
+export const songPlay = pgTable(
+  "song_play",
+  {
+    songId: uuid("song_id")
+      .notNull()
+      .references(() => song.id, { onDelete: "cascade" }),
+    listener: text("listener").notNull(),
+    day: text("day").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("song_play_once_idx").on(t.songId, t.listener, t.day), index("song_play_day_idx").on(t.day)],
+);
+
+// Like (+1) or "Not for me" (-1), one per person per song.
+export const songVote = pgTable(
+  "song_vote",
+  {
+    songId: uuid("song_id")
+      .notNull()
+      .references(() => song.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    value: integer("value").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("song_vote_once_idx").on(t.songId, t.userId), index("song_vote_user_idx").on(t.userId)],
+);
+
+export const songReactionKind = pgEnum("song_reaction_kind", ["fire", "dance", "touched", "haha", "respect", "celebrate"]);
+
+// One reaction per person per song.
+export const songReaction = pgTable(
+  "song_reaction",
+  {
+    songId: uuid("song_id")
+      .notNull()
+      .references(() => song.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    kind: songReactionKind("kind").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("song_reaction_once_idx").on(t.songId, t.userId)],
+);
+
+// Remix chains (design/community/remix-spec.md): one row per remix, own songs too. The parent and
+// root have no foreign key, so a deleted song in the middle of a chain becomes a "No longer
+// available" node and its remixes stay in the family. Same kinds as REMIX_KINDS in src/lib/songs/remix.ts.
+export const remixKind = pgEnum("remix_kind", ["cover", "extend", "replace", "rap", "add-vocals", "add-instrumental"]);
+
+export const remixLink = pgTable(
+  "remix_link",
+  {
+    childSongId: uuid("child_song_id")
+      .primaryKey()
+      .references(() => song.id, { onDelete: "cascade" }),
+    parentSongId: uuid("parent_song_id").notNull(),
+    // Who made the parent when it was remixed: for earnings and the Inbox.
+    parentUserId: text("parent_user_id"),
+    // The top of the family: the parent's root, or the parent itself.
+    rootSongId: uuid("root_song_id").notNull(),
+    // 1 for a remix of an original, 2 for a remix of that, and so on.
+    depth: integer("depth").notNull(),
+    kind: remixKind("kind").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("remix_link_parent_idx").on(t.parentSongId), index("remix_link_root_idx").on(t.rootSongId)],
+);
+
+// Creator earnings, shared by remixes and reel recipes (src/lib/billing/earnings.ts). One row per
+// thing that earned: a remix (source_ref = the remix song id, subject_ref = the parent song id) or a
+// reel made with a recipe (the reel id and the recipe id). Amounts are hundredths of a credit.
+export const earningSource = pgEnum("earning_source", ["remix", "recipe"]);
+// pending: charged, waiting for the remix or reel to finish; earned: added to the earner's total;
+// dropped: it failed (and was refunded) or its subject was taken down.
+export const earningStatus = pgEnum("earning_status", ["pending", "earned", "dropped"]);
+
+export const creatorEarning = pgTable(
+  "creator_earning",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    source: earningSource("source").notNull(),
+    sourceRef: text("source_ref").notNull(),
+    subjectRef: text("subject_ref").notNull(),
+    payerUserId: text("payer_user_id").references(() => user.id, { onDelete: "set null" }),
+    // Credits the payer was charged, the share of their credits that were paid for (basis points,
+    // 10000 = all paid) and the rate (basis points, 1000 = 10%), all as they were at charge time.
+    charged: integer("charged").notNull(),
+    paidRatioBp: integer("paid_ratio_bp").notNull(),
+    rateBp: integer("rate_bp").notNull(),
+    hundredths: integer("hundredths").notNull(),
+    status: earningStatus("status").notNull().default("pending"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    settledAt: timestamp("settled_at"),
+  },
+  (t) => [
+    uniqueIndex("creator_earning_source_idx").on(t.source, t.sourceRef),
+    index("creator_earning_user_idx").on(t.userId, t.createdAt),
+    index("creator_earning_subject_idx").on(t.userId, t.subjectRef),
+  ],
 );
 
 // "Ask Reelkar", the built-in agent. How it may post: always ask first, schedule on its own, or post at once.
@@ -264,6 +406,28 @@ export const agentSettings = pgTable("agent_settings", {
   aiKeyHint: text("ai_key_hint"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+// The creator's own AI engines, tried in `position` order for every AI task before Reelkar's own
+// lane. Keys are encrypted like OAuth tokens; only the last 4 characters are shown back. `extra`
+// holds a second value a provider needs, such as a Cloudflare account id.
+export const aiEngine = pgTable(
+  "ai_engine",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull(),
+    model: text("model").notNull(),
+    key: text("key"),
+    keyHint: text("key_hint"),
+    extra: text("extra"),
+    position: integer("position").notNull().default(0),
+    enabled: boolean("enabled").notNull().default(true),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("ai_engine_user_idx").on(t.userId, t.position)],
+);
 
 export const agentMessage = pgTable(
   "agent_message",
@@ -390,3 +554,305 @@ export const oauthToken = pgTable(
   },
   (t) => [index("oauth_token_grant_idx").on(t.grantId)],
 );
+
+// Song gifts (design/community/flow-spec.md): a song sent as a link that opens with no sign-in.
+export const giftOccasion = pgEnum("gift_occasion", ["birthday", "wedding", "eid", "diwali", "anniversary", "rakhi", "just_because"]);
+// How the Arabic gift page addresses the person; null uses neutral wording.
+export const giftAddress = pgEnum("gift_address", ["her", "him"]);
+
+export const gift = pgTable(
+  "gift",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // The public link's code (reelkar.app/g/{token}); short, random, and never reused.
+    token: text("token").notNull().unique(),
+    songId: uuid("song_id")
+      .notNull()
+      .references(() => song.id, { onDelete: "cascade" }),
+    senderId: text("sender_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    toName: text("to_name").notNull(),
+    // How the sender signs it ("Bhaiya", "Mom"); empty uses their account name.
+    fromName: text("from_name").notNull().default(""),
+    occasion: giftOccasion("occasion").notNull(),
+    note: text("note").notNull().default(""),
+    // The sender's own photo as the cover; null uses the song's AI cover.
+    coverPath: text("cover_path"),
+    address: giftAddress("address"),
+    // Set for a reply: the gift it answers. A reply goes to the person who sent that gift.
+    replyToGiftId: uuid("reply_to_gift_id").references((): AnyPgColumn => gift.id, { onDelete: "set null" }),
+    // The first reply to a gift is free (owner decision, 2026-11-06).
+    freeReply: boolean("free_reply").notNull().default(false),
+    // What the sender sees: whether it was opened, plays (one per browser per day) and when. Never who.
+    openedAt: timestamp("opened_at"),
+    playCount: integer("play_count").notNull().default(0),
+    lastPlayedAt: timestamp("last_played_at"),
+    // The sender stopped sharing; the link shows "not available any more" until shared again.
+    revokedAt: timestamp("revoked_at"),
+    takenDownAt: timestamp("taken_down_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("gift_sender_created_idx").on(t.senderId, t.createdAt), index("gift_reply_to_idx").on(t.replyToGiftId)],
+);
+
+// One row per browser per day that played a gift, so a replay doesn't inflate the count. The
+// visitor is a random id in a first-party cookie, not an IP or device.
+export const giftPlay = pgTable(
+  "gift_play",
+  {
+    giftId: uuid("gift_id")
+      .notNull()
+      .references(() => gift.id, { onDelete: "cascade" }),
+    visitor: text("visitor").notNull(),
+    day: text("day").notNull(),
+  },
+  (t) => [uniqueIndex("gift_play_once_idx").on(t.giftId, t.visitor, t.day)],
+);
+
+export const giftReportReason = pgEnum("gift_report_reason", ["voice_or_likeness", "copyright", "hateful", "minor_sexual", "other"]);
+
+// Reports from the Report link on a public gift page (legally required); reviewed by a person.
+export const giftReport = pgTable(
+  "gift_report",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    giftId: uuid("gift_id")
+      .notNull()
+      .references(() => gift.id, { onDelete: "cascade" }),
+    reason: giftReportReason("reason").notNull(),
+    details: text("details").notNull().default(""),
+    email: text("email"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("gift_report_gift_idx").on(t.giftId)],
+);
+
+// Reports from the Report button on every public song, with the gift reasons; reviewed by a person.
+export const songReport = pgTable(
+  "song_report",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    songId: uuid("song_id")
+      .notNull()
+      .references(() => song.id, { onDelete: "cascade" }),
+    reason: giftReportReason("reason").notNull(),
+    details: text("details").notNull().default(""),
+    email: text("email"),
+    reporterId: text("reporter_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("song_report_song_idx").on(t.songId)],
+);
+
+// Jugalbandi: a song two creators make from two phones (design/community/flow-spec.md, feature 2).
+// waiting: A is recording or waiting for B; joining: the song is being made; ready: both approve;
+// declined / cancelled: over; solo: A finished it alone. "No answer in 48 hours" is worked out from
+// expiresAt, so no job has to run.
+export const duetStatus = pgEnum("duet_status", ["waiting", "joining", "ready", "declined", "cancelled", "solo"]);
+export const duetPartKind = pgEnum("duet_part_kind", ["hum", "sing"]);
+
+export const duet = pgTable(
+  "duet",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // The invite link's code (reelkar.app/j/{token}); a new one when A invites someone else.
+    token: text("token").notNull().unique(),
+    starterId: text("starter_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    // Whoever opened the invite and joined; null until then.
+    partnerId: text("partner_id").references(() => user.id, { onDelete: "set null" }),
+    starterName: text("starter_name").notNull(),
+    partnerName: text("partner_name").notNull().default(""),
+    // Instagram usernames for the Collab post (without @).
+    starterIg: text("starter_ig").notNull().default(""),
+    partnerIg: text("partner_ig").notNull().default(""),
+    topic: text("topic").notNull(),
+    genre: text("genre").notNull(),
+    language: text("language").notNull(),
+    status: duetStatus("status").notNull().default("waiting"),
+    // Each part: its audio (copied from the Hum it take), what it was, and what was heard in it.
+    partAPath: text("part_a_path"),
+    partAKind: duetPartKind("part_a_kind"),
+    partAText: text("part_a_text").notNull().default(""),
+    partASec: integer("part_a_sec"),
+    partBPath: text("part_b_path"),
+    partBKind: duetPartKind("part_b_kind"),
+    partBText: text("part_b_text").notNull().default(""),
+    partBSec: integer("part_b_sec"),
+    // The joined song (owned by A; B hears it through the duet).
+    songId: uuid("song_id").references(() => song.id, { onDelete: "set null" }),
+    // Credits each one paid: A pays at the start; B can offer half.
+    paidA: integer("paid_a").notNull().default(0),
+    paidB: integer("paid_b").notNull().default(0),
+    retakesA: integer("retakes_a").notNull().default(0),
+    retakesB: integer("retakes_b").notNull().default(0),
+    approvedA: timestamp("approved_a"),
+    approvedB: timestamp("approved_b"),
+    // A asked B to sing their part again (or the other way round).
+    retakeAskedOf: text("retake_asked_of"),
+    declineNote: text("decline_note").notNull().default(""),
+    // 48 hours from when A's part is in; "Give 24 more hours" works once.
+    expiresAt: timestamp("expires_at"),
+    extended: boolean("extended").notNull().default(false),
+    // Invited by Instagram username: the Reelkar account that connected it, told in the app.
+    invitedUserId: text("invited_user_id").references(() => user.id, { onDelete: "set null" }),
+    invitedIg: text("invited_ig").notNull().default(""),
+    // Each part may be sung in its own singer's consented voice (never the other's); each pays for theirs.
+    voiceA: uuid("voice_a").references(() => voiceProfile.id, { onDelete: "set null" }),
+    voiceB: uuid("voice_b").references(() => voiceProfile.id, { onDelete: "set null" }),
+    paidVoiceA: integer("paid_voice_a").notNull().default(0),
+    paidVoiceB: integer("paid_voice_b").notNull().default(0),
+    // The 24-hour reminder went out.
+    remindedAt: timestamp("reminded_at"),
+    // Both parts are in and the song is being started (cleared once it's queued or the start fails).
+    joinStartedAt: timestamp("join_started_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("duet_starter_idx").on(t.starterId, t.createdAt), index("duet_partner_idx").on(t.partnerId, t.createdAt)],
+);
+
+// Reports from the Report link on a public duet invite page.
+export const duetReport = pgTable(
+  "duet_report",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    duetId: uuid("duet_id")
+      .notNull()
+      .references(() => duet.id, { onDelete: "cascade" }),
+    reason: giftReportReason("reason").notNull(),
+    details: text("details").notNull().default(""),
+    email: text("email"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("duet_report_duet_idx").on(t.duetId)],
+);
+
+// Reel recipes (design/community/recipes-spec.md): a snapshot of a finished reel's look, length,
+// script shape and music that others make their own reel with. Never the maker's words, photos,
+// characters, voice or brand (src/lib/recipe-spec.ts says what goes in). The public link is
+// /r/{publicId}. "reel" previews show the maker's reel; "look" previews only its poster.
+export const recipePreview = pgEnum("recipe_preview", ["reel", "look"]);
+
+export const recipe = pgTable(
+  "recipe",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    publicId: text("public_id").notNull().unique(),
+    makerId: text("maker_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    // One recipe per reel; the recipe stays if the reel is deleted.
+    sourceFilmId: uuid("source_film_id").references((): AnyPgColumn => film.id, { onDelete: "set null" }),
+    format: filmFormat("format").notNull(),
+    name: text("name").notNull(),
+    // Festival slugs from src/lib/festivals.ts, at most 2.
+    occasions: text("occasions").array().notNull().default(sql`'{}'::text[]`),
+    spec: jsonb("spec").notNull(),
+    topicHint: text("topic_hint").notNull().default(""),
+    languageHint: text("language_hint"),
+    quality: filmQuality("quality").notNull().default("standard"),
+    durationSec: integer("duration_sec").notNull(),
+    kidSafe: boolean("kid_safe").notNull().default(false),
+    previewKind: recipePreview("preview_kind").notNull().default("look"),
+    previewPath: text("preview_path"),
+    posterPath: text("poster_path"),
+    musicPath: text("music_path"),
+    // Null while the maker has stopped sharing it.
+    publishedAt: timestamp("published_at"),
+    unpublishedAt: timestamp("unpublished_at"),
+    // Set by the owner after a report is upheld; it can't be shared again.
+    takenDownAt: timestamp("taken_down_at"),
+    // Finished reels made with it by others (own uses don't count).
+    useCount: integer("use_count").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("recipe_published_idx").on(t.publishedAt),
+    index("recipe_format_idx").on(t.format),
+    index("recipe_occasions_idx").using("gin", t.occasions),
+    index("recipe_maker_idx").on(t.makerId),
+    uniqueIndex("recipe_source_film_idx").on(t.sourceFilmId),
+  ],
+);
+
+export const recipeUseStatus = pgEnum("recipe_use_status", ["started", "completed", "failed"]);
+
+// One row per reel made with a recipe; its earning (if any) is in creator_earning (source "recipe").
+export const recipeUse = pgTable(
+  "recipe_use",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    recipeId: uuid("recipe_id")
+      .notNull()
+      .references(() => recipe.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    filmId: uuid("film_id")
+      .notNull()
+      .unique()
+      .references(() => film.id, { onDelete: "cascade" }),
+    credits: integer("credits").notNull().default(0),
+    ownUse: boolean("own_use").notNull().default(false),
+    earningId: uuid("earning_id").references(() => creatorEarning.id, { onDelete: "set null" }),
+    status: recipeUseStatus("status").notNull().default("started"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    completedAt: timestamp("completed_at"),
+  },
+  (t) => [index("recipe_use_recipe_idx").on(t.recipeId, t.completedAt)],
+);
+
+// Reports from the Report link on every public recipe, with the gift reasons; reviewed by a person.
+export const recipeReport = pgTable(
+  "recipe_report",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    recipeId: uuid("recipe_id")
+      .notNull()
+      .references(() => recipe.id, { onDelete: "cascade" }),
+    reason: giftReportReason("reason").notNull(),
+    details: text("details").notNull().default(""),
+    email: text("email"),
+    reporterId: text("reporter_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("recipe_report_recipe_idx").on(t.recipeId), index("recipe_report_reporter_idx").on(t.reporterId)],
+);
+
+export const pushPlatform = pgEnum("push_platform", ["ios", "android"]);
+// The language pushes are written in: the phone's own, when it's one Reelkar writes.
+export const pushLang = pgEnum("push_lang", ["en", "hi", "ar"]);
+
+// Expo push tokens, one row per phone; a token moves to whoever signs in on that phone last.
+// Deleted on sign-out, or when Expo says the phone no longer takes pushes.
+export const pushToken = pgTable(
+  "push_token",
+  {
+    token: text("token").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    // Null for phones that registered before the app sent it.
+    platform: pushPlatform("platform"),
+    lang: pushLang("lang").notNull().default("en"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [index("push_token_user_idx").on(t.userId)],
+);
+
+// Which pushes a creator wants (Account › Notifications). No row means all are on.
+export const pushPrefs = pgTable("push_prefs", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  songs: boolean("songs").notNull().default(true),
+  reels: boolean("reels").notNull().default(true),
+  // Gifts and Jugalbandis.
+  gifts: boolean("gifts").notNull().default(true),
+  // Remixes of the creator's songs and what they earned.
+  remixes: boolean("remixes").notNull().default(true),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});

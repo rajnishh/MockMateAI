@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import { Linking, StyleSheet, View } from "react-native";
 
 import { Celebrate } from "@/components/celebrate";
+import { PushOffer } from "@/components/push-offer";
+import { ShareAsRecipeCard } from "@/components/recipes";
 import { confirmDelete } from "@/components/reel-grid";
 import { ReelThumb } from "@/components/reel-thumb";
 import { ReelVideo } from "@/components/reel-video";
 import { Banner, Button, Card, Chip, ChipRow, Header, Row, Screen, Skeleton, Txt } from "@/components/ui";
-import { api, type Account, type Film, type Platform, type PostCopy } from "@/lib/api";
+import { api, type Account, type Duet, type Film, type FilmRecipe, type Platform, type PostCopy } from "@/lib/api";
 import { PLATFORM_LABEL } from "@/lib/connect";
 import { formatLabel } from "@/lib/formats";
 import { saveReelToPhotos, shareReel } from "@/lib/reel-file";
@@ -51,10 +53,25 @@ export default function Reel() {
   const [options] = useState(() => whenOptions(new Date()));
   const [when, setWhen] = useState<When>("now");
   const [posting, setPosting] = useState(false);
+  // A Jugalbandi's music video posts as an Instagram Collab with the partner, once both approved.
+  const [duet, setDuet] = useState<Duet | null>(null);
+  const [collab, setCollab] = useState(true);
+  const collabWith = duet && duet.role === "a" && duet.approvedA && duet.approvedB ? duet.partnerIg : "";
+  // Share as a recipe, or "Recipe by @maker" with a caption credit (on by default).
+  const [recipeInfo, setRecipeInfo] = useState<FilmRecipe | null>(null);
+  const [credit, setCredit] = useState(true);
+  const recipeBy = film?.recipe?.handle ?? null;
+  const recipeLine = recipeBy && credit ? `Recipe by @${recipeBy} on Reelkar` : "";
 
   useEffect(() => {
     api.film(id).then(setFilm, (e) => setError(e.message));
   }, [id]);
+  useEffect(() => {
+    if (film?.songId) api.duetForSong(film.songId).then(setDuet, () => undefined);
+  }, [film?.songId]);
+  useEffect(() => {
+    if (film?.status === "completed") api.filmRecipe(id).then(setRecipeInfo, () => undefined);
+  }, [film?.status, id]);
 
   async function save() {
     setSaving(true);
@@ -117,11 +134,15 @@ export default function Reel() {
       const at = options.find((o) => o.value === when)?.at;
       for (const account of connected.filter((a) => selected.includes(a.id))) {
         const c = await captionFor(account.platform);
+        const withPartner = account.platform === "instagram" && collab && collabWith;
+        // Credit the partner in the caption too (YouTube has no Collab, and it helps if Instagram's invite is missed).
+        const credit = duet && duet.partnerName ? `with ${duet.partnerIg ? `@${duet.partnerIg}` : duet.partnerName} · Jugalbandi made on Reelkar` : recipeLine;
         await api.createPost({
+          ...(withPartner ? { collaborators: [collabWith] } : {}),
           filmId: id,
           socialAccountId: account.id,
           title: c.title || film?.title || "My reel",
-          description: [c.caption, c.hashtags.join(" ")].filter(Boolean).join("\n\n"),
+          description: [c.caption, credit, c.hashtags.join(" ")].filter(Boolean).join("\n\n"),
           tags: c.hashtags.map((h) => h.replace(/^#/, "")).slice(0, 15),
           scheduledAt: at?.toISOString(),
         });
@@ -135,11 +156,11 @@ export default function Reel() {
   }
 
   const current = copy[platform];
-  const text = current ? [current.caption, current.hashtags.join(" ")].filter(Boolean).join("\n\n") : "";
+  const text = current ? [current.caption, recipeLine, current.hashtags.join(" ")].filter(Boolean).join("\n\n") : "";
 
   return (
     <Screen>
-      <Header title={film?.title ?? "Your reel"} sub={["Ready", formatLabel(film?.format), "Made with AI"].filter(Boolean).join(" · ")} back />
+      <Header title={film?.title ?? "Your reel"} sub={["Ready", formatLabel(film?.format), "Made with AI", recipeBy ? `Recipe by @${recipeBy}` : null].filter(Boolean).join(" · ")} back />
       <View style={styles.player}>
         {film?.videoUrl ? <ReelVideo film={film} autoPlay={Boolean(fresh)} /> : film ? <ReelThumb seed={0} playable /> : <Skeleton height={420} />}
         {/* Straight from "Making your reel": celebrate once. */}
@@ -154,6 +175,7 @@ export default function Reel() {
         <Banner kind="warn" text="Allow Reelkar to add to Photos in Settings, then try again." action={<Button label="Settings" small kind="secondary" onPress={() => Linking.openSettings()} />} />
       ) : null}
       {film?.error ? <Banner kind="warn" text={film.error} /> : null}
+      {fresh && film ? <PushOffer what="reel" /> : null}
       {film?.format === "edit" ? (
         <Button label="Fine-tune effects" icon="edit" kind="secondary" block onPress={() => router.push(`/edit/${id}`)} />
       ) : null}
@@ -178,6 +200,8 @@ export default function Reel() {
                 />
               ))}
             </Row>
+            {collabWith ? <Chip label={`Instagram Collab with @${collabWith}`} selected={collab} onPress={() => setCollab(!collab)} /> : null}
+            {collabWith && collab ? <Txt variant="cap">@{collabWith} gets an invite in Instagram; once they accept, it shows on both profiles.</Txt> : null}
             <Txt variant="cap">When</Txt>
             <ChipRow options={options.map((o) => ({ value: o.value, label: o.label }))} value={when} onChange={setWhen} />
             <Button
@@ -193,6 +217,8 @@ export default function Reel() {
         )}
       </Card>
 
+      {recipeInfo ? <ShareAsRecipeCard filmId={id} info={recipeInfo} /> : null}
+
       <Card>
         <Txt variant="md">Caption</Txt>
         <ChipRow<Platform>
@@ -204,6 +230,7 @@ export default function Reel() {
           value={platform}
           onChange={setPlatform}
         />
+        {recipeBy ? <Chip label={`Credit @${recipeBy}`} selected={credit} onPress={() => setCredit(!credit)} /> : null}
         {current ? (
           <>
             {platform === "youtube" ? <Txt variant="label">{current.title}</Txt> : null}
@@ -218,7 +245,7 @@ export default function Reel() {
         )}
       </Card>
       <Button label="Make another reel" kind="ghost" style={{ alignSelf: "center" }} onPress={() => router.replace("/create")} />
-      <Button label="Delete reel" icon="trash" kind="danger" block onPress={() => confirmDelete(id, () => router.replace("/reels"), (m) => setError(m))} />
+      <Button label="Delete reel" icon="trash" kind="danger" block onPress={() => confirmDelete(id, () => router.replace("/reels"), (m) => setError(m), recipeInfo?.recipe?.state === "public")} />
     </Screen>
   );
 }

@@ -1,8 +1,9 @@
-// The AIs a creator can pick for Ask Reelkar, shared by the server and the settings screens.
-// "reelkar" is the free default on Reelkar's own account; the others use the creator's own key,
+// The AI engines a creator can connect, shared by the server and the settings screens. Every AI task
+// (chat, lyrics, song checks, ideas, captions, reel scripts) tries the creator's engines in order,
+// then "reelkar", Reelkar's own lane on the owner's keys. The others use the creator's own key,
 // except Ollama, which runs on Reelkar's server when the owner sets it up (OLLAMA_URL).
 
-export type AiProviderId = "reelkar" | "gemini" | "groq" | "openrouter" | "claude" | "ollama";
+export type AiProviderId = "reelkar" | "gemini" | "groq" | "cerebras" | "mistral" | "cloudflare" | "openrouter" | "claude" | "ollama";
 
 export interface AiModelOption {
   id: string;
@@ -19,20 +20,28 @@ export interface AiProvider {
   models: AiModelOption[];
   // Whether the creator may type any model id the provider offers.
   anyModel: boolean;
+  // Whether it can run Ask Reelkar's chat (calling actions as tools); all of them do text tasks.
+  chat: boolean;
+  // A second value the provider needs besides the key, such as Cloudflare's account id.
+  extra?: { label: string; placeholder: string };
 }
 
 export const AI_PROVIDERS: AiProvider[] = [
-  { id: "reelkar", name: "Reelkar free", price: "Free, no key needed", models: [], anyModel: false },
+  { id: "reelkar", name: "Reelkar free", price: "Free, no key needed", models: [], anyModel: false, chat: true },
   {
     id: "gemini",
     name: "Google Gemini",
     price: "Free key, within Google's daily limits",
     keyUrl: "https://aistudio.google.com/apikey",
     models: [
-      { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash · fast, free" },
-      { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro · smarter, lower free limit" },
+      { id: "gemini-3.5-flash", label: "Gemini 3.5 Flash · fast, free" },
+      { id: "gemini-flash-latest", label: "Newest Gemini Flash · free" },
+      { id: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash Lite · fastest, highest free limit" },
+      { id: "gemini-pro-latest", label: "Newest Gemini Pro · smarter, lower free limit" },
     ],
-    anyModel: false,
+    // Google renames and retires models often, so any current model id is accepted.
+    anyModel: true,
+    chat: true,
   },
   {
     id: "groq",
@@ -45,6 +54,42 @@ export const AI_PROVIDERS: AiProvider[] = [
       { id: "qwen/qwen3-32b", label: "Qwen3 32B · free" },
     ],
     anyModel: true,
+    chat: true,
+  },
+  {
+    id: "cerebras",
+    name: "Cerebras",
+    price: "Free key, very fast, within Cerebras's daily limits",
+    keyUrl: "https://cloud.cerebras.ai/platform",
+    models: [
+      { id: "llama-3.3-70b", label: "Llama 3.3 70B · free" },
+      { id: "gpt-oss-120b", label: "GPT-OSS 120B · free, smarter" },
+      { id: "qwen-3-32b", label: "Qwen3 32B · free" },
+    ],
+    anyModel: true,
+    chat: true,
+  },
+  {
+    id: "mistral",
+    name: "Mistral",
+    price: "Free key on Mistral's Experiment plan",
+    keyUrl: "https://console.mistral.ai/api-keys",
+    models: [
+      { id: "mistral-small-latest", label: "Mistral Small · free" },
+      { id: "mistral-large-latest", label: "Mistral Large · smarter, free with limits" },
+    ],
+    anyModel: true,
+    chat: true,
+  },
+  {
+    id: "cloudflare",
+    name: "Cloudflare Workers AI",
+    price: "Your own free Cloudflare account, 10,000 neurons a day",
+    keyUrl: "https://dash.cloudflare.com/profile/api-tokens",
+    models: [{ id: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", label: "Llama 3.3 70B · free" }],
+    anyModel: true,
+    chat: false,
+    extra: { label: "Account ID", placeholder: "From the Workers AI page of your dashboard" },
   },
   {
     id: "openrouter",
@@ -57,6 +102,7 @@ export const AI_PROVIDERS: AiProvider[] = [
       { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro · smarter, paid" },
     ],
     anyModel: true,
+    chat: true,
   },
   {
     id: "claude",
@@ -68,16 +114,19 @@ export const AI_PROVIDERS: AiProvider[] = [
       { id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5 · smarter" },
     ],
     anyModel: false,
+    chat: true,
   },
   {
     id: "ollama",
     name: "Ollama (on Reelkar's server)",
     price: "Free, runs on the server's own computer",
     models: [
+      { id: "gemma3:12b", label: "Gemma 3 12B · good Hinglish" },
       { id: "qwen3:8b", label: "Qwen3 8B" },
       { id: "llama3.1:8b", label: "Llama 3.1 8B" },
     ],
     anyModel: true,
+    chat: true,
   },
 ];
 
@@ -87,15 +136,36 @@ export function findProvider(id: string): AiProvider | undefined {
 
 export const needsKey = (p: AiProvider) => p.id !== "reelkar" && p.id !== "ollama";
 
-// What the settings screens get: the choice without the key, and which providers are on offer.
-export interface AiChoiceView {
+export const MAX_ENGINES = 8;
+
+// How an engine is doing right now: "resting" has used up its free allowance until `restUntil`;
+// "key" means the key stopped working (wrong, revoked or out of credit).
+export type EngineStatus = "ready" | "resting" | "key";
+
+// One of the creator's engines as the settings screens see it. The key never comes back.
+export interface EngineView {
+  id: string;
   provider: AiProviderId;
-  model: string | null;
-  // e.g. "…a1b2"; null when no key is saved.
+  name: string;
+  model: string;
+  // e.g. "…a1b2"; null when no key is needed.
   keyHint: string | null;
+  enabled: boolean;
+  chat: boolean;
+  status: EngineStatus;
+  // Epoch milliseconds, while resting.
+  restUntil: number | null;
+}
+
+export interface EnginesView {
+  // In the order they're tried; Reelkar's own lane always comes after them.
+  engines: EngineView[];
+  // What can be added. Reelkar's lane isn't in it.
   providers: AiProvider[];
   // False when the server can't store keys safely (no TOKEN_ENCRYPTION_KEY).
   ownKeys: boolean;
+  // Reelkar's lane: "resting" only when every one of its engines is resting.
+  reelkar: { status: EngineStatus; restUntil: number | null };
 }
 
 // Why the creator's AI didn't answer, in plain words.

@@ -1,10 +1,12 @@
 import { z } from "zod";
 import { type LanguageCode, writeInRule } from "@/lib/languages";
 import type { LlmProvider } from "@/lib/providers/types";
+import type { SectionKind } from "./structure";
 import type { Genre } from "./styles";
 
-// Hinglish is a song-only option (Hindi and English mixed, Latin script).
-export type SongLanguage = LanguageCode | "hinglish";
+// Hinglish (Hindi and English mixed, Latin script) and Punjabi (Gurmukhi) are song-only options;
+// Punjabi narration for reels comes later.
+export type SongLanguage = LanguageCode | "hinglish" | "pa";
 
 export interface LyricsRequest {
   topic: string;
@@ -13,12 +15,31 @@ export interface LyricsRequest {
   language: SongLanguage;
   durationSec: number;
   kidSafe?: boolean;
+  // The creator's structure blocks, in order; the usual verse-chorus shape when missing.
+  structure?: SectionKind[];
+  // Male and female lines, marked in the section tags.
+  duet?: boolean;
 }
 
-function lyricsLanguageRule(language: SongLanguage): string {
-  return language === "hinglish"
-    ? "Write the lyrics in Hinglish (Hindi and English mixed, Latin script), as in modern Indian pop."
-    : `Lyrics: ${writeInRule(language)}`;
+// The section-tag rules for a song: the creator's blocks in their order, and who sings each in a duet.
+export function structureRules(req: Pick<LyricsRequest, "structure" | "duet">): string[] {
+  const blocks = req.structure?.length ? req.structure : null;
+  return [
+    blocks
+      ? `Use exactly these sections, in this order, each tag on its own line: ${blocks.map((b) => `[${b}]`).join(" ")}. Repeated choruses use the same words.`
+      : "Structure with section tags on their own lines: [Verse], [Chorus], optionally [Bridge] and [Outro]. Repeat the chorus.",
+    blocks?.includes("Rap") ? "The [Rap] section is 8 fast, rhythmic rap bars with internal rhymes, one short bar per line, not sung lines." : "",
+    blocks?.some((b) => b === "Intro" || b === "Drop" || b === "Outro") ? "[Intro], [Drop] and [Outro] may have one short line or none." : "",
+    req.duet
+      ? 'It is a male and female duet: write each tag with its singer, like "[Verse - male vocal]", "[Verse - female vocal]" and "[Chorus - male and female vocals together]". Alternate the verses between them.'
+      : "",
+  ];
+}
+
+export function lyricsLanguageRule(language: SongLanguage): string {
+  if (language === "hinglish") return "Write the lyrics in Hinglish (Hindi and English mixed, Latin script), as in modern Indian pop.";
+  if (language === "pa") return "Lyrics: Write in natural, everyday Punjabi using Gurmukhi script (not Latin letters).";
+  return `Lyrics: ${writeInRule(language)}`;
 }
 
 // Roughly 2.5 sung lines per 10 seconds keeps lyrics from being rushed or cut off.
@@ -33,7 +54,7 @@ export function buildLyricsPrompt(req: LyricsRequest): string {
     `Genre: ${req.genre.label}. Mood: ${req.mood || "any"}.`,
     lyricsLanguageRule(req.language),
     `About ${targetLines(req.durationSec)} lines in total for a ${req.durationSec}-second song.`,
-    "Structure with section tags on their own lines: [Verse], [Chorus], optionally [Bridge] and [Outro]. Repeat the chorus.",
+    ...structureRules(req),
     "Short, singable lines with natural rhythm and some rhyme. A memorable chorus hook.",
     "Never mention or imitate real singers, bands or celebrities, and don't copy existing song lyrics.",
     req.kidSafe ? "This is for young children: simple words, gentle and positive, educational if possible." : "",
@@ -51,7 +72,7 @@ export function cleanLyrics(text: string): string {
     .split("\n")
     .map((l) => l.trim())
     // Normalise section tags like "(Chorus)" or "CHORUS:" to "[Chorus]".
-    .map((l) => l.replace(/^[([]?\s*(verse|chorus|bridge|outro|intro|pre-chorus)(\s*\d+)?\s*[)\]:]?$/i, (_, s: string) => `[${s[0].toUpperCase()}${s.slice(1).toLowerCase()}]`))
+    .map((l) => l.replace(/^[([]?\s*(verse|chorus|bridge|outro|intro|pre-chorus|rap|drop)(\s*\d+)?\s*[)\]:]?$/i, (_, s: string) => `[${s[0].toUpperCase()}${s.slice(1).toLowerCase()}]`))
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim()
@@ -85,7 +106,7 @@ export function buildEnhancePrompt(draft: string, req: LyricsRequest, retry = fa
     `Genre: ${req.genre.label}. Mood: ${req.mood || "any"}.`,
     lyricsLanguageRule(draftLanguage(draft, req.language)),
     `About ${Math.max(targetLines(req.durationSec), draftLines(draft).length + 4)} lines in total for a ${req.durationSec}-second song.`,
-    "Start with a section tag. Tags on their own lines: [Verse], [Chorus], [Verse], [Chorus], optionally [Bridge] and [Outro].",
+    ...(req.structure?.length || req.duet ? structureRules(req) : ["Start with a section tag. Tags on their own lines: [Verse], [Chorus], [Verse], [Chorus], optionally [Bridge] and [Outro]."]),
     "Short, singable lines with natural rhythm and rhyme.",
     "Never mention or imitate real singers, bands or celebrities, and don't copy existing song lyrics.",
     req.kidSafe ? "This is for young children: simple words, gentle and positive." : "",

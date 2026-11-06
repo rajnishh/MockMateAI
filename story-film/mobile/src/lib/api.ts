@@ -17,7 +17,11 @@ export interface Film {
   error: string | null;
   createdAt: string;
   videoUrl: string | null;
+  // Set for music videos: their storyboard is checked on the song's music video screen.
+  songId?: string | null;
   format?: "story" | "motion" | "dance" | "edit" | "music";
+  // Made with someone's recipe ("Recipe by @maker"); only on a single reel.
+  recipe?: RecipeRef | null;
 }
 
 export type Currency = "INR" | "USD" | "AED";
@@ -95,6 +99,8 @@ export interface NewPost {
   tags: string[];
   // Omit to post now.
   scheduledAt?: string;
+  // Instagram Collab co-author: an approved Jugalbandi partner.
+  collaborators?: string[];
 }
 
 // How the creator's own voice is processed: as recorded, cleaned and levelled, or a little deeper.
@@ -189,6 +195,8 @@ export interface EditUpload {
   ending: "auto" | "none" | "follow" | "comment";
   keyword?: string;
   brand?: { accent?: string; background?: "light" | "dark"; handle?: string };
+  // An edit recipe's public id: the server takes its options.
+  recipe?: string;
 }
 
 export type Quality = "standard" | "premium" | "cinematic";
@@ -211,6 +219,8 @@ export interface NewFilm {
   brand?: { accent?: string; background?: "light" | "dark"; handle?: string };
   kidSafe?: boolean;
 }
+// "Use this recipe": only the user's own fields; the server takes the kind, look and length from it.
+export type NewRecipeFilm = Pick<NewFilm, "story" | "language" | "quality" | "photo" | "photoConsent" | "keyword" | "brand"> & { recipe: string };
 
 // Song Studio (mirrors songView in story-film/src/lib/songs/songs.ts).
 export type SongStatus = "queued" | "running" | "completed" | "failed";
@@ -229,13 +239,322 @@ export interface Song {
   error: string | null;
   createdAt: string;
   audioUrl: string | null;
+  // Square AI cover art, made just after the song; null until then.
+  coverUrl?: string | null;
+  // Your own song's place on Listen (from GET /api/songs/:id).
+  listen?: SongListen;
+  // Set for someone's public song in the player: its public id (also its `id`) and maker's handle.
+  publicId?: string;
+  handle?: string;
+  // A remix of someone else's song (from GET /api/songs/:id): the credit line it always carries.
+  remixOf?: OwnRemixOf | null;
 }
-export type RemixKind = "cover" | "extend" | "replace";
+export type OwnRemixOf = { gone: false; kind: RemixKind; publicId: string; title: string; handle: string } | { gone: true; kind: RemixKind };
+
+// Listen (mirrors story-film/src/lib/listen.ts).
+export type ListenState = "public" | "private" | "taken_down";
+export interface SongListen {
+  state: ListenState;
+  publicId: string | null;
+  url: string | null;
+  showLyrics: boolean;
+  allowRemix: boolean;
+  playCount: number;
+  likeCount: number;
+  dislikeCount: number;
+}
+export interface PublicSongCard {
+  publicId: string;
+  title: string;
+  handle: string;
+  genre: string;
+  genreLabel: string;
+  language: string;
+  languageLabel: string;
+  mood: string;
+  durationSec: number;
+  ownVoice: boolean;
+  playCount: number;
+  likeCount: number;
+  audioUrl: string;
+  coverUrl: string | null;
+}
+export type Reaction = "fire" | "dance" | "touched" | "haha" | "respect" | "celebrate";
+export interface PublicSong extends PublicSongCard {
+  state: ListenState;
+  lyrics: string | null;
+  allowRemix: boolean;
+  publishedAt: string | null;
+  reactions: Record<Reaction, number>;
+  dislikeCount: number | null;
+  mine: boolean;
+  myVote: -1 | 0 | 1;
+  myReaction: Reaction | null;
+  remixOf: { publicId: string; title: string; handle: string } | null;
+  // The parent was deleted, made private or taken down. Missing on older servers.
+  remixOfGone?: boolean;
+}
+export interface PublicSongPage {
+  song: PublicSong;
+  moreLikeThis: PublicSongCard[];
+  byCreator: PublicSongCard[];
+  // Remix chains (mirrors story-film/src/lib/remixes.ts songFamily). Missing on older servers.
+  family?: SongFamily;
+  remix?: { kinds: RemixKindInfo[]; blocked: RemixBlock | null };
+  // The share of paid credits a song's maker earns from each remix, in basis points (1000 = 10%).
+  earnRateBp?: number;
+}
+// Why this viewer can't remix a public song.
+export type RemixBlock = "mine" | "off" | "ownVoice" | "tooLong" | "notPublic";
+// A song in a remix chain. A gone node (deleted, private or taken down) has no title, handle or link.
+export interface FamilyNode {
+  publicId: string | null;
+  title: string | null;
+  handle: string | null;
+  coverUrl: string | null;
+  kind: RemixKind | null;
+  depth: number;
+  playCount: number;
+  remixCount: number;
+  gone: boolean;
+}
+export interface SongFamily {
+  // Where it came from, original first; `more` songs between the original and the parent aren't listed.
+  path: FamilyNode[];
+  more: number;
+  remixCount: number;
+  familySize: number;
+  top: FamilyNode[];
+  allowRemix: boolean;
+  // Only for the song's maker.
+  mine: { remixes: number; published: number; earnedHundredths: number } | null;
+}
+export interface FamilyRow extends FamilyNode {
+  key: string;
+  level: number;
+  more: number;
+  current: boolean;
+}
+export type FamilySort = "top" | "new";
+export interface FamilyTree {
+  size: number;
+  rootTitle: string | null;
+  sort: FamilySort;
+  rows: FamilyRow[];
+}
+// Earnings from remixes and reel recipes (mirrors story-film/src/lib/billing/earnings.ts), in hundredths of a credit.
+export type EarningSource = "remix" | "recipe";
+export interface EarningSubject {
+  source: EarningSource;
+  subjectRef: string;
+  title: string | null;
+  coverUrl: string | null;
+  publicId: string | null;
+  count: number;
+  hundredths: number;
+  // Recipes only: finished uses that cost nothing, and whether it's still shared.
+  freeUses?: number;
+  state?: RecipeState;
+}
+export interface Earnings {
+  totalHundredths: number;
+  // Whole credits already added to the balance; onTheWay is the rest, in hundredths.
+  credited: number;
+  onTheWay: number;
+  rateBp: number;
+  bySubject: EarningSubject[];
+}
+export interface EarningEvent {
+  at: string;
+  hundredths: number;
+  // Paid with free credits only, so nothing was earned.
+  free: boolean;
+  kind: RemixKind | null;
+  // Null when the remix isn't public.
+  remixerHandle: string | null;
+  publicId: string | null;
+}
+export interface EarningDetail {
+  title: string | null;
+  source?: EarningSource;
+  publicId?: string | null;
+  cursor: string | null;
+  events: EarningEvent[];
+}
+// Reel recipes (mirrors story-film/src/lib/recipes.ts and recipe-spec.ts).
+export type RecipeFormat = "story" | "motion" | "dance" | "edit";
+export type RecipeState = "public" | "stopped" | "taken_down";
+export type ShapeRole = "hook" | "beat" | "turn" | "payoff" | "cta";
+export interface RecipeRef {
+  publicId: string;
+  name: string;
+  handle: string;
+  state: RecipeState;
+}
+export interface RecipeCard {
+  publicId: string;
+  name: string;
+  handle: string;
+  format: RecipeFormat;
+  style: string | null;
+  styleLabel: string | null;
+  durationSec: number;
+  quality: Quality;
+  kidSafe: boolean;
+  free: boolean;
+  occasions: string[];
+  useCount: number;
+  posterUrl: string | null;
+  languageHint: string | null;
+}
+export type RecipeHas =
+  | { format: "story"; style: string; styleLabel: string; durationSec: number; quality: Quality; shape: { first: ShapeRole; middle: number; last: ShapeRole; tone: string; shots: { role: ShapeRole; intent: string }[] }; music: true }
+  | { format: "motion"; durationSec: number; theme: string; slides: string[]; ending: string; music: true }
+  | { format: "dance"; durationSec: number; scene: string; bpm: number; dancers: number; lines: number; voice: string }
+  | { format: "edit"; durationSec: number; captions: boolean; zooms: boolean; effects: boolean; sounds: boolean; voice: string; ending: string; mix: string[] };
+export interface RecipeDetail extends RecipeCard {
+  topicHint: string;
+  previewUrl: string | null;
+  has: RecipeHas;
+  rateBp: number;
+}
+export interface MakerEarns {
+  hundredths: number;
+  kind: "n" | "small" | "free" | "own";
+}
+export interface RecipePage {
+  state: RecipeState;
+  publicId: string;
+  mine: boolean;
+  recipe: RecipeDetail;
+  rails: { sameFestival: RecipeCard[]; byMaker: RecipeCard[]; occasion: string | null };
+  // Signed in, someone else's recipe.
+  price?: { quality: Quality; credits: number; freeLeft: number | null; standardCredits: number; premiumAvailable: boolean; cinematicAvailable: boolean };
+  paidRatioBp?: number;
+  makerEarns?: MakerEarns;
+  // The maker's own.
+  stats?: { useCount: number; earnedHundredths: number; thisWeek: number };
+}
+export interface FestivalInfo {
+  slug: string;
+  name: string;
+  nameEn: string;
+  native: { en: string; hi: string; ar: string };
+  date: string | null;
+  inDays: number | null;
+  allYear: boolean;
+}
+export interface RecipesHome {
+  festival: (FestivalInfo & { thumbs: RecipeCard[] }) | null;
+  start: RecipeCard[];
+  rails: { trending: RecipeCard[]; new: RecipeCard[]; free: RecipeCard[]; kids: RecipeCard[] };
+  collections: (FestivalInfo & { count: number })[];
+}
+export interface RecipeCollection {
+  festival: FestivalInfo & { count: number };
+  featured: RecipeCard[];
+  recipes: RecipeCard[];
+}
+// The finished reel's recipe card (M1).
+export interface FilmRecipe {
+  eligible: boolean;
+  reason: "notFinished" | "musicVideo" | "fromRecipe" | "cantRead" | null;
+  madeFrom: RecipeRef | null;
+  recipe: { publicId: string; name: string; state: RecipeState; url: string; useCount: number; earnedHundredths: number; thisWeek: number } | null;
+}
+// The Share as a recipe sheet (M3).
+export interface RecipeDraft {
+  eligible: boolean;
+  reason?: string;
+  error?: string;
+  has?: RecipeHas;
+  topicHint?: string;
+  needsPreviewConsent?: boolean;
+  suggestedName?: string;
+  festivals?: FestivalInfo[];
+  handle?: string | null;
+}
+
+// The Inbox's Remixes group: a named public remix, an anonymous private one, or a day's batch.
+export interface RemixInboxItem {
+  kind: "published" | "private" | "batch";
+  subjectRef: string;
+  songTitle: string;
+  count: number;
+  remixKind: RemixKind | null;
+  remixerHandle: string | null;
+  publicId: string | null;
+  at: string;
+  hundredths: number;
+}
+export interface ListenHome {
+  newThisWeek: number;
+  new: PublicSongCard[];
+  trending: PublicSongCard[];
+  bestOf: { genre: string; label: string; songs: PublicSongCard[] }[];
+  languages: { code: string; name: string; native: string; count: number }[];
+}
+export interface HandleInfo {
+  handle: string | null;
+  canChangeAt: string | null;
+  suggestions: string[];
+}
+export type ReportReason = "voice_or_likeness" | "copyright" | "hateful" | "minor_sexual" | "other";
+// The server lists its remix kinds (remixKinds), so kinds it adds later work without an app update.
+export type RemixKind = "cover" | "extend" | "replace" | "rap" | (string & {});
+export interface RemixKindInfo {
+  kind: RemixKind;
+  label: string;
+  help: string;
+  credits: number;
+  style: "required" | "optional" | "none";
+  part: boolean;
+  extend: boolean;
+  lyrics: boolean;
+  bars: boolean;
+  // Covers on Runware: how far from the original, 0 to 1. Older servers leave it out.
+  strength?: boolean;
+  // Why it can't be picked for this song, e.g. "Too long to extend".
+  unavailable?: string;
+}
+export interface SoundPreset {
+  id: string;
+  label: string;
+  help: string;
+}
+export type StemName = "vocals" | "drums" | "bass" | "other";
+export interface SongStems {
+  status: "none" | "running" | "ready" | "failed";
+  error?: string;
+  credits: number;
+  stems: Record<StemName, string> | null;
+}
+export interface SongMix {
+  gains?: Partial<Record<StemName, number>>;
+  preset?: string;
+}
+// What the player draws from (mirrors story-film/src/lib/songs/analysis.ts).
+export interface SongAnalysis {
+  duration: number;
+  envelope: number[];
+  bpm: number;
+  beats: number[];
+  strength: number[];
+  peaks: number[];
+  lines: { text: string; start: number; end: number }[];
+  timing: "words" | "even";
+}
 export interface SongStudio {
   songs: Song[];
-  // What one Create costs, and each kind of remix.
+  // What the usual Create (two ACE-Step takes) costs, and each kind of remix.
   credits: number;
+  // Credits per take, by model. Missing on servers from before per-take prices.
+  creditsPerTake?: Record<SongModel, number>;
   remixCredits: Record<RemixKind, number>;
+  // Missing on servers from before the Studio.
+  remixKinds?: RemixKindInfo[];
+  soundPresets?: SoundPreset[];
+  stemsCredits?: number;
   available: boolean;
 }
 export type SongModel = "ace-step" | "lyria";
@@ -245,16 +564,134 @@ export interface SongOptions {
   genre: string;
   mood: string;
   language: string;
-  durationSec: 30 | 60 | 120;
+  durationSec: 30 | 60 | 120 | 180 | 240;
   kidSafe: boolean;
 }
+// Simple: one sentence, AI writes the rest. Custom: every control. Instrumental: no vocals.
+export type SongMode = "simple" | "custom" | "instrumental";
 export interface NewSong extends SongOptions {
+  mode?: SongMode;
   title: string;
   lyrics: string;
   style?: string;
   vocal: SongVocal;
   takes: 1 | 2;
   model: SongModel;
+  // Simple mode: the structure blocks AI writes the lyrics in.
+  structure?: string[];
+  // 0-100 sliders: Experiment (safe to wild) and Follow my style (loose to strict).
+  experiment?: number;
+  strictness?: number;
+  bpm?: number;
+  keyScale?: string;
+  // The token of a gift this song answers; the reply goes back to its sender, and the first one is free.
+  replyTo?: string;
+  // The name the reply is signed with.
+  fromName?: string;
+}
+// A reply's own gift link, made with the song.
+export interface ReplyGiftLink {
+  token: string;
+  url: string;
+  free: boolean;
+}
+
+// Song gifts (mirrors ownGiftView in story-film/src/lib/gifts.ts).
+export type Occasion = "birthday" | "wedding" | "eid" | "diwali" | "anniversary" | "rakhi" | "just_because";
+export interface Gift {
+  id: string;
+  url: string;
+  token: string;
+  toName: string;
+  occasion: Occasion;
+  note: string;
+  songId: string;
+  songTitle: string;
+  songReady: boolean;
+  isReply: boolean;
+  opened: boolean;
+  playCount: number;
+  lastPlayedAt: string | null;
+  sharing: boolean;
+  takenDown: boolean;
+  createdAt: string;
+}
+export interface SentGift extends Gift {
+  replies: number;
+}
+export interface ReceivedReply extends Gift {
+  fromName: string;
+  replyToGiftId: string;
+}
+export interface NewGift {
+  toName: string;
+  // How it's signed ("Bhaiya"); empty uses the account's name.
+  fromName: string;
+  occasion: Occasion;
+  note: string;
+  // A photo id from uploadPhoto; without one the song's own cover is used.
+  photo?: string;
+  // How the Arabic gift page speaks to them; null is neutral.
+  address?: "her" | "him" | null;
+}
+// Jugalbandi (mirrors duetView in story-film/src/lib/duets.ts).
+export type DuetPhase = "recording_a" | "waiting" | "expired" | "joining" | "join_failed" | "ready" | "declined" | "cancelled" | "solo";
+export type DuetAction = "approve" | "retake" | "ask_retake" | "cancel" | "extend" | "reinvite" | "solo" | "join_again" | "invite_handle" | "set_voice";
+export interface DuetPart {
+  kind: "hum" | "sing" | null;
+  sec: number | null;
+  audioUrl: string;
+}
+export interface Duet {
+  id: string;
+  // "invited": asked by Instagram username, not joined yet.
+  role: "a" | "b" | "invited";
+  token: string;
+  invitedIg: string;
+  // My part's own voice (one of mine), or null for an AI singer.
+  myVoiceId: string | null;
+  voiceCredits: number;
+  partAOwnVoice: boolean;
+  partBOwnVoice: boolean;
+  phase: DuetPhase;
+  url: string;
+  topic: string;
+  genre: string;
+  language: string;
+  starterName: string;
+  partnerName: string;
+  starterIg: string;
+  partnerIg: string;
+  partA: DuetPart | null;
+  partB: DuetPart | null;
+  // The joined song, for the person who started it (Song Studio, music video, posting).
+  songId: string | null;
+  songAudioUrl: string | null;
+  price: number;
+  half: number;
+  paidA: number;
+  paidB: number;
+  freeRetake: boolean;
+  retakeCredits: number;
+  approvedA: boolean;
+  approvedB: boolean;
+  askedToRetake: boolean;
+  expiresAt: string | null;
+  canExtend: boolean;
+  declineNote: string;
+  createdAt: string;
+}
+// The account's own consented voices (recorded in Song Studio on the web).
+export interface MyVoice {
+  id: string;
+  name: string;
+}
+export interface NewDuet {
+  topic: string;
+  genre: string;
+  language: string;
+  name: string;
+  ig: string;
 }
 export interface SongEdit {
   startSec: number;
@@ -270,7 +707,15 @@ export interface SongRemix {
   extendSec?: number;
   startSec?: number;
   endSec?: number;
+  // "rap": the bars for the picked part.
+  bars?: string;
+  // Covers on Runware: 0 (close to the original) to 1 (far).
+  strength?: number;
 }
+
+// "gifts" covers gifts and Jugalbandis; "remixes" remixes of your songs and what they earned.
+export type PushKind = "songs" | "reels" | "gifts" | "remixes";
+export type PushPrefs = Record<PushKind, boolean>;
 
 export class ApiError extends Error {
   constructor(
@@ -295,7 +740,8 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-// Which AI answers in Ask Reelkar (mirrors AiChoiceView in the web app's src/lib/agent/ai-choice.ts).
+// The creator's AI engines (mirrors EnginesView in the web app's src/lib/agent/ai-choice.ts).
+// Every AI task tries them top to bottom, then "Reelkar free", which is always last.
 export interface AiProvider {
   id: string;
   name: string;
@@ -303,20 +749,49 @@ export interface AiProvider {
   keyUrl?: string;
   models: { id: string; label: string }[];
   anyModel: boolean;
+  // Whether it can run Ask Reelkar's chat; all of them do the other AI tasks.
+  chat: boolean;
+  // A second value it needs besides the key, such as Cloudflare's account ID.
+  extra?: { label: string; placeholder: string };
 }
-export interface AiChoice {
+// "resting": its free allowance is used up until restUntil; "key": the key stopped working.
+export type EngineStatus = "ready" | "resting" | "key";
+export interface AiEngine {
+  id: string;
   provider: string;
-  model: string | null;
+  name: string;
+  model: string;
   keyHint: string | null;
+  enabled: boolean;
+  chat: boolean;
+  status: EngineStatus;
+  restUntil: number | null;
+}
+export interface AiEngines {
+  engines: AiEngine[];
   providers: AiProvider[];
   ownKeys: boolean;
+  reelkar: { status: EngineStatus; restUntil: number | null };
 }
+export interface NewAiEngine {
+  provider: string;
+  model?: string;
+  key?: string;
+  extra?: string;
+}
+export interface AiEngineChange {
+  model?: string;
+  key?: string;
+  extra?: string;
+  enabled?: boolean;
+}
+export const MAX_AI_ENGINES = 8;
 export const aiNeedsKey = (id: string) => id !== "reelkar" && id !== "ollama";
 
 const real = {
   films: async () => (await call<{ films: Film[] }>("/api/films")).films,
   film: (id: string) => call<Film>(`/api/films/${id}`),
-  createFilm: (input: NewFilm) => call<{ id: string; credits: number }>("/api/films", { method: "POST", body: JSON.stringify(input) }),
+  createFilm: (input: NewFilm | NewRecipeFilm) => call<{ id: string; credits: number }>("/api/films", { method: "POST", body: JSON.stringify(input) }),
   billing: () => call<Billing>("/api/billing"),
   ideas: async (niche: string, language: string, more: { format?: Idea["format"]; avoid?: string[] } = {}) =>
     (await call<{ ideas: Idea[] }>("/api/suggestions", { method: "POST", body: JSON.stringify({ niche, language, ...more }) })).ideas,
@@ -336,6 +811,7 @@ const real = {
     form.append("ending", input.ending);
     if (input.keyword) form.append("keyword", input.keyword);
     if (input.brand) form.append("brand", JSON.stringify(input.brand));
+    if (input.recipe) form.append("recipe", input.recipe);
     const cookie = await authClient.getCookie();
     const res = await fetch(`${API_URL}/api/edits`, { method: "POST", body: form, credentials: "omit", headers: cookie ? { Cookie: cookie } : {} });
     const body = await res.json().catch(() => ({}));
@@ -364,9 +840,14 @@ const real = {
     (await call<{ messages: AgentMessage[] }>("/api/agent/actions", { method: "POST", body: JSON.stringify({ ...turn, name, input, label }) })).messages,
   agentDecide: async (actionId: string, approve: boolean, turn: AgentTurn) =>
     (await call<{ messages: AgentMessage[] }>(`/api/agent/actions/${actionId}`, { method: "POST", body: JSON.stringify({ ...turn, approve }) })).messages,
-  aiChoice: () => call<AiChoice>("/api/agent/ai"),
-  // Checked with one tiny message on the server before it's saved; a wrong key comes back as an error.
-  setAiChoice: (choice: { provider: string; model?: string; key?: string }) => call<AiChoice>("/api/agent/ai", { method: "PUT", body: JSON.stringify(choice) }),
+  aiEngines: () => call<AiEngines>("/api/ai/engines"),
+  // Adding, or changing the key, model or extra value, is checked with one tiny request on the server
+  // first; a wrong key comes back as an error. Switching on or off isn't checked.
+  addAiEngine: (engine: NewAiEngine) => call<AiEngines>("/api/ai/engines", { method: "POST", body: JSON.stringify(engine) }),
+  changeAiEngine: (id: string, change: AiEngineChange) => call<AiEngines>(`/api/ai/engines/${id}`, { method: "PATCH", body: JSON.stringify(change) }),
+  removeAiEngine: (id: string) => call<AiEngines>(`/api/ai/engines/${id}`, { method: "DELETE" }),
+  // The full new order of the creator's engine ids.
+  orderAiEngines: (ids: string[]) => call<AiEngines>("/api/ai/engines/order", { method: "PUT", body: JSON.stringify({ ids }) }),
   setPostingMode: (postingMode: PostingMode) => call<{ postingMode: PostingMode }>("/api/agent/settings", { method: "PUT", body: JSON.stringify({ postingMode }) }),
   accounts: () => call<Accounts>("/api/accounts"),
   // Returns the provider's sign-in page; the app opens it in the in-app browser.
@@ -377,7 +858,8 @@ const real = {
   createPost: async (input: NewPost) => (await call<{ post: Post }>("/api/posts", { method: "POST", body: JSON.stringify(input) })).post,
   cancelPost: (id: string) => call<unknown>(`/api/posts/${id}`, { method: "DELETE" }),
   retryPost: (id: string) => call<unknown>(`/api/posts/${id}/retry`, { method: "POST" }),
-  deleteFilm: (id: string) => call<unknown>(`/api/films/${id}`, { method: "DELETE" }),
+  // keepRecipe false is "Delete reel and recipe".
+  deleteFilm: (id: string, keepRecipe = true) => call<unknown>(`/api/films/${id}${keepRecipe ? "" : "?recipe=stop"}`, { method: "DELETE" }),
   // A signed link that plays without signing in (for 2 hours): used to save and share the video.
   // The server builds it on its public URL; the phone downloads through the address it already
   // reaches (a LAN IP or tunnel in development, where the public URL is often localhost).
@@ -388,14 +870,86 @@ const real = {
   videoUrl: (film: Film) => (film.videoUrl ? `${API_URL}${film.videoUrl}` : null),
   songs: () => call<SongStudio>("/api/songs"),
   song: (id: string) => call<Song>(`/api/songs/${id}`),
-  createSong: (input: NewSong) => call<{ id: string; ids: string[] }>("/api/songs", { method: "POST", body: JSON.stringify(input) }),
+  createSong: (input: NewSong) => call<{ id: string; ids: string[]; title?: string; gift?: ReplyGiftLink }>("/api/songs", { method: "POST", body: JSON.stringify(input) }),
+  createGift: (songId: string, input: NewGift) => call<Gift>(`/api/songs/${songId}/gift`, { method: "POST", body: JSON.stringify(input) }),
+  gifts: () => call<{ sent: SentGift[]; replies: ReceivedReply[] }>("/api/gifts"),
+  setGiftSharing: (id: string, sharing: boolean) => call<Gift>(`/api/gifts/${id}`, { method: "PATCH", body: JSON.stringify({ sharing }) }),
+  duets: async () => (await call<{ duets: Duet[] }>("/api/duets")).duets,
+  duet: (id: string) => call<Duet>(`/api/duets/${id}`),
+  duetForSong: async (songId: string): Promise<Duet | null> => (await call<{ duets: Duet[] }>(`/api/duets?song=${encodeURIComponent(songId)}`)).duets[0] ?? null,
+  startDuet: (input: NewDuet) => call<Duet>("/api/duets", { method: "POST", body: JSON.stringify(input) }),
+  duetPart: (id: string, takeId: string) => call<Duet>(`/api/duets/${id}/part`, { method: "POST", body: JSON.stringify({ takeId }) }),
+  duetAction: (id: string, action: DuetAction, extra: { handle?: string; voiceId?: string | null } = {}) =>
+    call<Duet>(`/api/duets/${id}/action`, { method: "POST", body: JSON.stringify({ action, ...extra }) }),
+  joinDuet: (token: string, input: { name: string; ig: string; split: boolean }) => call<Duet>(`/api/j/${token}/join`, { method: "POST", body: JSON.stringify(input) }),
+  declineDuet: (token: string, note: string) => call<unknown>(`/api/j/${token}/decline`, { method: "POST", body: JSON.stringify({ note }) }),
+  myVoices: async () => (await call<{ voices: MyVoice[] }>("/api/voices")).voices,
+  savePushToken: (token: string, platform: "ios" | "android", lang: "en" | "hi" | "ar") => call<unknown>("/api/push-tokens", { method: "POST", body: JSON.stringify({ token, platform, lang }) }),
+  deletePushToken: (token: string) => call<unknown>("/api/push-tokens", { method: "DELETE", body: JSON.stringify({ token }) }),
+  // Account › Notifications: which pushes the creator wants (mirrors story-film/src/lib/push.ts).
+  pushPrefs: () => call<PushPrefs>("/api/push-settings"),
+  setPushPrefs: (change: Partial<PushPrefs>) => call<PushPrefs>("/api/push-settings", { method: "PUT", body: JSON.stringify(change) }),
+  duetAudioUrl: (path: string) => `${API_URL}${path}`,
+  replyInfo: (token: string) => call<{ toName: string; occasion: Occasion; free: boolean }>(`/api/gifts/reply?to=${encodeURIComponent(token)}`),
+  // "✨ Write a rap verse": rap bars for the song's [Rap] block.
+  songRapVerse: async (input: SongOptions & { lyrics: string; bars?: 8 | 12 | 16 }) =>
+    (await call<{ bars: string }>("/api/songs/lyrics/rap", { method: "POST", body: JSON.stringify(input) })).bars,
   // "✨ Write lyrics with AI" from the topic, or "✨ Enhance my lyrics" with the creator's own lines as the draft.
-  songLyrics: (input: SongOptions & { draft?: string }) => call<{ title: string; lyrics: string }>("/api/songs/lyrics", { method: "POST", body: JSON.stringify(input) }),
+  songLyrics: (input: SongOptions & { draft?: string; structure?: string[]; duet?: boolean }) => call<{ title: string; lyrics: string }>("/api/songs/lyrics", { method: "POST", body: JSON.stringify(input) }),
   songStyle: async (input: Partial<SongOptions> & { genre: string; idea: string; vocal?: SongVocal }) =>
     (await call<{ style: string }>("/api/songs/style", { method: "POST", body: JSON.stringify(input) })).style,
   editSong: (id: string, edit: SongEdit) => call<Song>(`/api/songs/${id}/edit`, { method: "POST", body: JSON.stringify(edit) }),
   remixSong: (id: string, remix: SongRemix) => call<{ id: string }>(`/api/songs/${id}/remix`, { method: "POST", body: JSON.stringify(remix) }),
   songAudioUrl: (song: Song) => (song.audioUrl ? `${API_URL}${song.audioUrl}` : null),
+  songCoverUrl: (song: Song) => (song.coverUrl ? `${API_URL}${song.coverUrl}` : null),
+  // Studio: waveform, stems, mixes, sound previews and rap bars.
+  songPeaks: async (id: string) => (await call<{ peaks: number[] }>(`/api/songs/${id}/peaks`)).peaks,
+  songStems: (id: string) => call<SongStems>(`/api/songs/${id}/stems`),
+  splitSong: (id: string) => call<SongStems>(`/api/songs/${id}/stems`, { method: "POST", body: "{}" }),
+  saveMix: (id: string, mix: SongMix) => call<{ id: string }>(`/api/songs/${id}/mix`, { method: "POST", body: JSON.stringify(mix) }),
+  songRap: async (id: string, input: { startSec: number; endSec: number; idea?: string }) =>
+    (await call<{ bars: string }>(`/api/songs/${id}/rap`, { method: "POST", body: JSON.stringify(input) })).bars,
+  stemUrl: (path: string) => `${API_URL}${path}`,
+  soundPreviewUrl: (id: string, preset: string): string | null => `${API_URL}/api/songs/${id}/mix/preview?preset=${encodeURIComponent(preset)}`,
+  // Public songs (10-character ids, no dashes) have their own analysis route.
+  songAnalysis: (id: string) => call<SongAnalysis>(id.includes("-") ? `/api/songs/${id}/analysis` : `/api/listen/songs/${id}/analysis`),
+  // Listen.
+  handle: () => call<HandleInfo>("/api/me/handle"),
+  checkHandle: (handle: string) => call<{ handle: string; ok: boolean; problem: string | null }>(`/api/me/handle?check=${encodeURIComponent(handle)}`),
+  setHandle: async (handle: string) => (await call<{ handle: string }>("/api/me/handle", { method: "PUT", body: JSON.stringify({ handle }) })).handle,
+  publishSong: (id: string, input: { title?: string; showLyrics: boolean; allowRemix: boolean }) => call<SongListen>(`/api/songs/${id}/publish`, { method: "POST", body: JSON.stringify(input) }),
+  unpublishSong: (id: string) => call<SongListen>(`/api/songs/${id}/publish`, { method: "DELETE" }),
+  listen: (lang?: string) => call<ListenHome>(`/api/listen${lang ? `?lang=${encodeURIComponent(lang)}` : ""}`),
+  relatedSongs: async (seed: string | undefined, exclude: string[]) =>
+    (await call<{ songs: PublicSongCard[] }>(`/api/listen/related?${new URLSearchParams({ ...(seed ? { seed } : {}), exclude: exclude.slice(-300).join(",") })}`)).songs,
+  publicSong: (publicId: string) => call<PublicSongPage>(`/api/listen/songs/${publicId}`),
+  countPlay: (publicId: string) => call<{ counted: boolean }>(`/api/listen/songs/${publicId}/play`, { method: "POST" }),
+  voteSong: (publicId: string, value: -1 | 0 | 1) => call<unknown>(`/api/listen/songs/${publicId}/vote`, { method: "PUT", body: JSON.stringify({ value }) }),
+  reactSong: (publicId: string, kind: Reaction | null) => call<unknown>(`/api/listen/songs/${publicId}/reaction`, { method: "PUT", body: JSON.stringify({ kind }) }),
+  reportSong: (publicId: string, reason: ReportReason, details: string) => call<unknown>(`/api/listen/songs/${publicId}/report`, { method: "POST", body: JSON.stringify({ reason, details }) }),
+  // The page the native share sheet links to. Built on the address the phone reaches (in
+  // development that's a LAN IP or tunnel, like shareLink), which is the public URL in production.
+  publicSongLink: (publicId: string) => `${API_URL}/s/${publicId}`,
+  // Remix chains and earnings.
+  familyTree: (publicId: string, sort: FamilySort, branch?: string) =>
+    call<FamilyTree>(`/api/listen/songs/${publicId}/family?${new URLSearchParams({ sort, ...(branch ? { branch } : {}) })}`),
+  setAllowRemix: (id: string, allow: boolean) => call<{ allowRemix: boolean }>(`/api/songs/${id}/remixes`, { method: "PATCH", body: JSON.stringify({ allow }) }),
+  earnings: (source: EarningSource | "all" = "all") => call<Earnings>(`/api/me/earnings?source=${source}`),
+  earningDetail: (ref: string, cursor?: string | null) => call<EarningDetail>(`/api/me/earnings/${encodeURIComponent(ref)}${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`),
+  remixInbox: async () => (await call<{ items: RemixInboxItem[] }>("/api/me/remixes")).items,
+  // Reel recipes.
+  filmRecipe: (id: string) => call<FilmRecipe>(`/api/films/${id}/recipe`),
+  recipeDraft: (id: string, lang: string) => call<RecipeDraft>(`/api/films/${id}/recipe/draft?lang=${encodeURIComponent(lang)}`),
+  shareRecipe: (id: string, input: { name: string; occasions: string[]; preview: "reel" | "look" }) => call<{ publicId: string; url: string }>(`/api/films/${id}/recipe`, { method: "POST", body: JSON.stringify(input) }),
+  recipe: (publicId: string, lang: string) => call<RecipePage>(`/api/recipes/public/${publicId}?lang=${encodeURIComponent(lang)}`),
+  recipesHome: (lang: string, tz: string) => call<RecipesHome>(`/api/recipes/home?${new URLSearchParams({ lang, tz })}`),
+  recipeList: (q: { list?: string; format?: RecipeFormat; maker?: string }) => call<{ recipes: RecipeCard[]; cursor: number | null }>(`/api/recipes?${new URLSearchParams(q as Record<string, string>)}`),
+  recipeCollection: (slug: string, lang: string, format?: RecipeFormat) => call<RecipeCollection>(`/api/recipes?${new URLSearchParams({ collection: slug, lang, ...(format ? { format } : {}) })}`),
+  setRecipeSharing: (publicId: string, on: boolean) => call<{ state: RecipeState }>(`/api/recipes/${publicId}/${on ? "publish" : "unpublish"}`, { method: "POST" }),
+  editRecipe: (publicId: string, input: { name?: string; occasions?: string[] }) => call<{ name: string; occasions: string[] }>(`/api/recipes/${publicId}`, { method: "PATCH", body: JSON.stringify(input) }),
+  reportRecipe: (publicId: string, reason: ReportReason, details: string) => call<unknown>(`/api/recipes/public/${publicId}/report`, { method: "POST", body: JSON.stringify({ reason, details }) }),
+  recipeLink: (publicId: string) => `${API_URL}/r/${publicId}`,
+  recipePosterUrl: (path: string | null) => (path ? `${API_URL}${path}` : null),
   videoHeaders: async (): Promise<Record<string, string>> => {
     const cookie = await authClient.getCookie();
     return cookie ? { Cookie: cookie } : {};
@@ -412,6 +966,20 @@ const demoFilms: Film[] = [
   { ...sample("d4", "Baarish dance: chham chham chham", "completed", 4), format: "dance" },
 ];
 let demoBalance = 20;
+const demoDuetBase: Duet = {
+  id: "d1", role: "a", token: "demoDuet01", invitedIg: "", myVoiceId: null, voiceCredits: 4, partAOwnVoice: false, partBOwnVoice: false, phase: "waiting", url: "https://reelkar.app/j/demoDuet01", topic: "Chai vs coffee, settled in song", genre: "bollywood-romantic", language: "hinglish",
+  starterName: "Arjun", partnerName: "", starterIg: "arjun.sings", partnerIg: "", partA: { kind: "hum", sec: 28, audioUrl: "/demo" }, partB: null, songId: null, songAudioUrl: null,
+  price: 3, half: 1, paidA: 3, paidB: 0, freeRetake: true, retakeCredits: 1, approvedA: false, approvedB: false, askedToRetake: false,
+  expiresAt: new Date(Date.now() + 47 * 3600_000).toISOString(), canExtend: false, declineNote: "", createdAt: new Date().toISOString(),
+};
+const demoDuets: Duet[] = [{ ...demoDuetBase }];
+const demoGifts: SentGift[] = [
+  { id: "g1", url: "https://reelkar.app/g/demoGift1x", token: "demoGift1x", toName: "Priya", occasion: "birthday", note: "Play it loud!", songId: "s1", songTitle: "Baarish wali chai", songReady: true, isReply: false, opened: true, playCount: 2, lastPlayedAt: new Date(Date.now() - 3 * 3600_000).toISOString(), sharing: true, takenDown: false, createdAt: new Date(Date.now() - 86400_000).toISOString(), replies: 1 },
+];
+const demoReplies: ReceivedReply[] = [
+  { id: "g2", url: "https://reelkar.app/g/demoReply1", token: "demoReply1", toName: "You", occasion: "birthday", note: "", songId: "s2", songTitle: "Thank you bhaiya", songReady: true, isReply: true, opened: false, playCount: 0, lastPlayedAt: null, sharing: true, takenDown: false, createdAt: new Date(Date.now() - 3600_000).toISOString(), fromName: "Priya", replyToGiftId: "g1" },
+];
+const demoPush: PushPrefs = { songs: true, reels: true, gifts: true, remixes: true };
 const demoAccounts: Account[] = [];
 const at = (days: number, h: number, m = 0) => {
   const d = new Date();
@@ -425,7 +993,80 @@ const demoPosts: Post[] = [
   { id: "p3", filmId: "d3", title: "Monsoon recipe in 10 minutes", scheduledAt: at(1, 13), status: "scheduled", externalUrl: null, error: null, accountName: "Priya Cooks", platform: "youtube" },
 ];
 
+// A steady 96 BPM pulse with the lyric lines spread evenly, so the player can be tried offline.
+function demoAnalysis(song: Song | undefined): SongAnalysis {
+  const duration = song?.durationSec ?? 60;
+  const beats = Array.from({ length: Math.floor((duration * 96) / 60) }, (_, i) => Math.round(((i * 60) / 96 + 0.2) * 100) / 100);
+  const lines = (song?.lyrics ?? "").split("\n").map((l) => l.trim()).filter((l) => l && !/^\[.*\]$/.test(l));
+  const span = (duration * 0.85) / Math.max(1, lines.length);
+  return {
+    duration,
+    envelope: Array.from({ length: duration * 20 }, (_, i) => Math.round((0.55 + 0.35 * Math.sin(i / 37) * Math.sin(i / 11)) * 100) / 100),
+    bpm: 96,
+    beats,
+    strength: beats.map((_, i) => (i % 4 === 0 ? 1 : 0.6)),
+    peaks: Array.from({ length: 160 }, (_, i) => Math.round((0.35 + 0.6 * Math.abs(Math.sin(i * 0.37) * Math.cos(i * 0.11))) * 100) / 100),
+    lines: lines.map((text, i) => ({ text, start: duration * 0.08 + i * span, end: duration * 0.08 + (i + 1) * span })),
+    timing: "even",
+  };
+}
+
 const demoSongs: Song[] = [demoSong("s1", "Baarish wali chai", "indie-acoustic"), demoSong("s2", "Dadi ki rasoi", "bollywood-romantic")];
+let demoHandle: string | null = null;
+const demoRecipes: { source: string }[] = [];
+const demoFestival: FestivalInfo = { slug: "diwali", name: "Diwali", nameEn: "Diwali", native: { en: "Diwali", hi: "दिवाली", ar: "ديوالي" }, date: "2026-11-08", inDays: 2, allYear: false };
+const demoHas: RecipeHas = {
+  format: "story",
+  style: "animated",
+  styleLabel: "3D cartoon",
+  durationSec: 30,
+  quality: "premium",
+  shape: {
+    first: "hook",
+    middle: 4,
+    last: "payoff",
+    tone: "warm",
+    shots: [
+      { role: "hook", intent: "Open on a surprising question about the topic" },
+      { role: "beat", intent: "Show the everyday moment before the change" },
+      { role: "beat", intent: "Bring in a small problem" },
+      { role: "turn", intent: "Something unexpected happens" },
+      { role: "beat", intent: "Everyone comes together" },
+      { role: "payoff", intent: "A warm ending that answers the opening question" },
+    ],
+  },
+  music: true,
+};
+const demoRecipeCard = (publicId: string, name: string, handle: string, format: RecipeFormat, free: boolean, useCount: number): RecipeCard => ({
+  publicId, name, handle, format, style: format === "story" ? "animated" : null, styleLabel: format === "story" ? "3D cartoon" : null, durationSec: 30, quality: free ? "standard" : "premium", kidSafe: format === "dance", free, occasions: ["diwali"], useCount, posterUrl: null, languageHint: "hi",
+});
+const demoRecipeCards: RecipeCard[] = [
+  demoRecipeCard("demoRecipe1", "Diya Night", "meera.makes", "story", false, 1200),
+  demoRecipeCard("demoRecipe2", "3 Diwali savings tips", "paisa.tips", "motion", true, 310),
+  demoRecipeCard("demoRecipe3", "Phuljhadi dance", "kids.dhol", "dance", true, 95),
+];
+const demoCard = (publicId: string, title: string, handle: string, genre: string, genreLabel: string, language: string, languageLabel: string): PublicSongCard => ({
+  publicId,
+  title,
+  handle,
+  genre,
+  genreLabel,
+  language,
+  languageLabel,
+  mood: "energetic",
+  durationSec: 90,
+  ownVoice: false,
+  playCount: 120,
+  likeCount: 18,
+  audioUrl: "",
+  coverUrl: null,
+});
+const demoCards: PublicSongCard[] = [
+  demoCard("aaaaaaaaaa", "Dhol di awaaz", "harjeet.beats", "bhangra", "Bhangra", "pa", "Punjabi"),
+  demoCard("bbbbbbbbbb", "Chai aur baarish", "meera.sings", "lofi-hindi", "Lo-fi Hindi", "hi", "Hindi"),
+  demoCard("cccccccccc", "Ya habibi", "noor.music", "khaleeji", "Khaleeji", "ar", "Arabic"),
+];
+
 function demoSong(id: string, title: string, genre: string): Song {
   return {
     id,
@@ -515,11 +1156,46 @@ function demoHistory(): AgentMessage[] {
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-let demoAi: Pick<AiChoice, "provider" | "model" | "keyHint"> = { provider: "reelkar", model: null, keyHint: null };
+let demoEngines: AiEngine[] = [];
+let demoEngineSeq = 0;
 const DEMO_AI_PROVIDERS: AiProvider[] = [
-  { id: "reelkar", name: "Reelkar free", price: "Free, no key needed", models: [], anyModel: false },
-  { id: "gemini", name: "Google Gemini", price: "Free key, within Google's daily limits", keyUrl: "https://aistudio.google.com/apikey", models: [{ id: "gemini-2.5-flash", label: "Gemini 2.5 Flash · fast, free" }], anyModel: false },
-  { id: "openrouter", name: "OpenRouter", price: "One key for hundreds of models", keyUrl: "https://openrouter.ai/keys", models: [{ id: "meta-llama/llama-3.3-70b-instruct:free", label: "Llama 3.3 70B · free" }], anyModel: true },
+  {
+    id: "gemini",
+    name: "Google Gemini",
+    price: "Free key, within Google's daily limits",
+    keyUrl: "https://aistudio.google.com/apikey",
+    models: [{ id: "gemini-3.5-flash", label: "Gemini 3.5 Flash · fast, free" }],
+    anyModel: false,
+    chat: true,
+  },
+  {
+    id: "cloudflare",
+    name: "Cloudflare Workers AI",
+    price: "Your own free Cloudflare account, 10,000 neurons a day",
+    keyUrl: "https://dash.cloudflare.com/profile/api-tokens",
+    models: [{ id: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", label: "Llama 3.3 70B · free" }],
+    anyModel: true,
+    chat: false,
+    extra: { label: "Account ID", placeholder: "From the Workers AI page of your dashboard" },
+  },
+  {
+    id: "openrouter",
+    name: "OpenRouter",
+    price: "One key for hundreds of models",
+    keyUrl: "https://openrouter.ai/keys",
+    models: [{ id: "meta-llama/llama-3.3-70b-instruct:free", label: "Llama 3.3 70B · free" }],
+    anyModel: true,
+    chat: true,
+  },
+];
+const demoEnginesView = (): AiEngines => ({ engines: demoEngines.map((e) => ({ ...e })), providers: DEMO_AI_PROVIDERS, ownKeys: true, reelkar: { status: "ready", restUntil: null } });
+const demoKeyHint = (key?: string) => (key && key.length >= 4 ? `…${key.slice(-4)}` : "…demo");
+
+// What the server opens on someone else's song (story-film/src/lib/remixes.ts openKindList).
+const DEMO_REMIX_KINDS: RemixKindInfo[] = [
+  { kind: "cover", label: "Cover", help: "Sing it again in another style.", credits: 1, style: "required", part: false, extend: false, lyrics: false, bars: false },
+  { kind: "extend", label: "Extend", help: "Make it longer.", credits: 1, style: "optional", part: false, extend: true, lyrics: true, bars: false },
+  { kind: "rap", label: "Add a rap", help: "Pick a part and AI writes rap bars.", credits: 1, style: "optional", part: true, extend: false, lyrics: false, bars: true },
 ];
 
 const demo: typeof real = {
@@ -538,12 +1214,13 @@ const demo: typeof real = {
   },
   createFilm: async (input) => {
     await wait(400);
-    const drawn = input.format === "motion" || input.format === "dance";
+    const format = "format" in input ? input.format : undefined;
+    const drawn = format === "motion" || format === "dance";
     const perShot = input.quality === "cinematic" ? 30 : input.quality === "premium" ? 12 : 0;
-    const cost = drawn ? 0 : Math.round(input.durationSec / 5) * perShot;
+    const cost = drawn ? 0 : Math.round(("durationSec" in input ? input.durationSec : 30) / 5) * perShot;
     if (cost > demoBalance) throw new ApiError(`${input.quality === "cinematic" ? "A Cinematic video" : "AI animation"} needs ${cost} credits for this length.`, 402, true);
     demoBalance -= cost;
-    const f: Film = { ...sample(`d${Date.now()}`, input.story.slice(0, 40), "queued", 0), quality: drawn ? "standard" : input.quality, credits: cost, story: input.story, format: input.format ?? "story" };
+    const f: Film = { ...sample(`d${Date.now()}`, input.story.slice(0, 40), "queued", 0), quality: drawn ? "standard" : input.quality, credits: cost, story: input.story, format: format ?? "story" };
     demoFilms.push(f);
     return { id: f.id, credits: cost };
   },
@@ -675,11 +1352,45 @@ const demo: typeof real = {
     }
     return demoHistory();
   },
-  aiChoice: async () => (await wait(200), { ...demoAi, providers: DEMO_AI_PROVIDERS, ownKeys: true }),
-  setAiChoice: async ({ provider, model }) => {
-    await wait(600);
-    demoAi = { provider, model: provider === "reelkar" ? null : (model ?? null), keyHint: aiNeedsKey(provider) ? "…demo" : null };
-    return { ...demoAi, providers: DEMO_AI_PROVIDERS, ownKeys: true };
+  aiEngines: async () => (await wait(200), demoEnginesView()),
+  addAiEngine: async ({ provider, model, key, extra }) => {
+    await wait(900);
+    const p = DEMO_AI_PROVIDERS.find((x) => x.id === provider);
+    if (!p) throw new ApiError("Pick an AI to connect.", 400);
+    if (demoEngines.length >= MAX_AI_ENGINES) throw new ApiError(`You can connect up to ${MAX_AI_ENGINES} engines.`, 400);
+    if (aiNeedsKey(provider) && !key) throw new ApiError(`Add your ${p.name} key.`, 400);
+    if (p.extra && !extra) throw new ApiError(`Add your ${p.extra.label}.`, 400);
+    demoEngines.push({
+      id: `demo-engine-${++demoEngineSeq}`,
+      provider,
+      name: p.name,
+      model: model || p.models[0]?.id || "",
+      keyHint: aiNeedsKey(provider) ? demoKeyHint(key) : null,
+      enabled: true,
+      chat: p.chat,
+      status: "ready",
+      restUntil: null,
+    });
+    return demoEnginesView();
+  },
+  changeAiEngine: async (id, change) => {
+    await wait(change.enabled === undefined ? 900 : 200);
+    demoEngines = demoEngines.map((e) =>
+      e.id === id
+        ? { ...e, model: change.model || e.model, keyHint: change.key ? demoKeyHint(change.key) : e.keyHint, enabled: change.enabled ?? e.enabled, status: change.key ? "ready" : e.status }
+        : e,
+    );
+    return demoEnginesView();
+  },
+  removeAiEngine: async (id) => {
+    await wait(200);
+    demoEngines = demoEngines.filter((e) => e.id !== id);
+    return demoEnginesView();
+  },
+  orderAiEngines: async (ids) => {
+    await wait(200);
+    demoEngines = ids.map((id) => demoEngines.find((e) => e.id === id)).filter((e): e is AiEngine => !!e);
+    return demoEnginesView();
   },
   setPostingMode: async (postingMode) => {
     await wait(200);
@@ -737,7 +1448,7 @@ const demo: typeof real = {
   shareLink: async () => {
     throw new ApiError("Saving and sharing need the Reelkar server, not the demo", 503);
   },
-  songs: async () => (await wait(300), { songs: [...demoSongs], credits: 4, remixCredits: { cover: 2, extend: 2, replace: 1 }, available: true }),
+  songs: async () => (await wait(300), { songs: [...demoSongs], credits: 2, creditsPerTake: { "ace-step": 1, lyria: 2 }, remixCredits: { cover: 1, extend: 1, replace: 1, rap: 1 }, available: true }),
   song: async (id) => {
     await wait(200);
     const s = demoSongs.find((x) => x.id === id);
@@ -746,17 +1457,96 @@ const demo: typeof real = {
   },
   createSong: async (input) => {
     await wait(500);
-    if (demoBalance < 4) throw new ApiError("A song costs 4 credits.", 402, true);
-    demoBalance -= 4;
+    const free = Boolean(input.replyTo);
+    if (!free && demoBalance < 4) throw new ApiError("A song costs 4 credits.", 402, true);
+    if (!free) demoBalance -= 4;
     const ids = Array.from({ length: input.takes }, (_, i) => `s${Date.now()}${i}`);
     ids.forEach((id, i) => demoSongs.unshift({ ...demoSong(id, input.takes > 1 ? `${input.title} (v${i + 1})` : input.title, input.genre), status: "queued", audioUrl: null, lyrics: input.lyrics }));
-    return { id: ids[0], ids };
+    const gift = input.replyTo ? { token: "demoReply2", url: "https://reelkar.app/g/demoReply2", free } : undefined;
+    return { id: ids[0], ids, gift };
+  },
+  createGift: async (songId, input) => {
+    await wait(400);
+    const s = demoSongs.find((x) => x.id === songId);
+    const g: SentGift = {
+      id: `g${Date.now()}`,
+      url: "https://reelkar.app/g/x7Kp2abcdE",
+      token: "x7Kp2abcdE",
+      toName: input.toName,
+      occasion: input.occasion,
+      note: input.note,
+      songId,
+      songTitle: s?.title ?? "Song",
+      songReady: s?.status === "completed",
+      isReply: false,
+      opened: false,
+      playCount: 0,
+      lastPlayedAt: null,
+      sharing: true,
+      takenDown: false,
+      createdAt: new Date().toISOString(),
+      replies: 0,
+    };
+    demoGifts.unshift(g);
+    return g;
+  },
+  gifts: async () => (await wait(300), { sent: [...demoGifts], replies: [...demoReplies] }),
+  duets: async () => (await wait(300), [...demoDuets]),
+  duet: async (id) => {
+    await wait(200);
+    const d = demoDuets.find((x) => x.id === id);
+    if (!d) throw new ApiError("Jugalbandi not found", 404);
+    return d;
+  },
+  duetForSong: async () => null,
+  startDuet: async (input) => {
+    await wait(400);
+    if (demoBalance < 6) throw new ApiError("A Jugalbandi costs 6 credits.", 402, true);
+    demoBalance -= 6;
+    const d: Duet = { ...demoDuetBase, id: `d${Date.now()}`, topic: input.topic, genre: input.genre, language: input.language, starterName: input.name, starterIg: input.ig, phase: "recording_a", partA: null, createdAt: new Date().toISOString() };
+    demoDuets.unshift(d);
+    return d;
+  },
+  duetPart: async (id) => {
+    await wait(600);
+    const d = demoDuets.find((x) => x.id === id)!;
+    if (d.role === "a") Object.assign(d, { partA: { kind: "hum", sec: 24, audioUrl: "/demo" }, phase: d.partB ? "joining" : "waiting", expiresAt: new Date(Date.now() + 48 * 3600_000).toISOString() });
+    else Object.assign(d, { partB: { kind: "sing", sec: 22, audioUrl: "/demo" }, phase: "joining" });
+    return d;
+  },
+  duetAction: async (id, action) => {
+    await wait(300);
+    const d = demoDuets.find((x) => x.id === id)!;
+    if (action === "approve") Object.assign(d, d.role === "a" ? { approvedA: true } : { approvedB: true });
+    if (action === "cancel") d.phase = "cancelled";
+    return d;
+  },
+  duetAudioUrl: (path) => path,
+  joinDuet: async (token) => {
+    await wait(300);
+    const d = demoDuets.find((x) => x.token === token) ?? demoDuets[0];
+    return Object.assign(d, { role: "b" as const });
+  },
+  declineDuet: async () => (await wait(200), {}),
+  myVoices: async () => (await wait(200), [{ id: "00000000-0000-4000-8000-000000000001", name: "My voice" }]),
+  savePushToken: async () => ({}),
+  deletePushToken: async () => ({}),
+  pushPrefs: async () => (await wait(200), { ...demoPush }),
+  setPushPrefs: async (change) => (await wait(200), Object.assign(demoPush, change), { ...demoPush }),
+  replyInfo: async () => (await wait(200), { toName: "Priya", occasion: "birthday" as const, free: true }),
+  setGiftSharing: async (id, sharing) => {
+    await wait(200);
+    const g = demoGifts.find((x) => x.id === id);
+    if (!g) throw new ApiError("Gift not found", 404);
+    g.sharing = sharing;
+    return g;
   },
   songLyrics: async (input) => (
     await wait(600),
     { title: input.topic ? input.topic.slice(0, 40) : "Meri kahani", lyrics: `${input.draft ? `${input.draft}\n\n` : ""}[Verse]\nBaarish ki boondein, khidki pe gaana\nChai ki pyaali, maa ka bulaana\n\n[Chorus]\nYe pal hai mera, ye ghar hai mera\nHar subah naya, har din sunehra` }
   ),
   songStyle: async (input) => (await wait(400), `${input.idea || "soft"}, acoustic guitar, tabla, warm female vocals, mid tempo`),
+  songRapVerse: async () => (await wait(600), "Subah ki chai, haath mein phone\nSapne bade, raaste anjaan, chal akela hi zone\nGalli se studio tak, beat pe mera naam\nMehnat ki syahi se likhta apna kaam"),
   editSong: async (id) => {
     await wait(400);
     const s = demoSongs.find((x) => x.id === id)!;
@@ -772,9 +1562,134 @@ const demo: typeof real = {
     return { id: copy.id };
   },
   songAudioUrl: () => null,
+  songPeaks: async () => (await wait(200), Array.from({ length: 160 }, (_, i) => 0.35 + 0.3 * Math.abs(Math.sin(i / 5)) + 0.2 * Math.abs(Math.sin(i * 1.7)))),
+  songStems: async () => (await wait(200), { status: "none" as const, credits: 1, stems: null }),
+  splitSong: async () => {
+    throw new ApiError("Splitting songs needs the Reelkar server, not the demo", 503);
+  },
+  saveMix: async (id, mix) => {
+    await wait(400);
+    const s = demoSongs.find((x) => x.id === id)!;
+    const copy = { ...s, id: `s${Date.now()}`, title: `${s.title} (${mix.gains ? "mix" : "sound"})`, status: "queued" as const, audioUrl: null };
+    demoSongs.unshift(copy);
+    return { id: copy.id };
+  },
+  songRap: async () => (await wait(600), "Subah ki chai, haath mein phone\nSapne bade, raaste anjaan, chalna hai alone\nGully se uthke, mic pe hai naam\nMehnat ki beat pe likhunga apna kaam"),
+  stemUrl: () => "",
+  soundPreviewUrl: () => null,
+  songAnalysis: async (id) => demoAnalysis(demoSongs.find((s) => s.id === id)),
+  handle: async () => (await wait(200), { handle: demoHandle, canChangeAt: null, suggestions: demoHandle ? [] : ["priya.sings", "priya_music", "priyacooks"] }),
+  checkHandle: async (handle) => (await wait(150), { handle, ok: /^[a-z0-9._]{3,20}$/.test(handle), problem: /^[a-z0-9._]{3,20}$/.test(handle) ? null : "Use letters a-z, numbers, dots and underscores." }),
+  setHandle: async (handle) => (await wait(200), (demoHandle = handle.toLowerCase())),
+  publishSong: async (id, input) => {
+    await wait(400);
+    const s = demoSongs.find((x) => x.id === id)!;
+    if (input.title) s.title = input.title;
+    s.listen = { state: "public", publicId: `demo${id}`.padEnd(10, "x").slice(0, 10), url: null, showLyrics: input.showLyrics, allowRemix: input.allowRemix, playCount: 0, likeCount: 0, dislikeCount: 0 };
+    return s.listen;
+  },
+  unpublishSong: async (id) => {
+    await wait(300);
+    const s = demoSongs.find((x) => x.id === id)!;
+    s.listen = { ...(s.listen as SongListen), state: "private" };
+    return s.listen;
+  },
+  listen: async () => (await wait(300), { newThisWeek: demoCards.length, new: demoCards, trending: demoCards.slice(0, 2), bestOf: [{ genre: "bhangra", label: "Bhangra", songs: demoCards }], languages: [{ code: "pa", name: "Punjabi", native: "ਪੰਜਾਬੀ", count: 1 }, { code: "hi", name: "Hindi", native: "हिन्दी", count: 2 }] }),
+  relatedSongs: async (_seed, exclude) => (await wait(200), demoCards.filter((c) => !exclude.includes(c.publicId))),
+  publicSong: async (publicId) => {
+    await wait(300);
+    const c = demoCards.find((x) => x.publicId === publicId) ?? demoCards[0];
+    return {
+      song: { ...c, state: "public", lyrics: "[Chorus]\nDhol baje, dil nache", allowRemix: true, publishedAt: new Date().toISOString(), reactions: { fire: 4, dance: 0, touched: 0, haha: 0, respect: 0, celebrate: 0 }, dislikeCount: null, mine: false, myVote: 0, myReaction: null, remixOf: null },
+      moreLikeThis: demoCards.filter((x) => x.publicId !== c.publicId),
+      byCreator: [],
+      family: {
+        path: [],
+        more: 0,
+        remixCount: demoCards.length - 1,
+        familySize: demoCards.length,
+        top: demoCards.filter((x) => x.publicId !== c.publicId).map((x) => ({ publicId: x.publicId, title: x.title, handle: x.handle, coverUrl: x.coverUrl, kind: "cover", depth: 1, playCount: x.playCount, remixCount: 0, gone: false })),
+        allowRemix: true,
+        mine: null,
+      },
+      remix: { kinds: DEMO_REMIX_KINDS, blocked: null },
+      earnRateBp: 1000,
+    };
+  },
+  countPlay: async () => ({ counted: true }),
+  voteSong: async () => ({}),
+  reactSong: async () => ({}),
+  reportSong: async () => (await wait(300), {}),
+  publicSongLink: (publicId) => `https://reelkar.app/s/${publicId}`,
+  familyTree: async (publicId, sort) => {
+    await wait(300);
+    const c = demoCards.find((x) => x.publicId === publicId) ?? demoCards[0];
+    const node = (x: PublicSongCard, level: number, kind: RemixKind | null): FamilyRow => ({ key: x.publicId, publicId: x.publicId, title: x.title, handle: x.handle, coverUrl: x.coverUrl, kind, depth: level, playCount: x.playCount, remixCount: 0, gone: false, level, more: 0, current: x.publicId === c.publicId });
+    const rows = [node(demoCards[0], 0, null), ...demoCards.slice(1).map((x) => node(x, 1, "cover"))];
+    return { size: rows.length, rootTitle: demoCards[0].title, sort, rows: sort === "new" ? [rows[0], ...rows.slice(1).reverse()] : rows };
+  },
+  setAllowRemix: async (_id, allow) => (await wait(200), { allowRemix: allow }),
+  earnings: async () => (await wait(300), { totalHundredths: 230, credited: 2, onTheWay: 30, rateBp: 1000, bySubject: [{ source: "remix" as const, subjectRef: "s1", title: "Baarish wali chai", coverUrl: null, publicId: null, count: 23, hundredths: 230 }] }),
+  earningDetail: async () => (
+    await wait(300),
+    {
+      title: "Baarish wali chai",
+      cursor: null,
+      events: [
+        { at: new Date().toISOString(), hundredths: 10, free: false, kind: "cover", remixerHandle: "sana.sings", publicId: demoCards[0].publicId },
+        { at: new Date(Date.now() - 86400_000).toISOString(), hundredths: 10, free: false, kind: "rap", remixerHandle: null, publicId: null },
+        { at: new Date(Date.now() - 2 * 86400_000).toISOString(), hundredths: 0, free: true, kind: "cover", remixerHandle: null, publicId: null },
+      ],
+    }
+  ),
+  remixInbox: async () => (await wait(200), [{ kind: "published" as const, subjectRef: "s1", songTitle: "Baarish wali chai", count: 1, remixKind: "cover", remixerHandle: "sana.sings", publicId: demoCards[0].publicId, at: new Date(Date.now() - 2 * 3600_000).toISOString(), hundredths: 10 }]),
+  filmRecipe: async (id) => (await wait(200), { eligible: !demoRecipes.some((r) => r.source === id), reason: null, madeFrom: null, recipe: demoRecipes.find((r) => r.source === id) ? { publicId: "demoRecipe1", name: "Diya Night", state: "public" as const, url: "https://reelkar.app/r/demoRecipe1", useCount: 38, earnedHundredths: 2140, thisWeek: 3 } : null }),
+  recipeDraft: async (id) => (
+    await wait(600),
+    {
+      eligible: true,
+      has: demoHas,
+      topicHint: "A Diwali memory, your shop, your family…",
+      needsPreviewConsent: false,
+      suggestedName: demoFilms.find((f) => f.id === id)?.title?.slice(0, 40) ?? "My recipe",
+      festivals: [demoFestival, { ...demoFestival, slug: "uae-national-day", name: "Eid Al Etihad", nameEn: "Eid Al Etihad", date: "2026-12-02", inDays: 26 }, { ...demoFestival, slug: "birthday", name: "Birthday", nameEn: "Birthday", date: null, inDays: null, allYear: true }],
+      handle: demoHandle,
+    }
+  ),
+  shareRecipe: async (id) => (await wait(500), demoRecipes.push({ source: id }), { publicId: "demoRecipe1", url: "https://reelkar.app/r/demoRecipe1" }),
+  recipe: async (publicId) => (
+    await wait(300),
+    {
+      state: "public" as const,
+      publicId,
+      mine: false,
+      recipe: { ...demoRecipeCards[0], publicId, topicHint: "A Diwali memory, your shop, your family…", previewUrl: null, has: demoHas, rateBp: 1000 },
+      rails: { sameFestival: demoRecipeCards.slice(1), byMaker: [], occasion: "diwali" },
+      price: { quality: "premium" as const, credits: 72, freeLeft: 2, standardCredits: 1, premiumAvailable: true, cinematicAvailable: false },
+      paidRatioBp: 8823,
+      makerEarns: { hundredths: 635, kind: "n" as const },
+    }
+  ),
+  recipesHome: async () => (
+    await wait(300),
+    {
+      festival: { ...demoFestival, thumbs: demoRecipeCards },
+      start: demoRecipeCards,
+      rails: { trending: demoRecipeCards, new: [...demoRecipeCards].reverse(), free: demoRecipeCards.filter((c) => c.free), kids: demoRecipeCards.filter((c) => c.kidSafe) },
+      collections: [{ ...demoFestival, count: 3 }, { ...demoFestival, slug: "holi", name: "Holi", nameEn: "Holi", native: { en: "Holi", hi: "होली", ar: "هولي" }, date: "2027-03-22", inDays: 136, count: 0 }],
+    }
+  ),
+  recipeList: async () => (await wait(300), { recipes: demoRecipeCards, cursor: null }),
+  recipeCollection: async (slug) => (await wait(300), { festival: { ...demoFestival, slug, count: demoRecipeCards.length }, featured: demoRecipeCards.slice(0, 1), recipes: demoRecipeCards.slice(1) }),
+  setRecipeSharing: async (_id, on) => (await wait(200), { state: on ? ("public" as const) : ("stopped" as const) }),
+  editRecipe: async (_id, input) => (await wait(200), { name: input.name ?? "Diya Night", occasions: input.occasions ?? [] }),
+  reportRecipe: async () => (await wait(300), {}),
+  recipeLink: (publicId) => `https://reelkar.app/r/${publicId}`,
+  recipePosterUrl: () => null,
   videoUrl: () => null,
   previewUri: () => null,
   videoHeaders: async () => ({}),
+  songCoverUrl: () => null,
 };
 
 export const api = DEMO ? demo : real;

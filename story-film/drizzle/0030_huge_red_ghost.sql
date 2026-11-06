@@ -1,0 +1,1 @@
+ALTER TABLE "duet" ADD COLUMN "join_started_at" timestamp;

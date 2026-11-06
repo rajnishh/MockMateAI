@@ -8,12 +8,16 @@ import { CLOUDFLARE_DEFAULTS, cloudflareAiBase, CloudflareFluxImage } from "./cl
 import { DEFAULT_FAL_MODELS, FalAvatarSinger, FalImageToVideo, FalNanoBanana, FalQueueClient } from "./fal";
 import { FalAceStep, FalLyria } from "./fal-music";
 import { FalSongEditor } from "./fal-song-edit";
+import { RunwareSongEditor } from "./runware-song-edit";
 import { FalChatterboxVc, FalDemucs, SeedVcServer } from "./voice";
-import { CloudflareTranscriber, CloudflareWhisper } from "./whisper";
+import { CloudflareTranscriber, CloudflareWhisper, GeminiTranscriber, LocalWhisper, type Transcriber } from "./whisper";
 import { KenBurnsVideo } from "./kenburns";
 import { KokoroTts } from "./kokoro";
 import { FalChatterboxTts, RoutedTts, SarvamTts } from "./tts";
+import { ChainLlm, ChainTranscriber, type Link, RedisRestStore, type RestStore } from "@/lib/ai/chain";
+import { getRedis } from "@/lib/queue/films";
 import { OpenAiCompatibleLlm } from "./llm";
+import type { LlmProvider } from "./types";
 
 // standard: Cloudflare Workers AI images + local pan-and-zoom, ~$0 per video.
 // premium: fal.ai Nano Banana 2 images + Wan/Kling AI animation, paid with credits.
@@ -88,6 +92,24 @@ export function buildSongEditor(env: Env): AceStepMusic | FalSongEditor {
   return new FalSongEditor(new FalQueueClient(requireKey(env.FAL_KEY, "FAL_KEY")));
 }
 
+// Pro remixes (ACE-Step 1.5 on Runware) need Runware, plus fal for songs and stem separation.
+export function proRemixAvailable(env: Env): boolean {
+  return Boolean(env.RUNWARE_API_KEY && env.FAL_KEY);
+}
+
+export function buildProSongEditor(env: Env): RunwareSongEditor {
+  return new RunwareSongEditor(requireKey(env.RUNWARE_API_KEY, "RUNWARE_API_KEY"));
+}
+
+// The Studio's stems: Demucs on fal, so they need fal even when songs are made locally.
+export function stemsAvailable(env: Env): boolean {
+  return Boolean(env.FAL_KEY);
+}
+
+export function buildStemSeparator(env: Env): FalDemucs {
+  return new FalDemucs(new FalQueueClient(requireKey(env.FAL_KEY, "FAL_KEY")));
+}
+
 // "Sing in my voice" needs fal (separation) and Whisper (consent check).
 export function myVoiceAvailable(env: Env): boolean {
   return Boolean(env.FAL_KEY && env.CLOUDFLARE_ACCOUNT_ID && env.CLOUDFLARE_API_TOKEN);
@@ -105,11 +127,26 @@ export function editsAvailable(env: Env): boolean {
   return Boolean(env.CLOUDFLARE_ACCOUNT_ID && env.CLOUDFLARE_API_TOKEN);
 }
 
-export function buildTranscriber(env: Env): CloudflareTranscriber {
-  return new CloudflareTranscriber(
-    requireKey(env.CLOUDFLARE_ACCOUNT_ID, "CLOUDFLARE_ACCOUNT_ID"),
-    requireKey(env.CLOUDFLARE_API_TOKEN, "CLOUDFLARE_API_TOKEN"),
-  );
+// Listening, with auto-switch: Workers AI, then whisper.cpp on this computer, then Gemini. Gemini gives no
+// word timings, so it's left out when they're needed (captions in "Edit my video").
+export function listenAvailable(env: Env): boolean {
+  return transcriberLinks(env, false).length > 0;
+}
+
+export function buildTranscriber(env: Env, opts: { needTimings?: boolean } = {}, rests: RestStore = aiRests): ChainTranscriber {
+  const links = transcriberLinks(env, opts.needTimings ?? false);
+  if (!links.length) requireKey(undefined, "CLOUDFLARE_ACCOUNT_ID");
+  return new ChainTranscriber(links, rests);
+}
+
+function transcriberLinks(env: Env, needTimings: boolean): Link<Transcriber>[] {
+  const links: Link<Transcriber>[] = [];
+  if (env.CLOUDFLARE_ACCOUNT_ID && env.CLOUDFLARE_API_TOKEN) {
+    links.push({ id: "listen:cloudflare", name: "Listening (Workers AI)", engine: new CloudflareTranscriber(env.CLOUDFLARE_ACCOUNT_ID, env.CLOUDFLARE_API_TOKEN) });
+  }
+  if (env.WHISPER_CPP_MODEL) links.push({ id: "listen:local", name: "Listening (this computer)", engine: new LocalWhisper(env.WHISPER_CPP_MODEL, env.WHISPER_CPP_BIN) });
+  if (env.GEMINI_API_KEY && !needTimings) links.push({ id: "listen:gemini", name: "Listening (Gemini)", engine: new GeminiTranscriber(env.GEMINI_API_KEY, env.GEMINI_LLM_MODEL) });
+  return links;
 }
 
 // Seed-VC keeps the melody better; Chatterbox works with just a fal key.
@@ -122,22 +159,62 @@ export function buildSingDeps(env: Env) {
 }
 
 // OpenRouter when configured (stronger models), otherwise the free Workers AI Llama.
-export function buildLlm(env: Env): OpenAiCompatibleLlm {
+// Reelkar's own lane, on the owner's keys (never shown to creators), in the order it's tried:
+// OpenRouter when set (paid mode), then the free Workers AI Llama, Gemini and Groq. Each one that
+// runs out of free use rests until it resets, and the next one answers.
+export function reelkarLane(env: Env, fetchFn: typeof fetch = fetch): Link<LlmProvider>[] {
+  const links: Link<LlmProvider>[] = [];
   if (env.OPENROUTER_API_KEY) {
-    return new OpenAiCompatibleLlm("https://openrouter.ai/api/v1", env.OPENROUTER_API_KEY, env.OPENROUTER_MODEL, {
-      licenseId: "openrouter",
-      jsonMode: true,
-    });
+    const llm = new OpenAiCompatibleLlm("https://openrouter.ai/api/v1", env.OPENROUTER_API_KEY, env.OPENROUTER_MODEL, { licenseId: "openrouter", jsonMode: true }, fetchFn);
+    links.push({ id: "lane:openrouter", name: "Reelkar (OpenRouter)", engine: llm });
   }
-  const accountId = requireKey(env.CLOUDFLARE_ACCOUNT_ID, "CLOUDFLARE_ACCOUNT_ID");
-  // Workers AI's OpenAI-compatible endpoint. Every call wants JSON, and without JSON mode the free
-  // Llama sometimes sends broken JSON (an unquoted key, a stray quote), so it's on.
-  return new OpenAiCompatibleLlm(
-    `${cloudflareAiBase(accountId)}/v1`,
-    requireKey(env.CLOUDFLARE_API_TOKEN, "CLOUDFLARE_API_TOKEN"),
-    env.CF_LLM_MODEL ?? CLOUDFLARE_DEFAULTS.llmModel,
-    { licenseId: "llama-3.3-70b", jsonMode: true },
-  );
+  if (env.CLOUDFLARE_ACCOUNT_ID && env.CLOUDFLARE_API_TOKEN) {
+    // Workers AI's OpenAI-compatible endpoint. Every call wants JSON, and without JSON mode the free
+    // Llama sometimes sends broken JSON (an unquoted key, a stray quote), so it's on.
+    const llm = new OpenAiCompatibleLlm(
+      `${cloudflareAiBase(env.CLOUDFLARE_ACCOUNT_ID)}/v1`,
+      env.CLOUDFLARE_API_TOKEN,
+      env.CF_LLM_MODEL ?? CLOUDFLARE_DEFAULTS.llmModel,
+      { licenseId: "llama-3.3-70b", jsonMode: true },
+      fetchFn,
+    );
+    links.push({ id: "lane:cloudflare", name: "Reelkar (Workers AI)", engine: llm });
+  }
+  if (env.GEMINI_API_KEY) links.push({ id: "lane:gemini", name: "Reelkar (Gemini)", engine: geminiLlm(env.GEMINI_API_KEY, env.GEMINI_LLM_MODEL, fetchFn) });
+  if (env.GROQ_API_KEY) {
+    const llm = new OpenAiCompatibleLlm("https://api.groq.com/openai/v1", env.GROQ_API_KEY, "llama-3.3-70b-versatile", { licenseId: "groq", jsonMode: true }, fetchFn);
+    links.push({ id: "lane:groq", name: "Reelkar (Groq)", engine: llm });
+  }
+  // Last: a model on the owner's own computer. It never runs out, only slower.
+  if (env.OLLAMA_URL) links.push({ id: "lane:ollama", name: "Reelkar (this computer)", engine: ollamaLlm(env.OLLAMA_URL, env.OLLAMA_LLM_MODEL, fetchFn) });
+  if (!links.length) requireKey(undefined, "CLOUDFLARE_ACCOUNT_ID");
+  return links;
+}
+
+// Rests are kept in Redis, so the web app and the worker skip the same tired engines.
+export const aiRests: RestStore = new RedisRestStore(getRedis);
+
+// The AI for tasks that aren't any one creator's: Reelkar's lane. Creators' own requests use
+// llmForUser (src/lib/ai/engines.ts), which tries their engines first.
+export function buildLlm(env: Env, rests: RestStore = aiRests): LlmProvider {
+  return new ChainLlm(reelkarLane(env), rests);
+}
+
+// Gemini through its OpenAI-compatible endpoint. Flash models think by default, which spends the
+// reply's token budget, so thinking is kept low ("none" isn't accepted by every Flash model).
+export function geminiLlm(apiKey: string, model: string, fetchFn: typeof fetch = fetch): OpenAiCompatibleLlm {
+  return new OpenAiCompatibleLlm("https://generativelanguage.googleapis.com/v1beta/openai", apiKey, model, {
+    licenseId: "gemini",
+    jsonMode: true,
+    ...(model.includes("flash") ? { extraBody: { reasoning_effort: "low" } } : {}),
+  }, fetchFn);
+}
+
+// Ollama's OpenAI-compatible endpoint; it needs no key, but the header must hold something.
+// gemma3:12b on an M3 Pro writes about 15 tokens a second: a 60-second reel script takes about 85 s and
+// the 4096-token cap about 270 s, inside Node fetch's 300 s wait for a reply, so no timeout is added.
+export function ollamaLlm(url: string, model: string, fetchFn: typeof fetch = fetch): OpenAiCompatibleLlm {
+  return new OpenAiCompatibleLlm(`${url.replace(/\/$/, "")}/v1`, "ollama", model, { licenseId: "ollama", jsonMode: true }, fetchFn);
 }
 
 export function buildImage(env: Env, quality: Quality = "standard") {

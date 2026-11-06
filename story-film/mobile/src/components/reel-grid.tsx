@@ -7,18 +7,29 @@ import { formatLabel } from "@/lib/formats";
 import { radius, useTheme } from "@/theme";
 import { Icon } from "./icon";
 import { ReelThumb } from "./reel-thumb";
+import { reviewHref } from "@/lib/music-video";
 import { ReelVideo } from "./reel-video";
 import { Status, Txt } from "./ui";
 
 export function filmStatus(f: Film) {
   if (f.status === "completed") return <Status kind="ok" text="Ready" />;
   if (f.status === "failed") return <Status kind="error" text="Failed" />;
-  if (f.status === "review") return <Status kind="warn" text="Check effects" />;
+  if (f.status === "review") return <Status kind="warn" text={f.songId ? "Check storyboard" : "Check effects"} />;
   return <Status kind="making" text="Making" />;
 }
 
 // The system alert, with a destructive Delete, so a reel is never removed by one stray tap.
-export function confirmDelete(id: string, onDeleted: () => void, onError: (message: string) => void) {
+// A reel shared as a recipe asks whether the recipe goes too; it can stay (it keeps its own preview and music).
+export function confirmDelete(id: string, onDeleted: () => void, onError: (message: string) => void, hasRecipe = false) {
+  const remove = (keepRecipe: boolean) => api.deleteFilm(id, keepRecipe).then(onDeleted, (err: Error) => onError(err.message));
+  if (hasRecipe) {
+    Alert.alert("Delete this reel?", "It's shared as a recipe. Its scheduled posts are cancelled too. This can't be undone.", [
+      { text: "Delete reel and recipe", style: "destructive", onPress: () => remove(false) },
+      { text: "Delete reel, keep recipe", style: "destructive", onPress: () => remove(true) },
+      { text: "Cancel", style: "cancel" },
+    ]);
+    return;
+  }
   Alert.alert("Delete this reel?", "Its scheduled posts are cancelled too. This can't be undone.", [
     { text: "Keep it", style: "cancel" },
     {
@@ -40,7 +51,7 @@ export function ReelGrid({ films, columns = 2, onDeleted }: { films: Film[]; col
   const [playing, setPlaying] = useState<string | null>(null);
   // Tabs and pushed screens stay mounted, so stop the inline video when this screen loses focus.
   useFocusEffect(useCallback(() => () => setPlaying(null), []));
-  const open = (f: Film) => router.push(f.status === "completed" ? `/reel/${f.id}` : f.status === "review" ? `/edit/${f.id}` : `/making/${f.id}`);
+  const open = (f: Film) => router.push(f.status === "completed" ? `/reel/${f.id}` : f.status === "review" ? reviewHref(f) : `/making/${f.id}`);
   const remove = (f: Film) =>
     confirmDelete(
       f.id,

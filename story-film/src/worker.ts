@@ -9,20 +9,31 @@ import { type PipelineDeps, runFilm } from "@/lib/pipeline/orchestrator";
 import { instagramAvailable, instagramClient, youtubeAvailable } from "@/lib/connect";
 import { pendingPosts, publishPost } from "@/lib/posts";
 import { provenanceFromEnv, trySign } from "@/lib/provenance";
+import { notifyRecipe, notifyReel, notifyRemix, notifySong } from "@/lib/push";
+import { dropEarning } from "@/lib/billing/earnings";
+import { recipeReelFailed, recipeReelFinished } from "@/lib/recipes";
+import { remixFinished } from "@/lib/remixes";
 import { grantCredits } from "@/lib/billing/credits";
 import { creatorMessage } from "@/lib/creator-errors";
-import { buildDanceSinger, buildPipelineDeps, buildShortSongProvider, buildSinger, buildSingDeps, buildSongEditor, buildSongProvider, buildTranscriber, type Quality, songsAvailable } from "@/lib/providers";
-import { type MyVoiceJob, type RemixJob, SONG_QUEUE, type SongJob, type SongQueueJob } from "@/lib/queue/songs";
+import { buildDanceSinger, buildImage, buildPipelineDeps, buildProSongEditor, buildShortSongProvider, buildSinger, buildSingDeps, buildSongEditor, buildSongProvider, buildStemSeparator, buildTranscriber, proRemixAvailable, type Quality, songsAvailable, stemsAvailable } from "@/lib/providers";
+import { type MyVoiceJob, type RemixJob, SONG_QUEUE, type SongJob, type SongQueueJob, type StudioJob } from "@/lib/queue/songs";
+import { SONG_STEMS_QUEUE, type StemsJob } from "@/lib/queue/song-stems";
+import { mixArgs, writeStemsState } from "@/lib/songs/mix";
+import { separateSongStems } from "@/lib/songs/stems";
 import { singInMyVoice } from "@/lib/voice/sing";
+import { duetSongDone, sendDuetReminders, singDuetVoices } from "@/lib/duet-voice";
+import { makeCover } from "@/lib/songs/cover";
 import { runRemix } from "@/lib/songs/remix";
-import { updateSong } from "@/lib/songs/songs";
-import { type EditJob, type EditRenderJob, FILM_QUEUE, type FilmJob, type FilmQueueJob, getRedis, type MusicVideoJob } from "@/lib/queue/films";
+import { getSongById, updateSong } from "@/lib/songs/songs";
+import { type EditJob, type EditRenderJob, FILM_QUEUE, type FilmJob, type FilmQueueJob, getRedis, type MusicVideoJob, musicVideoKind } from "@/lib/queue/films";
 import { onReelFinished } from "@/lib/agent/agent";
 import { agentDeps } from "@/lib/agent/deps";
 import { loadEditState, planEdit, renderPlannedEdit } from "@/lib/edit/pipeline";
 import { runDanceReel } from "@/lib/dance/pipeline";
 import { runMotionReel } from "@/lib/motion/pipeline";
 import { runMusicVideo } from "@/lib/music-video/pipeline";
+import { musicVideoDeps } from "@/lib/music-video/deps";
+import { llmForUser } from "@/lib/ai/engines";
 import { CloudflareWhisper } from "@/lib/providers/whisper";
 import { enqueuePost, getPublishQueue, PUBLISH_QUEUE, type PublishJob } from "@/lib/queue/publish";
 import { RedisQuotaStore } from "@/lib/quota/quota";
@@ -55,7 +66,7 @@ function isMusicVideo(job: Job<FilmQueueJob>): job is Job<MusicVideoJob> {
 }
 
 // Job ids are film row ids (except edit re-renders, which name their film), so progress is written straight to the film.
-const filmIdOf = (job: Job<FilmQueueJob>) => (isEditRender(job) ? job.data.filmId : job.id!);
+const filmIdOf = (job: Job<FilmQueueJob>) => (isEditRender(job) ? job.data.filmId : isMusicVideo(job) && job.data.filmId ? job.data.filmId : job.id!);
 
 const filmWorker = new Worker<FilmQueueJob>(
   FILM_QUEUE,
@@ -66,9 +77,11 @@ const filmWorker = new Worker<FilmQueueJob>(
     await updateFilm(db, filmId, { status: "running", error: null });
     let result;
     let description: string | undefined;
+    // Scripts and plans use the creator's own AI engines first, then Reelkar's lane.
+    const llm = await llmForUser(db, env, job.data.userId);
     // The creator's own footage: no Content Credentials claiming it was AI-generated.
     if (isEdit(job)) {
-      const state = await planEdit({ llm: depsFor("standard").llm, transcriber: buildTranscriber(env) }, job.data, workDir, onStage);
+      const state = await planEdit({ llm, transcriber: buildTranscriber(env, { needTimings: true }) }, job.data, workDir, onStage);
       if (job.data.review) {
         // Waits for the creator to check the effects; PUT /api/edits/[id] queues the render.
         await updateFilm(db, filmId, { status: "review", stage: null, title: state.plan.title });
@@ -78,17 +91,19 @@ const filmWorker = new Worker<FilmQueueJob>(
     } else if (isEditRender(job)) {
       result = await renderPlannedEdit({ fontsDir: env.FONTS_DIR }, await loadEditState(workDir), workDir, onStage);
     } else if (isMusicVideo(job)) {
-      const d = job.data;
-      result = await runMusicVideo(
-        { ...depsFor(d.quality), whisper, ...(d.singer && d.quality !== "standard" ? { singer: buildSinger(env, d.quality) } : {}) },
-        { ...d, sceneSec: d.quality === "standard" ? { min: 4, max: 7 } : { min: 3, max: 5 } },
-        workDir,
-        onStage,
-      );
-      description = "AI-generated music video: song, scenes and motion made with generative AI models";
+      // Jobs queued before music video kinds existed carry only quality and singer.
+      const d = { ...job.data, kind: musicVideoKind(job.data) };
+      const mv = await runMusicVideo({ ...musicVideoDeps(d.kind), llm }, d, workDir, onStage, d.phase ?? "all");
+      if (mv.output === null) {
+        // The storyboard waits for the creator; POST /api/songs/[id]/music-video/[filmId] renders it.
+        await updateFilm(db, filmId, { status: "review", stage: null, title: mv.title });
+        return mv;
+      }
+      result = { output: mv.output, title: mv.title };
+      description = "AI-generated music video: song, scenes, singing and dancing made with generative AI models";
     } else if ((job.data as FilmJob).format === "dance") {
       const d = job.data as FilmJob;
-      const { llm, tts } = depsFor("standard");
+      const { tts } = depsFor("standard");
       const aiSong = d.danceVoice === "ai_song";
       result = await runDanceReel(
         { llm, tts, fontsDir: env.FONTS_DIR, ...(aiSong ? { singer: buildDanceSinger(env), whisper } : {}) },
@@ -101,11 +116,11 @@ const filmWorker = new Worker<FilmQueueJob>(
         : "Dance reel: chant and voice made with AI; singing, dancers, beat and animation made by Reelkar";
     } else if ((job.data as FilmJob).format === "motion") {
       const d = job.data as FilmJob;
-      const { llm, tts, music, fontsDir } = depsFor("standard");
+      const { tts, music, fontsDir } = depsFor("standard");
       result = await runMotionReel({ llm, tts, music, fontsDir }, d, workDir, onStage);
       description = "Motion reel: script and voice-over made with AI; animated text and graphics rendered by Reelkar";
     } else {
-      result = await runFilm(depsFor((job.data as FilmJob).quality), job.data as FilmJob, workDir, onStage);
+      result = await runFilm({ ...depsFor((job.data as FilmJob).quality), llm }, job.data as FilmJob, workDir, onStage);
       description = "AI-generated video: script, images, motion and narration made with generative AI models";
     }
     const contentCredentials = description ? await trySign(provenance, result.output, { title: result.title, description }) : false;
@@ -118,6 +133,11 @@ const filmWorker = new Worker<FilmQueueJob>(
     });
     // Posts Ask Reelkar promised for this reel go out now.
     await onReelFinished(agentDeps(), filmId).catch((err) => console.error(`agent posts for ${filmId} failed:`, err));
+    // "Your reel is ready"; a push never fails the job.
+    await notifyReel(db, filmId);
+    // Made with someone's recipe: their share counts now (design/community/recipes-spec.md).
+    const earned = await recipeReelFinished(db, filmId).catch((err) => console.error(`recipe earning for ${filmId} failed:`, (err as Error).message));
+    if (earned) await notifyRecipe(db, earned.earning);
     return result;
   },
   // Each film fans out its own parallel API calls; keep films per worker low.
@@ -136,17 +156,24 @@ filmWorker.on("failed", async (job, err) => {
     // The raw provider error stays in the log above; the creator gets a plain sentence.
     await updateFilm(db, filmIdOf(job), { status: "failed", error: creatorMessage(err) });
     await onReelFinished(agentDeps(), filmIdOf(job)).catch(() => undefined);
+    await notifyReel(db, filmIdOf(job));
     if ("quotaKey" in job.data && job.data.quotaKey) await new RedisQuotaStore(getRedis()).decrement(job.data.quotaKey);
     if (job.data.credits > 0) await grantCredits(db, job.data.userId, job.data.credits, "refund", job.id!);
+    // A failed recipe reel earns its maker nothing.
+    await recipeReelFailed(db, filmIdOf(job)).catch(() => undefined);
   }
 });
 
-// Songs run only when fal.ai is configured.
+// Songs run on the self-hosted ACE-Step or on fal.ai.
 if (songsAvailable(env)) {
   const singer = buildSongProvider(env);
-  const singDeps = buildSingDeps(env);
+  // Voice conversion and stem separation are on fal; free local songs work without them.
+  const singDeps = env.FAL_KEY ? buildSingDeps(env) : undefined;
   const songEditor = buildSongEditor(env);
+  const proSongEditor = proRemixAvailable(env) ? buildProSongEditor(env) : undefined;
   const shortSinger = buildShortSongProvider(env);
+  // Cover art uses the free Cloudflare images; without them songs simply have no cover.
+  const coverImage = env.CLOUDFLARE_ACCOUNT_ID && env.CLOUDFLARE_API_TOKEN ? buildImage(env) : null;
   const songWorker = new Worker<SongQueueJob>(
     SONG_QUEUE,
     async (job) => {
@@ -157,14 +184,29 @@ if (songsAvailable(env)) {
       let outputPath: string;
       if (job.name === "my-voice") {
         const d = job.data as MyVoiceJob;
+        if (!singDeps) throw new Error("Singing in your own voice needs fal");
         const mixed = await singInMyVoice(singDeps, d.parentSongFile, d.sampleFile, path.join(dir, `${songId}-work`));
         outputPath = path.join(dir, `${songId}.mp3`);
         await rename(mixed, outputPath);
         await rm(path.join(dir, `${songId}-work`), { recursive: true, force: true });
+      } else if (job.name === "studio") {
+        outputPath = path.join(dir, `${songId}.mp3`);
+        await defaultFfmpeg(mixArgs({ ...(job.data as StudioJob).mix, output: outputPath }));
+        await updateSong(db, songId, { durationSec: Math.round(await probeDuration(outputPath)) });
       } else if (job.name === "remix") {
-        const audio = await runRemix(songEditor, (job.data as RemixJob).call, { workDir: dir, ffmpeg: defaultFfmpeg, probeDuration });
+        const audio = await runRemix(songEditor, (job.data as RemixJob).call, { workDir: dir, ffmpeg: defaultFfmpeg, probeDuration, pro: proSongEditor, separator: singDeps?.separator });
         outputPath = path.join(dir, `${songId}.${audio.ext}`);
         await writeFile(outputPath, audio.data);
+        // A Jugalbandi whose singers chose their own voices: each part re-sung in its singer's voice.
+        const voices = (job.data as RemixJob).voices;
+        if (voices) {
+          if (!singDeps) throw new Error("Singing in your own voice needs fal");
+          const work = path.join(dir, `${songId}-voices`);
+          const mixed = await singDuetVoices({ ffmpeg: defaultFfmpeg, sing: (file, sample, wd) => singInMyVoice(singDeps, file, sample, wd) }, outputPath, voices, work);
+          outputPath = path.join(dir, `${songId}-voices.mp3`);
+          await rename(mixed, outputPath);
+          await rm(work, { recursive: true, force: true });
+        }
       } else {
         const d = job.data as SongJob;
         const audio = await (d.model === "lyria" ? shortSinger : singer).sing(d);
@@ -178,9 +220,28 @@ if (songsAvailable(env)) {
             ? "AI-generated song, re-sung with AI voice conversion in the account holder's own consented voice"
             : job.name === "remix"
               ? "AI-generated song, remixed with generative AI (ACE-Step)"
+              : job.name === "studio"
+                ? "AI-generated song, remixed with audio effects (AI stem separation with Demucs)"
               : "AI-generated song: lyrics, music and vocals made with generative AI models",
       });
       await updateSong(db, songId, { status: "completed", outputPath, contentCredentials, completedAt: new Date() });
+      // A Jugalbandi tells both singers itself; other songs get "Your song is ready" before the cover is drawn.
+      if ((job.data as RemixJob).duet) await duetSongDone(db, songId);
+      else await notifySong(db, songId);
+      // A remix of someone's song: their share of it counts now (design/community/remix-spec.md).
+      if (job.name === "remix") {
+        const earned = await remixFinished(db, songId).catch((err) => console.error(`earning for song ${songId} failed:`, (err as Error).message));
+        if (earned) await notifyRemix(db, earned.earning);
+      }
+      // Cover art comes after the song is playable, and a failed picture never fails the song.
+      const made = coverImage ? await getSongById(db, songId) : undefined;
+      const coverPath = made
+        ? await makeCover({ image: coverImage!, ffmpeg: defaultFfmpeg }, made, path.join(dir, `${songId}-cover.jpg`)).catch((err) => {
+            console.error(`song ${songId} cover failed:`, (err as Error).message);
+            return null;
+          })
+        : null;
+      if (coverPath) await updateSong(db, songId, { coverPath });
     },
     { connection: getRedis(), concurrency: 2 },
   );
@@ -188,10 +249,30 @@ if (songsAvailable(env)) {
     console.error(`song ${job?.data.songId} failed:`, err.message);
     if (job && job.attemptsMade >= (job.opts.attempts ?? 1)) {
       await updateSong(db, job.data.songId, { status: "failed", error: creatorMessage(err) });
-      await grantCredits(db, job.data.userId, job.data.credits, "refund", `song:${job.data.songId}`);
+      if (!(job.data as RemixJob).duet) await notifySong(db, job.data.songId);
+      // A free song (the first reply to a gift) has nothing to give back.
+      if (job.data.credits > 0) await grantCredits(db, job.data.userId, job.data.credits, "refund", `song:${job.data.songId}`);
+      // A failed remix earns its parent's maker nothing.
+      if (job.name === "remix") await dropEarning(db, "remix", job.data.songId);
     }
   });
   console.log(`song worker listening on queue "${SONG_QUEUE}"`);
+
+  // The Studio's stems, made once per song on demand and saved next to it.
+  if (stemsAvailable(env)) {
+    const stemSeparator = buildStemSeparator(env);
+    const stemsWorker = new Worker<StemsJob>(
+      SONG_STEMS_QUEUE,
+      async (job) => separateSongStems(stemSeparator, job.data.songFile, job.data.dir, { ffmpeg: defaultFfmpeg }),
+      { connection: getRedis(), concurrency: 2 },
+    );
+    stemsWorker.on("failed", async (job, err) => {
+      console.error(`stems for song ${job?.data.songId} failed:`, err.message);
+      if (!job) return;
+      await writeStemsState(job.data.dir, { status: "failed", error: creatorMessage(err) });
+      if (job.data.credits > 0) await grantCredits(db, job.data.userId, job.data.credits, "refund", job.data.ref);
+    });
+  }
 }
 
 // Publishing runs when YouTube and/or Instagram is configured.
@@ -217,5 +298,8 @@ if (youtubeAvailable(env) || instagramAvailable(env)) {
 } else {
   console.log("publisher disabled: set TOKEN_ENCRYPTION_KEY plus Google (YouTube) and/or Instagram app keys");
 }
+
+// Jugalbandi: remind a partner who hasn't sung, 24 hours before the invite closes.
+setInterval(() => sendDuetReminders(db).catch((err) => console.error("duet reminders failed:", (err as Error).message)), 15 * 60_000);
 
 console.log(`worker listening on queue "${FILM_QUEUE}"`);

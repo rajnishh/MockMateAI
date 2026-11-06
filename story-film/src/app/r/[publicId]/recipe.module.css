@@ -1,0 +1,30 @@
+/* The public recipe page; shares the gift page's look (gift.module.css). One column on phones, the
+   9:16 preview beside the details on desktop. */
+.split { display: flex; flex-direction: column; gap: 16px; }
+.media { width: min(62vw, 300px); align-self: center; display: flex; flex-direction: column; gap: 8px; }
+.video, .poster { width: 100%; aspect-ratio: 9 / 16; border-radius: 20px; object-fit: cover; background: var(--deep); display: block; }
+.look { width: 100%; aspect-ratio: 9 / 16; border-radius: 20px; display: flex; align-items: flex-end; padding: 16px; box-sizing: border-box; color: var(--on-brand); font-weight: 700; background: radial-gradient(circle at 30% 30%, var(--pop), var(--coral) 60%, var(--deep)); }
+.details { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.card { border-radius: 20px; padding: 16px; background: var(--surface-raised); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+.card h2 { margin: 0; font: 800 18px var(--font-display); }
+.card ul, .card ol { margin: 0; padding-inline-start: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.card li { display: flex; gap: 8px; align-items: flex-start; min-height: 28px; }
+.mark { flex: 0 0 auto; color: var(--teal-text); font-weight: 700; }
+.price { border-radius: 16px; padding: 16px; background: var(--surface-sunken); display: flex; flex-direction: column; gap: 4px; }
+.price p { margin: 0; }
+.small { font-size: 13px; color: var(--ink-muted); }
+.tiles { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 6px; }
+.tile { flex: 0 0 120px; display: flex; flex-direction: column; gap: 4px; color: var(--ink); text-decoration: none; }
+.tile img, .tileArt { width: 120px; height: 213px; border-radius: 16px; object-fit: cover; background: radial-gradient(circle at 30% 30%, var(--pop), var(--coral) 60%, var(--deep)); }
+.tileName { font-weight: 700; font-size: 15px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.sticky { position: sticky; bottom: 0; padding: 12px 0 calc(12px + env(safe-area-inset-bottom)); background: linear-gradient(transparent, var(--surface) 30%); }
+.tile:focus-visible, .getApp:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.getApp { color: var(--ink); font-weight: 700; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; }
+@media (min-width: 900px) {
+  .wide { max-width: 1040px; }
+  .split { flex-direction: row; align-items: flex-start; gap: 32px; }
+  .media { width: 360px; position: sticky; top: 16px; flex: 0 0 auto; }
+  .details { flex: 1; }
+  .sticky { position: static; background: none; }
+}

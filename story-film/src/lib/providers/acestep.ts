@@ -1,4 +1,5 @@
 import { readMedia } from "@/lib/media";
+import { aceInputs } from "@/lib/songs/controls";
 import { AUDIO_TYPES, audioExt, type SongAudio, type SongInput } from "./fal-music";
 import type { CoverInput, ReplaceSectionInput } from "./fal-song-edit";
 import type { MusicProvider } from "./types";
@@ -45,12 +46,25 @@ export class AceStepMusic implements MusicProvider {
       audio_duration: input.durationSec,
       ...(input.vocalLanguage !== "unknown" ? { vocal_language: input.vocalLanguage } : {}),
       thinking: true,
+      // Create's dials; the local server takes the same field names as fal.
+      ...aceInputs(input.controls),
     });
   }
 
-  // Remix: restyle a song.
-  async cover(input: CoverInput): Promise<SongAudio> {
-    return this.generate({ task_type: "cover", prompt: input.style.slice(0, 512), lyrics: input.lyrics ?? input.originalLyrics }, input.audioUrl);
+  // Remix: restyle a song. `strength` (0-1) is how much it changes; ACE-Step's audio_cover_strength is
+  // the opposite, how closely it follows the source, and defaults to 1, which copies a phone recording's
+  // noise and wobble into the new vocals.
+  async cover(input: CoverInput & { strength?: number }): Promise<SongAudio> {
+    return this.generate(
+      {
+        task_type: "cover",
+        prompt: input.style.slice(0, 512),
+        lyrics: input.lyrics ?? input.originalLyrics,
+        ...(input.strength !== undefined ? { audio_cover_strength: Number((1 - Math.min(1, Math.max(0, input.strength))).toFixed(2)) } : {}),
+        ...(input.vocalLanguage ? { vocal_language: input.vocalLanguage } : {}),
+      },
+      input.audioUrl,
+    );
   }
 
   // Remix: redo one part of a song.

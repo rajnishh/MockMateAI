@@ -4,6 +4,7 @@ import type { Brand } from "@/lib/motion/render";
 import type { Ending } from "@/lib/motion/script";
 import type { NarrationLanguage } from "@/lib/providers/types";
 import type { TimedWord, Transcript } from "@/lib/providers/whisper";
+import type { RecipeJob } from "@/lib/recipe-spec";
 import type { Voice } from "./audio";
 import { type EditPlan, editPlanSchema, sanitizePlan, supportedEffects } from "./plan";
 
@@ -23,6 +24,8 @@ export interface EditRequest {
   ending?: Ending;
   keyword?: string;
   brand?: Brand;
+  // Made with a reel recipe: its effect mix as a soft target.
+  recipe?: RecipeJob;
 }
 
 // Everything needed to render (or re-render) an edit without transcribing or analysing again.

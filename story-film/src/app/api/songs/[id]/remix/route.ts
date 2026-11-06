@@ -1,20 +1,24 @@
 import { randomUUID } from "node:crypto";
+import { llmForUser } from "@/lib/ai/engines";
 import { pathToFileURL } from "node:url";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { grantCredits, spendCredits } from "@/lib/billing/credits";
 import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
-import { buildLlm, songsAvailable } from "@/lib/providers";
+import { proRemixAvailable, songsAvailable } from "@/lib/providers";
 import { getSongQueue } from "@/lib/queue/songs";
 import { getUserId, unauthorized } from "@/lib/session";
 import { cleanLyrics } from "@/lib/songs/lyrics";
-import { remixCall, remixCredits, remixedDurationSec, remixSchemaFor, type RemixKind } from "@/lib/songs/remix";
+import { openRemixKinds, remixCall, remixCredits, remixedDurationSec, remixKinds, remixSchemaFor, type RemixKind } from "@/lib/songs/remix";
+import { startEarning } from "@/lib/billing/earnings";
+import { linkRemix, REMIX_BLOCKED_TEXT, remixBlocked } from "@/lib/remixes";
 import { assertNoRealArtists, SongSafetyError } from "@/lib/songs/safety";
-import { createSong, getSong } from "@/lib/songs/songs";
+import { publicSong, PUBLIC_ID } from "@/lib/listen";
+import { createSong, getSong, type Song } from "@/lib/songs/songs";
 import { findGenre, GENRES, stylePrompt } from "@/lib/songs/styles";
 
-const SUFFIX: Record<RemixKind, string> = { cover: "cover", extend: "extended", replace: "new part" };
+const SUFFIX: Record<RemixKind, string> = { cover: "cover", extend: "extended", replace: "new part", rap: "rap", "add-vocals": "with vocals", "add-instrumental": "new music" };
 
 // Remix a finished song like Suno: a cover in another style, a longer version, or one part redone.
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -24,14 +28,30 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!songsAvailable(env)) return NextResponse.json({ error: "Song Studio isn't available yet" }, { status: 503 });
   const { id } = await params;
   const db = getDb();
-  const song = await getSong(db, userId, id).catch(() => undefined);
+  // Your own song by id (or public id), or someone's public song by its public id when they allow
+  // remixes and it isn't in anyone's own voice (design/community/remix-spec.md).
+  let song: Song | undefined;
+  let theirs = false;
+  if (PUBLIC_ID.test(id)) {
+    const found = await publicSong(db, id);
+    const blocked = found && remixBlocked(found.song, userId);
+    if (found && (!blocked || blocked === "mine")) song = found.song;
+    theirs = Boolean(found && !blocked);
+    if (blocked && blocked !== "mine") return NextResponse.json({ error: REMIX_BLOCKED_TEXT[blocked] }, { status: blocked === "notPublic" ? 410 : 403 });
+  } else song = await getSong(db, userId, id).catch(() => undefined);
   if (!song?.outputPath || song.status !== "completed") return NextResponse.json({ error: "Song not found" }, { status: 404 });
   const parsed = remixSchemaFor(song.durationSec).safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: z.prettifyError(parsed.error) }, { status: 400 });
   const request = { ...parsed.data, lyrics: parsed.data.lyrics && cleanLyrics(parsed.data.lyrics) };
+  if (theirs && !openRemixKinds(true).includes(request.kind)) {
+    return NextResponse.json({ error: "This kind of remix isn't open on other people's songs." }, { status: 403 });
+  }
+  if (!remixKinds(proRemixAvailable(env)).includes(request.kind)) {
+    return NextResponse.json({ error: "This remix isn't available yet" }, { status: 503 });
+  }
 
   try {
-    await assertNoRealArtists(buildLlm(env), [request.style ?? "", request.lyrics ?? ""]);
+    await assertNoRealArtists(await llmForUser(getDb(), env, userId), [request.style ?? "", request.lyrics ?? ""]);
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: err instanceof SongSafetyError ? 400 : 502 });
   }
@@ -50,7 +70,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: `This costs ${credits} credits.`, needCredits: true }, { status: 402 });
   }
   try {
-    const title = `${song.title} (${SUFFIX[request.kind]})`.slice(0, 80);
+    const title = `${song.title} (${SUFFIX[request.kind] ?? request.kind})`.slice(0, 80);
     await createSong(db, {
       id: songId,
       userId,
@@ -63,6 +83,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       credits,
       parentSongId: song.id,
     });
+    // The family tree, and the parent's maker earns a share when it finishes (never from yourself).
+    await linkRemix(db, songId, song, request.kind);
+    await startEarning(db, { source: "remix", sourceRef: songId, subjectRef: song.id, earnerId: song.userId, payerId: userId, charged: credits });
     await getSongQueue().add("remix", { songId, userId, title, call, credits }, { jobId: songId });
     return NextResponse.json({ id: songId }, { status: 202 });
   } catch (err) {

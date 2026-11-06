@@ -7,6 +7,7 @@ import { Icon } from "@/components/icon";
 import { ReelGrid } from "@/components/reel-grid";
 import { Banner, Button, Card, CheckRow, Credits, Empty, Hero, ProgressBar, Row, Screen, Skeleton, Txt, Win } from "@/components/ui";
 import { api } from "@/lib/api";
+import { reviewHref } from "@/lib/music-video";
 import { useSession } from "@/lib/session";
 import { useData } from "@/lib/use-data";
 import { useTheme } from "@/theme";
@@ -93,8 +94,18 @@ export default function Home() {
               <Icon name="right" color={colors.inkMuted} size={18} />
             </Row>
           </Card>
+          <Card onPress={() => router.push("/listen")}>
+            <Row style={{ alignItems: "center" }}>
+              <Icon name="headphones" color={colors.tealText} />
+              <View style={{ flex: 1, gap: 2 }}>
+                <Txt variant="label">New on Listen</Txt>
+                <Txt variant="cap">Songs from other creators, in many languages. Press play and it keeps going.</Txt>
+              </View>
+              <Icon name="right" color={colors.inkMuted} size={18} />
+            </Row>
+          </Card>
           {toCheck ? (
-            <Banner kind="info" title="Your video is ready to check" text="Look over its effects, then render it." action={<Button label="Check" small onPress={() => router.push(`/edit/${toCheck.id}`)} />} />
+            <Banner kind="info" title="Your video is ready to check" text="Look over its effects, then render it." action={<Button label="Check" small onPress={() => router.push(reviewHref(toCheck))} />} />
           ) : null}
           {making ? (
             <Button label="See the reel being made" block onPress={() => router.push(`/making/${making.id}`)} />

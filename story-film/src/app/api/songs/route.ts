@@ -1,23 +1,39 @@
 import { randomUUID } from "node:crypto";
+import { llmForUser } from "@/lib/ai/engines";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { REMIX_CREDITS, SONG_CREDITS } from "@/lib/billing/catalog";
+import { REMIX_CREDITS, SONG_CREDITS, SONG_CREDITS_PER_TAKE, STEMS_CREDITS, songCredits } from "@/lib/billing/catalog";
 import { grantCredits, spendCredits } from "@/lib/billing/credits";
 import { getDb } from "@/lib/db";
+import { createReplyGift, giftUrl, replyTarget, replyToSchema } from "@/lib/gifts";
 import { loadEnv } from "@/lib/env";
-import { buildLlm, songsAvailable } from "@/lib/providers";
+import { proRemixAvailable, songsAvailable } from "@/lib/providers";
 import { getSongQueue } from "@/lib/queue/songs";
+import { notify } from "@/lib/push";
 import { getUserId, unauthorized } from "@/lib/session";
-import { cleanLyrics } from "@/lib/songs/lyrics";
+import { prepareSong } from "@/lib/songs/create";
+import { SOUND_PRESETS } from "@/lib/songs/mix";
 import { newSongSchema, songLength, vocalLanguage } from "@/lib/songs/request";
 import { assertNoRealArtists, SongSafetyError } from "@/lib/songs/safety";
+import { remixKindList } from "@/lib/songs/remix";
 import { createSong, listSongs, songView, takeCredits } from "@/lib/songs/songs";
-import { findGenre, stylePrompt } from "@/lib/songs/styles";
+import { findGenre } from "@/lib/songs/styles";
 
 export async function GET() {
   const userId = await getUserId();
   if (!userId) return unauthorized();
-  return NextResponse.json({ songs: (await listSongs(getDb(), userId)).map(songView), credits: SONG_CREDITS, remixCredits: REMIX_CREDITS, available: songsAvailable(loadEnv()) });
+  const env = loadEnv();
+  return NextResponse.json({
+    songs: (await listSongs(getDb(), userId)).map(songView),
+    credits: SONG_CREDITS,
+    creditsPerTake: SONG_CREDITS_PER_TAKE,
+    remixCredits: REMIX_CREDITS,
+    // Remix kinds this server can run, with the fields each takes; the pro ones need Runware.
+    remixKinds: remixKindList(proRemixAvailable(env)),
+    soundPresets: SOUND_PRESETS,
+    stemsCredits: STEMS_CREDITS,
+    available: songsAvailable(env),
+  });
 }
 
 export async function POST(req: Request) {
@@ -25,33 +41,46 @@ export async function POST(req: Request) {
   if (!userId) return unauthorized();
   const env = loadEnv();
   if (!songsAvailable(env)) return NextResponse.json({ error: "Song Studio isn't available yet" }, { status: 503 });
-  const parsed = newSongSchema.safeParse(await req.json());
+  const body = await req.json();
+  const parsed = newSongSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: z.prettifyError(parsed.error) }, { status: 400 });
+  const { replyTo, fromName } = replyToSchema.safeParse(body).data ?? {};
   const genre = findGenre(parsed.data.genre);
   if (!genre) return NextResponse.json({ error: "Unknown genre" }, { status: 400 });
-  const lyrics = cleanLyrics(parsed.data.lyrics);
 
-  // User-edited lyrics and titles are checked again before anything is generated.
+  // A reply to a gift is one song, and the first reply to each gift is free.
+  const reply = replyTo ? await replyTarget(getDb(), userId, replyTo) : undefined;
+  if (reply && "error" in reply) return NextResponse.json({ error: reply.error }, { status: reply.status });
+  // A reply names the two people ("a thank-you song for Rajnish, from Priya"); they aren't artists.
+  const people = reply ? [reply.senderName, fromName ?? ""] : [];
+
+  // Simple mode writes the title, lyrics and style with AI first. User-edited lyrics and titles,
+  // and AI-written ones, are checked before anything is generated.
+  const llm = await llmForUser(getDb(), env, userId);
+  let prepared: Awaited<ReturnType<typeof prepareSong>>;
   try {
-    await assertNoRealArtists(buildLlm(env), [parsed.data.topic, parsed.data.title, lyrics, parsed.data.style ?? ""]);
+    await assertNoRealArtists(llm, [parsed.data.topic, parsed.data.title, parsed.data.lyrics, parsed.data.style ?? ""], people);
+    prepared = await prepareSong(llm, parsed.data, genre);
+    if (parsed.data.mode === "simple") await assertNoRealArtists(llm, [prepared.title, prepared.lyrics, prepared.style], people);
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: err instanceof SongSafetyError ? 400 : 502 });
   }
+  const { lyrics, style, controls } = prepared;
 
   const db = getDb();
-  const { takes } = parsed.data;
+  const { model } = parsed.data;
+  const takes = reply ? 1 : parsed.data.takes;
+  const cost = reply?.free ? 0 : songCredits(model, takes);
   const ids = Array.from({ length: takes }, () => randomUUID());
   // One charge for all takes; each take carries its share, so a failed take refunds only that share.
-  const shares = takeCredits(SONG_CREDITS, takes);
-  if (!(await spendCredits(db, userId, SONG_CREDITS, `song:${ids[0]}`, "song"))) {
-    return NextResponse.json({ error: `A song costs ${SONG_CREDITS} credits.`, needCredits: true }, { status: 402 });
+  const shares = takeCredits(cost, takes);
+  if (cost > 0 && !(await spendCredits(db, userId, cost, `song:${ids[0]}`, "song"))) {
+    return NextResponse.json({ error: `This song costs ${cost} credits.`, needCredits: true }, { status: 402 });
   }
-  const style = stylePrompt(genre, parsed.data.mood, parsed.data.vocal, parsed.data.style);
-  const { model } = parsed.data;
   const durationSec = songLength(model, parsed.data.durationSec);
   try {
     for (const [i, songId] of ids.entries()) {
-      const title = takes > 1 ? `${parsed.data.title} (v${i + 1})`.slice(0, 80) : parsed.data.title;
+      const title = takes > 1 ? `${prepared.title} (v${i + 1})`.slice(0, 80) : prepared.title.slice(0, 80);
       await createSong(db, {
         id: songId,
         userId,
@@ -65,14 +94,17 @@ export async function POST(req: Request) {
       });
       await getSongQueue().add(
         "song",
-        { songId, userId, title, style, lyrics, durationSec, vocalLanguage: vocalLanguage(parsed.data.language), credits: shares[i], model },
+        { songId, userId, title, style, lyrics, durationSec, vocalLanguage: vocalLanguage(parsed.data.language), credits: shares[i], model, controls },
         { jobId: songId },
       );
     }
-    return NextResponse.json({ id: ids[0], ids }, { status: 202 });
+    const replyGift = reply ? await createReplyGift(db, { userId, songId: ids[0], original: reply.original, senderName: reply.senderName, free: reply.free, fromName }) : undefined;
+    if (replyGift && reply) notify(db, [reply.original.senderId], { title: `${replyGift.fromName || "Someone"} is making you a song back`, body: "Your gift got a reply. It plays in about a minute.", kind: "gifts", path: "/inbox" });
+    const gift = replyGift ? { token: replyGift.token, url: giftUrl(env.BETTER_AUTH_URL, replyGift.token), free: replyGift.freeReply } : undefined;
+    return NextResponse.json({ id: ids[0], ids, title: prepared.title, gift }, { status: 202 });
   } catch (err) {
     // The charge was made under the first take's id; a refund under that id happens at most once.
-    await grantCredits(db, userId, SONG_CREDITS, "refund", `song:${ids[0]}`);
+    if (cost > 0) await grantCredits(db, userId, cost, "refund", `song:${ids[0]}`);
     throw err;
   }
 }

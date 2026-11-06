@@ -1,3 +1,4 @@
+import type { RecipeShape } from "@/lib/recipe-spec";
 import type { LanguageCode } from "@/lib/languages";
 import type { FilmStyle } from "@/lib/styles";
 
@@ -41,6 +42,8 @@ export interface ScriptRequest {
   character?: CharacterProfile;
   kidSafe?: boolean;
   language?: NarrationLanguage;
+  // A reel recipe's script shape: one role and intent per shot (src/lib/recipe-spec.ts).
+  shape?: RecipeShape;
 }
 
 export interface LlmProvider {

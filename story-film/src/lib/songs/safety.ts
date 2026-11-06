@@ -30,11 +30,13 @@ export function findBlockedArtist(text: string): string | undefined {
 
 const verdictSchema = z.object({ realPerson: z.boolean(), name: z.string().nullish() });
 
-export function buildRealArtistCheckPrompt(texts: string[]): string {
+export function buildRealArtistCheckPrompt(texts: string[], people: string[] = []): string {
   return [
     "You check requests for an AI song generator.",
     "Does the text below name, or ask to imitate the voice or style of, a specific real singer, rapper, band,",
     "composer or celebrity? Generic genres, instruments, moods, places and fictional characters are fine.",
+    "Songs for friends and family are fine too: a first name of the person the song is for or from is not an artist.",
+    ...(people.length ? [`These names are private people this song is for or from, not artists: ${people.join(", ")}.`] : []),
     'Reply with JSON only: {"realPerson": boolean, "name": string | null}',
     "",
     ...texts.map((t, i) => `Text ${i + 1}: ${t}`),
@@ -45,13 +47,17 @@ export class SongSafetyError extends Error {}
 
 // Throws SongSafetyError when a request targets a real artist. If the LLM check
 // itself fails, the request is refused rather than let through unchecked.
-export async function assertNoRealArtists(llm: LlmProvider, texts: string[]): Promise<void> {
+// people: names known to be private people (a gift's sender), so a friend called Mukesh isn't
+// taken for the singer.
+export async function assertNoRealArtists(llm: LlmProvider, texts: string[], people: string[] = []): Promise<void> {
   const parts = texts.filter((t) => t.trim());
-  const hit = parts.map(findBlockedArtist).find(Boolean);
+  people = people.map((p) => p.trim()).filter(Boolean);
+  const known = people.map(normalise).filter((n) => n.trim());
+  const hit = parts.map((t) => findBlockedArtist(known.reduce((text, n) => normalise(text).replaceAll(n, " "), t))).find(Boolean);
   if (hit) throw new SongSafetyError(`Songs can't use or imitate real artists ("${hit}"). Pick a genre style instead.`);
   let verdict;
   try {
-    verdict = verdictSchema.parse(await llm.completeJson(buildRealArtistCheckPrompt(parts)));
+    verdict = verdictSchema.parse(await llm.completeJson(buildRealArtistCheckPrompt(parts, people)));
   } catch {
     throw new Error("Couldn't check this request right now. Please try again.");
   }

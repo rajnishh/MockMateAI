@@ -16,8 +16,17 @@ export const GENRES: Genre[] = [
   { id: "desi-hip-hop", label: "Desi hip-hop", prompt: "Indian hip hop, punchy drums, deep bass, confident rap vocals" },
   { id: "pop", label: "Pop", prompt: "modern pop, catchy chorus, polished production, upbeat vocals" },
   { id: "edm", label: "EDM", prompt: "EDM, festival drop, big synth leads, four-on-the-floor, energetic vocals" },
-  { id: "sufi", label: "Sufi", prompt: "Sufi qawwali inspired, harmonium, claps, soulful powerful vocals" },
+  { id: "sufi", label: "Sufi", prompt: "Sufi folk, harmonium, rabab, soft percussion, soulful powerful vocals, spiritual" },
+  { id: "bhangra", label: "Bhangra", prompt: "Punjabi bhangra, loud dhol and tumbi, chimta, call-and-response hook, high energy, festive" },
+  { id: "garba", label: "Garba", prompt: "Gujarati garba, dandiya rhythm, dhol and shehnai, synth pads, festive Navratri dance, joyful vocals" },
+  { id: "lofi-hindi", label: "Lo-fi Hindi", prompt: "Hindi lo-fi, slowed reverb feel, soft rhodes piano, vinyl crackle, gentle tabla loop, mellow intimate vocals" },
+  { id: "qawwali", label: "Qawwali", prompt: "qawwali, harmonium, tabla, rhythmic hand claps, chorus responses, building intensity, powerful devotional vocals" },
+  { id: "indie-pop", label: "Indie pop", prompt: "Indian indie pop, bright guitars, warm synths, catchy hook, breezy drums, youthful vocals" },
+  { id: "khaleeji", label: "Khaleeji", prompt: "Khaleeji Gulf pop, oud, qanun, darbuka and khaleeji clap rhythm, Arabic vocals, festive" },
 ];
+
+// Shown first in the Style chips: the presets Indian and Gulf creators reach for most.
+export const FEATURED_GENRES = ["desi-hip-hop", "bollywood-romantic", "punjabi-pop", "bhangra", "sufi", "garba", "lofi-hindi", "khaleeji", "qawwali", "indie-pop"];
 
 export const MOODS = ["happy", "romantic", "sad", "energetic", "peaceful", "funny", "motivational"] as const;
 
@@ -42,6 +51,11 @@ export const STYLE_CHIPS = [
 ] as const;
 
 // The style ACE-Step receives: the creator's own style text (written or AI-enhanced) when there is one, else the genre preset.
+// A preset sung by one voice: "male and female vocals" becomes one lead singer.
+export function soloStyle(genre: Genre): Genre {
+  return { ...genre, prompt: genre.prompt.replace(/\b(male and female|male and female duet|duet) vocals\b/i, "solo lead vocals") };
+}
+
 export function stylePrompt(genre: Genre, mood: string, vocal: Vocal = "auto", custom?: string): string {
   const base = custom?.trim() || genre.prompt;
   // The creator's style that already says "female vocals" doesn't need it twice; presets always get the choice.
