@@ -279,6 +279,17 @@ export const creatorProfile = pgTable("creator_profile", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// The creator's profile photo: one of the ready-made avatars (src/lib/avatars.ts) or a photo they
+// uploaded (stored like reel photos, src/lib/photos.ts). Exactly one of the two is set.
+export const profileAvatar = pgTable("profile_avatar", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  preset: text("preset"),
+  photo: text("photo"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // One row per listener per song per day; the listener is a user id, or "v:" plus a browser cookie id.
 export const songPlay = pgTable(
   "song_play",

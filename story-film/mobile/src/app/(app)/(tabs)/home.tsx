@@ -10,6 +10,7 @@ import { Banner, Button, Card, CheckRow, Credits, Empty, Hero, ListRow, Progress
 import { api } from "@/lib/api";
 import { useInboxUnread } from "@/lib/inbox-unread";
 import { reviewHref } from "@/lib/music-video";
+import { profileTodo } from "@/lib/profile";
 import { useSession } from "@/lib/session";
 import { useData } from "@/lib/use-data";
 import { useTheme } from "@/theme";
@@ -31,6 +32,7 @@ export default function Home() {
   const films = useData(() => api.films());
   const billing = useData(() => api.billing());
   const accounts = useData(() => api.accounts());
+  const profile = useData(() => api.profile());
   const connected = (accounts.data?.accounts.length ?? 0) > 0;
   const unread = useInboxUnread() > 0;
 
@@ -42,6 +44,8 @@ export default function Home() {
   const making = list.find((f) => f.status === "queued" || f.status === "running");
   const toCheck = list.find((f) => f.status === "review");
   const goal = 5;
+  // Until it's loaded, don't nag.
+  const profileDone = profile.data?.complete ?? true;
   const posts = useData(() => api.posts(new Date(now), new Date(now + WEEK)));
   const nextPost = (posts.data ?? []).filter((p) => p.status === "scheduled").sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))[0];
 
@@ -147,9 +151,15 @@ export default function Home() {
       <Card>
         <Row style={{ justifyContent: "space-between" }}>
           <Txt variant="md">Your first week</Txt>
-          <Txt variant="cap">{(list.length > 0 ? 1 : 0) + (connected ? 1 : 0) + (thisWeek.length >= 5 ? 1 : 0)} of 4</Txt>
+          <Txt variant="cap">{(list.length > 0 ? 1 : 0) + (profileDone ? 1 : 0) + (connected ? 1 : 0) + (branded ? 1 : 0) + (thisWeek.length >= 5 ? 1 : 0)} of 5</Txt>
         </Row>
         <CheckRow label="Make your first reel" done={list.length > 0} sub={list.length ? undefined : "About 2 minutes"} />
+        <CheckRow
+          label="Finish your profile"
+          done={profileDone}
+          sub={profileDone ? undefined : profileTodo(profile.data?.missing)}
+          action={profileDone || !profile.data ? undefined : <Button label="Finish" small kind="secondary" onPress={() => router.push("/edit-profile")} />}
+        />
         <CheckRow
           label="Connect Instagram or YouTube"
           done={connected}

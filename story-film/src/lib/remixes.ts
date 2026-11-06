@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db";
-import { creatorEarning, creatorProfile, remixLink, song } from "@/lib/db/schema";
+import { creatorEarning, creatorProfile, profileAvatar, remixLink, song } from "@/lib/db/schema";
 import { EARN_RATE_BP } from "@/lib/billing/catalog";
 import { dropEarning, settleEarning, type SubjectInfo } from "@/lib/billing/earnings";
 import { listed, PUBLIC_ID, publicColumns, publicState, type PublicRow } from "@/lib/listen";
@@ -134,6 +134,7 @@ export async function topRemixes(db: Db, songId: string, limit = 3): Promise<Fam
     .from(remixLink)
     .innerJoin(song, eq(song.id, remixLink.childSongId))
     .innerJoin(creatorProfile, eq(creatorProfile.userId, song.userId))
+    .leftJoin(profileAvatar, eq(profileAvatar.userId, song.userId))
     .where(and(eq(remixLink.parentSongId, songId), listed()))
     .orderBy(desc(sql`${song.playCount} + ${song.likeCount}`), desc(song.publishedAt))
     .limit(limit);

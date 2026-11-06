@@ -1,8 +1,9 @@
 import { and, desc, eq, gte, inArray, isNotNull, isNull, ne, notInArray, type SQL, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Db } from "@/lib/db";
-import { creatorProfile, giftReportReason, remixLink, song, songPlay, songReaction, songReactionKind, songReport, songVote } from "@/lib/db/schema";
+import { creatorProfile, giftReportReason, profileAvatar, remixLink, song, songPlay, songReaction, songReactionKind, songReport, songVote } from "@/lib/db/schema";
 import { newGiftToken } from "@/lib/gifts";
+import { avatarView, creatorPhotoUrl } from "@/lib/profile";
 import { findLanguage } from "@/lib/languages";
 import { findGenre } from "@/lib/songs/styles";
 import type { Song } from "@/lib/songs/songs";
@@ -135,8 +136,10 @@ export async function unpublishSong(db: Db, userId: string, id: string): Promise
 
 export const listed = () => and(isNotNull(song.publishedAt), isNull(song.takenDownAt), eq(song.status, "completed"), isNotNull(song.outputPath));
 
-export const publicColumns = { song, handle: creatorProfile.handle };
-export type PublicRow = { song: Song; handle: string };
+// Every query selecting these left-joins profile_avatar, for the creator's photo on the card.
+// (Flat columns: Drizzle nulls a whole nested object from a left join when any one of its fields is null.)
+export const publicColumns = { song, handle: creatorProfile.handle, avatarPreset: profileAvatar.preset, avatarPhoto: profileAvatar.photo, avatarAt: profileAvatar.updatedAt };
+export type PublicRow = { song: Song; handle: string; avatarPreset?: string | null; avatarPhoto?: string | null; avatarAt?: Date | null };
 
 export type PublicState = "public" | "private" | "taken_down";
 
@@ -148,7 +151,7 @@ export function publicState(s: Song): PublicState {
 // The song behind a public link, whatever its state now (so the page can say it's gone).
 export async function publicSong(db: Db, publicId: string): Promise<PublicRow | null> {
   if (!PUBLIC_ID.test(publicId)) return null;
-  const [row] = await db.select(publicColumns).from(song).innerJoin(creatorProfile, eq(creatorProfile.userId, song.userId)).where(eq(song.publicId, publicId));
+  const [row] = await db.select(publicColumns).from(song).innerJoin(creatorProfile, eq(creatorProfile.userId, song.userId)).leftJoin(profileAvatar, eq(profileAvatar.userId, song.userId)).where(eq(song.publicId, publicId));
   return row ?? null;
 }
 
@@ -174,6 +177,8 @@ export function publicSongCard(r: PublicRow) {
     publicId: s.publicId!,
     title: s.title,
     handle: r.handle,
+    // The creator's profile photo: a ready-made avatar's key or their photo's URL; null when none.
+    creatorAvatar: avatarView(r.avatarAt ? { preset: r.avatarPreset ?? null, photo: r.avatarPhoto ?? null, updatedAt: r.avatarAt } : null, creatorPhotoUrl(r.handle)),
     genre: s.genre,
     genreLabel: findGenre(s.genre)?.label ?? s.genre,
     language: s.language,
@@ -206,7 +211,7 @@ export async function publicSongView(db: Db, r: PublicRow, viewerId?: string) {
   // The credit line comes from remix_link (edits and "my voice" versions have a parent too, but aren't remixes).
   const [link] = await db.select({ parentSongId: remixLink.parentSongId }).from(remixLink).where(eq(remixLink.childSongId, s.id));
   const [parent] = link
-    ? await db.select(publicColumns).from(song).innerJoin(creatorProfile, eq(creatorProfile.userId, song.userId)).where(and(eq(song.id, link.parentSongId), listed()))
+    ? await db.select(publicColumns).from(song).innerJoin(creatorProfile, eq(creatorProfile.userId, song.userId)).leftJoin(profileAvatar, eq(profileAvatar.userId, song.userId)).where(and(eq(song.id, link.parentSongId), listed()))
     : [];
   return {
     ...publicSongCard(r),
@@ -237,7 +242,7 @@ async function listedSongs(db: Db, where: SQL | undefined, order: SQL, limit: nu
   return db
     .select(publicColumns)
     .from(song)
-    .innerJoin(creatorProfile, eq(creatorProfile.userId, song.userId))
+    .innerJoin(creatorProfile, eq(creatorProfile.userId, song.userId)).leftJoin(profileAvatar, eq(profileAvatar.userId, song.userId))
     .where(and(listed(), where))
     .orderBy(order)
     .limit(limit);
@@ -281,7 +286,7 @@ export async function rail(db: Db, kind: RailKind, opts: { lang?: string; genre?
     const rows = await db
       .select({ ...publicColumns, score })
       .from(song)
-      .innerJoin(creatorProfile, eq(creatorProfile.userId, song.userId))
+      .innerJoin(creatorProfile, eq(creatorProfile.userId, song.userId)).leftJoin(profileAvatar, eq(profileAvatar.userId, song.userId))
       .where(and(listed(), lang))
       .orderBy(desc(score), desc(song.publishedAt))
       .limit(limit * 3);
@@ -368,7 +373,7 @@ export async function relatedSongs(db: Db, opts: { seed?: string; exclude?: stri
   const rows = await db
     .select({ ...publicColumns, score })
     .from(song)
-    .innerJoin(creatorProfile, eq(creatorProfile.userId, song.userId))
+    .innerJoin(creatorProfile, eq(creatorProfile.userId, song.userId)).leftJoin(profileAvatar, eq(profileAvatar.userId, song.userId))
     .where(
       and(
         listed(),

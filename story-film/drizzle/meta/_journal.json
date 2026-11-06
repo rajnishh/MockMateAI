@@ -218,6 +218,13 @@
       "when": 1793953336451,
       "tag": "0030_huge_red_ghost",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1793958526539,
+      "tag": "0031_silly_karen_page",
+      "breakpoints": true
     }
   ]
 }
