@@ -81,7 +81,7 @@ export default function You() {
             icon="send"
             title="Send feedback"
             sub="Tell us what to fix"
-            onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=Reelkar%20beta%20feedback`).catch(() => undefined)}
+            onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=Reelkar%20feedback`).catch(() => undefined)}
           />
         ) : null}
         {PRIVACY_URL ? <ListRow icon="lock" title="Privacy policy" onPress={() => Linking.openURL(PRIVACY_URL).catch(() => undefined)} /> : null}

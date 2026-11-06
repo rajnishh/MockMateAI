@@ -75,6 +75,9 @@ const TABS: Nav[] = [
 
 type Billing = { balance: number; freeLeft?: number; freeVideosPerWeek?: number };
 
+// Privacy, Terms and Support open with no sign-in and no app chrome (App Store listing links).
+const LEGAL = new Set(["/privacy", "/terms", "/support"]);
+
 export function AppShell({ children }: { children: ReactNode }) {
   const path = usePathname();
   const { data: session } = authClient.useSession();
@@ -82,7 +85,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [menu, setMenu] = useState(false);
   const acct = useRef<HTMLDivElement>(null);
   // Public gift, song and Jugalbandi invite pages open with no sign-in and no app chrome.
-  const bare = path === "/login" || path.startsWith("/oauth/") || path.startsWith("/g/") || path.startsWith("/j/") || path.startsWith("/s/") || path.startsWith("/r/");
+  const bare = path === "/login" || path.startsWith("/oauth/") || path.startsWith("/g/") || path.startsWith("/j/") || path.startsWith("/s/") || path.startsWith("/r/") || LEGAL.has(path);
 
   useEffect(() => {
     if (bare) return;

@@ -14,6 +14,13 @@ const schema = z.object({
   PUBLIC_ORIGINS: z.string().optional(),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
+  // Sign in with Apple from the iPhone app: identity tokens must be issued to this bundle id.
+  APPLE_BUNDLE_ID: z.string().default("app.reelkar"),
+  // App Review's demo account: this email signs in with this fixed 6-digit code (no email sent).
+  REVIEW_EMAIL: z.string().optional(),
+  REVIEW_OTP: z.string().optional(),
+  // Shown on /privacy, /terms and /support (the App Store listing links them).
+  SUPPORT_EMAIL: z.string().optional(),
   // Instagram API with Instagram Login (Meta App Dashboard → Instagram → API setup).
   INSTAGRAM_APP_ID: z.string().optional(),
   INSTAGRAM_APP_SECRET: z.string().optional(),

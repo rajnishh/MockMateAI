@@ -24,6 +24,7 @@ export const MODEL_LICENSES: Record<string, ModelLicense> = {
   "ace-step": { license: "Apache-2.0", commercial: true },
   "ace-step-1.5": { license: "MIT; fal.ai API terms", commercial: true, note: "training-data provenance untested; get legal sign-off before selling songs" },
   "faster-whisper": { license: "MIT", commercial: true },
+  "ace-step-1.5-local": { license: "MIT (self-hosted on this Mac)", commercial: true, note: "same provenance caveat as ace-step-1.5" },
   "ace-step-1.5-runware": { license: "MIT; Runware terms (you own outputs, commercial use allowed)", commercial: true, note: "same provenance caveat as ace-step-1.5" },
   "demucs": { license: "MIT; fal.ai API terms", commercial: true },
   "seed-vc": { license: "GPL-3.0", commercial: true, note: "run as a separate service only; never link into this app" },

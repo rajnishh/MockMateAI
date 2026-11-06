@@ -33,6 +33,8 @@ export const auth = createAuth({
   baseURL: env.BETTER_AUTH_URL,
   secret: env.BETTER_AUTH_SECRET,
   onUserDeleted: (userId) => deletePhotos(env.OUTPUT_DIR, userId),
+  apple: { bundleId: env.APPLE_BUNDLE_ID },
+  review: env.REVIEW_EMAIL && env.REVIEW_OTP ? { email: env.REVIEW_EMAIL, code: env.REVIEW_OTP } : undefined,
   google: googleEnabled ? { clientId: env.GOOGLE_CLIENT_ID!, clientSecret: env.GOOGLE_CLIENT_SECRET! } : undefined,
   // PUBLIC_ORIGINS: tunnels and domains that reach this app. In development, also quick tunnels,
   // and Expo Go and dev builds, which use exp:// URLs on the local network.

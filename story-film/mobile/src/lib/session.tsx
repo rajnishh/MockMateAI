@@ -1,3 +1,5 @@
+import * as AppleAuthentication from "expo-apple-authentication";
+import * as Crypto from "expo-crypto";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react";
 
 import { authClient } from "./auth-client";
@@ -35,6 +37,8 @@ interface SessionValue {
   pendingSignIn: PendingSignIn | null;
   clearPendingSignIn: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  // iPhone only. Resolves false when the person cancels Apple's sheet.
+  signInWithApple: () => Promise<boolean>;
   // to is a mobile number in E.164 form ("+971501234567", see lib/phone.ts) or an email address.
   sendOtp: (to: string) => Promise<void>;
   verifyOtp: (to: string, code: string) => Promise<void>;
@@ -116,6 +120,34 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const { error } = await authClient.signIn.social({ provider: "google", callbackURL: "/" });
       if (error) throw new Error(error.message ?? "Google sign-in didn't finish");
       await clearPendingSignIn();
+    },
+    signInWithApple: async () => {
+      if (DEMO) return signInDemo().then(() => true);
+      // Apple puts the SHA-256 of this nonce in its token; the server checks it against the raw one.
+      const nonce = Crypto.randomUUID();
+      const hashed = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, nonce);
+      let cred: AppleAuthentication.AppleAuthenticationCredential;
+      try {
+        cred = await AppleAuthentication.signInAsync({
+          requestedScopes: [AppleAuthentication.AppleAuthenticationScope.FULL_NAME, AppleAuthentication.AppleAuthenticationScope.EMAIL],
+          nonce: hashed,
+        });
+      } catch (err) {
+        if ((err as { code?: string }).code === "ERR_REQUEST_CANCELED") return false;
+        throw new Error("Apple sign-in didn't finish");
+      }
+      if (!cred.identityToken) throw new Error("Apple sign-in didn't finish");
+      // Apple shares the name only the first time, so it goes along with the token.
+      const name = cred.fullName?.givenName || cred.fullName?.familyName
+        ? { firstName: cred.fullName?.givenName ?? "", lastName: cred.fullName?.familyName ?? "" }
+        : undefined;
+      const { error } = await authClient.signIn.social({
+        provider: "apple",
+        idToken: { token: cred.identityToken, nonce, ...(name ? { user: { name, email: cred.email ?? undefined } } : {}) },
+      });
+      if (error) throw new Error(error.message ?? "Apple sign-in didn't finish");
+      await clearPendingSignIn();
+      return true;
     },
     sendOtp: async (to) => {
       if (!DEMO) {

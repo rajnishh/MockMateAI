@@ -2,14 +2,15 @@
   "expo": {
     "name": "Reelkar",
     "slug": "reelkar",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "reelkar",
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "app.reelkar",
-      "supportsTablet": true,
+      "supportsTablet": false,
+      "usesAppleSignIn": true,
       "icon": "./assets/images/icon.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -88,6 +89,7 @@
         }
       ],
       "./plugins/with-app-intents",
+      "expo-apple-authentication",
       "expo-notifications",
       "expo-iap"
     ],
