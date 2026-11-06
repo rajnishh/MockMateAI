@@ -150,9 +150,6 @@ export default function Inbox() {
           })}
         </>
       ) : null}
-      <Card flat>
-        <ListRow icon="inbox" title="Comments and DMs together" sub="Coming in the next beta" />
-      </Card>
     </Screen>
   );
 }

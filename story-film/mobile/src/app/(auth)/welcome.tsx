@@ -1,10 +1,13 @@
 import { router } from "expo-router";
-import { View } from "react-native";
+import { Linking, Text, View } from "react-native";
 
 import { Logo } from "@/components/icon";
 import { Button, Screen, Txt } from "@/components/ui";
+import { PRIVACY_URL, TERMS_URL } from "@/lib/config";
+import { useTheme } from "@/theme";
 
 export default function Welcome() {
+  const { colors } = useTheme();
   return (
     <Screen
       footer={
@@ -12,7 +15,15 @@ export default function Welcome() {
           <Button label="Get started free" block onPress={() => router.push("/sign-in")} />
           <Button label="I already have an account" kind="secondary" block onPress={() => router.push("/sign-in")} />
           <Txt variant="cap" style={{ textAlign: "center" }}>
-            By continuing you agree to the Terms and Privacy Policy.
+            By continuing you agree to the{" "}
+            <Text accessibilityRole="link" style={{ color: colors.coralText, textDecorationLine: "underline" }} onPress={() => Linking.openURL(TERMS_URL).catch(() => undefined)}>
+              Terms
+            </Text>{" "}
+            and{" "}
+            <Text accessibilityRole="link" style={{ color: colors.coralText, textDecorationLine: "underline" }} onPress={() => Linking.openURL(PRIVACY_URL).catch(() => undefined)}>
+              Privacy Policy
+            </Text>
+            .
           </Txt>
         </>
       }>
@@ -22,7 +33,7 @@ export default function Welcome() {
         <Txt variant="body" color="inkMuted">
           Ideas, reels, captions and posting in one place. Start free, no editing skills needed.
         </Txt>
-        <Txt variant="cap">Free beta · Hindi, English, Marathi, Bengali, Tamil, Telugu and Arabic reels</Txt>
+        <Txt variant="cap">Free to start · Hindi, English, Marathi, Bengali, Tamil, Telugu and Arabic reels</Txt>
       </View>
     </Screen>
   );

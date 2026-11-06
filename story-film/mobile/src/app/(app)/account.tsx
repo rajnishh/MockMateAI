@@ -113,7 +113,7 @@ export default function Account() {
           <Avatar avatar={profile.data?.avatar} name={profile.data?.name || user?.name} />
           <View style={{ flex: 1 }}>
             <Txt variant="md">{profile.data?.name || user?.name || "Creator"}</Txt>
-            <Txt variant="cap">{profile.data?.handle ? `@${profile.data.handle}` : `Free beta${prefs?.topic ? ` · ${prefs.topic}` : ""}`}</Txt>
+            <Txt variant="cap">{profile.data?.handle ? `@${profile.data.handle}` : prefs?.topic ?? "Creator"}</Txt>
           </View>
           <Txt variant="label" color="tealText">
             Edit profile
@@ -205,7 +205,7 @@ export default function Account() {
             icon="send"
             title="Send feedback"
             sub={SUPPORT_EMAIL}
-            onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=Reelkar%20beta%20feedback`).catch(() => undefined)}
+            onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=Reelkar%20feedback`).catch(() => undefined)}
           />
         ) : null}
         <ListRow icon="lock" title="Privacy policy" onPress={() => Linking.openURL(PRIVACY_URL).catch(() => undefined)} />

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Platform, View } from "react-native";
 
 import { Banner, Button, ChipRow, Field, Header, Screen, Txt } from "@/components/ui";
+import { API_URL, DEMO } from "@/lib/config";
 import { findCountry, isValidMobile, PHONE_COUNTRIES, type PhoneCountry, toE164 } from "@/lib/phone";
 import { useSession } from "@/lib/session";
 import { radius, size, useTheme } from "@/theme";
@@ -16,6 +17,7 @@ export default function SignIn() {
   const { signInWithGoogle, signInWithApple, sendOtp, clearPendingSignIn } = useSession();
   const { colors, mode } = useTheme();
   const [appleReady, setAppleReady] = useState(false);
+  const [google, setGoogle] = useState(DEMO);
   const [method, setMethod] = useState<Method>("phone");
   const [country, setCountry] = useState<PhoneCountry>("IN");
   const [phone, setPhone] = useState("");
@@ -28,6 +30,14 @@ export default function SignIn() {
   useEffect(() => {
     clearPendingSignIn();
   }, [clearPendingSignIn]);
+  // The server says whether Google is set up, so the button never leads to an error.
+  useEffect(() => {
+    if (DEMO) return;
+    fetch(`${API_URL}/api/sign-in-options`)
+      .then((r) => r.json())
+      .then((o: { google?: boolean }) => setGoogle(Boolean(o.google)))
+      .catch(() => setGoogle(false));
+  }, []);
   useEffect(() => {
     if (Platform.OS === "ios") AppleAuthentication.isAvailableAsync().then(setAppleReady, () => setAppleReady(false));
   }, []);
@@ -60,7 +70,7 @@ export default function SignIn() {
           onPress={() => (busy ? undefined : run("apple", signInWithApple))}
         />
       ) : null}
-      <Button label="Continue with Google" kind="secondary" block loading={busy === "google"} onPress={() => run("google", signInWithGoogle)} />
+      {google ? <Button label="Continue with Google" kind="secondary" block loading={busy === "google"} onPress={() => run("google", signInWithGoogle)} /> : null}
       <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
         <View style={{ flex: 1, height: 1, backgroundColor: colors.line }} />
         <Txt variant="cap">or get a code</Txt>
@@ -123,7 +133,7 @@ export default function SignIn() {
       />
       <Txt variant="cap">
         {method === "phone"
-          ? "We'll send a 6-digit code by SMS to Indian and UAE numbers. Somewhere else? Use email or Google."
+          ? `We'll send a 6-digit code by SMS to Indian and UAE numbers. Somewhere else? Use ${[appleReady && "Apple", google && "Google"].filter(Boolean).concat("email").join(", ").replace(/, ([^,]*)$/, " or $1")}.`
           : "We'll email you a 6-digit code. No password needed."}
       </Txt>
     </Screen>

@@ -9,6 +9,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { AiConsent, useAiConsent } from "@/components/ai-consent";
 import { AnimatedSplash } from "@/components/splash";
 import { useAppUpdates } from "@/lib/app-updates";
 import { rememberCreateLink, rememberReelLink } from "@/lib/pending-link";
@@ -21,7 +22,8 @@ SplashScreen.preventAutoHideAsync();
 const MIN_SPLASH_MS = 1400;
 
 function RootStack() {
-  const { ready, user, onboarded } = useSession();
+  const { ready, user, onboarded, signOut } = useSession();
+  const consent = useAiConsent(user?.id ?? null);
   const { mode, colors } = useTheme();
   const [shown, setShown] = useState(false);
   const url = useLinkingURL();
@@ -41,7 +43,8 @@ function RootStack() {
     const timer = setTimeout(() => setShown(true), MIN_SPLASH_MS);
     return () => clearTimeout(timer);
   }, []);
-  if (!ready || !shown) return <AnimatedSplash />;
+  if (!ready || !shown || !consent.known) return <AnimatedSplash />;
+  if (user && !consent.given) return <AiConsent onAccept={consent.accept} onDecline={() => void signOut()} />;
 
   return (
     <>
