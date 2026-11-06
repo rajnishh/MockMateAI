@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AnimatedSplash } from "@/components/splash";
+import { useAppUpdates } from "@/lib/app-updates";
 import { rememberCreateLink, rememberReelLink } from "@/lib/pending-link";
 import { SessionProvider, useSession } from "@/lib/session";
 import { ThemeProvider, useTheme } from "@/theme";
@@ -24,6 +25,7 @@ function RootStack() {
   const { mode, colors } = useTheme();
   const [shown, setShown] = useState(false);
   const url = useLinkingURL();
+  useAppUpdates();
 
   // Signed out, a reel link lands on sign-in; remember it so it opens once they're in.
   useEffect(() => {
