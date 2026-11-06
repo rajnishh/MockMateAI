@@ -30,7 +30,9 @@ export default function PlayerScreen() {
   const isPublic = !id.includes("-");
   const fetched = useData(() => (player.song?.id === id ? Promise.resolve(player.song) : isPublic ? api.publicSong(id).then((p) => publicTrackSong(p.song)) : api.song(id)));
   const song = player.song?.id === id ? player.song : fetched.data;
-  const analysis = useSongAnalysis(song?.status === "completed" ? id : null);
+  // A "Hum it" recording, a gift reply or a Jugalbandi (ids with ":") has no analysis and nothing to share here.
+  const recording = id.includes(":");
+  const analysis = useSongAnalysis(song?.status === "completed" && !recording ? id : null);
   const [theme, setTheme] = usePlayerTheme();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -112,10 +114,13 @@ export default function PlayerScreen() {
               </Txt>
             ) : null}
           </View>
+          <RoundButton label={REPEAT_LABEL[player.repeat]} onPress={player.cycleRepeat} disabled={!song}>
+            <Icon name={player.repeat === "one" ? "repeat-one" : "repeat"} size={22} color={player.repeat === "off" ? INK_MUTED : theme.accent} />
+          </RoundButton>
           <RoundButton label="Up next" onPress={() => router.push("/listen/queue")} disabled={!song}>
             <Icon name="queue" size={22} color={INK} />
           </RoundButton>
-          <RoundButton label={song?.publicId ? "Share link" : "Save or share song"} onPress={share} disabled={!song?.audioUrl || sharing}>
+          <RoundButton label={song?.publicId ? "Share link" : "Save or share song"} onPress={share} disabled={!song?.audioUrl || sharing || recording}>
             {sharing ? <ActivityIndicator color={INK} /> : <Icon name="share" size={22} color={INK} />}
           </RoundButton>
         </View>
@@ -283,6 +288,9 @@ function ThemePicker({ value, onChange }: { value: PlayerTheme; onChange: (id: P
     </View>
   );
 }
+
+// What the repeat button does now, and what a tap changes it to.
+const REPEAT_LABEL = { off: "Repeat is off. Tap to repeat all", all: "Repeating all. Tap to repeat this song", one: "Repeating this song. Tap to turn repeat off" } as const;
 
 function RoundButton({ label, onPress, disabled, size = 44, children }: { label: string; onPress: () => void; disabled?: boolean; size?: number; children: React.ReactNode }) {
   return (
