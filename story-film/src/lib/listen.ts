@@ -1,7 +1,7 @@
 import { and, desc, eq, gte, inArray, isNotNull, isNull, ne, notInArray, type SQL, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Db } from "@/lib/db";
-import { creatorProfile, giftReportReason, song, songPlay, songReaction, songReactionKind, songReport, songVote } from "@/lib/db/schema";
+import { creatorProfile, giftReportReason, remixLink, song, songPlay, songReaction, songReactionKind, songReport, songVote } from "@/lib/db/schema";
 import { newGiftToken } from "@/lib/gifts";
 import { findLanguage } from "@/lib/languages";
 import { findGenre } from "@/lib/songs/styles";
@@ -133,10 +133,10 @@ export async function unpublishSong(db: Db, userId: string, id: string): Promise
 
 // ---------- Public songs ----------
 
-const listed = () => and(isNotNull(song.publishedAt), isNull(song.takenDownAt), eq(song.status, "completed"), isNotNull(song.outputPath));
+export const listed = () => and(isNotNull(song.publishedAt), isNull(song.takenDownAt), eq(song.status, "completed"), isNotNull(song.outputPath));
 
-const publicColumns = { song, handle: creatorProfile.handle };
-type PublicRow = { song: Song; handle: string };
+export const publicColumns = { song, handle: creatorProfile.handle };
+export type PublicRow = { song: Song; handle: string };
 
 export type PublicState = "public" | "private" | "taken_down";
 
@@ -203,8 +203,10 @@ export async function publicSongView(db: Db, r: PublicRow, viewerId?: string) {
   for (const c of counts) if (c.n >= REACTION_COUNT_FROM) reactions[c.kind] = c.n;
   const [vote] = viewerId ? await db.select({ value: songVote.value }).from(songVote).where(and(eq(songVote.songId, s.id), eq(songVote.userId, viewerId))) : [];
   const [reaction] = viewerId ? await db.select({ kind: songReaction.kind }).from(songReaction).where(and(eq(songReaction.songId, s.id), eq(songReaction.userId, viewerId))) : [];
-  const [parent] = s.parentSongId
-    ? await db.select(publicColumns).from(song).innerJoin(creatorProfile, eq(creatorProfile.userId, song.userId)).where(and(eq(song.id, s.parentSongId), listed()))
+  // The credit line comes from remix_link (edits and "my voice" versions have a parent too, but aren't remixes).
+  const [link] = await db.select({ parentSongId: remixLink.parentSongId }).from(remixLink).where(eq(remixLink.childSongId, s.id));
+  const [parent] = link
+    ? await db.select(publicColumns).from(song).innerJoin(creatorProfile, eq(creatorProfile.userId, song.userId)).where(and(eq(song.id, link.parentSongId), listed()))
     : [];
   return {
     ...publicSongCard(r),
@@ -219,6 +221,8 @@ export async function publicSongView(db: Db, r: PublicRow, viewerId?: string) {
     myVote: (vote?.value ?? 0) as -1 | 0 | 1,
     myReaction: (reaction?.kind ?? null) as Reaction | null,
     remixOf: parent && parent.song.userId !== s.userId ? { publicId: parent.song.publicId!, title: parent.song.title, handle: parent.handle } : null,
+    // "A remix of a song that's no longer public": the parent was deleted, made private or taken down.
+    remixOfGone: Boolean(link && !parent),
   };
 }
 

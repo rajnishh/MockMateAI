@@ -10,9 +10,11 @@ import { proRemixAvailable, songsAvailable } from "@/lib/providers";
 import { getSongQueue } from "@/lib/queue/songs";
 import { getUserId, unauthorized } from "@/lib/session";
 import { cleanLyrics } from "@/lib/songs/lyrics";
-import { remixCall, remixCredits, remixedDurationSec, remixKinds, remixSchemaFor, type RemixKind } from "@/lib/songs/remix";
+import { openRemixKinds, remixCall, remixCredits, remixedDurationSec, remixKinds, remixSchemaFor, type RemixKind } from "@/lib/songs/remix";
+import { startEarning } from "@/lib/billing/earnings";
+import { linkRemix, REMIX_BLOCKED_TEXT, remixBlocked } from "@/lib/remixes";
 import { assertNoRealArtists, SongSafetyError } from "@/lib/songs/safety";
-import { publicSong, publicState, PUBLIC_ID } from "@/lib/listen";
+import { publicSong, PUBLIC_ID } from "@/lib/listen";
 import { createSong, getSong, type Song } from "@/lib/songs/songs";
 import { findGenre, GENRES, stylePrompt } from "@/lib/songs/styles";
 
@@ -26,17 +28,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!songsAvailable(env)) return NextResponse.json({ error: "Song Studio isn't available yet" }, { status: 503 });
   const { id } = await params;
   const db = getDb();
-  // Your own song by id, or someone's public song by its public id when they allow remixes.
+  // Your own song by id (or public id), or someone's public song by its public id when they allow
+  // remixes and it isn't in anyone's own voice (design/community/remix-spec.md).
   let song: Song | undefined;
+  let theirs = false;
   if (PUBLIC_ID.test(id)) {
     const found = await publicSong(db, id);
-    if (found && publicState(found.song) === "public" && found.song.allowRemix && !found.song.voiceProfileId) song = found.song;
-    if (found && !song) return NextResponse.json({ error: "This song's maker doesn't allow remixes." }, { status: 403 });
+    const blocked = found && remixBlocked(found.song, userId);
+    if (found && (!blocked || blocked === "mine")) song = found.song;
+    theirs = Boolean(found && !blocked);
+    if (blocked && blocked !== "mine") return NextResponse.json({ error: REMIX_BLOCKED_TEXT[blocked] }, { status: blocked === "notPublic" ? 410 : 403 });
   } else song = await getSong(db, userId, id).catch(() => undefined);
   if (!song?.outputPath || song.status !== "completed") return NextResponse.json({ error: "Song not found" }, { status: 404 });
   const parsed = remixSchemaFor(song.durationSec).safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: z.prettifyError(parsed.error) }, { status: 400 });
   const request = { ...parsed.data, lyrics: parsed.data.lyrics && cleanLyrics(parsed.data.lyrics) };
+  if (theirs && !openRemixKinds(true).includes(request.kind)) {
+    return NextResponse.json({ error: "This kind of remix isn't open on other people's songs." }, { status: 403 });
+  }
   if (!remixKinds(proRemixAvailable(env)).includes(request.kind)) {
     return NextResponse.json({ error: "This remix isn't available yet" }, { status: 503 });
   }
@@ -74,6 +83,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       credits,
       parentSongId: song.id,
     });
+    // The family tree, and the parent's maker earns a share when it finishes (never from yourself).
+    await linkRemix(db, songId, song, request.kind);
+    await startEarning(db, { source: "remix", sourceRef: songId, subjectRef: song.id, earnerId: song.userId, payerId: userId, charged: credits });
     await getSongQueue().add("remix", { songId, userId, title, call, credits }, { jobId: songId });
     return NextResponse.json({ id: songId }, { status: 202 });
   } catch (err) {

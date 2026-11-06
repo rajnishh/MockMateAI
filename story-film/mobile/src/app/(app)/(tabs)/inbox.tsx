@@ -4,7 +4,8 @@ import { useState } from "react";
 import { View } from "react-native";
 
 import { Banner, Button, Card, Empty, Header, ListRow, Row, Screen, Skeleton, Txt } from "@/components/ui";
-import { api, type Duet, type ReceivedReply, type SentGift } from "@/lib/api";
+import { api, type Duet, type ReceivedReply, type RemixInboxItem, type SentGift } from "@/lib/api";
+import { KIND_NOUN, plusAmount } from "@/lib/remixes";
 import { hoursLeft } from "@/lib/duets";
 import { giftMessage, occasionLabel, replyContext, sendOnWhatsApp } from "@/lib/gifts";
 import { useData } from "@/lib/use-data";
@@ -58,10 +59,23 @@ function duetLine(d: Duet): string {
   }
 }
 
-// Inbox: "Gifts and duets" for now (gifts, songs sent back and Jugalbandis); comments come later.
+// A remix of one of your songs (design/community/remix-spec.md X11): named once it's public,
+// "Someone" while it's private, batched when a song got more than 3 in a day. No "0" when it earned nothing.
+function remixRow(r: RemixInboxItem): { title: string; sub: string; open: () => void } {
+  const amount = r.hundredths > 0 ? plusAmount(r.hundredths) : null;
+  const earnings = () => router.push({ pathname: "/earn/[ref]", params: { ref: r.subjectRef } });
+  if (r.kind === "batch") return { title: `${r.count} new remixes of ${r.songTitle}`, sub: [ago(r.at), amount && `${amount} credit`].filter(Boolean).join(" · "), open: earnings };
+  const noun = KIND_NOUN[r.remixKind ?? "cover"] ?? "remix";
+  const sub = [ago(r.at), amount && `${amount} credit`].filter(Boolean).join(" · ");
+  if (r.kind === "published") return { title: `@${r.remixerHandle} published a ${noun} of ${r.songTitle}`, sub, open: () => router.push({ pathname: "/s/[id]", params: { id: r.publicId! } }) };
+  return { title: `Someone made a ${noun} of ${r.songTitle}`, sub, open: earnings };
+}
+
+// Inbox: "Gifts and duets" (gifts, songs sent back and Jugalbandis) and Remixes of your songs; comments come later.
 export default function Inbox() {
   const gifts = useData(() => api.gifts());
   const duets = useData(() => api.duets());
+  const remixes = useData(() => api.remixInbox());
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const sent = gifts.data?.sent ?? [];
@@ -113,6 +127,21 @@ export default function Inbox() {
       ))}
       {gifts.data && !sent.length && !replies.length ? (
         <Empty title="No gifts yet" text="Make a song for someone's birthday, wedding or Eid, then tap Make it a gift. It opens on WhatsApp, no app needed." action={<Button label="Make a song" icon="music" kind="secondary" onPress={() => router.push("/hum")} />} />
+      ) : null}
+      {remixes.data?.length ? (
+        <>
+          <Txt variant="md" accessibilityRole="header">
+            Remixes
+          </Txt>
+          {remixes.data.map((r) => {
+            const row = remixRow(r);
+            return (
+              <Card key={`${r.kind}-${r.subjectRef}-${r.at}`} onPress={row.open}>
+                <ListRow icon={r.kind === "published" ? "music" : "earn"} title={row.title} sub={row.sub} />
+              </Card>
+            );
+          })}
+        </>
       ) : null}
       <Card flat>
         <ListRow icon="inbox" title="Comments and DMs together" sub="Coming in the next beta" />

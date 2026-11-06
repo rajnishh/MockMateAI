@@ -11,6 +11,8 @@ import type { SongLanguage } from "@/lib/songs/lyrics";
 import { writeRap } from "@/lib/songs/rap";
 import { assertNoRealArtists, SongSafetyError } from "@/lib/songs/safety";
 import { getSong } from "@/lib/songs/songs";
+import { publicSong, PUBLIC_ID } from "@/lib/listen";
+import { remixBlocked } from "@/lib/remixes";
 import { findGenre } from "@/lib/songs/styles";
 
 const rapRequestSchema = z.object({
@@ -26,7 +28,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const parsed = rapRequestSchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: z.prettifyError(parsed.error) }, { status: 400 });
   const { id } = await params;
-  const song = await getSong(getDb(), userId, id).catch(() => undefined);
+  // Rap over it on someone's public song works from its public id, when it can be remixed.
+  const pub = PUBLIC_ID.test(id) ? await publicSong(getDb(), id) : null;
+  const blocked = pub && remixBlocked(pub.song, userId);
+  const song = pub ? (!blocked || blocked === "mine" ? pub.song : undefined) : await getSong(getDb(), userId, id).catch(() => undefined);
   if (!song || song.status !== "completed") return NextResponse.json({ error: "Song not found" }, { status: 404 });
   if (!(await allow(getRedis(), `ratelimit:song-rap:${userId}`, 60, 24 * 3600))) {
     return NextResponse.json({ error: "Daily limit for AI raps reached. Try again tomorrow." }, { status: 429 });

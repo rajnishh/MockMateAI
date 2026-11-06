@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { Share, Switch, View } from "react-native";
 
+import { RemixCredit } from "@/components/remix-family";
 import { SongCover } from "@/components/song-cover";
 import { Banner, Button, Card, ChipRow, Field, Header, Row, Screen, Skeleton, Txt, Win } from "@/components/ui";
 import { api, ApiError, type SongListen } from "@/lib/api";
@@ -110,6 +111,7 @@ export default function PublishSong() {
               <Txt variant="cap">{genreLabel(s.genre)}</Txt>
             </View>
           </Row>
+          {s.remixOf ? <RemixCredit remixOf={s.remixOf} /> : null}
           <Field label="Title" value={title} onChangeText={setTitle} maxLength={80} />
           <Card flat>
             <Row style={{ alignItems: "center", gap: 12 }}>
@@ -125,7 +127,7 @@ export default function PublishSong() {
               <Row style={{ alignItems: "center", gap: 12 }}>
                 <View style={{ flex: 1 }}>
                   <Txt variant="label">Allow remixes</Txt>
-                  <Txt variant="cap">Others can make a cover in their style. It credits you.</Txt>
+                  <Txt variant="cap">Others can make a cover or remix. You&apos;re always credited.</Txt>
                 </View>
                 <Switch accessibilityLabel="Allow remixes" value={allowRemix} onValueChange={setAllowRemix} trackColor={{ true: colors.teal, false: colors.lineStrong }} />
               </Row>

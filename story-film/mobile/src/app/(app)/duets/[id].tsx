@@ -31,9 +31,10 @@ export default function DuetScreen() {
   const voices = useData(() => api.myVoices().catch(() => []));
   const d = duet.data;
 
-  // Waiting on the other person or the song: look again every 8 seconds.
+  // Waiting on the other person or the song: look again every 8 seconds. "join_failed" too: it also
+  // shows for the few seconds between the second part arriving and the song starting.
   useEffect(() => {
-    if (!d || !(d.phase === "joining" || d.phase === "waiting" || d.phase === "recording_a")) return;
+    if (!d || !(d.phase === "joining" || d.phase === "join_failed" || d.phase === "waiting" || d.phase === "recording_a")) return;
     const t = setInterval(duet.reload, 8000);
     return () => clearInterval(t);
   }, [d, duet.reload]);
@@ -49,6 +50,8 @@ export default function DuetScreen() {
       return true;
     } catch (err) {
       setError({ text: (err as Error).message, credits: err instanceof ApiError && err.needCredits });
+      // The duet may have moved on (a "Try again" after the song already started), so show where it is now.
+      duet.reload();
       return false;
     } finally {
       setBusy(null);
@@ -115,7 +118,7 @@ export default function DuetScreen() {
         </Hero>
         <Field label={`Your name (${d.starterName} sees it)`} value={name} onChangeText={setName} maxLength={40} autoCapitalize="words" />
         <Field label="Your Instagram username, for the Collab post" placeholder={d.invitedIg ? `@${d.invitedIg}` : "@yourname"} value={ig} onChangeText={setIg} autoCapitalize="none" autoCorrect={false} />
-        <Chip label={`Offer to pay half (${d.half} credits)`} selected={split} onPress={() => setSplit(!split)} />
+        <Chip label={`Offer to pay half (${d.half} ${d.half === 1 ? "credit" : "credits"})`} selected={split} onPress={() => setSplit(!split)} />
         <Txt variant="cap">{d.starterName} pays unless you offer. Sung by an AI singer or your own voice, never theirs.</Txt>
         <Field label={`A note if you say no (optional)`} value={note} onChangeText={setNote} maxLength={140} />
       </Screen>
