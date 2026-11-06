@@ -871,6 +871,8 @@ const real = {
     const cookie = await authClient.getCookie();
     const res = await fetch(`${API_URL}/api/edits`, { method: "POST", body: form, credentials: "omit", headers: cookie ? { Cookie: cookie } : {} });
     const body = await res.json().catch(() => ({}));
+    // Cloudflare answers 413 with a web page, before the server sees the video.
+    if (res.status === 413) throw new ApiError("That video is too large to upload (100 MB max). Trim it, or film at 1080p.", 413);
     if (!res.ok) throw new ApiError(body.error ?? `Upload failed (${res.status})`, res.status, Boolean(body.needCredits));
     return body as { id: string; credits: number };
   },

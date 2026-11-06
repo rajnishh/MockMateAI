@@ -24,6 +24,8 @@ type Picked = { uri: string; name: string; type: string; seconds: number | null;
 
 // Same limit as the server: the free plan's 60-second reels.
 const MAX_EDIT_SEC = 60;
+// Uploads pass through Cloudflare, which refuses anything over 100 MB before the server sees it.
+const MAX_EDIT_MB = 95;
 // Connect AI lives on the web app; the phone only points there.
 const CONNECT_URL = API_URL ? `${API_URL}/connect` : "";
 
@@ -64,6 +66,7 @@ export default function Create() {
   const [ideas, setIdeas] = useState<Idea[] | null>(null);
   const [ideasBusy, setIdeasBusy] = useState(false);
   const [video, setVideo] = useState<Picked | null>(null);
+  const [preparing, setPreparing] = useState(false);
   const [captions, setCaptions] = useState<"on" | "off">("on");
   const [zooms, setZooms] = useState<"on" | "off">("on");
   const [effects, setEffects] = useState<"on" | "off">("on");
@@ -111,7 +114,8 @@ export default function Create() {
   // Only story reels in AI animation or Cinematic use a photo.
   const usesPhoto = kind === "story" && quality !== "standard";
   const tooLong = Boolean(video?.seconds && video.seconds > MAX_EDIT_SEC + 0.5);
-  const blocked = editing ? !video || tooLong : story.trim().length < 20 || (usesPhoto && photo !== null && photoConsent !== "yes");
+  const tooBig = Boolean(video?.mb && video.mb > MAX_EDIT_MB);
+  const blocked = editing ? !video || tooLong || tooBig : story.trim().length < 20 || (usesPhoto && photo !== null && photoConsent !== "yes");
   const keywordValue = ending === "comment" && keyword.trim() ? keyword.trim().toUpperCase() : undefined;
   const recipe = used?.recipe;
   // What this reel costs and what the recipe's maker earns from it (the server does the same sum).
@@ -133,7 +137,15 @@ export default function Create() {
 
   async function pickVideo() {
     setError(null);
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["videos"], allowsEditing: false, videoMaxDuration: MAX_EDIT_SEC });
+    setPreparing(true);
+    // iPhones film in 4K, often over 100 MB a minute. The reel is 1080p, so iOS hands over a 1080p
+    // HEVC copy instead of the original; Android sends the file as it is.
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["videos"],
+      allowsEditing: false,
+      videoMaxDuration: MAX_EDIT_SEC,
+      videoExportPreset: ImagePicker.VideoExportPreset.HEVC_1920x1080,
+    }).finally(() => setPreparing(false));
     if (result.canceled || !result.assets.length) return;
     const a = result.assets[0];
     setVideo({
@@ -283,6 +295,8 @@ export default function Create() {
               ? video
                 ? tooLong
                   ? `Pick a video up to ${MAX_EDIT_SEC} seconds`
+                  : tooBig
+                  ? "Trim the video, or film it at 1080p, then pick it again"
                   : "About as long as your video to edit · you can leave this screen"
                 : "Choose a video you filmed"
               : blocked
@@ -371,17 +385,17 @@ export default function Create() {
                 <Txt variant="label" numberOfLines={1}>
                   {video.name}
                 </Txt>
-                <Txt variant="cap" color={tooLong ? "danger" : "inkMuted"}>
+                <Txt variant="cap" color={tooLong || tooBig ? "danger" : "inkMuted"}>
                   {[video.seconds ? `${Math.round(video.seconds)} s` : null, video.mb ? `${video.mb.toFixed(1)} MB` : null].filter(Boolean).join(" · ") || "Ready to upload"}
-                  {tooLong ? ` · trim it to ${MAX_EDIT_SEC} s first` : ""}
+                  {tooLong ? ` · trim it to ${MAX_EDIT_SEC} s first` : tooBig ? ` · too large, up to ${MAX_EDIT_MB} MB` : ""}
                 </Txt>
-                <Button label="Choose another video" small kind="secondary" onPress={pickVideo} />
+                <Button label="Choose another video" small kind="secondary" loading={preparing} onPress={pickVideo} />
               </>
             ) : (
               <>
                 <Txt variant="md">Choose a video</Txt>
                 <Txt variant="cap">Vertical videos of you talking work best. Up to {MAX_EDIT_SEC} seconds.</Txt>
-                <Button label="Choose from gallery" icon="film" onPress={pickVideo} />
+                <Button label={preparing ? "Preparing video…" : "Choose from gallery"} icon="film" loading={preparing} onPress={pickVideo} />
               </>
             )}
           </Card>
