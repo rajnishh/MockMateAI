@@ -11,8 +11,13 @@ type Filter = "all" | "ready" | "making" | "failed";
 export default function Reels() {
   const films = useData(() => api.films());
   const [filter, setFilter] = useState<Filter>("all");
-  const list = (films.data ?? []).filter((f) =>
-    filter === "all" ? true : filter === "ready" ? f.status === "completed" : filter === "failed" ? f.status === "failed" : f.status === "queued" || f.status === "running" || f.status === "review",
+  const all = films.data ?? [];
+  const failedCount = all.filter((f) => f.status === "failed").length;
+  // Failed reels stay out of All; the Failed chip shows them, to try again or delete.
+  // After the last failed reel is deleted its chip goes, so fall back to All.
+  const shown: Filter = filter === "failed" && !failedCount ? "all" : filter;
+  const list = all.filter((f) =>
+    shown === "all" ? f.status !== "failed" : shown === "ready" ? f.status === "completed" : shown === "failed" ? f.status === "failed" : f.status === "queued" || f.status === "running" || f.status === "review",
   );
   return (
     <Screen>
@@ -22,9 +27,9 @@ export default function Reels() {
           { value: "all", label: "All" },
           { value: "ready", label: "Ready" },
           { value: "making", label: "Making" },
-          { value: "failed", label: "Failed" },
+          ...(failedCount ? [{ value: "failed" as const, label: `Failed (${failedCount})` }] : []),
         ]}
-        value={filter}
+        value={shown}
         onChange={setFilter}
       />
       {films.loading && !films.data ? (

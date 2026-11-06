@@ -49,7 +49,10 @@ export default function Home() {
 
   // Captured once per visit so filtering stays pure during render.
   const [now] = useState(() => Date.now());
-  const list = films.data ?? [];
+  // Failed reels don't count or show here; the newest one, if it's the latest reel, gets Try again.
+  const all = films.data ?? [];
+  const list = all.filter((f) => f.status !== "failed");
+  const lastFailed = all[0]?.status === "failed" ? all[0] : undefined;
   const thisWeek = list.filter((f) => now - new Date(f.createdAt).getTime() < WEEK);
   const ready = list.filter((f) => f.status === "completed");
   const making = list.find((f) => f.status === "queued" || f.status === "running");
@@ -103,22 +106,22 @@ export default function Home() {
         </Row>
       </Row>
 
-      {making || toCheck ? (
+      {making || toCheck || lastFailed ? (
         <Pressable
           accessibilityRole="button"
-          onPress={() => router.push(making ? `/making/${making.id}` : reviewHref(toCheck!))}
+          onPress={() => router.push(making ? `/making/${making.id}` : toCheck ? reviewHref(toCheck) : `/making/${lastFailed!.id}`)}
           style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 12, padding: 16, borderRadius: 14, backgroundColor: colors.deep, opacity: pressed ? 0.9 : 1 })}>
-          <Icon name={making ? "film" : "check"} color={colors.onDeep} />
+          <Icon name={making ? "film" : toCheck ? "check" : "refresh"} color={colors.onDeep} />
           <View style={{ flex: 1, gap: 2 }}>
             <Txt variant="label" style={{ color: colors.onDeep }}>
-              {making ? "Your reel is being made" : "Your video is ready to check"}
+              {making ? "Your reel is being made" : toCheck ? "Your video is ready to check" : "Your last reel couldn't be made"}
             </Txt>
             <Txt variant="cap" style={{ color: colors.onDeep, opacity: 0.75 }}>
-              {making ? "About 2 minutes. We'll let you know." : "Look over its effects, then render it."}
+              {making ? "About 2 minutes. We'll let you know." : toCheck ? "Look over its effects, then render it." : "Nothing was charged. Try it again in one tap."}
             </Txt>
           </View>
           <Txt variant="label" color="teal">
-            {making ? "See it" : "Check"}
+            {making ? "See it" : toCheck ? "Check" : "Try again"}
           </Txt>
         </Pressable>
       ) : null}
