@@ -65,7 +65,7 @@
     "lint": "expo lint",
     "theme": "node scripts/gen-theme.mjs",
     "typecheck": "tsc --noEmit",
-    "update:phones": "EXPO_PUBLIC_API_URL=https://reelkar.istari-ai.dev eas update --channel production --platform ios --message"
+    "update:phones": "EXPO_PUBLIC_API_URL=https://reelkar.istari-ai.dev eas update --channel production --platform ios --environment production --message"
   },
   "private": true
 }
