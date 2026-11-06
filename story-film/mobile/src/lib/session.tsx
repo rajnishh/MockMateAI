@@ -81,9 +81,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   // See nextReady: a session refetch when the app comes back to the front must not unready it.
   const ready = nextReady(wasReady, loaded, !DEMO && remote.isPending);
-  useEffect(() => {
-    if (ready) setWasReady(true);
-  }, [ready]);
+  if (ready && !wasReady) setWasReady(true);
 
   const user: User | null = DEMO
     ? demoUser
@@ -95,11 +93,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setPendingSignIn(null);
     await setItem(PENDING_SIGN_IN_KEY, null);
   }, []);
-
-  // Signed in (by code, Google or a session restored on start), the pending code is done with.
-  useEffect(() => {
-    if (user && pendingSignIn) clearPendingSignIn();
-  }, [user, pendingSignIn, clearPendingSignIn]);
 
   const signInDemo = useCallback(async () => {
     const u = { id: "demo", name: "Priya" };
@@ -118,6 +111,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (DEMO) return signInDemo();
       const { error } = await authClient.signIn.social({ provider: "google", callbackURL: "/" });
       if (error) throw new Error(error.message ?? "Google sign-in didn't finish");
+      await clearPendingSignIn();
     },
     sendOtp: async (to) => {
       if (!DEMO) {
@@ -131,11 +125,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       await setItem(PENDING_SIGN_IN_KEY, raw);
     },
     verifyOtp: async (to, code) => {
-      if (DEMO) return signInDemo();
-      const { error } = isEmail(to)
-        ? await authClient.signIn.emailOtp({ email: to, otp: code })
-        : await authClient.phoneNumber.verify({ phoneNumber: to, code });
-      if (error) throw new Error(error.message ?? "That code didn't match");
+      if (DEMO) await signInDemo();
+      else {
+        const { error } = isEmail(to)
+          ? await authClient.signIn.emailOtp({ email: to, otp: code })
+          : await authClient.phoneNumber.verify({ phoneNumber: to, code });
+        if (error) throw new Error(error.message ?? "That code didn't match");
+      }
+      await clearPendingSignIn();
     },
     savePrefs: async (p) => {
       await setItem(PREFS_KEY, JSON.stringify(p));
@@ -150,6 +147,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       await unregisterForPush().catch(() => undefined);
       await setItem(ONBOARDED_KEY, null);
       setOnboarded(false);
+      await clearPendingSignIn();
       if (DEMO) {
         await setItem(DEMO_USER_KEY, null);
         setDemoUser(null);
