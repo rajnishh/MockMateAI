@@ -33,6 +33,7 @@ const REASONS: Record<string, string> = {
   song: "Song",
   refund: "Refund (video failed)",
   grant: "Bonus",
+  iap: "App Store purchase",
 };
 
 const LOCALE: Record<Currency, string> = { INR: "en-IN", USD: "en-US", AED: "en-AE" };

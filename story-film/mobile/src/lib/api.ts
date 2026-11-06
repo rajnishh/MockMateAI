@@ -31,6 +31,25 @@ export interface Offer {
   name: string;
   credits: number;
   price: Record<Currency, number>;
+  // Packs only: the consumable In-App Purchase sold on the iPhone (story-film/src/lib/billing/catalog.ts).
+  appStoreProductId?: string;
+}
+
+// GET /api/billing/apple: what the iPhone app needs before buying with the App Store.
+export interface AppleBilling {
+  // Passed to StoreKit as appAccountToken, so the server credits only this account.
+  appAccountToken: string;
+  products: { packId: string; productId: string; credits: number }[];
+}
+
+// POST /api/billing/apple: the server verified a signed transaction (credited is false when it was
+// already credited before, or was refunded). The app finishes the transaction only after this.
+export interface AppleCredit {
+  credited: boolean;
+  revoked: boolean;
+  credits: number;
+  transactionId: string;
+  balance: number;
 }
 
 export interface Billing {
@@ -828,6 +847,8 @@ const real = {
   film: (id: string) => call<Film>(`/api/films/${id}`),
   createFilm: (input: NewFilm | NewRecipeFilm) => call<{ id: string; credits: number }>("/api/films", { method: "POST", body: JSON.stringify(input) }),
   billing: () => call<Billing>("/api/billing"),
+  appleBilling: () => call<AppleBilling>("/api/billing/apple"),
+  applePurchase: (signedTransaction: string) => call<AppleCredit>("/api/billing/apple", { method: "POST", body: JSON.stringify({ signedTransaction }) }),
   ideas: async (niche: string, language: string, more: { format?: Idea["format"]; avoid?: string[] } = {}) =>
     (await call<{ ideas: Idea[] }>("/api/suggestions", { method: "POST", body: JSON.stringify({ niche, language, ...more }) })).ideas,
   caption: (id: string, platform: Platform) => call<PostCopy>(`/api/films/${id}/copy`, { method: "POST", body: JSON.stringify({ platform }) }),
@@ -1302,9 +1323,9 @@ const demo: typeof real = {
       cinematicCreditsPerShot: 30,
       // Mirrors story-film/src/lib/billing/catalog.ts.
       packs: [
-        { id: "starter", name: "Starter", credits: 50, price: { INR: 24900, USD: 399, AED: 1500 } },
-        { id: "creator", name: "Creator", credits: 150, price: { INR: 64900, USD: 999, AED: 3700 } },
-        { id: "pro", name: "Pro", credits: 400, price: { INR: 149900, USD: 2499, AED: 9200 } },
+        { id: "starter", name: "Starter", credits: 50, price: { INR: 24900, USD: 399, AED: 1500 }, appStoreProductId: "app.reelkar.credits.starter" },
+        { id: "creator", name: "Creator", credits: 150, price: { INR: 64900, USD: 999, AED: 3700 }, appStoreProductId: "app.reelkar.credits.creator" },
+        { id: "pro", name: "Pro", credits: 400, price: { INR: 149900, USD: 2499, AED: 9200 }, appStoreProductId: "app.reelkar.credits.pro" },
       ],
       plans: [
         { id: "creator_monthly", name: "Creator monthly", credits: 120, price: { INR: 49900, USD: 799, AED: 2900 } },
@@ -1312,6 +1333,24 @@ const demo: typeof real = {
       ],
     }
   ),
+  appleBilling: async () => (
+    await wait(150),
+    {
+      appAccountToken: "00000000-0000-4000-8000-000000000000",
+      products: [
+        { packId: "starter", productId: "app.reelkar.credits.starter", credits: 50 },
+        { packId: "creator", productId: "app.reelkar.credits.creator", credits: 150 },
+        { packId: "pro", productId: "app.reelkar.credits.pro", credits: 400 },
+      ],
+    }
+  ),
+  // The demo can't read Apple's signed transaction; it credits a Starter pack.
+  applePurchase: async () => {
+    await wait(300);
+    const credits = 50;
+    demoBalance += credits;
+    return { credited: true, revoked: false, credits, transactionId: `demo-${Date.now()}`, balance: demoBalance };
+  },
   ideas: async (niche) => {
     await wait(500);
     const n = niche || "your topic";

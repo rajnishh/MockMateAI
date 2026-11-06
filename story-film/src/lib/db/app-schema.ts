@@ -125,7 +125,9 @@ export const scheduledPost = pgTable(
 
 // "earning": whole credits a creator earned from remixes of their songs or uses of their recipes
 // (src/lib/billing/earnings.ts). Earned credits count as free, like "grant".
-export const ledgerReason = pgEnum("ledger_reason", ["purchase", "subscription", "video", "refund", "grant", "song", "earning"]);
+// "iap": Apple In-App Purchase packs (ref "apple:<transactionId>") and their refunds, which take the
+// credits back (ref "apple-refund:<transactionId>"; src/lib/billing/apple.ts).
+export const ledgerReason = pgEnum("ledger_reason", ["purchase", "subscription", "video", "refund", "grant", "song", "earning", "iap"]);
 export const purchaseStatus = pgEnum("purchase_status", ["created", "paid", "failed"]);
 export const currency = pgEnum("currency", ["INR", "USD", "AED"]);
 
@@ -198,7 +200,18 @@ export const subscription = pgTable(
   (t) => [index("subscription_user_idx").on(t.userId)],
 );
 
-// Razorpay event ids already handled (webhooks can be delivered more than once).
+// The UUID the iPhone app sets as StoreKit's appAccountToken when this user buys credits. Apple
+// signs it into the transaction, so a purchase can only be credited to the account that made it.
+export const appStoreAccount = pgTable("app_store_account", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  appAccountToken: uuid("app_account_token").notNull().unique().defaultRandom(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Razorpay event ids, and "apple:<notificationUUID>" for App Store notifications, already handled
+// (webhooks can be delivered more than once).
 export const webhookEvent = pgTable("webhook_event", {
   id: text("id").primaryKey(),
   receivedAt: timestamp("received_at").defaultNow().notNull(),

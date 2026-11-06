@@ -12,6 +12,9 @@ export interface Pack {
   name: string;
   credits: number;
   price: Record<Currency, number>;
+  // Consumable In-App Purchase product in App Store Connect (iPhone app, decision 10). The iPhone app
+  // shows the App Store's own localized price for it, never `price`.
+  appStoreProductId?: string;
 }
 
 export interface Plan extends Pack {
@@ -20,9 +23,9 @@ export interface Plan extends Pack {
 }
 
 export const PACKS: Pack[] = [
-  { id: "starter", name: "Starter", credits: 50, price: { INR: 24900, USD: 399, AED: 1500 } },
-  { id: "creator", name: "Creator", credits: 150, price: { INR: 64900, USD: 999, AED: 3700 } },
-  { id: "pro", name: "Pro", credits: 400, price: { INR: 149900, USD: 2499, AED: 9200 } },
+  { id: "starter", name: "Starter", credits: 50, price: { INR: 24900, USD: 399, AED: 1500 }, appStoreProductId: "app.reelkar.credits.starter" },
+  { id: "creator", name: "Creator", credits: 150, price: { INR: 64900, USD: 999, AED: 3700 }, appStoreProductId: "app.reelkar.credits.creator" },
+  { id: "pro", name: "Pro", credits: 400, price: { INR: 149900, USD: 2499, AED: 9200 }, appStoreProductId: "app.reelkar.credits.pro" },
 ];
 
 export const PLANS: Plan[] = [
