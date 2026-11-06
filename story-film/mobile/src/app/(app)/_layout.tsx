@@ -2,6 +2,7 @@ import { Stack } from "expo-router";
 import { useEffect } from "react";
 
 import { SongPlayerProvider } from "@/components/song-player";
+import { startApplePurchases } from "@/lib/iap";
 import { listenForTaps, registerForPush } from "@/lib/push";
 import { useTheme } from "@/theme";
 
@@ -10,6 +11,8 @@ export default function AppLayout() {
   // Notifications about gifts and Jugalbandis: keep the token fresh if allowed, and open what's tapped.
   useEffect(() => {
     registerForPush(false).catch(() => undefined);
+    // App Store credit packs left unfinished last time (app closed, no network) are sent again.
+    startApplePurchases().catch(() => undefined);
     return listenForTaps();
   }, []);
   return (

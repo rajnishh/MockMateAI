@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.4.0",
+    "@apple/app-store-server-library": "^3.1.0",
     "@better-auth/drizzle-adapter": "^1.7.14",
     "@better-auth/expo": "^1.7.14",
     "@contentauth/c2pa-node": "^0.9.9",
