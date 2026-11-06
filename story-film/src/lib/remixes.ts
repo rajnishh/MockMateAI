@@ -362,3 +362,6 @@ export async function remixInbox(db: Db, userId: string, now = new Date()) {
   });
   return items.slice(0, 50);
 }
+
+export type SongFamily = Awaited<ReturnType<typeof songFamily>>;
+export type FamilyTree = Awaited<ReturnType<typeof familyTree>>;

@@ -330,6 +330,20 @@ describe("family tree", () => {
     expect(body.rows[1].title).toBe("Cover 4");
   });
 
+  it("renders the web outline as plain links with tree levels, Arabic mirrored by the page", async () => {
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { createElement } = await import("react");
+    const { FamilyOutline } = await import("@/app/s/[publicId]/remixes");
+    const root = await aSong("harjot", "Root");
+    for (let i = 0; i < 4; i++) await aRemix("sana", root, `Cover ${i}`);
+    const html = renderToStaticMarkup(createElement(FamilyOutline, { tree: await familyTree(db, root), lang: "ar", publicId: root.publicId! }));
+    expect(html).toContain('role="tree"');
+    expect(html).toContain('aria-level="2"');
+    expect(html).toContain(`href="/s/${root.publicId}"`);
+    expect(html).toContain(`?sort=top&amp;branch=${root.publicId}`);
+    expect(html).toContain("الأصلية");
+  });
+
   it("shortens a long path to the original, a count and the parent", async () => {
     let at = await aSong("harjot", "Song 0");
     const all = [at];

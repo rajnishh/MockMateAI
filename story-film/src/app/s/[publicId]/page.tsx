@@ -6,6 +6,8 @@ import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
 import { publicSong, publicSongView, songRails } from "@/lib/listen";
 import { getUserId } from "@/lib/session";
+import { proRemixAvailable } from "@/lib/providers";
+import { songFamily } from "@/lib/remixes";
 import { SongPage } from "./song-page";
 
 // A public song's link page: opens with no sign-in, like the gift page. Shared from the app's
@@ -35,6 +37,7 @@ export default async function Page({ params }: { params: Promise<{ publicId: str
   const viewerId = await getUserId().catch(() => undefined);
   const view = await publicSongView(db, found, viewerId);
   const rails = view.state === "public" ? await songRails(db, found, viewerId) : { moreLikeThis: [], byCreator: [] };
+  const family = view.state === "public" ? await songFamily(db, found, viewerId, proRemixAvailable(loadEnv())) : null;
   const lang = pickLang((await headers()).get("accept-language"));
   return (
     <>
@@ -42,7 +45,7 @@ export default async function Page({ params }: { params: Promise<{ publicId: str
         // eslint-disable-next-line @next/next/no-page-custom-font -- Arabic only on this page, loaded at runtime like the app fonts
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;600;700&display=swap" />
       ) : null}
-      <SongPage view={view} rails={rails} lang={lang} signedIn={Boolean(viewerId)} url={`${loadEnv().BETTER_AUTH_URL}/s/${publicId}`} />
+      <SongPage view={view} rails={rails} family={family} lang={lang} signedIn={Boolean(viewerId)} url={`${loadEnv().BETTER_AUTH_URL}/s/${publicId}`} />
     </>
   );
 }

@@ -25,6 +25,8 @@ export interface RemixKindInfo {
   bars: boolean;
   // Covers on Runware: how far from the original, 0 to 1. Older servers leave it out.
   strength?: boolean;
+  // Why it can't be picked for this song, e.g. "Too long to extend".
+  unavailable?: string;
 }
 
 export interface SoundPresetInfo {
