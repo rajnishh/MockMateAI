@@ -7,6 +7,7 @@ import { dropEarning, earningHundredths, settleEarning, startEarning, type Subje
 import type { Db } from "@/lib/db";
 import { creatorEarning, creatorProfile, film, giftReportReason, recipe, recipeReport, recipeUse } from "@/lib/db/schema";
 import type { EditState } from "@/lib/edit/state";
+import { notBlockedBy } from "@/lib/moderation";
 import { defaultFfmpeg } from "@/lib/ffmpeg";
 import { FESTIVAL_SLUGS, festivalCalendar, findFestival, nearFestivals, regionFor, upcomingFestivals, daysUntil, nextDates, type Festival } from "@/lib/festivals";
 import type { Film } from "@/lib/films";
@@ -244,12 +245,13 @@ export async function stopRecipeForFilm(db: Db, userId: string, filmId: string):
 
 export type RecipeState = "public" | "stopped" | "taken_down";
 
-export function recipeState(r: Pick<Recipe, "publishedAt" | "takenDownAt">): RecipeState {
-  if (r.takenDownAt) return "taken_down";
+// Hidden after reports (hidden_at, src/lib/moderation.ts) counts as taken down until it's reviewed.
+export function recipeState(r: Pick<Recipe, "publishedAt" | "takenDownAt"> & { hiddenAt?: Date | null }): RecipeState {
+  if (r.takenDownAt || r.hiddenAt) return "taken_down";
   return r.publishedAt ? "public" : "stopped";
 }
 
-export const listedRecipe = () => and(isNotNull(recipe.publishedAt), isNull(recipe.takenDownAt));
+export const listedRecipe = () => and(isNotNull(recipe.publishedAt), isNull(recipe.takenDownAt), isNull(recipe.hiddenAt));
 
 type Row = { recipe: Recipe; handle: string };
 const columns = { recipe, handle: creatorProfile.handle };
@@ -373,7 +375,7 @@ export interface ListOptions {
 
 export async function listRecipes(db: Db, o: ListOptions = {}) {
   const now = o.now ?? new Date();
-  const where: (SQL | undefined)[] = [listedRecipe(), notReportedBy(o.viewerId)];
+  const where: (SQL | undefined)[] = [listedRecipe(), notReportedBy(o.viewerId), notBlockedBy(o.viewerId, recipe.makerId)];
   if (o.format) where.push(eq(recipe.format, o.format));
   if (o.collection) where.push(sql`${recipe.occasions} @> array[${o.collection}]::text[]`);
   if (o.makerHandle) where.push(eq(creatorProfile.handle, o.makerHandle));
@@ -576,7 +578,7 @@ export async function recipeFreeUses(db: Db, ids: string[]): Promise<Map<string,
 export async function recipeStates(db: Db, ids: string[]): Promise<Map<string, RecipeState>> {
   const valid = ids.filter((r) => z.uuid().safeParse(r).success);
   if (!valid.length) return new Map();
-  const rows = await db.select({ id: recipe.id, publishedAt: recipe.publishedAt, takenDownAt: recipe.takenDownAt }).from(recipe).where(inArray(recipe.id, valid));
+  const rows = await db.select({ id: recipe.id, publishedAt: recipe.publishedAt, takenDownAt: recipe.takenDownAt, hiddenAt: recipe.hiddenAt }).from(recipe).where(inArray(recipe.id, valid));
   return new Map(rows.map((r) => [r.id, recipeState(r)]));
 }
 
@@ -588,7 +590,8 @@ export const recipeReportSchema = z.object({
   email: z.string().trim().email().max(200).optional().or(z.literal("").transform(() => undefined)),
 });
 
-// A report never hides a recipe by itself; a person reviews it and sets taken_down_at.
+// The report routes use fileReport (src/lib/moderation.ts), which also hides a recipe after enough
+// reports; a person reviews it and sets taken_down_at.
 export async function saveRecipeReport(db: Db, recipeId: string, r: z.infer<typeof recipeReportSchema>, reporterId?: string): Promise<void> {
   await db.insert(recipeReport).values({ recipeId, reason: r.reason, details: r.details, email: r.email ?? null, reporterId: reporterId ?? null });
 }

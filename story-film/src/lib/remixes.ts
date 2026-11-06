@@ -4,6 +4,7 @@ import { creatorEarning, creatorProfile, profileAvatar, remixLink, song } from "
 import { EARN_RATE_BP } from "@/lib/billing/catalog";
 import { dropEarning, settleEarning, type SubjectInfo } from "@/lib/billing/earnings";
 import { listed, PUBLIC_ID, publicColumns, publicState, type PublicRow } from "@/lib/listen";
+import { songVisibleTo, viewerHides, type ViewerHides } from "@/lib/moderation";
 import { EXTEND_SEC, MAX_REMIXED_SEC, openRemixKinds, remixKindList, type RemixKind } from "@/lib/songs/remix";
 import type { Song } from "@/lib/songs/songs";
 
@@ -78,8 +79,11 @@ export interface FamilyNode {
 
 type Row = { song: Song; handle: string | null };
 
-function node(r: Row | undefined, kind: RemixKind | null, depth: number, remixCount = 0): FamilyNode {
-  const open = r && r.handle && publicState(r.song) === "public";
+// Songs by someone the viewer blocked, or that they reported, show as gone nodes for them.
+const hiddenFor = (r: Row | undefined, hide?: ViewerHides) => Boolean(r && hide && (hide.users.has(r.song.userId) || hide.songs.has(r.song.id)));
+
+function node(r: Row | undefined, kind: RemixKind | null, depth: number, remixCount = 0, hide?: ViewerHides): FamilyNode {
+  const open = r && r.handle && publicState(r.song) === "public" && !hiddenFor(r, hide);
   if (!open) return { publicId: null, title: null, handle: null, coverUrl: null, kind, depth, playCount: 0, remixCount, gone: true };
   const s = r.song;
   return { publicId: s.publicId, title: s.title, handle: r.handle, coverUrl: s.coverPath ? `/api/listen/songs/${s.publicId}/cover` : null, kind, depth, playCount: s.playCount, remixCount, gone: false };
@@ -107,7 +111,7 @@ const MAX_CHAIN = 100;
 
 // Where it came from, oldest first: the original down to the direct parent. With more than 3 above
 // this song, only the original and the parent are listed and `more` counts the ones between.
-export async function familyPath(db: Db, songId: string): Promise<{ path: FamilyNode[]; more: number }> {
+export async function familyPath(db: Db, songId: string, hide?: ViewerHides): Promise<{ path: FamilyNode[]; more: number }> {
   const chain: RemixLink[] = [];
   let at = await linkOf(db, songId);
   while (at && chain.length < MAX_CHAIN) {
@@ -119,7 +123,7 @@ export async function familyPath(db: Db, songId: string): Promise<{ path: Family
   const ids = chain.map((l) => l.parentSongId);
   const rows = await rowsFor(db, ids);
   const kindOf = (i: number) => (i + 1 < chain.length ? chain[i + 1].kind : null);
-  const all = chain.map((l, i) => node(rows.get(l.parentSongId), kindOf(i), l.depth - 1)).reverse();
+  const all = chain.map((l, i) => node(rows.get(l.parentSongId), kindOf(i), l.depth - 1, 0, hide)).reverse();
   if (all.length <= 3) return { path: all, more: 0 };
   return { path: [all[0], all[all.length - 1]], more: all.length - 2 };
 }
@@ -128,14 +132,14 @@ export type FamilySort = "top" | "new";
 const score = (r: Row | undefined) => (r ? r.song.playCount + r.song.likeCount : -1);
 
 // The top public remixes of one song, for its Remixes section.
-export async function topRemixes(db: Db, songId: string, limit = 3): Promise<FamilyNode[]> {
+export async function topRemixes(db: Db, songId: string, limit = 3, viewerId?: string): Promise<FamilyNode[]> {
   const rows = await db
     .select({ ...publicColumns, kind: remixLink.kind, depth: remixLink.depth })
     .from(remixLink)
     .innerJoin(song, eq(song.id, remixLink.childSongId))
     .innerJoin(creatorProfile, eq(creatorProfile.userId, song.userId))
     .leftJoin(profileAvatar, eq(profileAvatar.userId, song.userId))
-    .where(and(eq(remixLink.parentSongId, songId), listed()))
+    .where(and(eq(remixLink.parentSongId, songId), listed(), songVisibleTo(viewerId)))
     .orderBy(desc(sql`${song.playCount} + ${song.likeCount}`), desc(song.publishedAt))
     .limit(limit);
   const counts = await publicRemixCounts(db, rows.map((r) => r.song.id));
@@ -167,8 +171,9 @@ export const BRANCH_PAGE = 20;
 // Private leaves are left out; a hidden song with public remixes under it is a gone node. Each
 // song shows its first 3 remixes (by `sort`); `branch` (a public id) shows that one's remixes 20 at
 // a time from `offset`. A remix whose parent was deleted hangs under the original as a gone node.
-export async function familyTree(db: Db, of: Song, opts: { sort?: FamilySort; branch?: string; offset?: number } = {}) {
+export async function familyTree(db: Db, of: Song, opts: { sort?: FamilySort; branch?: string; offset?: number; viewerId?: string } = {}) {
   const sort = opts.sort ?? "top";
+  const hide = await viewerHides(db, opts.viewerId);
   const rootId = (await linkOf(db, of.id))?.rootSongId ?? of.id;
   const links = await db.select().from(remixLink).where(eq(remixLink.rootSongId, rootId)).limit(5000);
   const rows = await rowsFor(db, [rootId, ...links.map((l) => l.childSongId)]);
@@ -187,7 +192,7 @@ export async function familyTree(db: Db, of: Song, opts: { sort?: FamilySort; br
   }
   const isPublic = (id: string) => {
     const r = rows.get(id);
-    return Boolean(r?.handle) && publicState(r!.song) === "public";
+    return Boolean(r?.handle) && publicState(r!.song) === "public" && !hiddenFor(r, hide);
   };
   const visible = new Map<string, boolean>();
   const shows = (id: string, seen = 0): boolean => {
@@ -205,7 +210,7 @@ export async function familyTree(db: Db, of: Song, opts: { sort?: FamilySort; br
   const walk = (id: string, kind: RemixKind | null, level: number) => {
     if (level > MAX_CHAIN) return;
     const kids = order(children.get(id) ?? []);
-    const n = node(rows.get(id), kind, level, kids.filter((k) => isPublic(k.childSongId)).length);
+    const n = node(rows.get(id), kind, level, kids.filter((k) => isPublic(k.childSongId)).length, hide);
     const open = n.publicId !== null && n.publicId === opts.branch;
     const from = open ? (opts.offset ?? 0) : 0;
     const shown = kids.slice(from, from + (open ? BRANCH_PAGE : FIRST_CHILDREN));
@@ -221,7 +226,8 @@ export async function familyTree(db: Db, of: Song, opts: { sort?: FamilySort; br
 export async function songFamily(db: Db, r: PublicRow, viewerId: string | undefined, proAvailable: boolean) {
   const s = r.song;
   const link = await linkOf(db, s.id);
-  const [{ path, more }, top, counts, size] = await Promise.all([familyPath(db, s.id), topRemixes(db, s.id), publicRemixCounts(db, [s.id]), familySize(db, link?.rootSongId ?? s.id)]);
+  const hide = await viewerHides(db, viewerId);
+  const [{ path, more }, top, counts, size] = await Promise.all([familyPath(db, s.id, hide), topRemixes(db, s.id, 3, viewerId), publicRemixCounts(db, [s.id]), familySize(db, link?.rootSongId ?? s.id)]);
   const blocked = remixBlocked(s, viewerId);
   const mine = viewerId === s.userId ? await ownRemixStats(db, s) : null;
   return {

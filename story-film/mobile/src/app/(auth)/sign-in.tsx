@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
 
+import { TermsLine } from "@/components/terms-line";
 import { Banner, Button, ChipRow, Field, Header, Screen, Txt } from "@/components/ui";
 import { findCountry, isValidMobile, PHONE_COUNTRIES, type PhoneCountry, toE164 } from "@/lib/phone";
 import { useSession } from "@/lib/session";
@@ -111,6 +112,7 @@ export default function SignIn() {
           ? "We'll send a 6-digit code by SMS to Indian and UAE numbers. Somewhere else? Use email or Google."
           : "We'll email you a 6-digit code. No password needed."}
       </Txt>
+      <TermsLine />
     </Screen>
   );
 }

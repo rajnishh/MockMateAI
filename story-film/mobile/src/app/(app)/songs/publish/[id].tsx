@@ -143,6 +143,10 @@ export default function PublishSong() {
             )}
           </Card>
           <Txt variant="cap">Everyone can listen, like and share it. It&apos;s marked Made with AI. You can make it private again any time.</Txt>
+          {/* Community rules (App Review 1.2), on every publish so the first one always shows them. */}
+          <Txt variant="cap" color="ink">
+            No hate, harassment, sexual content involving minors, or other people&apos;s voices or songs. We remove reports within 24 hours and block repeat offenders.
+          </Txt>
           {error ? <Banner kind="error" text={error} /> : null}
           <Button label="Publish song" icon="globe" block loading={busy} onPress={publish} />
         </>
