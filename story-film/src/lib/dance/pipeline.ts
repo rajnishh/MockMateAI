@@ -11,9 +11,10 @@ import { registerFonts } from "@/lib/pipeline/captions";
 import { mapLimit, type Stage } from "@/lib/pipeline/orchestrator";
 import type { SongAudio, SongInput } from "@/lib/providers/fal-music";
 import type { LlmProvider, NarrationLanguage, TtsProvider } from "@/lib/providers/types";
+import type { RecipeJob } from "@/lib/recipe-spec";
 import { dholBeat, encodeWav } from "./beat";
 import { drawDanceFrame } from "./draw";
-import { beatSec, buildDancePrompt, type DanceScript, danceScriptSchema, type DanceVoice, planDance, type Segment, type WordTime } from "./script";
+import { applyDancePlan, beatSec, buildDancePrompt, type DanceScript, danceScriptSchema, type DanceVoice, planDance, type Segment, type WordTime } from "./script";
 import { chantWords, decodePcm, SING_LEAD, SING_RATE, singChant, syllables } from "./sing";
 
 export interface DanceDeps {
@@ -37,6 +38,8 @@ export interface DanceRequest {
   // Written by the creator's own assistant; otherwise Reelkar's LLM writes one from the story.
   danceScript?: DanceScript;
   voice?: DanceVoice;
+  // Made with a reel recipe: its scene, beat, dancers' looks and moves.
+  recipe?: RecipeJob;
 }
 
 export interface DanceRenderInput {
@@ -190,7 +193,9 @@ export async function runDanceReel(
   await mkdir(workDir, { recursive: true });
 
   await onStage("script");
-  const script = req.danceScript ?? danceScriptSchema.parse(await deps.llm.completeJson(buildDancePrompt(req)));
+  const plan = req.recipe?.dancePlan;
+  const written = req.danceScript ?? danceScriptSchema.parse(await deps.llm.completeJson(buildDancePrompt({ ...req, lines: plan?.moves.length })));
+  const script = plan ? applyDancePlan(written, plan) : written;
   await writeFile(path.join(workDir, "script.json"), JSON.stringify(script, null, 2));
 
   await onStage("audio");

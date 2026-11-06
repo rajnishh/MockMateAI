@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { earningEvents } from "@/lib/billing/earnings";
 import { getDb } from "@/lib/db";
+import { recipeSubjects } from "@/lib/recipes";
 import { remixDetails, remixSubjects } from "@/lib/remixes";
 import { getUserId, unauthorized } from "@/lib/session";
 
 // What one of the creator's songs (or recipes) earned, newest first, 50 at a time (?cursor= is the
-// last row's time). Remixers are named only when their remix is public.
+// last row's time). Remixers are named only when their remix is public; people who used a recipe
+// stay anonymous ("Someone made a reel").
 export async function GET(req: Request, { params }: { params: Promise<{ subjectRef: string }> }) {
   const userId = await getUserId();
   if (!userId) return unauthorized();
@@ -18,9 +20,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ subjectR
     db,
     page.events.filter((e) => e.source === "remix").map((e) => e.sourceRef),
   );
-  const subject = (await remixSubjects(db, [subjectRef])).get(subjectRef);
+  const recipeSubject = (await recipeSubjects(db, [subjectRef])).get(subjectRef);
+  const subject = recipeSubject ?? (await remixSubjects(db, [subjectRef])).get(subjectRef);
+  const source = recipeSubject ? "recipe" : "remix";
   return NextResponse.json({
     title: subject?.title ?? null,
+    source,
+    publicId: subject?.publicId ?? null,
     cursor: page.cursor,
     events: page.events.map((e) => {
       const d = details.get(e.sourceRef);

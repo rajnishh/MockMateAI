@@ -1,5 +1,5 @@
 import { STYLE_IDS } from "@/lib/styles";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { type AnyPgColumn, boolean, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { user } from "./auth-schema";
 
@@ -40,6 +40,8 @@ export const film = pgTable(
     characterId: uuid("character_id").references(() => character.id, { onDelete: "set null" }),
     // Set for music videos: the song this video was made for.
     songId: uuid("song_id").references((): AnyPgColumn => song.id, { onDelete: "set null" }),
+    // Set for a reel made with someone's recipe (design/community/recipes-spec.md).
+    recipeId: uuid("recipe_id").references((): AnyPgColumn => recipe.id, { onDelete: "set null" }),
     story: text("story").notNull(),
     style: filmStyle("style").notNull(),
     format: filmFormat("format").notNull().default("story"),
@@ -723,6 +725,98 @@ export const duetReport = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [index("duet_report_duet_idx").on(t.duetId)],
+);
+
+// Reel recipes (design/community/recipes-spec.md): a snapshot of a finished reel's look, length,
+// script shape and music that others make their own reel with. Never the maker's words, photos,
+// characters, voice or brand (src/lib/recipe-spec.ts says what goes in). The public link is
+// /r/{publicId}. "reel" previews show the maker's reel; "look" previews only its poster.
+export const recipePreview = pgEnum("recipe_preview", ["reel", "look"]);
+
+export const recipe = pgTable(
+  "recipe",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    publicId: text("public_id").notNull().unique(),
+    makerId: text("maker_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    // One recipe per reel; the recipe stays if the reel is deleted.
+    sourceFilmId: uuid("source_film_id").references((): AnyPgColumn => film.id, { onDelete: "set null" }),
+    format: filmFormat("format").notNull(),
+    name: text("name").notNull(),
+    // Festival slugs from src/lib/festivals.ts, at most 2.
+    occasions: text("occasions").array().notNull().default(sql`'{}'::text[]`),
+    spec: jsonb("spec").notNull(),
+    topicHint: text("topic_hint").notNull().default(""),
+    languageHint: text("language_hint"),
+    quality: filmQuality("quality").notNull().default("standard"),
+    durationSec: integer("duration_sec").notNull(),
+    kidSafe: boolean("kid_safe").notNull().default(false),
+    previewKind: recipePreview("preview_kind").notNull().default("look"),
+    previewPath: text("preview_path"),
+    posterPath: text("poster_path"),
+    musicPath: text("music_path"),
+    // Null while the maker has stopped sharing it.
+    publishedAt: timestamp("published_at"),
+    unpublishedAt: timestamp("unpublished_at"),
+    // Set by the owner after a report is upheld; it can't be shared again.
+    takenDownAt: timestamp("taken_down_at"),
+    // Finished reels made with it by others (own uses don't count).
+    useCount: integer("use_count").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("recipe_published_idx").on(t.publishedAt),
+    index("recipe_format_idx").on(t.format),
+    index("recipe_occasions_idx").using("gin", t.occasions),
+    index("recipe_maker_idx").on(t.makerId),
+    uniqueIndex("recipe_source_film_idx").on(t.sourceFilmId),
+  ],
+);
+
+export const recipeUseStatus = pgEnum("recipe_use_status", ["started", "completed", "failed"]);
+
+// One row per reel made with a recipe; its earning (if any) is in creator_earning (source "recipe").
+export const recipeUse = pgTable(
+  "recipe_use",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    recipeId: uuid("recipe_id")
+      .notNull()
+      .references(() => recipe.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    filmId: uuid("film_id")
+      .notNull()
+      .unique()
+      .references(() => film.id, { onDelete: "cascade" }),
+    credits: integer("credits").notNull().default(0),
+    ownUse: boolean("own_use").notNull().default(false),
+    earningId: uuid("earning_id").references(() => creatorEarning.id, { onDelete: "set null" }),
+    status: recipeUseStatus("status").notNull().default("started"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    completedAt: timestamp("completed_at"),
+  },
+  (t) => [index("recipe_use_recipe_idx").on(t.recipeId, t.completedAt)],
+);
+
+// Reports from the Report link on every public recipe, with the gift reasons; reviewed by a person.
+export const recipeReport = pgTable(
+  "recipe_report",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    recipeId: uuid("recipe_id")
+      .notNull()
+      .references(() => recipe.id, { onDelete: "cascade" }),
+    reason: giftReportReason("reason").notNull(),
+    details: text("details").notNull().default(""),
+    email: text("email"),
+    reporterId: text("reporter_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("recipe_report_recipe_idx").on(t.recipeId), index("recipe_report_reporter_idx").on(t.reporterId)],
 );
 
 export const pushPlatform = pgEnum("push_platform", ["ios", "android"]);

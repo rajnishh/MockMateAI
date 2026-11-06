@@ -9,8 +9,9 @@ import { type PipelineDeps, runFilm } from "@/lib/pipeline/orchestrator";
 import { instagramAvailable, instagramClient, youtubeAvailable } from "@/lib/connect";
 import { pendingPosts, publishPost } from "@/lib/posts";
 import { provenanceFromEnv, trySign } from "@/lib/provenance";
-import { notifyReel, notifyRemix, notifySong } from "@/lib/push";
+import { notifyRecipe, notifyReel, notifyRemix, notifySong } from "@/lib/push";
 import { dropEarning } from "@/lib/billing/earnings";
+import { recipeReelFailed, recipeReelFinished } from "@/lib/recipes";
 import { remixFinished } from "@/lib/remixes";
 import { grantCredits } from "@/lib/billing/credits";
 import { creatorMessage } from "@/lib/creator-errors";
@@ -134,6 +135,9 @@ const filmWorker = new Worker<FilmQueueJob>(
     await onReelFinished(agentDeps(), filmId).catch((err) => console.error(`agent posts for ${filmId} failed:`, err));
     // "Your reel is ready"; a push never fails the job.
     await notifyReel(db, filmId);
+    // Made with someone's recipe: their share counts now (design/community/recipes-spec.md).
+    const earned = await recipeReelFinished(db, filmId).catch((err) => console.error(`recipe earning for ${filmId} failed:`, (err as Error).message));
+    if (earned) await notifyRecipe(db, earned.earning);
     return result;
   },
   // Each film fans out its own parallel API calls; keep films per worker low.
@@ -155,6 +159,8 @@ filmWorker.on("failed", async (job, err) => {
     await notifyReel(db, filmIdOf(job));
     if ("quotaKey" in job.data && job.data.quotaKey) await new RedisQuotaStore(getRedis()).decrement(job.data.quotaKey);
     if (job.data.credits > 0) await grantCredits(db, job.data.userId, job.data.credits, "refund", job.id!);
+    // A failed recipe reel earns its maker nothing.
+    await recipeReelFailed(db, filmIdOf(job)).catch(() => undefined);
   }
 });
 

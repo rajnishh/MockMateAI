@@ -15,6 +15,8 @@ import { editRequestSchema, getFilmQueue, getRedis } from "@/lib/queue/films";
 import { FREE_PLAN } from "@/lib/quota/plans";
 import { RedisQuotaStore, reserveFilm } from "@/lib/quota/quota";
 import { allow } from "@/lib/rate-limit";
+import { applyRecipe, RecipeLockError, recipeJob } from "@/lib/recipe-spec";
+import { RecipeGoneError, recipeForUse, recipeSpecOf, recipeStarted } from "@/lib/recipes";
 import { getUserId, unauthorized } from "@/lib/session";
 
 const MAX_EDIT_BYTES = 200 * 1024 * 1024;
@@ -46,6 +48,24 @@ export async function POST(req: Request) {
   } catch {
     return bad("Brand settings are not valid.");
   }
+  // "Use this recipe" on an edit recipe: its captions, zooms, effects, sounds, voice and ending.
+  const db = getDb();
+  let used;
+  let locked: Record<string, unknown> = {};
+  if (form.get("recipe")) {
+    try {
+      used = await recipeForUse(db, String(form.get("recipe")));
+      const spec = recipeSpecOf(used);
+      if (spec.format !== "edit") return bad("This recipe isn't for editing your own video.");
+      // Only the locked values; a "comment" ending without the user's own word becomes "auto".
+      locked = applyRecipe({ keyword: form.get("keyword") || undefined }, spec);
+      delete locked.keyword;
+    } catch (err) {
+      if (err instanceof RecipeGoneError) return bad(err.message, err.status);
+      if (err instanceof RecipeLockError) return bad(err.message);
+      throw err;
+    }
+  }
   const parsed = editRequestSchema.safeParse({
     language: normaliseLanguage(form.get("language")),
     captions: flag("captions"),
@@ -57,6 +77,7 @@ export async function POST(req: Request) {
     ending: form.get("ending") ?? undefined,
     keyword: form.get("keyword") || undefined,
     brand,
+    ...locked,
   });
   if (!parsed.success) return bad(z.prettifyError(parsed.error));
 
@@ -76,7 +97,6 @@ export async function POST(req: Request) {
   if (durationSec > FREE_PLAN.maxDurationSec + 0.5) return fail(`Videos can be up to ${FREE_PLAN.maxDurationSec} seconds for now. Trim it and try again.`);
 
   // Edits use the free weekly allowance like standard reels, then 1 credit.
-  const db = getDb();
   const plan = { ...FREE_PLAN, filmsPerWeek: env.FREE_FILMS_PER_WEEK };
   let quotaKey: string | undefined;
   let credits = 0;
@@ -97,9 +117,10 @@ export async function POST(req: Request) {
     quality: "standard",
     credits,
   });
+  if (used) await recipeStarted(db, used, { filmId, userId, credits });
   await getFilmQueue().add(
     "edit",
-    { ...parsed.data, userId, source, watermark: credits === 0, quotaKey, credits },
+    { ...parsed.data, userId, source, watermark: credits === 0, quotaKey, credits, ...(used ? { recipe: recipeJob(recipeSpecOf(used)) } : {}) },
     { jobId: filmId },
   );
   return NextResponse.json({ id: filmId, credits }, { status: 202 });

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { writeInRule } from "@/lib/languages";
+import { shapeRules } from "@/lib/recipe-spec";
 import type { FilmScript, NarrationLanguage, ScriptRequest } from "@/lib/providers/types";
 import { STYLE_HINTS } from "@/lib/styles";
 
@@ -36,7 +37,7 @@ function languageRule(language: NarrationLanguage): string {
   return `Narration: ${writeInRule(language)} Set \`language\` to "${language}".`;
 }
 
-export function buildScriptPrompt({ story, style, shotCount, character, kidSafe, language = "auto" }: ScriptRequest): string {
+export function buildScriptPrompt({ story, style, shotCount, character, kidSafe, language = "auto", shape }: ScriptRequest): string {
   return [
     "You are a screenwriter turning a user's idea into a short vertical (9:16) video.",
     `Write exactly ${shotCount} shots of 5 seconds each.`,
@@ -61,6 +62,7 @@ export function buildScriptPrompt({ story, style, shotCount, character, kidSafe,
     `Every imagePrompt must end with the style: "${STYLE_HINTS[style]}".`,
     "motionPrompt describes camera and subject motion only.",
     "musicPrompt describes one instrumental background track (genre, mood, tempo).",
+    ...(shape ? shapeRules(shape) : []),
     "Reply with JSON only, matching:",
     '{"title":string,"language":string,"characters":[{"name":string,"description":string}],',
     '"shots":[{"narration":string (8-12 words),"imagePrompt":string,"motionPrompt":string}],"musicPrompt":string}',

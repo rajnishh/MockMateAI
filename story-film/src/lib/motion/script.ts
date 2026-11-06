@@ -53,6 +53,8 @@ export interface MotionOptions {
   // For "comment" endings: the word viewers comment (the creator's own keyword).
   keyword?: string;
   handle?: string;
+  // A reel recipe's slide types in order and its theme.
+  slidePlan?: { theme: MotionTheme; slides: string[] };
 }
 
 // Roughly one slide per 6 seconds.
@@ -99,6 +101,9 @@ export function buildMotionPrompt(opts: MotionOptions): string {
     "Keep on-screen text short and scannable; the narration says it naturally in at most ~25 words per slide.",
     'Pick a theme that fits the mood: "navy" (trust, tech, money), "saffron" (warm, festive, food), "mint" (fresh, health, learning), "night" (bold, dramatic).',
     ...(kidSafe ? ["The audience is young children: gentle, positive, simple words, nothing scary or unsafe."] : []),
+    ...(opts.slidePlan
+      ? [`Follow this recipe exactly: ${opts.slidePlan.slides.length} slides of these types, in this order: ${opts.slidePlan.slides.join(", ")}. The theme is "${opts.slidePlan.theme}".`]
+      : []),
     "Reply with JSON only: {\"title\":string,\"language\":string,\"theme\":string,\"slides\":[...]} where each slide has \"type\", its fields above (title: headline, highlight, sub; list: heading, items; stat: value, prefix, suffix, label; chart: label, values, suffix; compare: before{label,value}, after{label,value}; contrast: before, after; timer: seconds, label; question: text; quote: text, author; cta: text, action) and \"narration\".",
     "",
     "Idea:",

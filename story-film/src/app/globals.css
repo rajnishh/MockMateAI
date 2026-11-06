@@ -543,6 +543,8 @@ main.home { max-width: 1200px; display: flex; flex-direction: column; gap: 22px;
 }
 
 /* ---------- Make a reel: type cards ---------- */
+.recipe-card { margin: 0 0 22px; padding: 14px 16px; border-radius: 20px; border: 1.5px solid var(--line); background: var(--teal-tint); }
+.recipe-card p { margin: 6px 0 10px; }
 .types { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0 0 22px; }
 .type { flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 8px; width: 100%; min-height: 0; padding: 14px; border-radius: 20px; border: 1.5px solid var(--line); background: var(--surface-raised); color: var(--ink-muted); box-shadow: none; font-size: 12.5px; font-weight: 500; line-height: 17px; text-align: left; }
 .type b { font-family: var(--font-display); font-size: 16px; line-height: 20px; color: var(--ink); }

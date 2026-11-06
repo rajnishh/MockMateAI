@@ -53,6 +53,8 @@ export interface PlanOptions {
   handle?: string;
   zooms?: boolean;
   effects?: boolean;
+  // A reel recipe's mix of effect and card types, per minute of video.
+  mix?: { effects: Record<string, number>; cards: Record<string, number> };
 }
 
 // Compact transcript for the prompt: "[12.4] word" every few words keeps it short but timed.
@@ -91,6 +93,7 @@ export function buildEditPrompt(o: PlanOptions): string {
           "Never put two effects back to back; leave the video plain in between.",
         ]
       : ["effects: []"]),
+    ...(o.mix ? [mixRule(o.mix, o.durationSec)] : []),
     "Write card and effect text in the same language and script as the transcript. Keep it shorter than what is said.",
     "title: a short title for the video in the transcript's language.",
     'Reply with JSON only: {"title":string,"zooms":[{"start":n,"end":n}],"cards":[{"type":...,"start":n,"end":n,...}],"effects":[{"type":...,"start":n,"end":n,...}]}',
@@ -98,6 +101,15 @@ export function buildEditPrompt(o: PlanOptions): string {
     "Transcript:",
     timedTranscript(o.words),
   ].join("\n");
+}
+
+// A recipe's effect mix as a soft target for this video's length ("backdrop about 2, stamp about 1").
+function mixRule(mix: NonNullable<PlanOptions["mix"]>, durationSec: number): string {
+  const part = (m: Record<string, number>) =>
+    Object.entries(m)
+      .map(([type, perMin]) => `${type} about ${Math.max(1, Math.round((perMin * durationSec) / 60))}`)
+      .join(", ");
+  return `Aim for this mix where the video allows it. Effects: ${part(mix.effects) || "none"}. Cards: ${part(mix.cards) || "none"}.`;
 }
 
 // Keeps the AI's plan inside the video and readable: clamps times, drops overlaps and tiny spans,

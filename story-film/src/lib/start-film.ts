@@ -11,6 +11,8 @@ import { buildTts, cinematicAvailable, danceSongAvailable, premiumAvailable } fr
 import { type FilmJob, filmJobSchema, getFilmQueue, getRedis } from "@/lib/queue/films";
 import { FREE_PLAN, isoWeekKey, shotCountFor } from "@/lib/quota/plans";
 import { RedisQuotaStore, reserveFilm } from "@/lib/quota/quota";
+import { applyRecipe, RecipeLockError, recipeJob } from "@/lib/recipe-spec";
+import { type Recipe, RecipeGoneError, recipeForUse, recipeSpecOf, recipeStarted } from "@/lib/recipes";
 import { DEFAULT_STYLE, findStyle } from "@/lib/styles";
 
 // Why a film couldn't start; needCredits means buying credits would fix it.
@@ -60,9 +62,11 @@ export function parseFilmRequest(userId: string, body: unknown) {
 // Starts a story or motion reel for a user: checks, charges (free weekly allowance first) and queues
 // it. Shared by the app's Create screen and the Ask Reelkar agent, so both follow the same rules.
 export async function startFilm(userId: string, body: unknown): Promise<{ id: string; credits: number }> {
-  const job = parseFilmRequest(userId, body);
   const env = loadEnv();
   const db = getDb();
+  // "Use this recipe": the recipe's locked values over the user's own, checked before charging.
+  const used = await recipeOf(db, body);
+  const job = parseFilmRequest(userId, used ? lockToRecipe(body as Record<string, unknown>, used) : body);
   // Motion and dance reels use no image or video models, so they are always priced as standard videos.
   if (job.format === "motion" || job.format === "dance") {
     job.quality = "standard";
@@ -125,6 +129,8 @@ export async function startFilm(userId: string, body: unknown): Promise<{ id: st
     credits,
     photoConsentAt: photoFile ? new Date() : undefined,
   });
+  // The maker's share of it is pending until the reel finishes (never from your own or a free reel).
+  if (used) await recipeStarted(db, used, { filmId, userId, credits });
   await getFilmQueue().add(
     "film",
     {
@@ -137,10 +143,35 @@ export async function startFilm(userId: string, body: unknown): Promise<{ id: st
       aiLabel: job.aiLabel,
       quotaKey,
       credits,
+      ...(used ? { recipe: recipeJob(recipeSpecOf(used), used.musicPath) } : {}),
     },
     { jobId: film.id },
   );
   return { id: film.id, credits };
+}
+
+// The recipe a request names (`recipe`: its public id), or null; 404 unknown, 410 no longer shared.
+export async function recipeOf(db: ReturnType<typeof getDb>, body: unknown): Promise<Recipe | null> {
+  const id = body && typeof body === "object" ? (body as { recipe?: unknown }).recipe : undefined;
+  if (id === undefined || id === null || id === "") return null;
+  try {
+    return await recipeForUse(db, id);
+  } catch (err) {
+    if (err instanceof RecipeGoneError) throw new StartError(err.message, err.status);
+    throw err;
+  }
+}
+
+// The request with the recipe's locked fields; a request that changes one is refused.
+export function lockToRecipe(body: Record<string, unknown>, r: Recipe): Record<string, unknown> {
+  const spec = recipeSpecOf(r);
+  if (spec.format === "edit") throw new StartError("This recipe edits your own video. Open it from Edit my video.");
+  try {
+    return applyRecipe(body, spec);
+  } catch (err) {
+    if (err instanceof RecipeLockError) throw new StartError(err.message);
+    throw err;
+  }
 }
 
 // The uploaded photo's file, checked before charging. A photo needs the paid image model, which keeps
