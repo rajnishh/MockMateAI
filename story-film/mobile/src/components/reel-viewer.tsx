@@ -3,7 +3,7 @@ import { router } from "expo-router";
 import { useVideoPlayer, type VideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
-import { GestureDetector, GestureHandlerRootView, useExclusiveGestures, useLongPressGesture, usePinchGesture, useSimultaneousGestures, useTapGesture } from "react-native-gesture-handler";
+import { Directions, GestureDetector, GestureHandlerRootView, useExclusiveGestures, useFlingGesture, useLongPressGesture, usePinchGesture, useSimultaneousGestures, useTapGesture } from "react-native-gesture-handler";
 import Animated, { FadeOut, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
@@ -37,7 +37,7 @@ function setMutedOn(player: VideoPlayer, muted: boolean) {
   player.muted = muted;
 }
 
-// Full-screen reels, one per page (design/home-v3/spec.md §3): swipe up or down for the next, tap
+// Full-screen reels, one per page (design/home-v3/spec.md §3): swipe up or down (or flick left or right) for the next, tap
 // to pause, hold to look, double-tap to fit or fill, pinch to zoom (it springs back). Mute is
 // remembered. VoiceOver gets the same as actions: swipe up or down on the reel for next and
 // previous, plus pause, mute, fit and share.
@@ -129,6 +129,7 @@ export function ReelViewer({ films: initial, startId, onSound }: { films: Film[]
                 muted={muted}
                 fit={fit}
                 position={`${index + 1} of ${films.length}`}
+                first={index === 0}
                 onMute={() => setMuted(!muted)}
                 onFit={() => setFit(fit === "cover" ? "contain" : "cover")}
                 onZoom={setZoomed}
@@ -158,6 +159,7 @@ type PageProps = {
   muted: boolean;
   fit: Fit;
   position: string;
+  first: boolean;
   onMute: () => void;
   onFit: () => void;
   onZoom: (zoomed: boolean) => void;
@@ -166,7 +168,7 @@ type PageProps = {
   onMore: () => void;
 };
 
-function ReelPage({ film, headers, active, paused, onPause, muted, fit, position, onMute, onFit, onZoom, onNext, onPrevious, onMore }: PageProps) {
+function ReelPage({ film, headers, active, paused, onPause, muted, fit, position, first, onMute, onFit, onZoom, onNext, onPrevious, onMore }: PageProps) {
   const insets = useSafeAreaInsets();
   const reduced = useReducedMotion();
   const url = api.videoUrl(film);
@@ -239,7 +241,10 @@ function ReelPage({ film, headers, active, paused, onPause, muted, fit, position
   const doubleTap = useTapGesture({ numberOfTaps: 2, maxDuration: 250, runOnJS: true, onActivate: fitToggle });
   const singleTap = useTapGesture({ maxDuration: 250, runOnJS: true, onActivate: toggle });
   const hold = useLongPressGesture({ minDuration: 300, runOnJS: true, onActivate: () => setHolding(true), onFinalize: () => setHolding(false) });
-  const gestures = useSimultaneousGestures(pinch, useExclusiveGestures(doubleTap, singleTap, hold));
+  // Sideways flicks page too: left for the next reel, right for the one before (or closes on the first).
+  const flickLeft = useFlingGesture({ direction: Directions.LEFT, runOnJS: true, onActivate: onNext });
+  const flickRight = useFlingGesture({ direction: Directions.RIGHT, runOnJS: true, onActivate: first ? () => router.back() : onPrevious });
+  const gestures = useSimultaneousGestures(pinch, flickLeft, flickRight, useExclusiveGestures(doubleTap, singleTap, hold));
   const zoom = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   const duration = player.duration || 0;
