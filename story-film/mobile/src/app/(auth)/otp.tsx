@@ -3,15 +3,16 @@ import { useEffect, useState } from "react";
 
 import { Banner, Button, Field, Header, Row, Screen, Txt } from "@/components/ui";
 import { isEmail, useSession } from "@/lib/session";
+import { resendWait } from "@/lib/sign-in-state";
 
 export default function Otp() {
   // A mobile number in E.164 form or an email address.
   const { to = "" } = useLocalSearchParams<{ to: string }>();
-  const { verifyOtp, sendOtp } = useSession();
+  const { verifyOtp, sendOtp, pendingSignIn } = useSession();
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [wait, setWait] = useState(30);
+  const [wait, setWait] = useState(() => resendWait(pendingSignIn?.to === to ? pendingSignIn.sentAt : undefined));
 
   useEffect(() => {
     if (wait <= 0) return;

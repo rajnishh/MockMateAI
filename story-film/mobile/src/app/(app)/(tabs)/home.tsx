@@ -5,8 +5,10 @@ import { Pressable, View } from "react-native";
 import { Icon } from "@/components/icon";
 
 import { ReelGrid } from "@/components/reel-grid";
-import { Banner, Button, Card, CheckRow, Credits, Empty, Hero, ProgressBar, Row, Screen, Skeleton, Txt, Win } from "@/components/ui";
+import { UnreadDot } from "@/components/tab-bar";
+import { Banner, Button, Card, CheckRow, Credits, Empty, Hero, ListRow, ProgressBar, Row, Screen, Skeleton, Txt, Win } from "@/components/ui";
 import { api } from "@/lib/api";
+import { useInboxUnread } from "@/lib/inbox-unread";
 import { reviewHref } from "@/lib/music-video";
 import { profileTodo } from "@/lib/profile";
 import { useSession } from "@/lib/session";
@@ -14,6 +16,14 @@ import { useData } from "@/lib/use-data";
 import { useTheme } from "@/theme";
 
 const WEEK = 7 * 86400000;
+
+// "Today 7:30 pm", "Tomorrow 9:00 am" or "Fri 7:30 pm".
+function nextPostTime(iso: string, now: number): string {
+  const d = new Date(iso);
+  const days = Math.round((new Date(d.toDateString()).getTime() - new Date(new Date(now).toDateString()).getTime()) / 86400000);
+  const day = days === 0 ? "Today" : days === 1 ? "Tomorrow" : d.toLocaleDateString(undefined, { weekday: "short" });
+  return `${day} ${d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
+}
 
 export default function Home() {
   const { user, prefs } = useSession();
@@ -24,6 +34,7 @@ export default function Home() {
   const accounts = useData(() => api.accounts());
   const profile = useData(() => api.profile());
   const connected = (accounts.data?.accounts.length ?? 0) > 0;
+  const unread = useInboxUnread() > 0;
 
   // Captured once per visit so filtering stays pure during render.
   const [now] = useState(() => Date.now());
@@ -35,6 +46,8 @@ export default function Home() {
   const goal = 5;
   // Until it's loaded, don't nag.
   const profileDone = profile.data?.complete ?? true;
+  const posts = useData(() => api.posts(new Date(now), new Date(now + WEEK)));
+  const nextPost = (posts.data ?? []).filter((p) => p.status === "scheduled").sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))[0];
 
   return (
     <Screen>
@@ -47,8 +60,13 @@ export default function Home() {
         </View>
         <Row>
           <Credits count={billing.data?.balance ?? null} />
-          <Pressable accessibilityRole="button" accessibilityLabel="Account" hitSlop={8} onPress={() => router.push("/account")}>
-            <Icon name="user" color={colors.ink} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={unread ? "Inbox, new messages" : "Inbox"}
+            onPress={() => router.push("/inbox")}
+            style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
+            <Icon name="bell" color={colors.ink} />
+            {unread ? <UnreadDot ring={colors.surface} /> : null}
           </Pressable>
         </Row>
       </Row>
@@ -88,7 +106,7 @@ export default function Home() {
               <Icon name="right" color={colors.inkMuted} size={18} />
             </Row>
           </Card>
-          <Card onPress={() => router.push("/songs")}>
+          <Card onPress={() => router.push("/studio")}>
             <Row style={{ alignItems: "center" }}>
               <Icon name="music" color={colors.tealText} />
               <View style={{ flex: 1, gap: 2 }}>
@@ -118,6 +136,17 @@ export default function Home() {
           )}
         </>
       )}
+
+      {nextPost ? (
+        <Card>
+          <ListRow
+            icon="calendar"
+            title={`Next post · ${nextPostTime(nextPost.scheduledAt, now)}`}
+            sub={nextPost.accountName ? `${nextPost.title} to ${nextPost.accountName}` : nextPost.title}
+            onPress={() => router.push("/calendar")}
+          />
+        </Card>
+      ) : null}
 
       <Card>
         <Row style={{ justifyContent: "space-between" }}>

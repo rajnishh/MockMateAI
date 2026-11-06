@@ -1,9 +1,10 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { createAuth } from "@/lib/auth-config";
+import { createAuth, SESSION_DAYS } from "@/lib/auth-config";
 import { WELCOME_CREDITS } from "@/lib/billing/catalog";
 import { getBalance } from "@/lib/billing/credits";
 import { getCharacter, listCharacters, saveCharacter } from "@/lib/characters";
 import type { Db } from "@/lib/db";
+import { session } from "@/lib/db/auth-schema";
 import { user } from "@/lib/db/schema";
 import { createFilm, filmView, getFilm, listFilms, updateFilm } from "@/lib/films";
 import { testDb } from "./helpers/db";
@@ -77,6 +78,9 @@ describe("phone OTP sign-in", () => {
     expect(result.token).toBeTruthy();
     // New accounts start with the one-time welcome gift.
     expect(await getBalance(db, result.user.id)).toBe(WELCOME_CREDITS);
+    // Signed in for 90 days, so the phone doesn't ask again.
+    const row = (await db.select().from(session)).find((r) => r.token === result.token)!;
+    expect(row.expiresAt.getTime() - Date.now()).toBeGreaterThan((SESSION_DAYS - 1) * 24 * 3600_000);
   }, 30_000);
 
   it("rate-limits OTP sends over HTTP", async () => {

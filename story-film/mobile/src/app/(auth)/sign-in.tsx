@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View } from "react-native";
 
 import { Banner, Button, ChipRow, Field, Header, Screen, Txt } from "@/components/ui";
@@ -12,7 +12,7 @@ type Method = "phone" | "email";
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function SignIn() {
-  const { signInWithGoogle, sendOtp } = useSession();
+  const { signInWithGoogle, sendOtp, clearPendingSignIn } = useSession();
   const { colors } = useTheme();
   const [method, setMethod] = useState<Method>("phone");
   const [country, setCountry] = useState<PhoneCountry>("IN");
@@ -21,6 +21,11 @@ export default function SignIn() {
   const [busy, setBusy] = useState<"google" | "code" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const info = findCountry(country);
+
+  // Back here to change the number: the code sent before is no longer the step to resume.
+  useEffect(() => {
+    clearPendingSignIn();
+  }, [clearPendingSignIn]);
   const address = email.trim().toLowerCase();
   const valid = method === "phone" ? isValidMobile(country, phone) : EMAIL.test(address);
 

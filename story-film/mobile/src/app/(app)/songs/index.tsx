@@ -54,7 +54,7 @@ export default function Songs() {
         <Empty
           title="No songs yet"
           text="Write a song about anything and hear it sung. Two versions in about a minute."
-          action={<Button label="Make my first song" icon="music" style={{ alignSelf: "center" }} onPress={() => router.push("/songs/new")} />}
+          action={<Button label="Make my first song" icon="music" onPress={() => router.push("/songs/new")} />}
         />
       ) : (
         <>
