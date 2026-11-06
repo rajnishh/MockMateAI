@@ -19,6 +19,12 @@ export interface AuthOptions {
   baseURL: string;
   secret?: string;
   google?: { clientId: string; clientSecret: string };
+  // Sign in with Apple from the iPhone app. Native sign-in sends Apple's identity token, which is
+  // checked against Apple's public keys with the bundle id as its audience, so no secret is needed.
+  apple?: { bundleId: string };
+  // App Review's demo account: this address signs in with this fixed code and gets no email.
+  // Off unless both are set (REVIEW_EMAIL and REVIEW_OTP, kept out of the repo).
+  review?: { email: string; code: string };
   // Extra trusted origins, e.g. Expo's exp:// URLs in development.
   trustedOrigins?: string[];
   // Removes files kept outside the database (uploaded photos) once an account is deleted.
@@ -40,6 +46,8 @@ export const SESSION_DAYS = 90;
 export function createAuth(opts: AuthOptions) {
   // At most 5 codes per number or address per hour, however many IPs ask.
   const perRecipient = new RecipientLimiter(5, 60 * 60_000);
+  const review = opts.review && opts.review.email && /^\d{6}$/.test(opts.review.code) ? { email: opts.review.email.trim().toLowerCase(), code: opts.review.code } : null;
+  const isReviewEmail = (email: string) => review !== null && email.trim().toLowerCase() === review.email;
   const tooMany = () => new APIError("TOO_MANY_REQUESTS", { message: "Too many codes sent. Try again in an hour." });
 
   return betterAuth({
@@ -88,7 +96,10 @@ export function createAuth(opts: AuthOptions) {
         },
       },
     },
-    socialProviders: opts.google ? { google: { ...opts.google, prompt: "select_account" } } : {},
+    socialProviders: {
+      ...(opts.google ? { google: { ...opts.google, prompt: "select_account" as const } } : {}),
+      ...(opts.apple ? { apple: { clientId: opts.apple.bundleId, clientSecret: "", appBundleIdentifier: opts.apple.bundleId } } : {}),
+    },
     plugins: [
       phoneNumber({
         sendOTP: async ({ phoneNumber, code }) => {
@@ -111,7 +122,11 @@ export function createAuth(opts: AuthOptions) {
       emailOTP({
         // The before hook lets only sign-in codes to real addresses through.
         // Better Auth logs a failed send instead of returning it.
-        sendVerificationOTP: ({ email, otp }) => opts.email.sendOtp(email, otp),
+        sendVerificationOTP: async ({ email, otp }) => {
+          if (isReviewEmail(email)) return;
+          await opts.email.sendOtp(email, otp);
+        },
+        generateOTP: ({ email }) => (isReviewEmail(email) ? review!.code : undefined),
         otpLength: 6,
         expiresIn: 300,
         allowedAttempts: 3,

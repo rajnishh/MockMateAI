@@ -7,7 +7,7 @@ import { Avatar } from "@/components/avatar";
 import { Banner, Button, Card, ChipRow, Field, Header, ListRow, Row, Screen, Txt } from "@/components/ui";
 import { api, type PushKind, type PushPrefs } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
-import { DEMO, PRIVACY_URL, SUPPORT_EMAIL } from "@/lib/config";
+import { DEMO, PRIVACY_URL, SUPPORT_EMAIL, SUPPORT_URL, TERMS_URL } from "@/lib/config";
 import { LANGUAGES } from "@/lib/languages";
 import { profileTodo } from "@/lib/profile";
 import { type PushPermission, pushPermission, registerForPush } from "@/lib/push";
@@ -208,7 +208,9 @@ export default function Account() {
             onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=Reelkar%20beta%20feedback`).catch(() => undefined)}
           />
         ) : null}
-        {PRIVACY_URL ? <ListRow icon="lock" title="Privacy policy" onPress={() => Linking.openURL(PRIVACY_URL).catch(() => undefined)} /> : null}
+        <ListRow icon="lock" title="Privacy policy" onPress={() => Linking.openURL(PRIVACY_URL).catch(() => undefined)} />
+        <ListRow icon="flag" title="Terms and community rules" onPress={() => Linking.openURL(TERMS_URL).catch(() => undefined)} />
+        <ListRow icon="send" title="Help and support" onPress={() => Linking.openURL(SUPPORT_URL).catch(() => undefined)} />
       </Card>
 
       <Button label="Sign out" kind="secondary" icon="out" block onPress={signOut} />

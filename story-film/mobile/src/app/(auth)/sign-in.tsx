@@ -1,24 +1,26 @@
+import * as AppleAuthentication from "expo-apple-authentication";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 
 import { Banner, Button, ChipRow, Field, Header, Screen, Txt } from "@/components/ui";
 import { findCountry, isValidMobile, PHONE_COUNTRIES, type PhoneCountry, toE164 } from "@/lib/phone";
 import { useSession } from "@/lib/session";
-import { useTheme } from "@/theme";
+import { radius, size, useTheme } from "@/theme";
 
 type Method = "phone" | "email";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function SignIn() {
-  const { signInWithGoogle, sendOtp, clearPendingSignIn } = useSession();
-  const { colors } = useTheme();
+  const { signInWithGoogle, signInWithApple, sendOtp, clearPendingSignIn } = useSession();
+  const { colors, mode } = useTheme();
+  const [appleReady, setAppleReady] = useState(false);
   const [method, setMethod] = useState<Method>("phone");
   const [country, setCountry] = useState<PhoneCountry>("IN");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
-  const [busy, setBusy] = useState<"google" | "code" | null>(null);
+  const [busy, setBusy] = useState<"apple" | "google" | "code" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const info = findCountry(country);
 
@@ -26,10 +28,13 @@ export default function SignIn() {
   useEffect(() => {
     clearPendingSignIn();
   }, [clearPendingSignIn]);
+  useEffect(() => {
+    if (Platform.OS === "ios") AppleAuthentication.isAvailableAsync().then(setAppleReady, () => setAppleReady(false));
+  }, []);
   const address = email.trim().toLowerCase();
   const valid = method === "phone" ? isValidMobile(country, phone) : EMAIL.test(address);
 
-  async function run(kind: "google" | "code", fn: () => Promise<void>) {
+  async function run(kind: "apple" | "google" | "code", fn: () => Promise<unknown>) {
     setBusy(kind);
     setError(null);
     try {
@@ -45,6 +50,16 @@ export default function SignIn() {
     <Screen>
       <Header title="Sign in or create your account" back />
       {error ? <Banner kind="error" text={error} /> : null}
+      {appleReady ? (
+        // Apple's own button, as its guidelines ask, at least as prominent as Google's.
+        <AppleAuthentication.AppleAuthenticationButton
+          buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+          buttonStyle={mode === "dark" ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+          cornerRadius={radius.pill}
+          style={{ height: size.buttonHeight, width: "100%", opacity: busy === "apple" ? 0.6 : 1 }}
+          onPress={() => (busy ? undefined : run("apple", signInWithApple))}
+        />
+      ) : null}
       <Button label="Continue with Google" kind="secondary" block loading={busy === "google"} onPress={() => run("google", signInWithGoogle)} />
       <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
         <View style={{ flex: 1, height: 1, backgroundColor: colors.line }} />

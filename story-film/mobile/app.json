@@ -9,7 +9,8 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "app.reelkar",
-      "supportsTablet": true,
+      "supportsTablet": false,
+      "usesAppleSignIn": true,
       "icon": "./assets/images/icon.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -88,6 +89,7 @@
         }
       ],
       "./plugins/with-app-intents",
+      "expo-apple-authentication",
       "expo-notifications"
     ],
     "experiments": {

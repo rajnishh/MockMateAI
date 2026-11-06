@@ -136,6 +136,43 @@ describe("email OTP sign-in", () => {
     expect(await getBalance(db, result.user.id)).toBe(WELCOME_CREDITS);
   }, 30_000);
 
+  it("lets App Review's demo address in with its fixed code, and nobody else", async () => {
+    const sent: string[] = [];
+    const auth = createAuth({
+      db,
+      sms: { sendOtp: async () => {} },
+      email: { sendOtp: async (email) => void sent.push(email) },
+      baseURL: "http://localhost:3000",
+      secret: "test-secret-test-secret-test-secret",
+      review: { email: "Review@Reelkar.app", code: "246810" },
+    });
+
+    await auth.api.sendVerificationOTP({ body: { email: "review@reelkar.app", type: "sign-in" } });
+    expect(sent).toEqual([]); // never emailed
+    const result = await auth.api.signInEmailOTP({ body: { email: "review@reelkar.app", otp: "246810" } });
+    expect(result.user).toMatchObject({ email: "review@reelkar.app" });
+
+    // Everyone else still gets a random emailed code; the review code doesn't work for them.
+    await auth.api.sendVerificationOTP({ body: { email: "someone@example.ae", type: "sign-in" } });
+    expect(sent).toEqual(["someone@example.ae"]);
+    await expect(auth.api.signInEmailOTP({ body: { email: "someone@example.ae", otp: "246810" } })).rejects.toThrow();
+  }, 30_000);
+
+  it("offers Sign in with Apple by identity token, checked against the bundle id", async () => {
+    const auth = createAuth({
+      db,
+      sms: { sendOtp: async () => {} },
+      email: { sendOtp: async () => {} },
+      baseURL: "http://localhost:3000",
+      secret: "test-secret-test-secret-test-secret",
+      apple: { bundleId: "app.reelkar" },
+    });
+    // A token that isn't Apple's is refused before any account is made.
+    await expect(
+      auth.api.signInSocial({ body: { provider: "apple", idToken: { token: "not.a.jwt", nonce: "n" } } }),
+    ).rejects.toThrow();
+  }, 30_000);
+
   it("caps codes per address and per number, whatever IP asks", async () => {
     const emails: string[] = [];
     const phones: string[] = [];
