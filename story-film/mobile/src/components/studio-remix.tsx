@@ -7,14 +7,15 @@ import { radius, useTheme } from "@/theme";
 import { Banner, Button, ChipRow, Field, Txt } from "./ui";
 import { type Range, Waveform } from "./waveform";
 
-// Older servers send only prices; these match story-film/src/lib/songs/remix.ts.
+// Older servers send only prices; these match story-film/src/lib/songs/remix.ts. Prices always come
+// from the server (the prices given), never from here.
 export function fallbackKinds(prices: Record<string, number>): RemixKindInfo[] {
   const base = { style: "optional" as const, part: false, extend: false, lyrics: true, bars: false };
   const kinds: RemixKindInfo[] = [
-    { ...base, kind: "cover", label: "Cover", help: "Sing it again in another style.", credits: 2, style: "required", lyrics: false },
-    { ...base, kind: "extend", label: "Extend", help: "Make it longer. Add new lines at the end of the lyrics for the new part.", credits: 2, extend: true },
-    { ...base, kind: "replace", label: "Replace part", help: "Pick a part you don't like and redo it. Change those lines in the lyrics for new words.", credits: 1, part: true },
-    { ...base, kind: "rap", label: "Add a rap", help: "Pick a part and AI writes rap bars; that part is re-sung as a rap.", credits: 1, part: true, lyrics: false, bars: true },
+    { ...base, kind: "cover", label: "Cover", help: "Sing it again in another style.", credits: 0, style: "required", lyrics: false },
+    { ...base, kind: "extend", label: "Extend", help: "Make it longer. Add new lines at the end of the lyrics for the new part.", credits: 0, extend: true },
+    { ...base, kind: "replace", label: "Replace part", help: "Pick a part you don't like and redo it. Change those lines in the lyrics for new words.", credits: 0, part: true },
+    { ...base, kind: "rap", label: "Add a rap", help: "Pick a part and AI writes rap bars; that part is re-sung as a rap.", credits: 0, part: true, lyrics: false, bars: true },
   ];
   return kinds.filter((k) => prices[k.kind] !== undefined).map((k) => ({ ...k, credits: prices[k.kind] }));
 }
@@ -37,6 +38,8 @@ export function StudioRemix({
   playingPart,
   playPart,
   onDone,
+  primaryLabel,
+  footnote,
 }: {
   song: Song;
   kinds: RemixKindInfo[];
@@ -45,9 +48,13 @@ export function StudioRemix({
   playingPart: boolean;
   playPart: (r: Range | null) => void;
   onDone: (id: string) => void;
+  // The Make button's words for a kind ("Make cover · 1 credit"); the Studio uses the kind's label.
+  primaryLabel?: (k: RemixKindInfo) => string;
+  // A caption under the Make button, e.g. the balance.
+  footnote?: string;
 }) {
   const { colors } = useTheme();
-  const [kind, setKind] = useState(kinds[0]?.kind ?? "cover");
+  const [kind, setKind] = useState((kinds.find((x) => !x.unavailable) ?? kinds[0])?.kind ?? "cover");
   const [style, setStyle] = useState("");
   const [lyrics, setLyrics] = useState(song.lyrics);
   const [extendSec, setExtendSec] = useState<"15" | "30" | "60">("30");
@@ -121,16 +128,17 @@ export function StudioRemix({
             <Pressable
               key={x.kind}
               accessibilityRole="radio"
-              accessibilityState={{ checked: on }}
-              accessibilityLabel={`${x.label}, ${credits(x.credits)}`}
+              accessibilityState={{ checked: on, disabled: Boolean(x.unavailable) }}
+              accessibilityLabel={`${x.label}, ${x.unavailable ?? credits(x.credits)}`}
+              disabled={Boolean(x.unavailable)}
               onPress={() => setKind(x.kind)}
-              style={({ pressed }) => [styles.kind, { borderColor: on ? colors.brand : colors.lineStrong, backgroundColor: on ? colors.brand : colors.surfaceRaised, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
+              style={({ pressed }) => [styles.kind, { opacity: x.unavailable ? 0.55 : 1, borderColor: on ? colors.brand : colors.lineStrong, backgroundColor: on ? colors.brand : colors.surfaceRaised, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
               {on ? <View pointerEvents="none" style={[styles.ring, { borderColor: colors.heroRing }]} /> : null}
               <Txt variant="label" color={on ? "onBrand" : "ink"}>
                 {x.label}
               </Txt>
               <Txt variant="cap" color={on ? "onBrandMuted" : "inkMuted"}>
-                {credits(x.credits)}
+                {x.unavailable ?? credits(x.credits)}
               </Txt>
             </Pressable>
           );
@@ -204,7 +212,8 @@ export function StudioRemix({
           action={error.credits ? <Button label="Get credits" small onPress={() => router.push("/credits")} /> : undefined}
         />
       ) : null}
-      <Button label={`${k.label} · ${credits(k.credits)}`} icon="sparkle" block loading={busy} disabled={blocked} onPress={remix} />
+      <Button label={primaryLabel ? primaryLabel(k) : `${k.label} · ${credits(k.credits)}`} icon="sparkle" block loading={busy} disabled={blocked || Boolean(k.unavailable)} onPress={remix} />
+      {k.bars && bars.trim().length < 10 ? <Txt variant="cap">Write the bars or let AI write them.</Txt> : footnote ? <Txt variant="cap">{footnote}</Txt> : null}
     </View>
   );
 }

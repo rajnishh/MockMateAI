@@ -1,12 +1,15 @@
+import { router } from "expo-router";
 import { useState } from "react";
 
 import { Banner, Card, ChipRow, Credits, Header, ListRow, Screen, Skeleton, Txt } from "@/components/ui";
 import { api, type Currency } from "@/lib/api";
 import { formatPrice, localCurrency } from "@/lib/money";
+import { creditAmount } from "@/lib/remixes";
 import { useData } from "@/lib/use-data";
 
 export default function CreditsScreen() {
   const billing = useData(() => api.billing());
+  const earned = useData(() => api.earnings());
   const [currency, setCurrency] = useState<Currency>(localCurrency());
   const b = billing.data;
 
@@ -18,6 +21,9 @@ export default function CreditsScreen() {
         <Skeleton height={240} />
       ) : (
         <>
+          <Card>
+            <ListRow icon="earn" title="Earned from remixes and recipes" sub={earned.data ? `${creditAmount(earned.data.totalHundredths)} credits` : undefined} onPress={() => router.push("/earn")} />
+          </Card>
           <Card>
             <Txt variant="md">What things cost</Txt>
             <ListRow title="Standard reel" sub={`Free ${b.freeVideosPerWeek} a week, then 1 credit`} right={null} />
