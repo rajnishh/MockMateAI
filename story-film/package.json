@@ -14,6 +14,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "auth:schema": "npx auth@latest generate --config src/lib/auth.ts --output src/lib/db/auth-schema.ts --yes",
+    "samples": "tsx --env-file=.env scripts/add-sample-songs.ts",
     "billing:plans": "tsx --env-file=.env scripts/create-razorpay-plans.ts"
   },
   "dependencies": {
