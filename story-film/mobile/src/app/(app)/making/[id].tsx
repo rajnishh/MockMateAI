@@ -10,6 +10,9 @@ import { api, type Film, type Stage } from "@/lib/api";
 import { reviewHref } from "@/lib/music-video";
 import { fonts, useTheme } from "@/theme";
 
+// A recipe reel's script follows the recipe's shape.
+const stepLabel = (s: { stage: Stage; label: string } | undefined, recipe: boolean) => (s && recipe && s.stage === "script" ? "Hook and script, following the recipe" : s?.label);
+
 const STEPS: { stage: Stage; label: string }[] = [
   { stage: "script", label: "Hook and script" },
   { stage: "keyframes", label: "Scenes" },
@@ -65,9 +68,9 @@ export default function Making() {
           <Button label="Go to Home" kind="secondary" block onPress={() => router.replace("/home")} />
         )
       }>
-      <Header title="Making your reel" back="/home" right={<Txt variant="mono">{`${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`}</Txt>} />
+      <Header title="Making your reel" sub={film?.recipe ? `Recipe by @${film.recipe.handle}` : undefined} back="/home" right={<Txt variant="mono">{`${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`}</Txt>} />
       {error ? <Banner kind="error" text={`${error}. We'll keep trying.`} /> : null}
-      {!failed ? <LogoLoader long label={film?.status === "completed" ? "Ready!" : `${STEPS[Math.max(current, 0)]?.label ?? "Getting started"}…`} /> : null}
+      {!failed ? <LogoLoader long label={film?.status === "completed" ? "Ready!" : `${stepLabel(STEPS[Math.max(current, 0)], Boolean(film?.recipe)) ?? "Getting started"}…`} /> : null}
       {failed ? (
         <Banner kind="error" title="This reel couldn't be made" text={`${film?.error ?? "Something went wrong."} ${film?.credits ? "Your credits are back." : "It didn't use your free reels."}`} />
       ) : (
@@ -86,7 +89,7 @@ export default function Making() {
                   {state === "done" ? <Icon name="check" size={16} color={colors.surfaceRaised} /> : <Txt variant="mono" color={state === "now" ? "tealText" : "inkMuted"}>{String(i + 1)}</Txt>}
                 </View>
                 <Txt variant="body" color={state === "next" ? "inkMuted" : "ink"} style={state === "now" ? { fontFamily: fonts.bold } : undefined}>
-                  {s.label}
+                  {stepLabel(s, Boolean(film?.recipe))}
                 </Txt>
               </View>
             );

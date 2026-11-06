@@ -1,9 +1,9 @@
 import { and, eq, gte, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Db } from "@/lib/db";
-import { creatorEarning, film, pushPrefs, pushToken, song } from "@/lib/db/schema";
+import { creatorEarning, film, pushPrefs, pushToken, recipe, song } from "@/lib/db/schema";
 import type { CreatorEarning } from "@/lib/billing/earnings";
-import { type PushLang, reelFailedText, reelReadyText, remixedText, songFailedText, songReadyText } from "@/lib/push-copy";
+import { type PushLang, recipeUsedText, reelFailedText, reelReadyText, remixedText, songFailedText, songReadyText } from "@/lib/push-copy";
 
 // Push notifications through Expo's push service (free; no key needed for Expo push tokens).
 // Songs and reels ready or failed (from the worker), a gift opened or answered, and a Jugalbandi's
@@ -178,6 +178,25 @@ export async function notifyRemix(db: Db, earning: CreatorEarning, fetchFn: type
     return await sendPush(db, [earning.userId], (lang) => ({ ...remixedText(lang, s.title, earning.hundredths), path: `/earn/${earning.subjectRef}`, kind: "remixes" }), fetchFn, opts);
   } catch (err) {
     console.error(`push for remix earning ${earning.id} failed:`, (err as Error).message);
+    return 0;
+  }
+}
+
+// "Someone made a reel with Diya Night", at most once a day per recipe: only for the first use of
+// that recipe that settled today (UTC). Same "Remixes and earnings" switch as remixes.
+export async function notifyRecipe(db: Db, earning: CreatorEarning, fetchFn: typeof fetch = fetch, opts: PushOptions = {}): Promise<number> {
+  try {
+    const today = new Date(`${(earning.settledAt ?? new Date()).toISOString().slice(0, 10)}T00:00:00Z`);
+    const [n] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(creatorEarning)
+      .where(and(eq(creatorEarning.userId, earning.userId), eq(creatorEarning.source, "recipe"), eq(creatorEarning.subjectRef, earning.subjectRef), eq(creatorEarning.status, "earned"), gte(creatorEarning.settledAt, today)));
+    if (Number(n?.n ?? 0) > 1) return 0;
+    const [r] = await db.select({ name: recipe.name }).from(recipe).where(eq(recipe.id, earning.subjectRef));
+    if (!r) return 0;
+    return await sendPush(db, [earning.userId], (lang) => ({ ...recipeUsedText(lang, r.name, earning.hundredths), path: `/earn/${earning.subjectRef}`, kind: "remixes" }), fetchFn, opts);
+  } catch (err) {
+    console.error(`push for recipe earning ${earning.id} failed:`, (err as Error).message);
     return 0;
   }
 }

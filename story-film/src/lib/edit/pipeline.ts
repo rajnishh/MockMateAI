@@ -78,6 +78,7 @@ export async function planEdit(deps: EditDeps, req: EditRequest, workDir: string
         handle: req.brand?.handle,
         zooms: req.zooms,
         effects: effectsOn,
+        mix: req.recipe?.editMix,
       }),
     );
     plan = sanitizePlan(editPlanSchema.parse(raw), durationSec, req.ending);

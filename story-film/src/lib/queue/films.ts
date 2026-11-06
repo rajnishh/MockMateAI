@@ -14,6 +14,7 @@ import { DANCE_CLIP_ID } from "@/lib/music-video/dance";
 import type { MusicVideoPhase } from "@/lib/music-video/pipeline";
 import { DANCE_STYLES, MUSIC_VIDEO_KINDS, type MusicVideoKind } from "@/lib/music-video/shots";
 import type { CharacterProfile, Resolution } from "@/lib/providers/types";
+import type { RecipeJob } from "@/lib/recipe-spec";
 
 export const FILM_QUEUE = "films";
 
@@ -69,6 +70,8 @@ export type FilmJob = z.infer<typeof filmJobSchema> & {
   // If the film ultimately fails: the free weekly slot is released, credits refunded.
   quotaKey?: string;
   credits: number;
+  // Made with a reel recipe (design/community/recipes-spec.md).
+  recipe?: RecipeJob;
 };
 
 export const musicVideoRequestSchema = z.object({
@@ -152,6 +155,7 @@ export type EditJob = z.infer<typeof editRequestSchema> & {
   watermark: boolean;
   quotaKey?: string;
   credits: number;
+  recipe?: RecipeJob;
 };
 
 // The creator's changes to a planned or finished edit.

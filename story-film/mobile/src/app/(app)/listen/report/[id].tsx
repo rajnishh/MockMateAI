@@ -7,9 +7,11 @@ import { api, type ReportReason } from "@/lib/api";
 import { REPORT_REASONS } from "@/lib/listen";
 import { radius, useTheme } from "@/theme";
 
-// Report a public song, with the same reasons as the gift page's Report. A person reviews each one.
+// Report a public song (or, with ?kind=recipe, a reel recipe), with the same reasons as the gift
+// page's Report. A person reviews each one.
 export default function ReportSong() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, kind } = useLocalSearchParams<{ id: string; kind?: "recipe" }>();
+  const recipe = kind === "recipe";
   const { colors } = useTheme();
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [details, setDetails] = useState("");
@@ -22,7 +24,7 @@ export default function ReportSong() {
     setBusy(true);
     setError(null);
     try {
-      await api.reportSong(id, reason, details.trim());
+      await (recipe ? api.reportRecipe : api.reportSong)(id, reason, details.trim());
       setDone(true);
     } catch (err) {
       setError((err as Error).message);
@@ -33,7 +35,7 @@ export default function ReportSong() {
 
   return (
     <Screen>
-      <Header title="Report this song" back />
+      <Header title={recipe ? "Report this recipe" : "Report this song"} back />
       {done ? (
         <>
           <Win text="Thanks. We'll review it within 24 hours." />

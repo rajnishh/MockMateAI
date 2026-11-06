@@ -41,7 +41,7 @@ export type DanceVoice = (typeof DANCE_VOICES)[number];
 export type Dancer = z.infer<typeof dancerSchema>;
 export type DanceScript = z.infer<typeof danceScriptSchema>;
 
-export function buildDancePrompt({ story, language = "auto" }: { story: string; language?: NarrationLanguage }): string {
+export function buildDancePrompt({ story, language = "auto", lines }: { story: string; language?: NarrationLanguage; lines?: number }): string {
   const lang =
     language === "auto"
       ? "Detect the idea's language and write the chant in it, in its native script; set `language` to its ISO 639-1 code."
@@ -49,7 +49,8 @@ export function buildDancePrompt({ story, language = "auto" }: { story: string; 
   return [
     "You write short dance reels for young children: cartoon kids dance to a dhol beat while a voice chants on the beat.",
     lang,
-    "Write 3-5 chant lines. Each line is short and bouncy (3-7 words), easy for kids to repeat, with a catchy sound hook",
+    lines ? `Write exactly ${lines} chant lines.` : "Write 3-5 chant lines.",
+    "Each line is short and bouncy (3-7 words), easy for kids to repeat, with a catchy sound hook",
     "(like 'dubi dubi dum dum' or 'chak chak chak') that you make up yourself. Never copy lyrics from existing songs.",
     `Give each line one dance move: ${DANCE_MOVES.join(", ")}. Use "jump" for the last line.`,
     `Pick 2-3 dancers, Indian kids with Indian names. For each: skin (${SKIN_TONES.join("|")}), outfit (${OUTFITS.join("|")}), color (a bright hex colour, different for each), hair (${HAIR.join("|")}).`,
@@ -104,4 +105,20 @@ export function planDance(script: DanceScript, spoken: number[], durationSec: nu
   // Any leftover time goes to the finale, so the reel ends on the beat with everyone jumping.
   segments.push({ line: -2, move: "jump", start: t, end: durationSec });
   return segments;
+}
+
+// A reel recipe's dance: its scene, beat, the dancers' looks (the names stay the new ones) and the
+// move on each line, over what the AI wrote for the user's topic.
+export function applyDancePlan(
+  script: DanceScript,
+  plan: { scene: DanceScript["scene"]; bpm: number; dancers: Omit<Dancer, "name">[]; moves: DanceMove[] },
+): DanceScript {
+  const names = script.dancers.map((d) => d.name);
+  return {
+    ...script,
+    scene: plan.scene,
+    bpm: plan.bpm,
+    dancers: plan.dancers.map((d, i) => ({ ...d, name: names[i] ?? names[0] ?? `Kid ${i + 1}` })),
+    lines: script.lines.map((l, i) => ({ ...l, move: plan.moves[i % plan.moves.length] ?? l.move })),
+  };
 }

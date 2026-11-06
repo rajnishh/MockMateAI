@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { defaultFfmpeg, probeDuration } from "@/lib/ffmpeg";
 import { readMedia } from "@/lib/media";
@@ -17,6 +17,7 @@ import type {
 } from "@/lib/providers/types";
 import { cleanImagePrompt, fillBlockedFrames, generateKeyframeSafely } from "@/lib/providers/safety";
 import { CLIP_SECONDS, shotCountFor } from "@/lib/quota/plans";
+import type { RecipeJob } from "@/lib/recipe-spec";
 import { buildAssembleArgs } from "./assemble";
 import { buildCues, renderCaptionImages } from "./captions";
 
@@ -37,6 +38,8 @@ export interface FilmRequest {
   captions?: boolean;
   // Written by the creator's own assistant; otherwise the LLM writes one from the story.
   script?: FilmScript;
+  // Made with a reel recipe: its script shape and its background track.
+  recipe?: RecipeJob;
 }
 
 export interface PipelineDeps {
@@ -95,7 +98,11 @@ export async function runFilm(
     character: req.character,
     kidSafe: req.kidSafe,
     language: req.language,
+    shape: req.recipe?.shape,
   });
+  // A recipe's camera moves lead each shot's motion.
+  const cameras = req.recipe?.shape?.shots;
+  if (cameras) script = { ...script, shots: script.shots.map((s, i) => (cameras[i] && !s.motionPrompt.startsWith(cameras[i].camera) ? { ...s, motionPrompt: `${cameras[i].camera}, ${s.motionPrompt}` } : s)) };
   // Image filters often misread children's scenes (bath time, bedtime), so kids' prompts skip those words up front.
   if (req.kidSafe) script = { ...script, shots: script.shots.map((s) => ({ ...s, imagePrompt: cleanImagePrompt(s.imagePrompt) })) };
   await writeFile(path.join(workDir, "script.json"), JSON.stringify(script, null, 2));
@@ -138,10 +145,11 @@ export async function runFilm(
     await writeFile(file, await deps.tts.speak({ text: shot.narration, language: script.language }));
     return file;
   });
-  let music: string | undefined;
-  if (deps.music) {
+  // A recipe reel uses the recipe's track (like a trending audio); if its file is gone, a new one from its prompt.
+  let music = await recipeTrack(req.recipe, workDir);
+  if (!music && deps.music) {
     music = path.join(workDir, "music.wav");
-    await writeFile(music, await deps.music.compose({ prompt: script.musicPrompt, durationSec: clips.length * CLIP_SECONDS }));
+    await writeFile(music, await deps.music.compose({ prompt: req.recipe?.musicPrompt || script.musicPrompt, durationSec: clips.length * CLIP_SECONDS }));
   }
 
   await onStage("assemble");
@@ -168,4 +176,12 @@ export async function runFilm(
 
   await onStage("done");
   return { output, title: script.title };
+}
+
+// The recipe's background track copied into this reel's work dir, or undefined when it has none.
+export async function recipeTrack(recipe: RecipeJob | undefined, workDir: string): Promise<string | undefined> {
+  if (!recipe?.musicPath || !(await stat(recipe.musicPath).catch(() => null))) return undefined;
+  const file = path.join(workDir, `recipe-music${path.extname(recipe.musicPath)}`);
+  await copyFile(recipe.musicPath, file);
+  return file;
 }

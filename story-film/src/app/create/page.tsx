@@ -63,8 +63,14 @@ async function postJson<T>(url: string, body: unknown): Promise<{ ok: boolean; d
   return { ok: res.ok, data: await res.json().catch(() => ({})) };
 }
 
+// "Use this recipe" from a public recipe page (/create?recipe=): the recipe locks the kind of reel,
+// look, length, music and script shape; the topic, photo, language and quality stay the user's.
+type UsedRecipe = { publicId: string; name: string; handle: string; format: "story" | "motion" | "dance" | "edit"; style: string | null; styleLabel: string | null; durationSec: number; quality: string; topicHint: string };
+const RECIPE_MODE: Record<UsedRecipe["format"], Mode> = { story: "film", motion: "motion", dance: "dance", edit: "edit" };
+
 export default function CreatePage() {
   const [mode, setMode] = useState<Mode>("cartoon");
+  const [recipe, setRecipe] = useState<UsedRecipe | null>(null);
   const [story, setStory] = useState("");
   const [style, setStyle] = useState("cinematic");
   const [durationSec, setDurationSec] = useState(30);
@@ -130,6 +136,21 @@ export default function CreatePage() {
     if (isMode(m)) setMode(m);
     const film = params.get("film");
     if (film && /^[0-9a-f-]{36}$/i.test(film)) setJobId(film);
+    const r = params.get("recipe");
+    if (r && /^[2-9a-km-zA-HJ-NP-Z]{10}$/.test(r)) {
+      fetch(`/api/recipes/public/${r}`)
+        .then(async (res) => {
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok || !body.recipe) return setError(body.error ?? "This recipe isn't shared any more. You can still make this reel without it.");
+          const x = body.recipe as UsedRecipe;
+          setRecipe(x);
+          setMode(RECIPE_MODE[x.format]);
+          if (x.style) setStyle(x.style);
+          setDurationSec(x.durationSec);
+          setQuality(x.quality);
+        })
+        .catch(() => undefined);
+    }
   }, []);
 
   useEffect(() => {
@@ -253,6 +274,7 @@ export default function CreatePage() {
       form.append("review", String(review));
       form.append("ending", ending);
       if (ending === "comment" && keyword) form.append("keyword", keyword);
+      if (recipe) form.append("recipe", recipe.publicId);
       const brand = loadBrand();
       if (brand) form.append("brand", JSON.stringify(brand));
       const res = await fetch("/api/edits", { method: "POST", body: form });
@@ -278,7 +300,17 @@ export default function CreatePage() {
       }
       photoId = body.photo;
     }
-    const { ok, data } = await postJson<{ id: string; credits: number; needCredits?: boolean }>("/api/films", {
+    // With a recipe only the user's own fields go; the server takes the rest from the recipe.
+    const { ok, data } = await postJson<{ id: string; credits: number; needCredits?: boolean }>("/api/films", recipe ? {
+      recipe: recipe.publicId,
+      story,
+      ...(photoId ? { photo: photoId, photoConsent } : {}),
+      language,
+      quality: mode === "film" ? quality : "standard",
+      aiLabel,
+      reelkarMark,
+      ...(mode === "motion" ? { keyword: keyword || undefined, brand: loadBrand() } : mode === "dance" ? { brand: loadBrand() } : {}),
+    } : {
       story,
       ...(photoId ? { photo: photoId, photoConsent } : {}),
       durationSec,
@@ -353,6 +385,15 @@ export default function CreatePage() {
 
       <div className="split">
         <section className="create" aria-label="Make a reel">
+          {recipe ? (
+            <div className="recipe-card" role="note">
+              <b>Recipe: {recipe.name}</b>
+              <span className="muted"> by @{recipe.handle}</span>
+              <p className="muted">Locked by the recipe: {[recipe.styleLabel, `${recipe.durationSec} s`, "same music and script shape"].filter(Boolean).join(" · ")}</p>
+              <button type="button" className="secondary small" onClick={() => setRecipe(null)}>Make it without the recipe</button>
+            </div>
+          ) : null}
+{recipe ? null : (
           <div className="types" role="group" aria-label="What to make">
             {TYPES.map((t) => (
               <button type="button" key={t.mode} className="type" aria-pressed={mode === t.mode} onClick={() => setMode(t.mode)}>
@@ -362,6 +403,7 @@ export default function CreatePage() {
               </button>
             ))}
           </div>
+          )}
 
           {mode === "cartoon" && (
             <section>
@@ -456,7 +498,7 @@ export default function CreatePage() {
               <>
                 {mode === "motion" && <p className="muted">Animated text and graphics with a voice-over: tips, lists, numbers, charts and quotes. Uses your free weekly reels, no AI animation credits.</p>}
                 <div className="row">
-                  <div>
+                  <div hidden={Boolean(recipe)}>
                     <label htmlFor="ending">Ending</label>
                     <select id="ending" value={ending} onChange={(e) => setEnding(e.target.value)}>
                       <option value="auto">Let AI decide</option>
@@ -494,11 +536,11 @@ export default function CreatePage() {
                         ? "A simple action kids can copy: counting, colours, animals or a daily habit."
                         : "Start with a line that stops the scroll, then what happens and a twist at the end."}
                 </p>
-                <textarea id="story" value={story} onChange={(e) => setStory(e.target.value)} minLength={20} required placeholder={storyPlaceholder(mode, characters.find((c) => c.id === characterId)?.name)} />
+                <textarea id="story" value={story} onChange={(e) => setStory(e.target.value)} minLength={20} required placeholder={recipe?.topicHint || storyPlaceholder(mode, characters.find((c) => c.id === characterId)?.name)} />
               </>
             )}
             <div className="row">
-              {mode === "film" && (
+              {mode === "film" && !recipe && (
                 <div>
                   <label htmlFor="style">Style</label>
                   <select id="style" value={style} onChange={(e) => setStyle(e.target.value)}>
@@ -526,7 +568,7 @@ export default function CreatePage() {
                   ))}
                 </select>
               </div>
-              <div hidden={mode === "edit"}>
+              <div hidden={mode === "edit" || Boolean(recipe)}>
                 <label htmlFor="duration">Length</label>
                 <select id="duration" value={durationSec} onChange={(e) => setDurationSec(Number(e.target.value))}>
                   <option value={15}>15 seconds</option>

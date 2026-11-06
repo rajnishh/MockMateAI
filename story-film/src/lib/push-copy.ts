@@ -61,3 +61,12 @@ export function remixedText(lang: PushLang, title: string, hundredths: number): 
   if (lang === "ar") return { title: "يُصنع ريمكس لأغنيتك", body: `صُنع ريمكس لأغنية «${t}».${amount ? ` ربحت ${amount} رصيد.` : ""}` };
   return { title: "Your song is being remixed", body: `Someone made a remix of "${t}".${amount ? ` You earned ${amount} credit.` : ""}` };
 }
+
+// design/community/recipes-spec.md: someone finished a reel with your recipe (at most once a day per recipe).
+export function recipeUsedText(lang: PushLang, name: string, hundredths: number): PushText {
+  const n = short(name);
+  const amount = hundredths > 0 ? creditAmount(lang, hundredths) : null;
+  if (lang === "hi") return { title: `किसी ने ${n} से रील बनाई`, body: amount ? `आपने ${amount} क्रेडिट कमाए।` : "आपकी रेसिपी इस्तेमाल हुई।" };
+  if (lang === "ar") return { title: `صنع شخص ريلًا بوصفة ${n}`, body: amount ? `ربحت ${amount} رصيد.` : "استُخدمت وصفتك." };
+  return { title: `Someone made a reel with ${n}`, body: amount ? `You earned ${amount} credits.` : "Your recipe was used." };
+}
