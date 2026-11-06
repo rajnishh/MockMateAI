@@ -60,7 +60,7 @@ export default function Calendar() {
 
   return (
     <Screen>
-      <Header title="Calendar" right={<Button label="Accounts" small kind="ghost" icon="link" onPress={() => router.push("/connections")} />} />
+      <Header title="Calendar" back right={<Button label="Accounts" small kind="ghost" icon="link" onPress={() => router.push("/connections")} />} />
       {posts.error ? <Banner kind="error" text={posts.error} action={<Button label="Retry" small kind="secondary" onPress={posts.reload} />} /> : null}
       {noAccounts ? (
         <Banner kind="info" title="Connect where you post" text="Connect Instagram or YouTube, then post or schedule any finished reel." action={<Button label="Connect" small onPress={() => router.push("/connections")} />} />

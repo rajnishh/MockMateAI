@@ -1,5 +1,4 @@
 import Constants from "expo-constants";
-import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { Linking, Pressable, Switch, View } from "react-native";
 
@@ -103,7 +102,7 @@ export default function Account() {
 
   return (
     <Screen>
-      <Header title="Account" back />
+      <Header title="Settings" back />
       <Card>
         <Row style={{ gap: 14 }}>
           <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: colors.tealTint, alignItems: "center", justifyContent: "center" }}>
@@ -188,10 +187,7 @@ export default function Account() {
       <NotificationSettings />
 
       <Card>
-        <ListRow icon="link" title="Connected accounts" sub="Instagram, YouTube" onPress={() => router.push("/connections")} />
-        <ListRow icon="sparkle" title="Credits and plans" onPress={() => router.push("/credits")} />
-        <ListRow icon="film" title="My reels" onPress={() => router.push("/reels")} />
-        <ListRow icon="earn" title="Earnings" sub="From remixes of your songs and uses of your recipes" onPress={() => router.push("/earn")} />
+        {/* Connected accounts, credits, reels and earnings live on the You tab. */}
         {SUPPORT_EMAIL ? (
           <ListRow
             icon="send"
