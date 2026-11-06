@@ -30,6 +30,8 @@ export const RETAKE_CREDITS = 1;
 export const DUET_WINDOW_MS = 48 * 3600 * 1000;
 export const EXTEND_MS = 24 * 3600 * 1000;
 export const PART_MAX_SEC = 30;
+// Longest a join may take to start (stitching the parts and writing lyrics) before it counts as failed.
+export const JOIN_START_MS = 2 * 60 * 1000;
 
 export const DUET_TOKEN = GIFT_TOKEN;
 export const IG_HANDLE = /^[a-z0-9._]{1,30}$/i;
@@ -80,6 +82,8 @@ export type Phase = "recording_a" | "waiting" | "expired" | "joining" | "join_fa
 
 export function phaseOf(d: Duet, songStatus: string | null | undefined, now = new Date()): Phase {
   if (d.status === "declined" || d.status === "cancelled" || d.status === "solo") return d.status;
+  // The song is being started (a few seconds). If that stalls, say a crash, it's "Try again" after a while.
+  if (d.joinStartedAt && now.getTime() - d.joinStartedAt.getTime() < JOIN_START_MS) return "joining";
   if (d.status === "joining") return songStatus === "failed" ? "join_failed" : songStatus === "completed" ? "ready" : "joining";
   if (d.status === "ready") return "ready";
   if (!d.partAPath) return "recording_a";
@@ -149,10 +153,12 @@ export async function savePart(db: Db, outputDir: string, d: Duet, role: Role, t
   // Speech is someone saying their lines: sung from the words, like "sing".
   const kind = take.kind === "hum" ? "hum" : "sing";
   const sec = Math.max(1, Math.round(Math.min(take.durationSec, PART_MAX_SEC)));
+  // The part that completes the pair starts the join in the same request, so it reads "joining" from now.
+  const joinStartedAt = (role === "a" ? d.partBPath : d.partAPath) ? now : null;
   if (role === "a") {
-    return update(db, d.id, { partAPath: file, partAKind: kind, partAText: take.transcript.slice(0, 2000), partASec: sec, expiresAt: d.partBPath ? d.expiresAt : new Date(now.getTime() + DUET_WINDOW_MS) });
+    return update(db, d.id, { partAPath: file, partAKind: kind, partAText: take.transcript.slice(0, 2000), partASec: sec, joinStartedAt, expiresAt: d.partBPath ? d.expiresAt : new Date(now.getTime() + DUET_WINDOW_MS) });
   }
-  return update(db, d.id, { partBPath: file, partBKind: kind, partBText: take.transcript.slice(0, 2000), partBSec: sec });
+  return update(db, d.id, { partBPath: file, partBKind: kind, partBText: take.transcript.slice(0, 2000), partBSec: sec, joinStartedAt });
 }
 
 // B opens the invite and joins (first one in). Offering half takes B's half now; A gets theirs
@@ -280,9 +286,20 @@ async function partLyrics(deps: MakeDeps, d: Duet, kind: string | null, text: st
 // Joins the two parts into one song, owned by A. Paid for already; a failed join is tried again free.
 export async function startJoin(db: Db, deps: MakeDeps, d: Duet, now = new Date()): Promise<Duet> {
   if (!d.partAPath || !d.partBPath) throw new DuetError("Both parts are needed first.");
+  await update(db, d.id, { joinStartedAt: now });
+  try {
+    return await queueJoin(db, deps, d, { a: d.partAPath, b: d.partBPath }, now);
+  } catch (err) {
+    // Didn't start: show "Try again" straight away.
+    await update(db, d.id, { joinStartedAt: null });
+    throw err;
+  }
+}
+
+async function queueJoin(db: Db, deps: MakeDeps, d: Duet, parts: { a: string; b: string }, now: Date): Promise<Duet> {
   const dir = path.resolve(deps.outputDir, "duets", d.id);
   const joined = path.join(dir, `joined-${now.getTime()}.mp3`);
-  await deps.ffmpeg(joinArgs(d.partAPath, d.partBPath, joined));
+  await deps.ffmpeg(joinArgs(parts.a, parts.b, joined));
   const [la, lb] = await Promise.all([partLyrics(deps, d, d.partAKind, d.partAText, d.partASec ?? 15), partLyrics(deps, d, d.partBKind, d.partBText, d.partBSec ?? 15)]);
   const lyrics = `[Verse 1]\n${la}\n\n[Verse 2]\n${lb}`;
   const bothHum = d.partAKind === "hum" && d.partBKind === "hum";
@@ -297,7 +314,7 @@ export async function startJoin(db: Db, deps: MakeDeps, d: Duet, now = new Date(
   // B's half covers half of A's: A gets that back on the first join.
   const splitBack = d.paidB > 0 && d.paidA === DUET_CREDITS;
   if (splitBack) await grantCredits(db, d.starterId, d.paidB, "refund", `duet-split:${d.id}`);
-  return update(db, d.id, { songId: row.id, status: "joining", approvedA: null, approvedB: null, retakeAskedOf: null, ...(splitBack ? { paidA: DUET_CREDITS - d.paidB } : {}) });
+  return update(db, d.id, { songId: row.id, status: "joining", joinStartedAt: null, approvedA: null, approvedB: null, retakeAskedOf: null, ...(splitBack ? { paidA: DUET_CREDITS - d.paidB } : {}) });
 }
 
 // "Finish it solo": a normal song on A's tune; A keeps paying only for that, B gets everything back.
@@ -329,6 +346,7 @@ export async function retakePart(db: Db, d: Duet, role: Role, userId: string, no
   }
   return update(db, d.id, {
     status: "waiting",
+    joinStartedAt: null,
     ...(role === "a" ? { partAPath: null, retakesA: used + 1 } : { partBPath: null, retakesB: used + 1 }),
     approvedA: null,
     approvedB: null,

@@ -181,13 +181,13 @@ Opened from **Reply with your own song**. One screen, no steps to scroll:
 Two big cards (`Card onPress`, 96 pt each):
 - **Hum it**, "Hum, sing or just say it" (mic icon on `deep`).
 - **Describe it**, "Write one line, AI does the rest" (Simple song, `songs/new?mode=simple`).
-Caption: "**Your first reply is free.** Your 20 welcome credits stay untouched." One free reply per gift per person (Hum it or Describe it); a second reply costs the normal price (Hum it 2, song 4). Owner decision 2026-11-06.
+Caption: "**Your first reply is free.** Your 20 welcome credits stay untouched." One free reply per gift per person (Hum it or Describe it); a second reply costs the normal price (1 credit either way: a reply is one version). Owner decision 2026-11-06.
 Voice note (always): "You can sing it in an AI voice or your own voice. Rajnish's voice can't be used."
 
 ### R4–R6. Reply making
 
 - **R4** = Hum it Record (`hum/index`) with a `Banner kind="info"` at top: "Replying to Rajnish's birthday song" and a 44 pt **Play theirs** button (so they can hum along to the same tune). Nothing else changes.
-- **R5** = Hum it Confirm with the topic prefilled "A thank-you song for Rajnish, for my birthday" (editable), occasion chip, and the voice picker limited to AI singers + the replier's own voices. Price on the button as today ("Make it · 2 credits").
+- **R5** = Hum it Confirm with the topic prefilled "A thank-you song for Rajnish, for my birthday" (editable), occasion chip, and the voice picker limited to AI singers + the replier's own voices. Price on the button as today ("Make it · 1 credit").
 - Making and Ready are unchanged; Ready shows primary **Send it back to Rajnish** (replaces "Mix and save" as primary; Mix becomes secondary).
 - **R6** = G2 with **To** locked to "Rajnish" (sender's display name), occasion kept, note empty. Share sheet same as G3, plus "Rajnish will also get it in the Reelkar app." (in-app delivery to the original sender is automatic, because the thread knows them).
 
@@ -260,11 +260,11 @@ B (partner)
 - Hero (small): "Make a song with a friend" / "You sing one part, they sing the other. AI joins them into one song."
 - **What's it about?** `Field` placeholder "Two friends arguing about chai vs coffee".
 - **Style** `ChipRow` (same genres as Song Studio: Bollywood, Punjabi, Sufi, Indie pop, Khaleeji, Rap…).
-- **Who pays** card: "You pay **6 credits** *(placeholder)*" · "Your partner can offer to pay half." · "Credits are held now and only spent when the song is joined. Not joined, not spent."
+- **Who pays** card: "You pay **3 credits** *(placeholder)*" · "Your partner can offer to pay half." · "Credits are held now and only spent when the song is joined. Not joined, not spent."
 - Footer primary **Record my part**. Caption "About 30 seconds each · you'll both approve before anything is posted".
 - No credits → primary becomes **Get credits** (existing `/credits`).
 
-Placeholder price (clearly marked in UI mocks and here): **6 credits = a song (4) + a song on your tune (2)**. Music video is extra at its normal price.
+Placeholder price (clearly marked in UI mocks and here): **3 credits = a song (2) + a song on your tune (1)**. Music video is extra at its normal price.
 
 ### D2 / D6. Record your part
 
@@ -286,7 +286,7 @@ Hum it Record, unchanged, plus:
 ### D4. Waiting (A)
 
 - Hero: "Waiting for Sana" / "Sana has 47 hours to sing their part." `ProgressBar` of the 48 h window (`onBrand`), status chips "Your part ✓ recorded" · "Sana's part · not yet" (icon + text, not colour only).
-- Card actions: **Remind Sana** (enabled after 12 h, once; "Reminder sent" after) · **Send link again** · **Cancel Jugalbandi** (ghost, confirm: "Cancel? Your 6 credits come back.").
+- Card actions: **Remind Sana** (enabled after 12 h, once; "Reminder sent" after) · **Send link again** · **Cancel Jugalbandi** (ghost, confirm: "Cancel? Your 3 credits come back.").
 - Status changes to "Sana opened the invite" and "Sana is recording" (from Sana's phone) so A isn't waiting blind.
 
 ### D5. Invite (B)
@@ -295,7 +295,7 @@ Delivered three ways: push "Arjun wants a Jugalbandi with you" / "Hear Arjun's p
 Screen:
 - Hero: "Arjun wants to sing with you" / topic in quotes / style chip / "Open for 47 more hours".
 - A's part card with player (0:28) and "Arjun's voice · AI singer" (or "Arjun's own voice", which B can hear but never use).
-- **Sing your part** primary. Under it: toggle **Offer to pay half (3 credits)** *(placeholder)*, off by default, with "Arjun pays unless you offer."
+- **Sing your part** primary. Under it: toggle **Offer to pay half (1 credit)** *(placeholder)*, off by default, with "Arjun pays unless you offer."
 - **Not this time** ghost → confirm sheet with optional one-line note → A gets "Sana can't join this time".
 - "Posted as an Instagram Collab from Arjun's account. You'll both approve it first."
 
@@ -328,9 +328,9 @@ Reuses the existing "Post it" card (account picker, Post now / Schedule) and "Ca
 Hero (no gradient; `deep` alert card): "Sana didn't answer" (or "Sana can't join this time" + Sana's note).
 Three `ListRow` options, primary first:
 1. **Invite someone else** → D3 (your part kept, new 48 h clock).
-2. **Finish it solo** → becomes a normal Hum it song from your part: "Uses 2 credits. The other 4 come back." *(placeholder numbers)*
+2. **Finish it solo** → becomes a normal Hum it song from your part: "Uses 1 credit. The other 2 come back." *(placeholder numbers)*
 3. **Give Sana 24 more hours** (only for no answer, once).
-Ghost: **Cancel and get all 6 credits back**.
+Ghost: **Cancel and get all 3 credits back**.
 Timeline: 0 h invite → 24 h auto reminder to B ("Arjun's Jugalbandi closes tomorrow") → 48 h close; A gets push "Sana didn't sing a part. Choose what's next." If A does nothing for 7 days, the hold is released automatically (all credits back) and the part is kept as a draft.
 
 ### Credits and refunds
@@ -346,7 +346,7 @@ Timeline: 0 h invite → 24 h auto reminder to B ("Arjun's Jugalbandi closes tom
 | Retake beyond the free one | the retaker pays 1 | the retaker pays 1 |
 | Music video | whoever taps it, normal price | — |
 
-Prices follow `src/lib/billing/catalog.ts`: 6 = `SONG_CREDITS` (4) + `TUNE_SONG_CREDITS` (2), so they move together if those change. Owner agreed 6 / split 3·3 / one free retake each on 2026-11-06; extra retakes stay 1 credit (a re-join costs us cents). "Held" = shown in the credits screen as "Held for Jugalbandi · 6", not spendable, never silently charged.
+Prices follow `src/lib/billing/catalog.ts`: 3 = `SONG_CREDITS` (2) + `TUNE_SONG_CREDITS` (1), so they move together if those change (they dropped from 6 when songs went to per-take prices, PLAN decision 42). Owner agreed the formula, the half split and one free retake each on 2026-11-06; the partner's half rounds down (`HALF_CREDITS`, so 1 of 3, the starter pays 2); extra retakes stay 1 credit (a re-join costs us cents). "Held" = shown in the credits screen as "Held for Jugalbandi · 3", not spendable, never silently charged.
 
 ### Voice rule (Jugalbandi)
 
@@ -567,7 +567,7 @@ New tables (Drizzle, `src/lib/db/app-schema.ts`, then `npm run db:generate`):
 
 1. **First reply is free:** one per gift per person, on top of the 20 welcome credits.
 2. **Arabic name:** دويتو, with جوجالباندي as a subtitle.
-3. **Prices:** 6 credits (song 4 + tune 2, tied to the catalog), split 3/3 when B offers, one free retake each, then 1 credit. Gifts are free.
+3. **Prices:** 3 credits (song 2 + tune 1, tied to the catalog), B pays 1 and A 2 when B offers, one free retake each, then 1 credit. Gifts are free.
 4. **What the sender sees:** "Opened · 2 plays", with the name in the card title ("Birthday song for Priya"), not "Opened by Priya". A gift link gets forwarded to family groups, so "Opened by Priya" would often be wrong, and the only way to make it true is tracking who opens it. Accurate and private point the same way. Identity shows only when someone replies.
 5. **People without the app:** they sing and reply on the web (W4, W5), then sign in on one screen; no deep-link vendor. Universal links when the app is installed.
 6. **Digits in Arabic:** follow the phone's setting, Western by default.
@@ -595,7 +595,7 @@ Built:
 - iPhone: Start (topic, style, language, name, Instagram username, price), recording each part with Hum it, the duet screen for both people (invite on WhatsApp, waiting with hours left, no answer or declined with invite someone else / finish solo / 24 more hours / cancel, joining, the joined preview with retakes and approvals, then the music video and the Collab post), and Jugalbandis in Inbox.
 - Web invite `/j/{token}` (W3 + W4): hear A's part, sign in, join (name, Instagram, offer half), sing on the page with the browser's mic (A's part can play along), then hear the joined song, approve or sing again. No app needed for B.
 - Joining: both parts back to back become one tune, sung as a duet by the "song on your tune" engine (a sung part keeps its words; AI writes a hummed part's).
-- Credits: A pays 6 at the start; B's half is taken when B joins and given back to A when the song is joined, so B leaving early never costs A. Cancel gives everything back; finishing solo keeps 2. One free retake each, then 1 credit.
+- Credits: A pays 3 at the start; B's half is taken when B joins and given back to A when the song is joined, so B leaving early never costs A. Cancel gives everything back; finishing solo keeps 1. One free retake each, then 1 credit.
 - Instagram Collab: posts take a `collaborators` field, allowed only for the partner of a duet both approved; the caption credits the partner too.
 
 Also built:

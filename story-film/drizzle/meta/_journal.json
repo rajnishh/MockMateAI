@@ -211,6 +211,13 @@
       "when": 1793925954980,
       "tag": "0029_easy_the_liberteens",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1793953336451,
+      "tag": "0030_huge_red_ghost",
+      "breakpoints": true
     }
   ]
 }
