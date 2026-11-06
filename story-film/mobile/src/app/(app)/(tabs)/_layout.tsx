@@ -8,7 +8,7 @@ export default function TabsLayout() {
     <Tabs
       tabBar={(props) => (
         <>
-          <MiniPlayer />
+          <MiniPlayer loopPill={props.state.routes[props.state.index]?.name === "home"} />
           <TabBar {...props} />
         </>
       )}

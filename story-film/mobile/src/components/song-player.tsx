@@ -1,4 +1,4 @@
-import { type AudioSource, setAudioModeAsync, useAudioPlaylist, useAudioPlaylistStatus } from "expo-audio";
+import { type AudioPlaylist, type AudioSource, setAudioModeAsync, useAudioPlaylist, useAudioPlaylistStatus } from "expo-audio";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { SvgXml } from "react-native-svg";
@@ -17,6 +17,15 @@ import { ProgressBar, Txt } from "./ui";
 export type Track = Song & Q.QueueTrack;
 
 const AUTOPLAY_KEY = "listen.autoplay";
+const REPEAT_KEY = "listen.repeat";
+
+// Repeat: "one" plays the same song again and again; "all" goes round the queue. Autoplay waits while either is on.
+export type Repeat = "off" | "one" | "all";
+const LOOP_MODE = { off: "none", one: "single", all: "all" } as const;
+// The playlist is changed, not replaced, so this lives outside the hook.
+function setLoop(playlist: AudioPlaylist, repeat: Repeat) {
+  playlist.loop = LOOP_MODE[repeat];
+}
 
 export const trackOf = (s: Song): Track => ({ ...s, key: s.publicId ? `s:${s.publicId}` : `own:${s.id}` });
 export const trackOfCard = (c: PublicSongCard): Track => trackOf(publicTrackSong(c));
@@ -30,6 +39,8 @@ function usePlayerState() {
   const native = useAudioPlaylistStatus(playlist);
   const [queue, setQueue] = useState<Q.Queue<Track>>(Q.emptyQueue());
   const [autoplay, setAutoplayState] = useState(true);
+  const [repeat, setRepeatState] = useState<Repeat>("off");
+  const repeatRef = useRef<Repeat>("off");
   const nativeKeys = useRef<string[]>([]);
   const syncing = useRef<Promise<void>>(Promise.resolve());
   const fetching = useRef(false);
@@ -41,7 +52,14 @@ function usePlayerState() {
     // Songs play with the ring/silent switch off and keep going in the background, like other music apps.
     setAudioModeAsync({ playsInSilentMode: true, shouldPlayInBackground: true, interruptionMode: "doNotMix" }).catch(() => undefined);
     getItem(AUTOPLAY_KEY).then((v) => v === "off" && setAutoplayState(false), () => undefined);
+    getItem(REPEAT_KEY).then((v) => (v === "one" || v === "all") && setRepeatState(v), () => undefined);
   }, []);
+
+  // Native does the looping, so it carries on from the lock screen too.
+  useEffect(() => {
+    repeatRef.current = repeat;
+    setLoop(playlist, repeat);
+  }, [repeat, playlist]);
 
   const source = useCallback(async (t: Track): Promise<AudioSource> => {
     const uri = api.songAudioUrl(t) ?? "";
@@ -120,7 +138,7 @@ function usePlayerState() {
 
   // The last song ended with nothing after it; when Autoplay's picks arrive, carry on with them.
   useEffect(() => {
-    if (native.didJustFinish && native.currentIndex >= nativeKeys.current.length - 1) finishedLast.current = true;
+    if (native.didJustFinish && repeatRef.current === "off" && native.currentIndex >= nativeKeys.current.length - 1) finishedLast.current = true;
   }, [native.didJustFinish, native.currentIndex]);
   useEffect(() => {
     if (finishedLast.current && Q.upNext(queue).length) {
@@ -146,7 +164,7 @@ function usePlayerState() {
   // Autoplay: when one song is left, add related public songs not heard this session. Once
   // everything has been heard, it starts again with earlier songs rather than stopping.
   useEffect(() => {
-    if (!Q.needsMore(queue, autoplay) || fetching.current) return;
+    if (!Q.needsMore(queue, autoplay && repeat === "off") || fetching.current) return;
     fetching.current = true;
     const seed = Q.seedId(queue);
     (async () => {
@@ -157,7 +175,7 @@ function usePlayerState() {
     })()
       .catch(() => undefined)
       .finally(() => (fetching.current = false));
-  }, [queue, autoplay]);
+  }, [queue, autoplay, repeat]);
 
   // A public song counts as played after 10 seconds (the server keeps one per listener per day).
   useEffect(() => {
@@ -189,6 +207,11 @@ function usePlayerState() {
     setItem(AUTOPLAY_KEY, on ? "on" : "off").catch(() => undefined);
   }, []);
 
+  const setRepeat = useCallback((r: Repeat) => {
+    setRepeatState(r);
+    setItem(REPEAT_KEY, r).catch(() => undefined);
+  }, []);
+
   return useMemo(
     () => ({
       current: song?.id ?? null,
@@ -198,6 +221,15 @@ function usePlayerState() {
       upNext: Q.upNext(queue),
       autoplay,
       setAutoplay,
+      repeat,
+      setRepeat,
+      // Off, then all, then one, then off: the order music apps use.
+      cycleRepeat: () => setRepeat(repeat === "off" ? "all" : repeat === "all" ? "one" : "off"),
+      // Home's Loop: these songs from `start`, round and round.
+      loop: (songs: Song[], start = 0) => {
+        setRepeat("all");
+        setQueue((q) => Q.playList(q, songs.map(trackOf), start));
+      },
       play,
       // Plays a list from `start`; the rest of the list becomes the queue.
       playList: (songs: Song[], start: number) => setQueue((q) => Q.playList(q, songs.map(trackOf), start)),
@@ -222,7 +254,7 @@ function usePlayerState() {
         setQueue(Q.emptyQueue());
       },
     }),
-    [song, status, queue, autoplay, setAutoplay, play, playlist],
+    [song, status, queue, autoplay, setAutoplay, repeat, setRepeat, play, playlist],
   );
 }
 
