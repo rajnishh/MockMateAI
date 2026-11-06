@@ -61,16 +61,24 @@ export function ListenClient() {
     }
   }, [now]);
 
-  // Autoplay tops up the queue when one song is left.
+  // Autoplay tops up the queue when one song is left; once everything has been heard, it starts
+  // again with earlier songs rather than stopping.
   useEffect(() => {
     if (!Q.needsMore(queue, autoplay) || fetching.current) return;
     fetching.current = true;
-    const params = new URLSearchParams({ exclude: Q.excludeIds(queue).join(",") });
     const seed = Q.seedId(queue);
-    if (seed) params.set("seed", seed);
-    fetch(`/api/listen/related?${params}`)
-      .then((r) => (r.ok ? r.json() : { songs: [] }))
-      .then((b: { songs: PublicSongCard[] }) => setQueue((q) => Q.appendAuto(q, b.songs.map(track))))
+    const related = async (exclude: string[]) => {
+      const params = new URLSearchParams({ exclude: exclude.join(",") });
+      if (seed) params.set("seed", seed);
+      const r = await fetch(`/api/listen/related?${params}`);
+      return r.ok ? ((await r.json()) as { songs: PublicSongCard[] }).songs : [];
+    };
+    (async () => {
+      const fresh = await related(Q.excludeIds(queue));
+      if (fresh.length) return setQueue((q) => Q.appendAuto(q, fresh.map(track)));
+      const again = await related(Q.repeatExcludeIds(queue));
+      setQueue((q) => Q.appendAuto(q, again.map(track), true));
+    })()
       .catch(() => undefined)
       .finally(() => (fetching.current = false));
   }, [queue, autoplay]);

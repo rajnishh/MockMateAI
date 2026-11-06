@@ -16,6 +16,7 @@ import {
   previous,
   type QueueTrack,
   remove,
+  repeatExcludeIds,
   seedId,
   skipTo,
   upNext,
@@ -89,6 +90,20 @@ describe("the player queue", () => {
     q = next(q);
     q = dropAuto(q);
     expect(keys(q.items)).toEqual(["s:a", "s:b"]);
+  });
+
+  it("starts again with earlier songs once everything is heard, never removed ones", () => {
+    let q = playList(emptyQueue(), [t("s:a"), t("s:b"), t("s:c"), t("s:d")], 0);
+    q = remove(q, "s:d");
+    q = next(next(q));
+    expect(current(q)?.key).toBe("s:c");
+    // A normal top-up can't add anything heard...
+    expect(appendAuto(q, [t("s:a")]).items).toHaveLength(q.items.length);
+    // ...so Autoplay asks again: skip what's playing, the last two heard and removed songs.
+    expect(repeatExcludeIds(q).sort()).toEqual(["b", "c", "d"]);
+    q = appendAuto(q, [t("s:a"), t("s:d"), t("s:c")], true);
+    expect(keys(upNext(q))).toEqual(["s:a"]);
+    expect(upNext(q)[0].auto).toBe(true);
   });
 
   it("jumps to a song in the queue", () => {

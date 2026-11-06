@@ -143,15 +143,18 @@ function usePlayerState() {
     lockKey.current = song.key;
   }, [song, playlist]);
 
-  // Autoplay: when one song is left, add related public songs not heard this session.
+  // Autoplay: when one song is left, add related public songs not heard this session. Once
+  // everything has been heard, it starts again with earlier songs rather than stopping.
   useEffect(() => {
     if (!Q.needsMore(queue, autoplay) || fetching.current) return;
     fetching.current = true;
-    api
-      .relatedSongs(Q.seedId(queue), Q.excludeIds(queue))
-      .then((cards) => {
-        setQueue((q) => Q.appendAuto(q, cards.map(trackOfCard)));
-      })
+    const seed = Q.seedId(queue);
+    (async () => {
+      const fresh = await api.relatedSongs(seed, Q.excludeIds(queue));
+      if (fresh.length) return setQueue((q) => Q.appendAuto(q, fresh.map(trackOfCard)));
+      const again = await api.relatedSongs(seed, Q.repeatExcludeIds(queue));
+      setQueue((q) => Q.appendAuto(q, again.map(trackOfCard), true));
+    })()
       .catch(() => undefined)
       .finally(() => (fetching.current = false));
   }, [queue, autoplay]);
