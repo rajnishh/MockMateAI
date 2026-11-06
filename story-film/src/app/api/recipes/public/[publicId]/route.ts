@@ -4,6 +4,7 @@ import { paidRatioBp } from "@/lib/billing/earnings";
 import { getDb } from "@/lib/db";
 import { loadEnv } from "@/lib/env";
 import { cinematicAvailable, premiumAvailable } from "@/lib/providers";
+import { isBlocked } from "@/lib/moderation";
 import { listRecipes, makerEarns, publicRecipe, publicRecipeView, recipeStats } from "@/lib/recipes";
 import { getUserId } from "@/lib/session";
 import { freeReelsLeft, paidCredits } from "@/lib/start-film";
@@ -32,12 +33,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ publicId
   if (!viewerId) return NextResponse.json({ ...view, rails });
   if (view.mine) return NextResponse.json({ ...view, rails, stats: await recipeStats(db, r) });
   const env = loadEnv();
+  const creatorBlocked = await isBlocked(db, viewerId, r.makerId);
   const freeLeft = await freeReelsLeft(viewerId).catch(() => null);
   const credits = paidCredits({ format: r.format === "edit" ? "story" : r.format, quality: r.quality, durationSec: r.durationSec, danceVoice: (r.spec as { voice?: "sung" | "chant" | "ai_song" }).voice ?? "sung" }, env.CINEMATIC_VIDEO_MODEL) ?? (freeLeft === 0 ? STANDARD_CREDITS : 0);
   const ratio = await paidRatioBp(db, viewerId);
   return NextResponse.json({
     ...view,
     rails,
+    creatorBlocked,
     price: { quality: r.quality, credits, freeLeft, standardCredits: STANDARD_CREDITS, premiumAvailable: premiumAvailable(env), cinematicAvailable: cinematicAvailable(env) },
     paidRatioBp: ratio,
     makerEarns: makerEarns(credits, ratio, false),

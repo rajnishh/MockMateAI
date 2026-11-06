@@ -274,6 +274,9 @@ export const song = pgTable(
     allowRemix: boolean("allow_remix").notNull().default(true),
     // Set by the owner after a report; a taken-down song can't be published again by its maker.
     takenDownAt: timestamp("taken_down_at"),
+    // Set automatically when reports pile up (src/lib/moderation.ts); hidden from everyone pending a
+    // person's review, who clears it (report not upheld) or sets taken_down_at (upheld).
+    hiddenAt: timestamp("hidden_at"),
     // Counters for sorting; the rows behind them are in song_play and song_vote.
     playCount: integer("play_count").notNull().default(0),
     likeCount: integer("like_count").notNull().default(0),
@@ -615,6 +618,8 @@ export const gift = pgTable(
     // The sender stopped sharing; the link shows "not available any more" until shared again.
     revokedAt: timestamp("revoked_at"),
     takenDownAt: timestamp("taken_down_at"),
+    // Hidden automatically after reports, pending review (src/lib/moderation.ts).
+    hiddenAt: timestamp("hidden_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [index("gift_sender_created_idx").on(t.senderId, t.createdAt), index("gift_reply_to_idx").on(t.replyToGiftId)],
@@ -647,6 +652,9 @@ export const giftReport = pgTable(
     reason: giftReportReason("reason").notNull(),
     details: text("details").notNull().default(""),
     email: text("email"),
+    reporterId: text("reporter_id").references(() => user.id, { onDelete: "set null" }),
+    // Who reported, for counting different people: "u:{userId}", or "ip:{hash}" when signed out.
+    reporterKey: text("reporter_key"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [index("gift_report_gift_idx").on(t.giftId)],
@@ -664,9 +672,10 @@ export const songReport = pgTable(
     details: text("details").notNull().default(""),
     email: text("email"),
     reporterId: text("reporter_id").references(() => user.id, { onDelete: "set null" }),
+    reporterKey: text("reporter_key"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (t) => [index("song_report_song_idx").on(t.songId)],
+  (t) => [index("song_report_song_idx").on(t.songId), index("song_report_reporter_idx").on(t.reporterId)],
 );
 
 // Jugalbandi: a song two creators make from two phones (design/community/flow-spec.md, feature 2).
@@ -732,6 +741,8 @@ export const duet = pgTable(
     remindedAt: timestamp("reminded_at"),
     // Both parts are in and the song is being started (cleared once it's queued or the start fails).
     joinStartedAt: timestamp("join_started_at"),
+    // Hidden automatically after reports, pending review (src/lib/moderation.ts): the invite link stops working.
+    hiddenAt: timestamp("hidden_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [index("duet_starter_idx").on(t.starterId, t.createdAt), index("duet_partner_idx").on(t.partnerId, t.createdAt)],
@@ -748,6 +759,8 @@ export const duetReport = pgTable(
     reason: giftReportReason("reason").notNull(),
     details: text("details").notNull().default(""),
     email: text("email"),
+    reporterId: text("reporter_id").references(() => user.id, { onDelete: "set null" }),
+    reporterKey: text("reporter_key"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [index("duet_report_duet_idx").on(t.duetId)],
@@ -788,6 +801,8 @@ export const recipe = pgTable(
     unpublishedAt: timestamp("unpublished_at"),
     // Set by the owner after a report is upheld; it can't be shared again.
     takenDownAt: timestamp("taken_down_at"),
+    // Hidden automatically after reports, pending review (src/lib/moderation.ts).
+    hiddenAt: timestamp("hidden_at"),
     // Finished reels made with it by others (own uses don't count).
     useCount: integer("use_count").notNull().default(0),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -840,9 +855,26 @@ export const recipeReport = pgTable(
     details: text("details").notNull().default(""),
     email: text("email"),
     reporterId: text("reporter_id").references(() => user.id, { onDelete: "set null" }),
+    reporterKey: text("reporter_key"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [index("recipe_report_recipe_idx").on(t.recipeId), index("recipe_report_reporter_idx").on(t.reporterId)],
+);
+
+// Block (App Review 1.2): the blocker no longer sees the blocked person's songs, recipes and
+// remixes anywhere they're listed, and their new gifts and Jugalbandi invites don't reach the blocker.
+export const userBlock = pgTable(
+  "user_block",
+  {
+    blockerId: text("blocker_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    blockedId: text("blocked_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("user_block_pair_idx").on(t.blockerId, t.blockedId), index("user_block_blocked_idx").on(t.blockedId)],
 );
 
 export const pushPlatform = pgEnum("push_platform", ["ios", "android"]);

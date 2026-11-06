@@ -82,6 +82,39 @@ function NotificationSettings() {
   );
 }
 
+// Settings › Blocked creators: everyone I blocked, with Unblock. Shown once there's someone in it.
+function BlockedCreators() {
+  const blocks = useData(() => api.blocks());
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function unblock(userId: string) {
+    setBusy(userId);
+    setError(null);
+    try {
+      await api.unblockUser(userId);
+      await blocks.reload();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  if (!blocks.data?.length && !blocks.error) return null;
+  return (
+    <Card>
+      <Txt variant="md">Blocked creators</Txt>
+      <Txt variant="cap">You don&apos;t see their songs, recipes or remixes, and their gifts and Jugalbandi invites don&apos;t reach you.</Txt>
+      {blocks.error ? <Banner kind="error" text={blocks.error} action={<Button label="Retry" small kind="secondary" onPress={blocks.reload} />} /> : null}
+      {error ? <Banner kind="error" text={error} /> : null}
+      {(blocks.data ?? []).map((b) => (
+        <ListRow key={b.userId} icon="ban" title={b.name} right={<Button label="Unblock" small kind="secondary" loading={busy === b.userId} onPress={() => unblock(b.userId)} />} />
+      ))}
+    </Card>
+  );
+}
+
 export default function Account() {
   const { user, prefs, savePrefs, signOut } = useSession();
   const { preference, setPreference, colors } = useTheme();
@@ -197,6 +230,8 @@ export default function Account() {
       </Card>
 
       <NotificationSettings />
+
+      <BlockedCreators />
 
       <Card>
         {/* Connected accounts, credits, reels and earnings live on the You tab. */}

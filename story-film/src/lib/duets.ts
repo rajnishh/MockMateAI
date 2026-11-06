@@ -8,6 +8,7 @@ import type { Db } from "@/lib/db";
 import { duet, duetReport, socialAccount, song, voiceProfile } from "@/lib/db/schema";
 import { GIFT_TOKEN, newGiftToken } from "@/lib/gifts";
 import { LANGUAGE_CODES } from "@/lib/languages";
+import { duetInviteVisibleTo, isBlocked } from "@/lib/moderation";
 import type { RemixCall } from "@/lib/songs/remix";
 
 // Jugalbandi: A starts a duet and records a part with Hum it, B records theirs on their own phone
@@ -99,10 +100,12 @@ export async function getDuet(db: Db, id: string): Promise<Duet | undefined> {
   return row;
 }
 
-export async function duetByToken(db: Db, token: string): Promise<Duet | undefined> {
+// The duet behind an invite link. One hidden after reports (src/lib/moderation.ts) is left out, so
+// its link stops working until it's reviewed; the two people in it still see it in the app.
+export async function duetByToken(db: Db, token: string, opts: { hidden?: boolean } = {}): Promise<Duet | undefined> {
   if (!DUET_TOKEN.test(token)) return undefined;
   const [row] = await db.select().from(duet).where(eq(duet.token, token));
-  return row;
+  return row && (opts.hidden || !row.hiddenAt) ? row : undefined;
 }
 
 export async function songStatusOf(db: Db, d: Duet): Promise<string | null> {
@@ -382,7 +385,8 @@ export async function listDuets(db: Db, userId: string, limit = 30): Promise<Due
   return db
     .select()
     .from(duet)
-    .where(or(eq(duet.starterId, userId), eq(duet.partnerId, userId), and(eq(duet.invitedUserId, userId), isNull(duet.partnerId))))
+    // An invite (not joined yet) doesn't show when I blocked its starter, reported it, or reports hid it.
+    .where(or(eq(duet.starterId, userId), eq(duet.partnerId, userId), and(eq(duet.invitedUserId, userId), isNull(duet.partnerId), duetInviteVisibleTo(userId))))
     .orderBy(desc(duet.createdAt))
     .limit(limit);
 }
@@ -400,6 +404,8 @@ export async function inviteByHandle(db: Db, d: Duet, handle: string, now = new 
     .limit(1);
   if (!acct) throw new DuetError(`No one on Reelkar has connected @${h} yet. Send them the link instead.`, 404);
   if (acct.userId === d.starterId) throw new DuetError("That's your own Instagram. Invite a friend.");
+  // Someone who blocked the starter never gets their invites; the starter isn't told why.
+  if (await isBlocked(db, acct.userId, d.starterId)) throw new DuetError(`No one on Reelkar has connected @${h} yet. Send them the link instead.`, 404);
   return update(db, d.id, { invitedUserId: acct.userId, invitedIg: h });
 }
 
