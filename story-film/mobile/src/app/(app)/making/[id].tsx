@@ -6,7 +6,7 @@ import { Icon } from "@/components/icon";
 import { LogoLoader } from "@/components/logo";
 import { confirmDelete } from "@/components/reel-grid";
 import { Banner, Button, Card, Header, ProgressBar, Screen, Txt } from "@/components/ui";
-import { api, type Film, type Stage } from "@/lib/api";
+import { api, ApiError, type Film, type Stage } from "@/lib/api";
 import { reviewHref } from "@/lib/music-video";
 import { fonts, useTheme } from "@/theme";
 
@@ -27,6 +27,8 @@ export default function Making() {
   const [film, setFilm] = useState<Film | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [seconds, setSeconds] = useState(0);
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<{ text: string; needCredits: boolean } | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -55,13 +57,29 @@ export default function Making() {
 
   const current = film?.stage ? STEPS.findIndex((s) => s.stage === film.stage) : 0;
   const failed = film?.status === "failed";
+  // Edits and music videos are made again from their own screens.
+  const canRetry = failed && film?.format !== "edit" && !film?.songId;
+
+  // Same request as a new reel (free reel or credits as usual); the new one replaces this one.
+  async function retry() {
+    setRetrying(true);
+    setRetryError(null);
+    try {
+      const { id: next } = await api.retryFilm(id);
+      router.replace(`/making/${next}`);
+    } catch (err) {
+      setRetryError({ text: (err as Error).message, needCredits: err instanceof ApiError && Boolean(err.needCredits) });
+      setRetrying(false);
+    }
+  }
 
   return (
     <Screen
       footer={
         failed ? (
           <>
-            <Button label="Try a new reel" icon="refresh" block onPress={() => router.replace("/create")} />
+            {canRetry ? <Button label="Try again" icon="refresh" block loading={retrying} onPress={retry} /> : null}
+            <Button label={canRetry ? "Make a different reel" : "Try a new reel"} icon={canRetry ? "sparkle" : "refresh"} kind={canRetry ? "secondary" : undefined} block onPress={() => router.replace("/create")} />
             <Button label="Delete this reel" icon="trash" kind="danger" block onPress={() => confirmDelete(id, () => router.replace("/reels"), (message) => Alert.alert("Couldn't delete", message))} />
           </>
         ) : (
@@ -96,6 +114,9 @@ export default function Making() {
           })}
         </Card>
       )}
+      {retryError ? (
+        <Banner kind="error" text={retryError.text} action={retryError.needCredits ? <Button label="Get credits" small kind="secondary" onPress={() => router.push("/credits")} /> : undefined} />
+      ) : null}
       {!failed ? <Banner kind="info" text="You can leave this screen. Your reel keeps being made and shows up in Home." /> : null}
     </Screen>
   );

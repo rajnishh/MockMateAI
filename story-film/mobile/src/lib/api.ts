@@ -916,6 +916,8 @@ const real = {
   retryPost: (id: string) => call<unknown>(`/api/posts/${id}/retry`, { method: "POST" }),
   // keepRecipe false is "Delete reel and recipe".
   deleteFilm: (id: string, keepRecipe = true) => call<unknown>(`/api/films/${id}${keepRecipe ? "" : "?recipe=stop"}`, { method: "DELETE" }),
+  // A failed reel, made again with the same request; the new reel replaces it.
+  retryFilm: (id: string) => call<{ id: string; credits: number }>(`/api/films/${id}/retry`, { method: "POST" }),
   // A signed link that plays without signing in (for 2 hours): used to save and share the video.
   // The server builds it on its public URL; the phone downloads through the address it already
   // reaches (a LAN IP or tunnel in development, where the public URL is often localhost).
@@ -1550,6 +1552,13 @@ const demo: typeof real = {
     const i = demoFilms.findIndex((f) => f.id === id);
     if (i >= 0) demoFilms.splice(i, 1);
     return {};
+  },
+  retryFilm: async (id) => {
+    await wait(300);
+    const f = demoFilms.find((x) => x.id === id);
+    if (!f || f.status !== "failed") throw new ApiError("Only a reel that failed can be tried again.", 409);
+    Object.assign(f, { status: "queued", error: null, stage: null });
+    return { id: f.id, credits: f.credits };
   },
   shareLink: async () => {
     throw new ApiError("Saving and sharing need the Reelkar server, not the demo", 503);
