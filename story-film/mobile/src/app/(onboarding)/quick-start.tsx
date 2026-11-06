@@ -21,11 +21,11 @@ export default function QuickStart() {
           block
           onPress={async () => {
             await savePrefs({ topic: topic.trim() || niche, niche, language, experience });
-            router.push("/first-reel");
+            router.push("/your-profile");
           }}
         />
       }>
-      <ProgressBar value={0.5} />
+      <ProgressBar value={1 / 3} />
       <Header title="What will you make videos about?" />
       <Field label="Your topic, in your words" value={topic} onChangeText={setTopic} placeholder="Quick Indian recipes for working people" maxLength={100} />
       <ChipRow options={NICHES.map((n) => ({ value: n, label: n }))} value={niche} onChange={setNiche} />

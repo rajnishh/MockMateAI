@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Pressable, Share, StyleSheet, Switch, View } from "react-native";
 
 import { Icon } from "@/components/icon";
+import { Avatar } from "@/components/avatar";
 import { SongCover } from "@/components/song-cover";
 import { useSongPlayer } from "@/components/song-player";
 import { RemixFamily } from "@/components/remix-family";
@@ -105,6 +106,10 @@ export default function SongPage() {
       <Header title={s.title} sub={`@${s.handle}`} back />
       <View style={{ alignItems: "center", gap: 10 }}>
         <SongCover song={track} size={240} radius={radius.lg} />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Avatar avatar={s.creatorAvatar} name={s.handle} size={28} />
+          <Txt variant="label">{`@${s.handle}`}</Txt>
+        </View>
         <Txt variant="cap" style={{ textAlign: "center" }}>
           {[s.genreLabel, s.languageLabel, plays(s.playCount), formatTime(s.durationSec)].join(" · ")}
         </Txt>

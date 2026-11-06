@@ -35,6 +35,11 @@ export async function deletePhotos(outputDir: string, userId: string): Promise<v
   await rm(userDir(outputDir, userId), { recursive: true, force: true });
 }
 
+// Removes one of the user's photos (a replaced profile photo); a missing file is fine.
+export async function deletePhoto(outputDir: string, userId: string, id: string): Promise<void> {
+  if (PHOTO_ID.test(id)) await rm(path.join(userDir(outputDir, userId), id), { force: true });
+}
+
 // The photo's file URL for the pipeline, or undefined when this user has no such photo.
 export async function photoUrl(outputDir: string, userId: string, id: string): Promise<string | undefined> {
   if (!PHOTO_ID.test(id)) return undefined;

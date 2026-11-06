@@ -40,6 +40,8 @@ interface SessionValue {
   verifyOtp: (to: string, code: string) => Promise<void>;
   savePrefs: (p: Prefs) => Promise<void>;
   finishOnboarding: () => Promise<void>;
+  // After the name changes in the profile, so Home and Account greet people by it.
+  refreshUser: (name: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -52,7 +54,9 @@ const PENDING_SIGN_IN_KEY = "reelkar.pendingSignIn";
 export const isEmail = (to: string) => to.includes("@");
 
 // Demo mode has no backend to ask about the session.
-const useRemoteSession = DEMO ? () => ({ data: null, isPending: false }) : authClient.useSession;
+const useRemoteSession: () => { data: { user: { id: string; name: string } } | null; isPending: boolean; refetch?: () => Promise<unknown> } = DEMO
+  ? () => ({ data: null, isPending: false })
+  : authClient.useSession;
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const remote = useRemoteSession();
@@ -141,6 +145,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     finishOnboarding: async () => {
       await setItem(ONBOARDED_KEY, "1");
       setOnboarded(true);
+    },
+    refreshUser: async (name) => {
+      if (DEMO) {
+        if (!demoUser) return;
+        const u = { ...demoUser, name };
+        await setItem(DEMO_USER_KEY, JSON.stringify(u));
+        setDemoUser(u);
+      } else await remote.refetch?.();
     },
     signOut: async () => {
       // While the session still works, so the server lets this phone's push token go.

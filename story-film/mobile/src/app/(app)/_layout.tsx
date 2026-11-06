@@ -18,7 +18,9 @@ export default function AppLayout() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface } }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="songs/play/[id]" options={{ presentation: "fullScreenModal", animation: "slide_from_bottom" }} />
-        <Stack.Screen name="listen/queue" options={{ presentation: "formSheet", sheetAllowedDetents: [0.6, 1], sheetGrabberVisible: true }} />
+        <Stack.Screen name="watch/[id]" options={{ presentation: "fullScreenModal", animation: "fade", contentStyle: { backgroundColor: "#000000" } }} />
+        {/* A page sheet, not a formSheet with detents: over the full-screen player a formSheet showed up empty. */}
+        <Stack.Screen name="listen/queue" options={{ presentation: "modal" }} />
       </Stack>
     </SongPlayerProvider>
   );

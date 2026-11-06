@@ -34,6 +34,8 @@ export const MOBILE_SCHEME = "reelkar";
 const EMAIL_OTP_ROUTES = new Set(["/email-otp/send-verification-otp", "/sign-in/email-otp"]);
 const isEmailOtpRoute = (path: string) => path.startsWith("/email-otp/") || path.endsWith("/email-otp");
 
+export const SESSION_DAYS = 90;
+
 // Kept separate from auth.ts so tests can build it against an in-process database.
 export function createAuth(opts: AuthOptions) {
   // At most 5 codes per number or address per hour, however many IPs ask.
@@ -46,6 +48,9 @@ export function createAuth(opts: AuthOptions) {
     database: drizzleAdapter(opts.db, { provider: "pg", schema }),
     // The mobile app signs in through deep links back to its scheme.
     trustedOrigins: [`${MOBILE_SCHEME}://`, ...(opts.trustedOrigins ?? [])],
+    // Creators shouldn't have to sign in again: a session lasts 90 days and each day it's used
+    // pushes that out again, so only a phone left unused for 90 days signs out.
+    session: { expiresIn: SESSION_DAYS * 24 * 3600, updateAge: 24 * 3600 },
     // SMS costs money and attracts "SMS pumping" abuse, so OTP sends are tightly limited.
     rateLimit: {
       enabled: true,

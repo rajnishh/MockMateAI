@@ -1,9 +1,10 @@
 import * as Clipboard from "expo-clipboard";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { Linking, StyleSheet, View } from "react-native";
+import { Linking, Pressable, StyleSheet, View } from "react-native";
 
 import { Celebrate } from "@/components/celebrate";
+import { Icon } from "@/components/icon";
 import { PushOffer } from "@/components/push-offer";
 import { ShareAsRecipeCard } from "@/components/recipes";
 import { confirmDelete } from "@/components/reel-grid";
@@ -15,6 +16,7 @@ import { PLATFORM_LABEL } from "@/lib/connect";
 import { formatLabel } from "@/lib/formats";
 import { saveReelToPhotos, shareReel } from "@/lib/reel-file";
 import { useData } from "@/lib/use-data";
+import { viewerList } from "@/lib/viewer-list";
 import { radius } from "@/theme";
 
 type When = "now" | "today" | "tomorrow-noon" | "tomorrow-evening";
@@ -165,6 +167,18 @@ export default function Reel() {
         {film?.videoUrl ? <ReelVideo film={film} autoPlay={Boolean(fresh)} /> : film ? <ReelThumb seed={0} playable /> : <Skeleton height={420} />}
         {/* Straight from "Making your reel": celebrate once. */}
         {fresh && film ? <Celebrate /> : null}
+        {film?.videoUrl ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Watch full screen"
+            onPress={() => {
+              viewerList.set([film]);
+              router.push(`/watch/${film.id}`);
+            }}
+            style={styles.full}>
+            <Icon name="expand" size={18} color="#ffffff" />
+          </Pressable>
+        ) : null}
       </View>
       <Row style={{ justifyContent: "center" }}>
         <Button label="Save to Photos" icon="download" kind="secondary" loading={saving} disabled={!film?.videoUrl} onPress={save} />
@@ -251,5 +265,6 @@ export default function Reel() {
 }
 
 const styles = StyleSheet.create({
+  full: { position: "absolute", top: 10, left: 10, width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(21,10,26,0.72)" },
   player: { width: "70%", maxWidth: 320, aspectRatio: 9 / 16, alignSelf: "center", borderRadius: radius.lg, overflow: "hidden", backgroundColor: "#0b1220" },
 });

@@ -1,12 +1,13 @@
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { View } from "react-native";
 
 import { Banner, Button, Card, Empty, Header, ListRow, Row, Screen, Skeleton, Txt } from "@/components/ui";
 import { api, type Duet, type ReceivedReply, type RemixInboxItem, type SentGift } from "@/lib/api";
 import { KIND_NOUN, plusAmount } from "@/lib/remixes";
 import { hoursLeft } from "@/lib/duets";
+import { markInboxSeen } from "@/lib/inbox-unread";
 import { giftMessage, occasionLabel, replyContext, sendOnWhatsApp } from "@/lib/gifts";
 import { useData } from "@/lib/use-data";
 
@@ -78,6 +79,12 @@ export default function Inbox() {
   const remixes = useData(() => api.remixInbox());
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Opening Inbox clears the "new" dot on the Home bell and the You tab.
+  useFocusEffect(
+    useCallback(() => {
+      markInboxSeen().catch(() => undefined);
+    }, []),
+  );
   const sent = gifts.data?.sent ?? [];
   const replies = gifts.data?.replies ?? [];
 
@@ -96,7 +103,7 @@ export default function Inbox() {
 
   return (
     <Screen>
-      <Header title="Inbox" sub="Gifts and duets" />
+      <Header title="Inbox" sub="Gifts, duets and remixes" back />
       {gifts.error ? <Banner kind="error" text={gifts.error} action={<Button label="Retry" small kind="secondary" onPress={gifts.reload} />} /> : null}
       {error ? <Banner kind="error" text={error} /> : null}
       {!gifts.data && !gifts.error ? <Skeleton height={120} /> : null}

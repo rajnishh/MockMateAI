@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@/components/icon";
 import { SongCover } from "@/components/song-cover";
 import { type Track, useSongPlayer } from "@/components/song-player";
-import { Button, Txt } from "@/components/ui";
+import { Button, ChipRow, Txt } from "@/components/ui";
 import { genreLabel } from "@/lib/songs";
 import { radius, useTheme } from "@/theme";
 
@@ -59,7 +59,8 @@ export default function QueueSheet() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.surface }}>
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: insets.bottom + 24 }}>
+      {/* insets.top is 0 in a sheet; it matters when a link opens this full screen. */}
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 10, paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 }}>
         <View style={[styles.head, { borderBottomColor: colors.line }]}>
           <Txt variant="lg" accessibilityRole="header" style={{ flex: 1 }}>
             Up next
@@ -77,10 +78,20 @@ export default function QueueSheet() {
         </View>
         {mine.length ? mine.map((t) => row(t)) : <Txt variant="cap">Nothing queued. Long-press a song on Listen to add it.</Txt>}
 
+        <Txt variant="over">REPEAT</Txt>
+        <ChipRow
+          options={[
+            { value: "off", label: "Off" },
+            { value: "all", label: "All" },
+            { value: "one", label: "This song" },
+          ]}
+          value={player.repeat}
+          onChange={player.setRepeat}
+        />
         <View style={[styles.switch, { backgroundColor: colors.surfaceSunken }]}>
           <View style={{ flex: 1, gap: 2 }}>
             <Txt variant="label">Keep the music going</Txt>
-            <Txt variant="cap">When your queue ends, we&apos;ll play songs like these: same style, language or mood.</Txt>
+            <Txt variant="cap">{player.repeat === "off" ? "When your queue ends, we'll play songs like these: same style, language or mood." : "Off while Repeat is on."}</Txt>
           </View>
           <Switch accessibilityLabel="Keep the music going" value={player.autoplay} onValueChange={player.setAutoplay} trackColor={{ true: colors.teal, false: colors.lineStrong }} />
         </View>
