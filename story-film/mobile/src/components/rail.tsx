@@ -6,7 +6,7 @@ import { api, type Duet, type Film, type RecipeCard, type SentGift, type Song } 
 import { copyLink, giftMessage, occasionLabel, sendOnWhatsApp } from "@/lib/gifts";
 import { KIND_LABEL, type Recording } from "@/lib/hum";
 import { reviewHref } from "@/lib/music-video";
-import { formatTime } from "@/lib/songs";
+import { formatTime, genreLabel } from "@/lib/songs";
 import { viewerList } from "@/lib/viewer-list";
 import { radius, useTheme } from "@/theme";
 import { Icon } from "./icon";
@@ -139,7 +139,7 @@ export function OwnSongCard({ song, songs }: { song: Song; songs: Song[] }) {
       <Txt variant="label" numberOfLines={2}>
         {song.title}
       </Txt>
-      {ready ? <Txt variant="cap" numberOfLines={1}>{`${formatTime(song.durationSec)} · ${song.language}`}</Txt> : <Status kind="making" text="Making…" />}
+      {ready ? <Txt variant="cap" numberOfLines={1}>{`${formatTime(song.durationSec)} · ${genreLabel(song.genre)}`}</Txt> : <Status kind="making" text="Making…" />}
     </Pressable>
   );
 }
