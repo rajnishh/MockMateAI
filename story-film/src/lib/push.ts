@@ -1,8 +1,9 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, gte, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Db } from "@/lib/db";
-import { film, pushPrefs, pushToken, song } from "@/lib/db/schema";
-import { type PushLang, reelFailedText, reelReadyText, songFailedText, songReadyText } from "@/lib/push-copy";
+import { creatorEarning, film, pushPrefs, pushToken, song } from "@/lib/db/schema";
+import type { CreatorEarning } from "@/lib/billing/earnings";
+import { type PushLang, reelFailedText, reelReadyText, remixedText, songFailedText, songReadyText } from "@/lib/push-copy";
 
 // Push notifications through Expo's push service (free; no key needed for Expo push tokens).
 // Songs and reels ready or failed (from the worker), a gift opened or answered, and a Jugalbandi's
@@ -14,11 +15,11 @@ const EXPO_RECEIPTS = "https://exp.host/--/api/v2/push/getReceipts";
 // Expo asks to wait a while before reading receipts, which is where most dead tokens show up.
 const RECEIPT_DELAY_MS = 15 * 60_000;
 
-// Account › Notifications. "gifts" covers gifts and Jugalbandis.
-export type PushKind = "songs" | "reels" | "gifts";
+// Account › Notifications. "gifts" covers gifts and Jugalbandis; "remixes" remixes of your songs and what they earned.
+export type PushKind = "songs" | "reels" | "gifts" | "remixes";
 export type PushPrefs = Record<PushKind, boolean>;
-const ALL_ON: PushPrefs = { songs: true, reels: true, gifts: true };
-export const prefsSchema = z.object({ songs: z.boolean(), reels: z.boolean(), gifts: z.boolean() }).partial();
+const ALL_ON: PushPrefs = { songs: true, reels: true, gifts: true, remixes: true };
+export const prefsSchema = z.object({ songs: z.boolean(), reels: z.boolean(), gifts: z.boolean(), remixes: z.boolean() }).partial();
 
 export interface PushMessage {
   title: string;
@@ -51,7 +52,7 @@ export async function removePushToken(db: Db, userId: string, token: string): Pr
 
 export async function getPushPrefs(db: Db, userId: string): Promise<PushPrefs> {
   const [row] = await db.select().from(pushPrefs).where(eq(pushPrefs.userId, userId));
-  return row ? { songs: row.songs, reels: row.reels, gifts: row.gifts } : { ...ALL_ON };
+  return row ? { songs: row.songs, reels: row.reels, gifts: row.gifts, remixes: row.remixes } : { ...ALL_ON };
 }
 
 export async function setPushPrefs(db: Db, userId: string, change: Partial<PushPrefs>): Promise<PushPrefs> {
@@ -158,6 +159,25 @@ export async function notifyReel(db: Db, filmId: string, fetchFn: typeof fetch =
     return await sendPush(db, [f.userId], (lang) => ({ ...(ok ? reelReadyText(lang, f.title) : reelFailedText(lang)), path: ok ? `/reel/${f.id}` : `/making/${f.id}`, kind: "reels" }), fetchFn, opts);
   } catch (err) {
     console.error(`push for reel ${filmId} failed:`, (err as Error).message);
+    return 0;
+  }
+}
+
+// "Your song is being remixed", at most once a day per song: only for the first remix of that song
+// that finished today (UTC). A new whole credit doesn't get its own push.
+export async function notifyRemix(db: Db, earning: CreatorEarning, fetchFn: typeof fetch = fetch, opts: PushOptions = {}): Promise<number> {
+  try {
+    const today = new Date(`${(earning.settledAt ?? new Date()).toISOString().slice(0, 10)}T00:00:00Z`);
+    const [n] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(creatorEarning)
+      .where(and(eq(creatorEarning.userId, earning.userId), eq(creatorEarning.subjectRef, earning.subjectRef), eq(creatorEarning.status, "earned"), gte(creatorEarning.settledAt, today)));
+    if (Number(n?.n ?? 0) > 1) return 0;
+    const [s] = await db.select({ title: song.title }).from(song).where(eq(song.id, earning.subjectRef));
+    if (!s) return 0;
+    return await sendPush(db, [earning.userId], (lang) => ({ ...remixedText(lang, s.title, earning.hundredths), path: `/earn/${earning.subjectRef}`, kind: "remixes" }), fetchFn, opts);
+  } catch (err) {
+    console.error(`push for remix earning ${earning.id} failed:`, (err as Error).message);
     return 0;
   }
 }

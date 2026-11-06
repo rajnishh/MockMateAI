@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { linkRemix } from "@/lib/remixes";
 import type { Db } from "@/lib/db";
 import { song as songTable, user } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -183,8 +184,13 @@ describe("the song page", () => {
     const db = await setup();
     const original = await published(db, "priya");
     const remix = await published(db, "rajnish", { parentSongId: original.id, title: "Chai pe charcha (cover)" });
+    // The credit line comes from the remix link; a parent alone (edits, my-voice versions) isn't a remix.
+    expect((await publicSongView(db, (await publicSong(db, remix.publicId!))!)).remixOf).toBeNull();
+    await linkRemix(db, remix.id, original, "cover");
     const v = await publicSongView(db, (await publicSong(db, remix.publicId!))!);
     expect(v.remixOf).toEqual({ publicId: original.publicId, title: "Chai pe charcha", handle: "priya.music" });
+    await unpublishSong(db, "priya", original.id);
+    expect(await publicSongView(db, (await publicSong(db, remix.publicId!))!)).toMatchObject({ remixOf: null, remixOfGone: true });
   });
 
   it("has More like this and By this creator rails", async () => {

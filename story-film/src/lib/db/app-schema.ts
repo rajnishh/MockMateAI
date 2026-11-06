@@ -121,7 +121,9 @@ export const scheduledPost = pgTable(
   (t) => [index("scheduled_post_user_time_idx").on(t.userId, t.scheduledAt)],
 );
 
-export const ledgerReason = pgEnum("ledger_reason", ["purchase", "subscription", "video", "refund", "grant", "song"]);
+// "earning": whole credits a creator earned from remixes of their songs or uses of their recipes
+// (src/lib/billing/earnings.ts). Earned credits count as free, like "grant".
+export const ledgerReason = pgEnum("ledger_reason", ["purchase", "subscription", "video", "refund", "grant", "song", "earning"]);
 export const purchaseStatus = pgEnum("purchase_status", ["created", "paid", "failed"]);
 export const currency = pgEnum("currency", ["INR", "USD", "AED"]);
 
@@ -130,6 +132,10 @@ export const creditBalance = pgTable("credit_balance", {
     .primaryKey()
     .references(() => user.id, { onDelete: "cascade" }),
   balance: integer("balance").notNull().default(0),
+  // Earnings, in hundredths of a credit: everything earned so far, and how many whole credits of
+  // it are already in the balance. The rest is "on the way".
+  earnedHundredths: integer("earned_hundredths").notNull().default(0),
+  earnedCredited: integer("earned_credited").notNull().default(0),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
@@ -317,6 +323,66 @@ export const songReaction = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [uniqueIndex("song_reaction_once_idx").on(t.songId, t.userId)],
+);
+
+// Remix chains (design/community/remix-spec.md): one row per remix, own songs too. The parent and
+// root have no foreign key, so a deleted song in the middle of a chain becomes a "No longer
+// available" node and its remixes stay in the family. Same kinds as REMIX_KINDS in src/lib/songs/remix.ts.
+export const remixKind = pgEnum("remix_kind", ["cover", "extend", "replace", "rap", "add-vocals", "add-instrumental"]);
+
+export const remixLink = pgTable(
+  "remix_link",
+  {
+    childSongId: uuid("child_song_id")
+      .primaryKey()
+      .references(() => song.id, { onDelete: "cascade" }),
+    parentSongId: uuid("parent_song_id").notNull(),
+    // Who made the parent when it was remixed: for earnings and the Inbox.
+    parentUserId: text("parent_user_id"),
+    // The top of the family: the parent's root, or the parent itself.
+    rootSongId: uuid("root_song_id").notNull(),
+    // 1 for a remix of an original, 2 for a remix of that, and so on.
+    depth: integer("depth").notNull(),
+    kind: remixKind("kind").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("remix_link_parent_idx").on(t.parentSongId), index("remix_link_root_idx").on(t.rootSongId)],
+);
+
+// Creator earnings, shared by remixes and reel recipes (src/lib/billing/earnings.ts). One row per
+// thing that earned: a remix (source_ref = the remix song id, subject_ref = the parent song id) or a
+// reel made with a recipe (the reel id and the recipe id). Amounts are hundredths of a credit.
+export const earningSource = pgEnum("earning_source", ["remix", "recipe"]);
+// pending: charged, waiting for the remix or reel to finish; earned: added to the earner's total;
+// dropped: it failed (and was refunded) or its subject was taken down.
+export const earningStatus = pgEnum("earning_status", ["pending", "earned", "dropped"]);
+
+export const creatorEarning = pgTable(
+  "creator_earning",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    source: earningSource("source").notNull(),
+    sourceRef: text("source_ref").notNull(),
+    subjectRef: text("subject_ref").notNull(),
+    payerUserId: text("payer_user_id").references(() => user.id, { onDelete: "set null" }),
+    // Credits the payer was charged, the share of their credits that were paid for (basis points,
+    // 10000 = all paid) and the rate (basis points, 1000 = 10%), all as they were at charge time.
+    charged: integer("charged").notNull(),
+    paidRatioBp: integer("paid_ratio_bp").notNull(),
+    rateBp: integer("rate_bp").notNull(),
+    hundredths: integer("hundredths").notNull(),
+    status: earningStatus("status").notNull().default("pending"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    settledAt: timestamp("settled_at"),
+  },
+  (t) => [
+    uniqueIndex("creator_earning_source_idx").on(t.source, t.sourceRef),
+    index("creator_earning_user_idx").on(t.userId, t.createdAt),
+    index("creator_earning_subject_idx").on(t.userId, t.subjectRef),
+  ],
 );
 
 // "Ask Reelkar", the built-in agent. How it may post: always ask first, schedule on its own, or post at once.
@@ -690,5 +756,7 @@ export const pushPrefs = pgTable("push_prefs", {
   reels: boolean("reels").notNull().default(true),
   // Gifts and Jugalbandis.
   gifts: boolean("gifts").notNull().default(true),
+  // Remixes of the creator's songs and what they earned.
+  remixes: boolean("remixes").notNull().default(true),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

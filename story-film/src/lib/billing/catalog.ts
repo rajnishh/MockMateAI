@@ -133,3 +133,8 @@ export const STEMS_CREDITS = 1;
 // "Hum it": a song on the creator's own hummed or sung tune (ACE-Step audio-to-audio on fal, $0.0002 per
 // second of audio from fal's pricing API on 2026-11-05, so a 60 s take is ~1 cent), priced like a cover.
 export const TUNE_SONG_CREDITS = REMIX_CREDITS.cover;
+
+// Creator earnings (design/community/remix-spec.md, shared with reel recipes): the maker of a remixed
+// song, or of a recipe, earns this share of the paid credits the remix or reel spends, in basis
+// points (1000 = 10%). PLACEHOLDER: the owner may change it; every earning row keeps the rate it used.
+export const EARN_RATE_BP = 1000;

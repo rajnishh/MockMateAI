@@ -229,9 +229,9 @@ describe("push routes", () => {
   it("reads and changes which pushes are on", async () => {
     const db = await setup();
     state.userId = "rajnish";
-    expect(await (await settingsRoute.GET()).json()).toEqual({ songs: true, reels: true, gifts: true });
-    expect(await (await settingsRoute.PUT(json("PUT", { reels: false }))).json()).toEqual({ songs: true, reels: false, gifts: true });
-    expect(await getPushPrefs(db, "rajnish")).toEqual({ songs: true, reels: false, gifts: true });
+    expect(await (await settingsRoute.GET()).json()).toEqual({ songs: true, reels: true, gifts: true, remixes: true });
+    expect(await (await settingsRoute.PUT(json("PUT", { reels: false }))).json()).toEqual({ songs: true, reels: false, gifts: true, remixes: true });
+    expect(await getPushPrefs(db, "rajnish")).toEqual({ songs: true, reels: false, gifts: true, remixes: true });
     expect((await settingsRoute.PUT(json("PUT", { reels: "no" }))).status).toBe(400);
   });
 });
