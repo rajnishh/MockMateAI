@@ -1,5 +1,5 @@
 import { router, type Href } from "expo-router";
-import type { ReactNode } from "react";
+import { createContext, type ReactNode, useContext } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -112,6 +112,9 @@ export function Header({ title, sub, back, right }: { title: string; sub?: strin
   );
 }
 
+// Rows centre their children; a button inside one must not pin itself to the top.
+const InRow = createContext(false);
+
 type ButtonKind = "primary" | "secondary" | "tweak" | "ghost" | "danger";
 
 export function Button({
@@ -136,6 +139,7 @@ export function Button({
   style?: StyleProp<ViewStyle>;
 }) {
   const { mode, colors } = useTheme();
+  const inRow = useContext(InRow);
   const off = disabled || loading;
   // Primary buttons sit on a darker edge, so they look pressable and sink when tapped.
   const edge = kind === "primary" && !off ? (mode === "dark" ? "#b0125a" : colors.coralText) : null;
@@ -160,14 +164,14 @@ export function Button({
           borderColor: l.border,
           minHeight: small ? 40 : size.buttonHeight,
           paddingHorizontal: kind === "ghost" ? space[2] : small ? space[4] : 22,
-          alignSelf: block ? "stretch" : "flex-start",
+          alignSelf: block ? "stretch" : inRow ? "center" : "flex-start",
           transform: edge ? [{ translateY: pressed ? 2 : 0 }] : [{ scale: pressed ? 0.98 : 1 }],
         },
         edge ? { borderBottomWidth: pressed ? 2 : 4, borderBottomColor: edge } : null,
         style,
       ]}>
       {loading ? <ActivityIndicator color={l.fg} /> : icon ? <Icon name={icon} size={18} color={l.fg} /> : null}
-      <Text style={{ fontFamily: fonts.bold, fontSize: small ? 14 : 16, color: l.fg }}>{label}</Text>
+      <Text style={{ flexShrink: 1, textAlign: "center", fontFamily: fonts.bold, fontSize: small ? 14 : 16, color: l.fg }}>{label}</Text>
     </Pressable>
   );
 }
@@ -265,7 +269,7 @@ export function Banner({ kind, title, text, action }: { kind: "info" | "warn" | 
           {text}
         </Txt>
       </View>
-      {action}
+      {action ? <View style={{ alignSelf: "center" }}>{action}</View> : null}
     </View>
   );
 }
@@ -381,7 +385,8 @@ export function Empty({ title, text, action }: { title: string; text: string; ac
       <Txt variant="cap" style={{ textAlign: "center", maxWidth: 300 }}>
         {text}
       </Txt>
-      {action}
+      {/* Buttons hug the left unless they're block; this wrapper keeps the action centred. */}
+      {action ? <View style={{ alignSelf: "center" }}>{action}</View> : null}
     </View>
   );
 }
@@ -397,7 +402,11 @@ export function Skeleton({ height = 64 }: { height?: number }) {
 }
 
 export function Row({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
-  return <View style={[styles.row, style]}>{children}</View>;
+  return (
+    <View style={[styles.row, style]}>
+      <InRow.Provider value>{children}</InRow.Provider>
+    </View>
+  );
 }
 
 // A bottom sheet over a scrim, e.g. "Stop new remixes?" or "How earning works". Tapping outside closes it.
