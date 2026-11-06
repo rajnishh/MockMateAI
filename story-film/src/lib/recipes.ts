@@ -311,7 +311,7 @@ export function recipeHas(s: RecipeSpec, lang = "en") {
     case "dance":
       return { format: s.format, durationSec: s.durationSec, scene: s.scene, bpm: s.bpm, dancers: s.dancers.length, lines: s.moves.length, voice: s.voice };
     case "edit":
-      return { format: s.format, durationSec: s.durationSec, captions: s.captions, zooms: s.zooms, effects: s.effects, sounds: s.sounds, voice: s.voice, mix: Object.keys(s.mix.effects).concat(Object.keys(s.mix.cards)) };
+      return { format: s.format, durationSec: s.durationSec, captions: s.captions, zooms: s.zooms, effects: s.effects, sounds: s.sounds, voice: s.voice, ending: s.ending, mix: Object.keys(s.mix.effects).concat(Object.keys(s.mix.cards)) };
   }
 }
 

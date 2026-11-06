@@ -19,7 +19,17 @@ export function filmStatus(f: Film) {
 }
 
 // The system alert, with a destructive Delete, so a reel is never removed by one stray tap.
-export function confirmDelete(id: string, onDeleted: () => void, onError: (message: string) => void) {
+// A reel shared as a recipe asks whether the recipe goes too; it can stay (it keeps its own preview and music).
+export function confirmDelete(id: string, onDeleted: () => void, onError: (message: string) => void, hasRecipe = false) {
+  const remove = (keepRecipe: boolean) => api.deleteFilm(id, keepRecipe).then(onDeleted, (err: Error) => onError(err.message));
+  if (hasRecipe) {
+    Alert.alert("Delete this reel?", "It's shared as a recipe. Its scheduled posts are cancelled too. This can't be undone.", [
+      { text: "Delete reel and recipe", style: "destructive", onPress: () => remove(false) },
+      { text: "Delete reel, keep recipe", style: "destructive", onPress: () => remove(true) },
+      { text: "Cancel", style: "cancel" },
+    ]);
+    return;
+  }
   Alert.alert("Delete this reel?", "Its scheduled posts are cancelled too. This can't be undone.", [
     { text: "Keep it", style: "cancel" },
     {

@@ -20,6 +20,8 @@ export interface Film {
   // Set for music videos: their storyboard is checked on the song's music video screen.
   songId?: string | null;
   format?: "story" | "motion" | "dance" | "edit" | "music";
+  // Made with someone's recipe ("Recipe by @maker"); only on a single reel.
+  recipe?: RecipeRef | null;
 }
 
 export type Currency = "INR" | "USD" | "AED";
@@ -193,6 +195,8 @@ export interface EditUpload {
   ending: "auto" | "none" | "follow" | "comment";
   keyword?: string;
   brand?: { accent?: string; background?: "light" | "dark"; handle?: string };
+  // An edit recipe's public id: the server takes its options.
+  recipe?: string;
 }
 
 export type Quality = "standard" | "premium" | "cinematic";
@@ -215,6 +219,8 @@ export interface NewFilm {
   brand?: { accent?: string; background?: "light" | "dark"; handle?: string };
   kidSafe?: boolean;
 }
+// "Use this recipe": only the user's own fields; the server takes the kind, look and length from it.
+export type NewRecipeFilm = Pick<NewFilm, "story" | "language" | "quality" | "photo" | "photoConsent" | "keyword" | "brand"> & { recipe: string };
 
 // Song Studio (mirrors songView in story-film/src/lib/songs/songs.ts).
 export type SongStatus = "queued" | "running" | "completed" | "failed";
@@ -346,6 +352,9 @@ export interface EarningSubject {
   publicId: string | null;
   count: number;
   hundredths: number;
+  // Recipes only: finished uses that cost nothing, and whether it's still shared.
+  freeUses?: number;
+  state?: RecipeState;
 }
 export interface Earnings {
   totalHundredths: number;
@@ -367,9 +376,105 @@ export interface EarningEvent {
 }
 export interface EarningDetail {
   title: string | null;
+  source?: EarningSource;
+  publicId?: string | null;
   cursor: string | null;
   events: EarningEvent[];
 }
+// Reel recipes (mirrors story-film/src/lib/recipes.ts and recipe-spec.ts).
+export type RecipeFormat = "story" | "motion" | "dance" | "edit";
+export type RecipeState = "public" | "stopped" | "taken_down";
+export type ShapeRole = "hook" | "beat" | "turn" | "payoff" | "cta";
+export interface RecipeRef {
+  publicId: string;
+  name: string;
+  handle: string;
+  state: RecipeState;
+}
+export interface RecipeCard {
+  publicId: string;
+  name: string;
+  handle: string;
+  format: RecipeFormat;
+  style: string | null;
+  styleLabel: string | null;
+  durationSec: number;
+  quality: Quality;
+  kidSafe: boolean;
+  free: boolean;
+  occasions: string[];
+  useCount: number;
+  posterUrl: string | null;
+  languageHint: string | null;
+}
+export type RecipeHas =
+  | { format: "story"; style: string; styleLabel: string; durationSec: number; quality: Quality; shape: { first: ShapeRole; middle: number; last: ShapeRole; tone: string; shots: { role: ShapeRole; intent: string }[] }; music: true }
+  | { format: "motion"; durationSec: number; theme: string; slides: string[]; ending: string; music: true }
+  | { format: "dance"; durationSec: number; scene: string; bpm: number; dancers: number; lines: number; voice: string }
+  | { format: "edit"; durationSec: number; captions: boolean; zooms: boolean; effects: boolean; sounds: boolean; voice: string; ending: string; mix: string[] };
+export interface RecipeDetail extends RecipeCard {
+  topicHint: string;
+  previewUrl: string | null;
+  has: RecipeHas;
+  rateBp: number;
+}
+export interface MakerEarns {
+  hundredths: number;
+  kind: "n" | "small" | "free" | "own";
+}
+export interface RecipePage {
+  state: RecipeState;
+  publicId: string;
+  mine: boolean;
+  recipe: RecipeDetail;
+  rails: { sameFestival: RecipeCard[]; byMaker: RecipeCard[]; occasion: string | null };
+  // Signed in, someone else's recipe.
+  price?: { quality: Quality; credits: number; freeLeft: number | null; standardCredits: number; premiumAvailable: boolean; cinematicAvailable: boolean };
+  paidRatioBp?: number;
+  makerEarns?: MakerEarns;
+  // The maker's own.
+  stats?: { useCount: number; earnedHundredths: number; thisWeek: number };
+}
+export interface FestivalInfo {
+  slug: string;
+  name: string;
+  nameEn: string;
+  native: { en: string; hi: string; ar: string };
+  date: string | null;
+  inDays: number | null;
+  allYear: boolean;
+}
+export interface RecipesHome {
+  festival: (FestivalInfo & { thumbs: RecipeCard[] }) | null;
+  start: RecipeCard[];
+  rails: { trending: RecipeCard[]; new: RecipeCard[]; free: RecipeCard[]; kids: RecipeCard[] };
+  collections: (FestivalInfo & { count: number })[];
+}
+export interface RecipeCollection {
+  festival: FestivalInfo & { count: number };
+  featured: RecipeCard[];
+  recipes: RecipeCard[];
+}
+// The finished reel's recipe card (M1).
+export interface FilmRecipe {
+  eligible: boolean;
+  reason: "notFinished" | "musicVideo" | "fromRecipe" | "cantRead" | null;
+  madeFrom: RecipeRef | null;
+  recipe: { publicId: string; name: string; state: RecipeState; url: string; useCount: number; earnedHundredths: number; thisWeek: number } | null;
+}
+// The Share as a recipe sheet (M3).
+export interface RecipeDraft {
+  eligible: boolean;
+  reason?: string;
+  error?: string;
+  has?: RecipeHas;
+  topicHint?: string;
+  needsPreviewConsent?: boolean;
+  suggestedName?: string;
+  festivals?: FestivalInfo[];
+  handle?: string | null;
+}
+
 // The Inbox's Remixes group: a named public remix, an anonymous private one, or a day's batch.
 export interface RemixInboxItem {
   kind: "published" | "private" | "batch";
@@ -686,7 +791,7 @@ export const aiNeedsKey = (id: string) => id !== "reelkar" && id !== "ollama";
 const real = {
   films: async () => (await call<{ films: Film[] }>("/api/films")).films,
   film: (id: string) => call<Film>(`/api/films/${id}`),
-  createFilm: (input: NewFilm) => call<{ id: string; credits: number }>("/api/films", { method: "POST", body: JSON.stringify(input) }),
+  createFilm: (input: NewFilm | NewRecipeFilm) => call<{ id: string; credits: number }>("/api/films", { method: "POST", body: JSON.stringify(input) }),
   billing: () => call<Billing>("/api/billing"),
   ideas: async (niche: string, language: string, more: { format?: Idea["format"]; avoid?: string[] } = {}) =>
     (await call<{ ideas: Idea[] }>("/api/suggestions", { method: "POST", body: JSON.stringify({ niche, language, ...more }) })).ideas,
@@ -706,6 +811,7 @@ const real = {
     form.append("ending", input.ending);
     if (input.keyword) form.append("keyword", input.keyword);
     if (input.brand) form.append("brand", JSON.stringify(input.brand));
+    if (input.recipe) form.append("recipe", input.recipe);
     const cookie = await authClient.getCookie();
     const res = await fetch(`${API_URL}/api/edits`, { method: "POST", body: form, credentials: "omit", headers: cookie ? { Cookie: cookie } : {} });
     const body = await res.json().catch(() => ({}));
@@ -752,7 +858,8 @@ const real = {
   createPost: async (input: NewPost) => (await call<{ post: Post }>("/api/posts", { method: "POST", body: JSON.stringify(input) })).post,
   cancelPost: (id: string) => call<unknown>(`/api/posts/${id}`, { method: "DELETE" }),
   retryPost: (id: string) => call<unknown>(`/api/posts/${id}/retry`, { method: "POST" }),
-  deleteFilm: (id: string) => call<unknown>(`/api/films/${id}`, { method: "DELETE" }),
+  // keepRecipe false is "Delete reel and recipe".
+  deleteFilm: (id: string, keepRecipe = true) => call<unknown>(`/api/films/${id}${keepRecipe ? "" : "?recipe=stop"}`, { method: "DELETE" }),
   // A signed link that plays without signing in (for 2 hours): used to save and share the video.
   // The server builds it on its public URL; the phone downloads through the address it already
   // reaches (a LAN IP or tunnel in development, where the public URL is often localhost).
@@ -830,6 +937,19 @@ const real = {
   earnings: (source: EarningSource | "all" = "all") => call<Earnings>(`/api/me/earnings?source=${source}`),
   earningDetail: (ref: string, cursor?: string | null) => call<EarningDetail>(`/api/me/earnings/${encodeURIComponent(ref)}${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`),
   remixInbox: async () => (await call<{ items: RemixInboxItem[] }>("/api/me/remixes")).items,
+  // Reel recipes.
+  filmRecipe: (id: string) => call<FilmRecipe>(`/api/films/${id}/recipe`),
+  recipeDraft: (id: string, lang: string) => call<RecipeDraft>(`/api/films/${id}/recipe/draft?lang=${encodeURIComponent(lang)}`),
+  shareRecipe: (id: string, input: { name: string; occasions: string[]; preview: "reel" | "look" }) => call<{ publicId: string; url: string }>(`/api/films/${id}/recipe`, { method: "POST", body: JSON.stringify(input) }),
+  recipe: (publicId: string, lang: string) => call<RecipePage>(`/api/recipes/public/${publicId}?lang=${encodeURIComponent(lang)}`),
+  recipesHome: (lang: string, tz: string) => call<RecipesHome>(`/api/recipes/home?${new URLSearchParams({ lang, tz })}`),
+  recipeList: (q: { list?: string; format?: RecipeFormat; maker?: string }) => call<{ recipes: RecipeCard[]; cursor: number | null }>(`/api/recipes?${new URLSearchParams(q as Record<string, string>)}`),
+  recipeCollection: (slug: string, lang: string, format?: RecipeFormat) => call<RecipeCollection>(`/api/recipes?${new URLSearchParams({ collection: slug, lang, ...(format ? { format } : {}) })}`),
+  setRecipeSharing: (publicId: string, on: boolean) => call<{ state: RecipeState }>(`/api/recipes/${publicId}/${on ? "publish" : "unpublish"}`, { method: "POST" }),
+  editRecipe: (publicId: string, input: { name?: string; occasions?: string[] }) => call<{ name: string; occasions: string[] }>(`/api/recipes/${publicId}`, { method: "PATCH", body: JSON.stringify(input) }),
+  reportRecipe: (publicId: string, reason: ReportReason, details: string) => call<unknown>(`/api/recipes/public/${publicId}/report`, { method: "POST", body: JSON.stringify({ reason, details }) }),
+  recipeLink: (publicId: string) => `${API_URL}/r/${publicId}`,
+  recipePosterUrl: (path: string | null) => (path ? `${API_URL}${path}` : null),
   videoHeaders: async (): Promise<Record<string, string>> => {
     const cookie = await authClient.getCookie();
     return cookie ? { Cookie: cookie } : {};
@@ -893,6 +1013,38 @@ function demoAnalysis(song: Song | undefined): SongAnalysis {
 
 const demoSongs: Song[] = [demoSong("s1", "Baarish wali chai", "indie-acoustic"), demoSong("s2", "Dadi ki rasoi", "bollywood-romantic")];
 let demoHandle: string | null = null;
+const demoRecipes: { source: string }[] = [];
+const demoFestival: FestivalInfo = { slug: "diwali", name: "Diwali", nameEn: "Diwali", native: { en: "Diwali", hi: "दिवाली", ar: "ديوالي" }, date: "2026-11-08", inDays: 2, allYear: false };
+const demoHas: RecipeHas = {
+  format: "story",
+  style: "animated",
+  styleLabel: "3D cartoon",
+  durationSec: 30,
+  quality: "premium",
+  shape: {
+    first: "hook",
+    middle: 4,
+    last: "payoff",
+    tone: "warm",
+    shots: [
+      { role: "hook", intent: "Open on a surprising question about the topic" },
+      { role: "beat", intent: "Show the everyday moment before the change" },
+      { role: "beat", intent: "Bring in a small problem" },
+      { role: "turn", intent: "Something unexpected happens" },
+      { role: "beat", intent: "Everyone comes together" },
+      { role: "payoff", intent: "A warm ending that answers the opening question" },
+    ],
+  },
+  music: true,
+};
+const demoRecipeCard = (publicId: string, name: string, handle: string, format: RecipeFormat, free: boolean, useCount: number): RecipeCard => ({
+  publicId, name, handle, format, style: format === "story" ? "animated" : null, styleLabel: format === "story" ? "3D cartoon" : null, durationSec: 30, quality: free ? "standard" : "premium", kidSafe: format === "dance", free, occasions: ["diwali"], useCount, posterUrl: null, languageHint: "hi",
+});
+const demoRecipeCards: RecipeCard[] = [
+  demoRecipeCard("demoRecipe1", "Diya Night", "meera.makes", "story", false, 1200),
+  demoRecipeCard("demoRecipe2", "3 Diwali savings tips", "paisa.tips", "motion", true, 310),
+  demoRecipeCard("demoRecipe3", "Phuljhadi dance", "kids.dhol", "dance", true, 95),
+];
 const demoCard = (publicId: string, title: string, handle: string, genre: string, genreLabel: string, language: string, languageLabel: string): PublicSongCard => ({
   publicId,
   title,
@@ -1062,12 +1214,13 @@ const demo: typeof real = {
   },
   createFilm: async (input) => {
     await wait(400);
-    const drawn = input.format === "motion" || input.format === "dance";
+    const format = "format" in input ? input.format : undefined;
+    const drawn = format === "motion" || format === "dance";
     const perShot = input.quality === "cinematic" ? 30 : input.quality === "premium" ? 12 : 0;
-    const cost = drawn ? 0 : Math.round(input.durationSec / 5) * perShot;
+    const cost = drawn ? 0 : Math.round(("durationSec" in input ? input.durationSec : 30) / 5) * perShot;
     if (cost > demoBalance) throw new ApiError(`${input.quality === "cinematic" ? "A Cinematic video" : "AI animation"} needs ${cost} credits for this length.`, 402, true);
     demoBalance -= cost;
-    const f: Film = { ...sample(`d${Date.now()}`, input.story.slice(0, 40), "queued", 0), quality: drawn ? "standard" : input.quality, credits: cost, story: input.story, format: input.format ?? "story" };
+    const f: Film = { ...sample(`d${Date.now()}`, input.story.slice(0, 40), "queued", 0), quality: drawn ? "standard" : input.quality, credits: cost, story: input.story, format: format ?? "story" };
     demoFilms.push(f);
     return { id: f.id, credits: cost };
   },
@@ -1490,6 +1643,49 @@ const demo: typeof real = {
     }
   ),
   remixInbox: async () => (await wait(200), [{ kind: "published" as const, subjectRef: "s1", songTitle: "Baarish wali chai", count: 1, remixKind: "cover", remixerHandle: "sana.sings", publicId: demoCards[0].publicId, at: new Date(Date.now() - 2 * 3600_000).toISOString(), hundredths: 10 }]),
+  filmRecipe: async (id) => (await wait(200), { eligible: !demoRecipes.some((r) => r.source === id), reason: null, madeFrom: null, recipe: demoRecipes.find((r) => r.source === id) ? { publicId: "demoRecipe1", name: "Diya Night", state: "public" as const, url: "https://reelkar.app/r/demoRecipe1", useCount: 38, earnedHundredths: 2140, thisWeek: 3 } : null }),
+  recipeDraft: async (id) => (
+    await wait(600),
+    {
+      eligible: true,
+      has: demoHas,
+      topicHint: "A Diwali memory, your shop, your family…",
+      needsPreviewConsent: false,
+      suggestedName: demoFilms.find((f) => f.id === id)?.title?.slice(0, 40) ?? "My recipe",
+      festivals: [demoFestival, { ...demoFestival, slug: "uae-national-day", name: "Eid Al Etihad", nameEn: "Eid Al Etihad", date: "2026-12-02", inDays: 26 }, { ...demoFestival, slug: "birthday", name: "Birthday", nameEn: "Birthday", date: null, inDays: null, allYear: true }],
+      handle: demoHandle,
+    }
+  ),
+  shareRecipe: async (id) => (await wait(500), demoRecipes.push({ source: id }), { publicId: "demoRecipe1", url: "https://reelkar.app/r/demoRecipe1" }),
+  recipe: async (publicId) => (
+    await wait(300),
+    {
+      state: "public" as const,
+      publicId,
+      mine: false,
+      recipe: { ...demoRecipeCards[0], publicId, topicHint: "A Diwali memory, your shop, your family…", previewUrl: null, has: demoHas, rateBp: 1000 },
+      rails: { sameFestival: demoRecipeCards.slice(1), byMaker: [], occasion: "diwali" },
+      price: { quality: "premium" as const, credits: 72, freeLeft: 2, standardCredits: 1, premiumAvailable: true, cinematicAvailable: false },
+      paidRatioBp: 8823,
+      makerEarns: { hundredths: 635, kind: "n" as const },
+    }
+  ),
+  recipesHome: async () => (
+    await wait(300),
+    {
+      festival: { ...demoFestival, thumbs: demoRecipeCards },
+      start: demoRecipeCards,
+      rails: { trending: demoRecipeCards, new: [...demoRecipeCards].reverse(), free: demoRecipeCards.filter((c) => c.free), kids: demoRecipeCards.filter((c) => c.kidSafe) },
+      collections: [{ ...demoFestival, count: 3 }, { ...demoFestival, slug: "holi", name: "Holi", nameEn: "Holi", native: { en: "Holi", hi: "होली", ar: "هولي" }, date: "2027-03-22", inDays: 136, count: 0 }],
+    }
+  ),
+  recipeList: async () => (await wait(300), { recipes: demoRecipeCards, cursor: null }),
+  recipeCollection: async (slug) => (await wait(300), { festival: { ...demoFestival, slug, count: demoRecipeCards.length }, featured: demoRecipeCards.slice(0, 1), recipes: demoRecipeCards.slice(1) }),
+  setRecipeSharing: async (_id, on) => (await wait(200), { state: on ? ("public" as const) : ("stopped" as const) }),
+  editRecipe: async (_id, input) => (await wait(200), { name: input.name ?? "Diya Night", occasions: input.occasions ?? [] }),
+  reportRecipe: async () => (await wait(300), {}),
+  recipeLink: (publicId) => `https://reelkar.app/r/${publicId}`,
+  recipePosterUrl: () => null,
   videoUrl: () => null,
   previewUri: () => null,
   videoHeaders: async () => ({}),

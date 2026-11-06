@@ -19,7 +19,7 @@ const PUSH_KINDS: { kind: PushKind; title: string; sub: string }[] = [
   { kind: "songs", title: "Songs", sub: "When a song is ready, or didn't work" },
   { kind: "reels", title: "Reels", sub: "When a reel is ready, or didn't work" },
   { kind: "gifts", title: "Gifts and Jugalbandis", sub: "When someone opens or answers a song you sent, or sings with you" },
-  { kind: "remixes", title: "Remixes and earnings", sub: "When someone remixes your song, at most once a day per song" },
+  { kind: "remixes", title: "Remixes and earnings", sub: "When someone remixes your song or uses your recipe, at most once a day each" },
 ];
 
 // Account › Notifications: each kind on or off, saved on the server so every phone follows it.
@@ -191,7 +191,7 @@ export default function Account() {
         <ListRow icon="link" title="Connected accounts" sub="Instagram, YouTube" onPress={() => router.push("/connections")} />
         <ListRow icon="sparkle" title="Credits and plans" onPress={() => router.push("/credits")} />
         <ListRow icon="film" title="My reels" onPress={() => router.push("/reels")} />
-        <ListRow icon="earn" title="Earnings" sub="From remixes of your songs" onPress={() => router.push("/earn")} />
+        <ListRow icon="earn" title="Earnings" sub="From remixes of your songs and uses of your recipes" onPress={() => router.push("/earn")} />
         {SUPPORT_EMAIL ? (
           <ListRow
             icon="send"
