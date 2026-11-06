@@ -6,6 +6,7 @@ import { AccessibilityInfo, ActivityIndicator, Alert, FlatList, Pressable, Style
 import { GestureDetector, GestureHandlerRootView, useExclusiveGestures, useLongPressGesture, usePinchGesture, useSimultaneousGestures, useTapGesture } from "react-native-gesture-handler";
 import Animated, { FadeOut, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { scheduleOnRN } from "react-native-worklets";
 
 import { api, type Film } from "@/lib/api";
@@ -320,6 +321,16 @@ function ReelPage({ film, headers, active, paused, onPause, muted, fit, position
             </RoundIcon>
           </View>
 
+          {/* A soft dark fade behind the title and buttons, so white text reads on any frame. */}
+          <Svg style={styles.fade} width="100%" height={260} pointerEvents="none">
+            <Defs>
+              <LinearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor="#000000" stopOpacity="0" />
+                <Stop offset="1" stopColor="#000000" stopOpacity="0.6" />
+              </LinearGradient>
+            </Defs>
+            <Rect width="100%" height="100%" fill="url(#fade)" />
+          </Svg>
           <View style={[styles.bottom, { paddingBottom: insets.bottom + 14 }]} pointerEvents="box-none">
             <View style={{ flex: 1, gap: 4 }} pointerEvents="none">
               <Text style={styles.title} numberOfLines={3}>
@@ -403,7 +414,8 @@ const styles = StyleSheet.create({
   round: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: SCRIM },
   pill: { minHeight: 36, justifyContent: "center", paddingHorizontal: 14, borderRadius: 18, backgroundColor: SCRIM },
   pillText: { color: WHITE, fontFamily: fonts.bold, fontSize: 15 },
-  bottom: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", alignItems: "flex-end", gap: 12, paddingHorizontal: 16, paddingTop: 60, backgroundColor: "rgba(0,0,0,0.3)" },
+  bottom: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", alignItems: "flex-end", gap: 12, paddingHorizontal: 16 },
+  fade: { position: "absolute", left: 0, right: 0, bottom: 0 },
   column: { gap: 16, alignItems: "center" },
   side: { alignItems: "center", gap: 4, minWidth: 48 },
   sideText: { color: WHITE, fontFamily: fonts.bold, fontSize: 12 },
