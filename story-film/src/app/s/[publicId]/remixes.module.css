@@ -1,0 +1,35 @@
+/* The song page's Remixes section and the family tree (design/community/remix-spec.md). Colours are the page's tokens. */
+.box { display: flex; flex-direction: column; gap: 14px; }
+.box h2 { margin: 0; font: 800 20px var(--font-display); }
+.group { display: flex; flex-direction: column; gap: 8px; }
+.group h3 { margin: 0; font: 700 15px var(--font-body); color: var(--ink-muted); }
+.path, .list, .tree { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 12px; border-radius: 16px; background: var(--surface-raised); border: 1px solid var(--line); color: var(--ink); text-decoration: none; }
+a.row:focus-visible, .treeLink:focus-visible, .remixBtn:focus-visible, .sort:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.text strong { overflow-wrap: anywhere; }
+.sub { font-size: 13px; color: var(--ink-muted); margin: 0; display: block; }
+.cover { flex: 0 0 auto; border-radius: 10px; object-fit: cover; background: radial-gradient(circle at 30% 30%, var(--pop), var(--coral) 60%, var(--deep)); }
+.pill { flex: 0 0 auto; border-radius: 999px; padding: 2px 10px; font-size: 13px; font-weight: 600; background: var(--surface-sunken); color: var(--ink); }
+.current { background: var(--teal-tint); border-color: var(--teal-text); }
+.current .pill { color: var(--teal-text); background: transparent; border: 1px solid var(--teal-text); }
+.gone { background: transparent; border: 2px dashed var(--line-strong); color: var(--ink-muted); }
+.more { justify-content: center; font-weight: 600; background: transparent; }
+.remixBtn { display: inline-flex; align-items: center; justify-content: center; align-self: flex-start; min-height: 48px; padding: 0 22px; border-radius: 999px; background: var(--surface-raised); border: 1px solid var(--line-strong); color: var(--ink); font-weight: 700; text-decoration: none; }
+.treeLink { display: flex; align-items: center; min-height: 48px; font-weight: 700; color: var(--teal-text); text-decoration: none; }
+.node { display: block; }
+.rail { border-inline-start: 2px solid var(--line-strong); padding-inline-start: 10px; display: flex; flex-direction: column; gap: 6px; }
+.sorts { display: flex; gap: 8px; }
+.sort { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--ink); text-decoration: none; font-weight: 600; }
+.sort[aria-current="true"] { background: var(--deep); color: var(--on-deep); border-color: var(--deep); }
+
+/* Two columns on desktop: player, actions and lyrics on the left, Remixes in a sticky right column. */
+.split { display: flex; flex-direction: column; gap: 16px; }
+.mainCol, .rails { display: flex; flex-direction: column; gap: 12px; }
+@media (min-width: 960px) {
+  main.wide { max-width: 1120px; }
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) 360px; grid-template-areas: "main side" "rails side"; column-gap: 32px; row-gap: 16px; align-items: start; }
+  .mainCol { grid-area: main; }
+  .side { grid-area: side; position: sticky; top: 16px; }
+  .rails { grid-area: rails; }
+}

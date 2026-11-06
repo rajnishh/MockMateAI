@@ -6,6 +6,7 @@ import { CreateForm, SONG_PRICES_FALLBACK, type SongPrices } from "./create-form
 import { SongPlayer } from "./song-player";
 import { MusicVideoPanel, type MusicVideoPrices } from "./music-video-panel";
 import { MyVoices, type Voice } from "./my-voice";
+import { RemixOf } from "./remix-of";
 
 type Song = {
   id: string;
@@ -41,6 +42,8 @@ export default function SongsPage() {
   const [voiceId, setVoiceId] = useState("");
   const [characters, setCharacters] = useState<{ id: string; name: string; imageUrl: string }[]>([]);
   const [billing, setBilling] = useState<MusicVideoPrices>({ premiumAvailable: false, premiumCreditsPerShot: 12 });
+  // From a public song page's Remix button.
+  const [remixOf, setRemixOf] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/songs");
@@ -52,6 +55,7 @@ export default function SongsPage() {
   }, []);
 
   useEffect(() => {
+    setRemixOf(new URLSearchParams(window.location.search).get("remixOf"));
     load();
     fetch("/api/characters").then(async (r) => r.ok && setCharacters((await r.json()).characters)).catch(() => {});
     fetch("/api/billing").then(async (r) => r.ok && setBilling(await r.json())).catch(() => {});
@@ -85,6 +89,7 @@ export default function SongsPage() {
         </div>
       </header>
       {!available && <div className="status">Song Studio isn&apos;t set up on this server yet.</div>}
+      {remixOf && available ? <RemixOf publicId={remixOf} /> : null}
 
       <section className="create">
         <CreateForm perTake={perTake} available={available} onCreated={load} />

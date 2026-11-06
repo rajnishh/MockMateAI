@@ -28,6 +28,15 @@ export function remixKinds(proAvailable: boolean): RemixKind[] {
   return REMIX_KINDS.filter((k) => proAvailable || !PRO_REMIX_KINDS.includes(k));
 }
 
+// What anyone may make of someone else's public song (design/community/remix-spec.md): kinds that
+// add to the song or sing it again, so "A remix of X by @y" stays true. Never "replace", which
+// rewrites lines inside their song. Pro kinds only when Runware is set up.
+export const OPEN_REMIX_KINDS: readonly RemixKind[] = ["cover", "extend", "rap", "add-vocals", "add-instrumental"];
+
+export function openRemixKinds(proAvailable: boolean): RemixKind[] {
+  return remixKinds(proAvailable).filter((k) => OPEN_REMIX_KINDS.includes(k));
+}
+
 // A remixed song stays within what fal can still edit afterwards (inpaint works up to 240s).
 export const MAX_REMIXED_SEC = FAL_MAX_INPAINT_SEC;
 export const EXTEND_SEC = { min: 10, max: 60, default: 30 };

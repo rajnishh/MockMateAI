@@ -240,7 +240,10 @@ export interface Song {
   // Set for someone's public song in the player: its public id (also its `id`) and maker's handle.
   publicId?: string;
   handle?: string;
+  // A remix of someone else's song (from GET /api/songs/:id): the credit line it always carries.
+  remixOf?: OwnRemixOf | null;
 }
+export type OwnRemixOf = { gone: false; kind: RemixKind; publicId: string; title: string; handle: string } | { gone: true; kind: RemixKind };
 
 // Listen (mirrors story-film/src/lib/listen.ts).
 export type ListenState = "public" | "private" | "taken_down";
@@ -282,11 +285,102 @@ export interface PublicSong extends PublicSongCard {
   myVote: -1 | 0 | 1;
   myReaction: Reaction | null;
   remixOf: { publicId: string; title: string; handle: string } | null;
+  // The parent was deleted, made private or taken down. Missing on older servers.
+  remixOfGone?: boolean;
 }
 export interface PublicSongPage {
   song: PublicSong;
   moreLikeThis: PublicSongCard[];
   byCreator: PublicSongCard[];
+  // Remix chains (mirrors story-film/src/lib/remixes.ts songFamily). Missing on older servers.
+  family?: SongFamily;
+  remix?: { kinds: RemixKindInfo[]; blocked: RemixBlock | null };
+  // The share of paid credits a song's maker earns from each remix, in basis points (1000 = 10%).
+  earnRateBp?: number;
+}
+// Why this viewer can't remix a public song.
+export type RemixBlock = "mine" | "off" | "ownVoice" | "tooLong" | "notPublic";
+// A song in a remix chain. A gone node (deleted, private or taken down) has no title, handle or link.
+export interface FamilyNode {
+  publicId: string | null;
+  title: string | null;
+  handle: string | null;
+  coverUrl: string | null;
+  kind: RemixKind | null;
+  depth: number;
+  playCount: number;
+  remixCount: number;
+  gone: boolean;
+}
+export interface SongFamily {
+  // Where it came from, original first; `more` songs between the original and the parent aren't listed.
+  path: FamilyNode[];
+  more: number;
+  remixCount: number;
+  familySize: number;
+  top: FamilyNode[];
+  allowRemix: boolean;
+  // Only for the song's maker.
+  mine: { remixes: number; published: number; earnedHundredths: number } | null;
+}
+export interface FamilyRow extends FamilyNode {
+  key: string;
+  level: number;
+  more: number;
+  current: boolean;
+}
+export type FamilySort = "top" | "new";
+export interface FamilyTree {
+  size: number;
+  rootTitle: string | null;
+  sort: FamilySort;
+  rows: FamilyRow[];
+}
+// Earnings from remixes and reel recipes (mirrors story-film/src/lib/billing/earnings.ts), in hundredths of a credit.
+export type EarningSource = "remix" | "recipe";
+export interface EarningSubject {
+  source: EarningSource;
+  subjectRef: string;
+  title: string | null;
+  coverUrl: string | null;
+  publicId: string | null;
+  count: number;
+  hundredths: number;
+}
+export interface Earnings {
+  totalHundredths: number;
+  // Whole credits already added to the balance; onTheWay is the rest, in hundredths.
+  credited: number;
+  onTheWay: number;
+  rateBp: number;
+  bySubject: EarningSubject[];
+}
+export interface EarningEvent {
+  at: string;
+  hundredths: number;
+  // Paid with free credits only, so nothing was earned.
+  free: boolean;
+  kind: RemixKind | null;
+  // Null when the remix isn't public.
+  remixerHandle: string | null;
+  publicId: string | null;
+}
+export interface EarningDetail {
+  title: string | null;
+  cursor: string | null;
+  events: EarningEvent[];
+}
+// The Inbox's Remixes group: a named public remix, an anonymous private one, or a day's batch.
+export interface RemixInboxItem {
+  kind: "published" | "private" | "batch";
+  subjectRef: string;
+  songTitle: string;
+  count: number;
+  remixKind: RemixKind | null;
+  remixerHandle: string | null;
+  publicId: string | null;
+  at: string;
+  hundredths: number;
 }
 export interface ListenHome {
   newThisWeek: number;
@@ -315,6 +409,8 @@ export interface RemixKindInfo {
   bars: boolean;
   // Covers on Runware: how far from the original, 0 to 1. Older servers leave it out.
   strength?: boolean;
+  // Why it can't be picked for this song, e.g. "Too long to extend".
+  unavailable?: string;
 }
 export interface SoundPreset {
   id: string;
@@ -512,8 +608,8 @@ export interface SongRemix {
   strength?: number;
 }
 
-// "gifts" covers gifts and Jugalbandis.
-export type PushKind = "songs" | "reels" | "gifts";
+// "gifts" covers gifts and Jugalbandis; "remixes" remixes of your songs and what they earned.
+export type PushKind = "songs" | "reels" | "gifts" | "remixes";
 export type PushPrefs = Record<PushKind, boolean>;
 
 export class ApiError extends Error {
@@ -727,6 +823,13 @@ const real = {
   // The page the native share sheet links to. Built on the address the phone reaches (in
   // development that's a LAN IP or tunnel, like shareLink), which is the public URL in production.
   publicSongLink: (publicId: string) => `${API_URL}/s/${publicId}`,
+  // Remix chains and earnings.
+  familyTree: (publicId: string, sort: FamilySort, branch?: string) =>
+    call<FamilyTree>(`/api/listen/songs/${publicId}/family?${new URLSearchParams({ sort, ...(branch ? { branch } : {}) })}`),
+  setAllowRemix: (id: string, allow: boolean) => call<{ allowRemix: boolean }>(`/api/songs/${id}/remixes`, { method: "PATCH", body: JSON.stringify({ allow }) }),
+  earnings: (source: EarningSource | "all" = "all") => call<Earnings>(`/api/me/earnings?source=${source}`),
+  earningDetail: (ref: string, cursor?: string | null) => call<EarningDetail>(`/api/me/earnings/${encodeURIComponent(ref)}${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`),
+  remixInbox: async () => (await call<{ items: RemixInboxItem[] }>("/api/me/remixes")).items,
   videoHeaders: async (): Promise<Record<string, string>> => {
     const cookie = await authClient.getCookie();
     return cookie ? { Cookie: cookie } : {};
@@ -756,7 +859,7 @@ const demoGifts: SentGift[] = [
 const demoReplies: ReceivedReply[] = [
   { id: "g2", url: "https://reelkar.app/g/demoReply1", token: "demoReply1", toName: "You", occasion: "birthday", note: "", songId: "s2", songTitle: "Thank you bhaiya", songReady: true, isReply: true, opened: false, playCount: 0, lastPlayedAt: null, sharing: true, takenDown: false, createdAt: new Date(Date.now() - 3600_000).toISOString(), fromName: "Priya", replyToGiftId: "g1" },
 ];
-const demoPush: PushPrefs = { songs: true, reels: true, gifts: true };
+const demoPush: PushPrefs = { songs: true, reels: true, gifts: true, remixes: true };
 const demoAccounts: Account[] = [];
 const at = (days: number, h: number, m = 0) => {
   const d = new Date();
@@ -935,6 +1038,13 @@ const DEMO_AI_PROVIDERS: AiProvider[] = [
 ];
 const demoEnginesView = (): AiEngines => ({ engines: demoEngines.map((e) => ({ ...e })), providers: DEMO_AI_PROVIDERS, ownKeys: true, reelkar: { status: "ready", restUntil: null } });
 const demoKeyHint = (key?: string) => (key && key.length >= 4 ? `…${key.slice(-4)}` : "…demo");
+
+// What the server opens on someone else's song (story-film/src/lib/remixes.ts openKindList).
+const DEMO_REMIX_KINDS: RemixKindInfo[] = [
+  { kind: "cover", label: "Cover", help: "Sing it again in another style.", credits: 1, style: "required", part: false, extend: false, lyrics: false, bars: false },
+  { kind: "extend", label: "Extend", help: "Make it longer.", credits: 1, style: "optional", part: false, extend: true, lyrics: true, bars: false },
+  { kind: "rap", label: "Add a rap", help: "Pick a part and AI writes rap bars.", credits: 1, style: "optional", part: true, extend: false, lyrics: false, bars: true },
+];
 
 const demo: typeof real = {
   films: async () => (await wait(300), [...demoFilms].sort((a, b) => b.createdAt.localeCompare(a.createdAt))),
@@ -1340,6 +1450,17 @@ const demo: typeof real = {
       song: { ...c, state: "public", lyrics: "[Chorus]\nDhol baje, dil nache", allowRemix: true, publishedAt: new Date().toISOString(), reactions: { fire: 4, dance: 0, touched: 0, haha: 0, respect: 0, celebrate: 0 }, dislikeCount: null, mine: false, myVote: 0, myReaction: null, remixOf: null },
       moreLikeThis: demoCards.filter((x) => x.publicId !== c.publicId),
       byCreator: [],
+      family: {
+        path: [],
+        more: 0,
+        remixCount: demoCards.length - 1,
+        familySize: demoCards.length,
+        top: demoCards.filter((x) => x.publicId !== c.publicId).map((x) => ({ publicId: x.publicId, title: x.title, handle: x.handle, coverUrl: x.coverUrl, kind: "cover", depth: 1, playCount: x.playCount, remixCount: 0, gone: false })),
+        allowRemix: true,
+        mine: null,
+      },
+      remix: { kinds: DEMO_REMIX_KINDS, blocked: null },
+      earnRateBp: 1000,
     };
   },
   countPlay: async () => ({ counted: true }),
@@ -1347,6 +1468,28 @@ const demo: typeof real = {
   reactSong: async () => ({}),
   reportSong: async () => (await wait(300), {}),
   publicSongLink: (publicId) => `https://reelkar.app/s/${publicId}`,
+  familyTree: async (publicId, sort) => {
+    await wait(300);
+    const c = demoCards.find((x) => x.publicId === publicId) ?? demoCards[0];
+    const node = (x: PublicSongCard, level: number, kind: RemixKind | null): FamilyRow => ({ key: x.publicId, publicId: x.publicId, title: x.title, handle: x.handle, coverUrl: x.coverUrl, kind, depth: level, playCount: x.playCount, remixCount: 0, gone: false, level, more: 0, current: x.publicId === c.publicId });
+    const rows = [node(demoCards[0], 0, null), ...demoCards.slice(1).map((x) => node(x, 1, "cover"))];
+    return { size: rows.length, rootTitle: demoCards[0].title, sort, rows: sort === "new" ? [rows[0], ...rows.slice(1).reverse()] : rows };
+  },
+  setAllowRemix: async (_id, allow) => (await wait(200), { allowRemix: allow }),
+  earnings: async () => (await wait(300), { totalHundredths: 230, credited: 2, onTheWay: 30, rateBp: 1000, bySubject: [{ source: "remix" as const, subjectRef: "s1", title: "Baarish wali chai", coverUrl: null, publicId: null, count: 23, hundredths: 230 }] }),
+  earningDetail: async () => (
+    await wait(300),
+    {
+      title: "Baarish wali chai",
+      cursor: null,
+      events: [
+        { at: new Date().toISOString(), hundredths: 10, free: false, kind: "cover", remixerHandle: "sana.sings", publicId: demoCards[0].publicId },
+        { at: new Date(Date.now() - 86400_000).toISOString(), hundredths: 10, free: false, kind: "rap", remixerHandle: null, publicId: null },
+        { at: new Date(Date.now() - 2 * 86400_000).toISOString(), hundredths: 0, free: true, kind: "cover", remixerHandle: null, publicId: null },
+      ],
+    }
+  ),
+  remixInbox: async () => (await wait(200), [{ kind: "published" as const, subjectRef: "s1", songTitle: "Baarish wali chai", count: 1, remixKind: "cover", remixerHandle: "sana.sings", publicId: demoCards[0].publicId, at: new Date(Date.now() - 2 * 3600_000).toISOString(), hundredths: 10 }]),
   videoUrl: () => null,
   previewUri: () => null,
   videoHeaders: async () => ({}),

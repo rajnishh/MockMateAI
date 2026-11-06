@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, Share, StyleSheet, View } from "react-native";
 
 import { PushOffer } from "@/components/push-offer";
+import { RemixCredit } from "@/components/remix-family";
 import { SongCover } from "@/components/song-cover";
 import { SongPlayerRow, useSongPlayer } from "@/components/song-player";
 import { StudioEdit } from "@/components/studio-edit";
@@ -203,6 +204,7 @@ function ListenCard({ song, reload }: { song: Song; reload: () => void }) {
             <Txt variant="cap">Private. Publish it so everyone can hear it, in the Listen tab and by link.</Txt>
           </View>
         </Row>
+        {song.remixOf ? <RemixCredit remixOf={song.remixOf} /> : null}
         <Button label="Publish" icon="globe" block onPress={() => router.push({ pathname: "/songs/publish/[id]", params: { id: song.id } })} />
       </Card>
     );
