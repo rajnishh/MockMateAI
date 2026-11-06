@@ -3,6 +3,7 @@ import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 
 import { api, type Song } from "@/lib/api";
+import { listenSongs, sharedSongs } from "@/lib/loop-sources";
 import { genreLabel } from "@/lib/songs";
 import { useData } from "@/lib/use-data";
 import { fonts, useTheme } from "@/theme";
@@ -118,6 +119,12 @@ function LoopSheet({ visible, onClose, songs }: { visible: boolean; onClose: () 
   const player = useSongPlayer();
   const studio = useData(() => (songs ? Promise.resolve({ songs }) : api.songs()));
   const ready = (songs ?? studio.data?.songs ?? []).filter((s) => s.audioUrl);
+  const shared = useData(sharedSongs);
+  const listen = useData(listenSongs);
+  const sharedList = shared.data ?? [];
+  const listenList = listen.data ?? [];
+  const everything = [...ready, ...sharedList, ...listenList];
+  const count = (n: number) => `${n} ${n === 1 ? "song" : "songs"}`;
   const done = (f: () => void) => () => {
     f();
     onClose();
@@ -127,7 +134,14 @@ function LoopSheet({ visible, onClose, songs }: { visible: boolean; onClose: () 
       <Txt variant="md" accessibilityRole="header">
         Loop
       </Txt>
-      {ready.length ? <ListRow icon="repeat" title="Loop all my songs" sub={`${ready.length} ${ready.length === 1 ? "song" : "songs"}, newest first`} onPress={done(() => player.loop(ready))} /> : null}
+      {ready.length ? <ListRow icon="repeat" title="Loop all my songs" sub={`${count(ready.length)}, newest first`} onPress={done(() => player.loop(ready))} /> : null}
+      {sharedList.length ? (
+        <ListRow icon="gift" title="Loop songs shared with me" sub={`${count(sharedList.length)}: gift replies, Jugalbandis and remixes`} onPress={done(() => player.loop(sharedList))} />
+      ) : shared.loading ? (
+        <ListRow icon="gift" title="Loop songs shared with me" sub="Looking…" />
+      ) : null}
+      {listenList.length ? <ListRow icon="headphones" title="Loop Listen" sub={`${count(listenList.length)}: trending and new from other creators`} onPress={done(() => player.loop(listenList))} /> : null}
+      {everything.length > ready.length && ready.length ? <ListRow icon="music" title="Loop everything" sub={`${count(everything.length)}: yours, then shared, then Listen`} onPress={done(() => player.loop(everything))} /> : null}
       {player.song ? (
         <>
           <ListRow icon="repeat-one" title="Loop this song" sub={player.song.title} onPress={done(() => player.setRepeat("one"))} />

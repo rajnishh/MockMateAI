@@ -30,8 +30,8 @@ export default function PlayerScreen() {
   const isPublic = !id.includes("-");
   const fetched = useData(() => (player.song?.id === id ? Promise.resolve(player.song) : isPublic ? api.publicSong(id).then((p) => publicTrackSong(p.song)) : api.song(id)));
   const song = player.song?.id === id ? player.song : fetched.data;
-  // A "Hum it" recording playing here has no analysis and nothing to share.
-  const recording = id.startsWith("rec:");
+  // A "Hum it" recording, a gift reply or a Jugalbandi (ids with ":") has no analysis and nothing to share here.
+  const recording = id.includes(":");
   const analysis = useSongAnalysis(song?.status === "completed" && !recording ? id : null);
   const [theme, setTheme] = usePlayerTheme();
   const { width, height } = useWindowDimensions();
