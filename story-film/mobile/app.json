@@ -99,6 +99,13 @@
         "projectId": "1da35408-b35f-4d76-b697-769534eeaaa5"
       }
     },
-    "owner": "rajnish.official"
+    "owner": "rajnish.official",
+    "runtimeVersion": { "policy": "fingerprint" },
+    "updates": {
+      "url": "https://u.expo.dev/1da35408-b35f-4d76-b697-769534eeaaa5",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0,
+      "requestHeaders": { "expo-channel-name": "production" }
+    }
   }
 }
