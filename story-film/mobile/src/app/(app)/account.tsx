@@ -3,13 +3,16 @@ import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { Linking, Pressable, Switch, View } from "react-native";
 
+import { Avatar } from "@/components/avatar";
 import { Banner, Button, Card, ChipRow, Field, Header, ListRow, Row, Screen, Txt } from "@/components/ui";
 import { api, type PushKind, type PushPrefs } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import { DEMO, PRIVACY_URL, SUPPORT_EMAIL } from "@/lib/config";
 import { LANGUAGES } from "@/lib/languages";
+import { profileTodo } from "@/lib/profile";
 import { type PushPermission, pushPermission, registerForPush } from "@/lib/push";
 import { type Brand, useSession } from "@/lib/session";
+import { useData } from "@/lib/use-data";
 import { useTheme, type Mode } from "@/theme";
 
 // Brand colours offered for motion reels; "" lets the AI pick a theme per reel.
@@ -82,6 +85,7 @@ function NotificationSettings() {
 export default function Account() {
   const { user, prefs, savePrefs, signOut } = useSession();
   const { preference, setPreference, colors } = useTheme();
+  const profile = useData(() => api.profile());
   const [confirm, setConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const brand: Brand = prefs?.brand ?? {};
@@ -104,19 +108,26 @@ export default function Account() {
   return (
     <Screen>
       <Header title="Account" back />
-      <Card>
+      <Card onPress={() => router.push("/edit-profile")}>
         <Row style={{ gap: 14 }}>
-          <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: colors.tealTint, alignItems: "center", justifyContent: "center" }}>
-            <Txt variant="md" color="tealText">
-              {(user?.name ?? "C").charAt(0).toUpperCase()}
-            </Txt>
-          </View>
+          <Avatar avatar={profile.data?.avatar} name={profile.data?.name || user?.name} />
           <View style={{ flex: 1 }}>
-            <Txt variant="md">{user?.name ?? "Creator"}</Txt>
-            <Txt variant="cap">Free beta{prefs?.topic ? ` · ${prefs.topic}` : ""}</Txt>
+            <Txt variant="md">{profile.data?.name || user?.name || "Creator"}</Txt>
+            <Txt variant="cap">{profile.data?.handle ? `@${profile.data.handle}` : `Free beta${prefs?.topic ? ` · ${prefs.topic}` : ""}`}</Txt>
           </View>
+          <Txt variant="label" color="tealText">
+            Edit profile
+          </Txt>
         </Row>
       </Card>
+      {profile.data && !profile.data.complete ? (
+        <Banner
+          kind="info"
+          title="Finish your profile"
+          text={`${profileTodo(profile.data.missing)}, so people know who made your songs.`}
+          action={<Button label="Finish" small kind="secondary" onPress={() => router.push("/edit-profile")} />}
+        />
+      ) : null}
 
       <Card>
         <Txt variant="md">Reel language</Txt>

@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { Share, Switch, View } from "react-native";
 
+import { Avatar } from "@/components/avatar";
 import { RemixCredit } from "@/components/remix-family";
 import { SongCover } from "@/components/song-cover";
 import { Banner, Button, Card, ChipRow, Field, Header, Row, Screen, Skeleton, Txt, Win } from "@/components/ui";
@@ -20,6 +21,8 @@ export default function PublishSong() {
   const { colors } = useTheme();
   const song = useData(() => api.song(id));
   const me = useData(() => api.handle());
+  // The profile photo shows next to the handle, as it will on Listen.
+  const profile = useData(() => api.profile());
   const [stepChoice, setStep] = useState<Step | null>(null);
   const [handleInput, setHandle] = useState<string | null>(null);
   const [check, setCheck] = useState<{ handle: string; ok: boolean; problem: string | null } | null>(null);
@@ -87,7 +90,7 @@ export default function PublishSong() {
         <Skeleton height={240} />
       ) : step === "handle" ? (
         <>
-          <Txt>This is the name people see on your public songs. You can change it once a month.</Txt>
+          <Txt>This is the name people see on your public songs, and your profile username. You can change it once a month.</Txt>
           <Field label="Handle" value={handle} onChangeText={(v) => setHandle(v.replace(/\s/g, ""))} autoCapitalize="none" autoCorrect={false} maxLength={21} placeholder="priya.sings" />
           {hint ? (
             <Txt variant="cap" color="coralText">
@@ -107,10 +110,16 @@ export default function PublishSong() {
           <Row style={{ alignItems: "center", gap: 12 }}>
             <SongCover song={s} size={72} />
             <View style={{ flex: 1 }}>
-              <Txt variant="label">{`@${handleNow}`}</Txt>
+              <Row style={{ alignItems: "center", gap: 8 }}>
+                <Avatar avatar={profile.data?.avatar} name={profile.data?.name} size={24} />
+                <Txt variant="label">{`@${handleNow}`}</Txt>
+              </Row>
               <Txt variant="cap">{genreLabel(s.genre)}</Txt>
             </View>
           </Row>
+          {profile.data && !profile.data.avatar ? (
+            <Banner kind="info" text="Add a profile photo so listeners know it's you." action={<Button label="Add photo" small kind="secondary" onPress={() => router.push("/edit-profile")} />} />
+          ) : null}
           {s.remixOf ? <RemixCredit remixOf={s.remixOf} /> : null}
           <Field label="Title" value={title} onChangeText={setTitle} maxLength={80} />
           <Card flat>

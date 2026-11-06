@@ -267,6 +267,7 @@ export interface PublicSongCard {
   publicId: string;
   title: string;
   handle: string;
+  creatorAvatar?: AvatarView;
   genre: string;
   genreLabel: string;
   language: string;
@@ -493,6 +494,25 @@ export interface ListenHome {
   trending: PublicSongCard[];
   bestOf: { genre: string; label: string; songs: PublicSongCard[] }[];
   languages: { code: string; name: string; native: string; count: number }[];
+}
+// A profile photo: a ready-made avatar's key (lib/avatars.ts) or a photo's URL path on the server.
+export type AvatarView = { preset: string; url?: undefined } | { url: string; preset?: undefined } | null;
+export type ProfileField = "name" | "handle" | "photo";
+// The creator's profile (story-film/src/lib/profile.ts). The handle is the Listen handle.
+export interface Profile {
+  name: string;
+  handle: string | null;
+  canChangeAt: string | null;
+  suggestions: string[];
+  avatar: AvatarView;
+  missing: ProfileField[];
+  complete: boolean;
+}
+export interface ProfileInput {
+  name?: string;
+  handle?: string;
+  // A ready-made avatar's key; null removes the photo.
+  avatar?: string | null;
 }
 export interface HandleInfo {
   handle: string | null;
@@ -722,6 +742,8 @@ export class ApiError extends Error {
     message: string,
     readonly status: number,
     readonly needCredits = false,
+    // The form field the server refused, for forms that show the problem next to it.
+    readonly field?: string,
   ) {
     super(message);
   }
@@ -736,7 +758,7 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { "Content-Type": "application/json", ...(cookie ? { Cookie: cookie } : {}), ...init?.headers },
   });
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError(body.error ?? `Request failed (${res.status})`, res.status, Boolean(body.needCredits));
+  if (!res.ok) throw new ApiError(body.error ?? `Request failed (${res.status})`, res.status, Boolean(body.needCredits), body.field);
   return body as T;
 }
 
@@ -913,6 +935,20 @@ const real = {
   soundPreviewUrl: (id: string, preset: string): string | null => `${API_URL}/api/songs/${id}/mix/preview?preset=${encodeURIComponent(preset)}`,
   // Public songs (10-character ids, no dashes) have their own analysis route.
   songAnalysis: (id: string) => call<SongAnalysis>(id.includes("-") ? `/api/songs/${id}/analysis` : `/api/listen/songs/${id}/analysis`),
+  // Profile: name, @handle and photo.
+  profile: () => call<Profile>("/api/me/profile"),
+  // Free @handle ideas for a name typed in the profile form.
+  handleIdeas: async (name: string) => (await call<{ suggestions: string[] }>(`/api/me/profile?suggest=${encodeURIComponent(name)}`)).suggestions,
+  saveProfile: (input: ProfileInput) => call<Profile>("/api/me/profile", { method: "PUT", body: JSON.stringify(input) }),
+  uploadProfilePhoto: async (photo: { uri: string; name: string; type: string }) => {
+    const form = new FormData();
+    form.append("photo", photo as unknown as Blob);
+    const cookie = await authClient.getCookie();
+    const res = await fetch(`${API_URL}/api/me/profile/photo`, { method: "POST", body: form, credentials: "omit", headers: cookie ? { Cookie: cookie } : {} });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new ApiError(body.error ?? `Upload failed (${res.status})`, res.status, false, "photo");
+    return body as Profile;
+  },
   // Listen.
   handle: () => call<HandleInfo>("/api/me/handle"),
   checkHandle: (handle: string) => call<{ handle: string; ok: boolean; problem: string | null }>(`/api/me/handle?check=${encodeURIComponent(handle)}`),
@@ -1013,6 +1049,15 @@ function demoAnalysis(song: Song | undefined): SongAnalysis {
 
 const demoSongs: Song[] = [demoSong("s1", "Baarish wali chai", "indie-acoustic"), demoSong("s2", "Dadi ki rasoi", "bollywood-romantic")];
 let demoHandle: string | null = null;
+const demoProfile: { name: string; avatar: AvatarView } = { name: "", avatar: null };
+const demoIdeas = (name: string) => {
+  const w = name.toLowerCase().replace(/[^a-z ]/g, "").split(/\s+/).filter(Boolean);
+  return w.length ? [w.join(""), w.join("."), `${w[0]}.sings`].map((h) => h.slice(0, 20)) : ["priya.sings", "priya_music", "priyacooks"];
+};
+function demoProfileView(): Profile {
+  const missing = [!demoProfile.name && "name", !demoHandle && "handle", !demoProfile.avatar && "photo"].filter(Boolean) as ProfileField[];
+  return { ...demoProfile, handle: demoHandle, canChangeAt: null, suggestions: demoHandle ? [] : demoIdeas(demoProfile.name), missing, complete: !missing.length };
+}
 const demoRecipes: { source: string }[] = [];
 const demoFestival: FestivalInfo = { slug: "diwali", name: "Diwali", nameEn: "Diwali", native: { en: "Diwali", hi: "दिवाली", ar: "ديوالي" }, date: "2026-11-08", inDays: 2, allYear: false };
 const demoHas: RecipeHas = {
@@ -1578,6 +1623,17 @@ const demo: typeof real = {
   stemUrl: () => "",
   soundPreviewUrl: () => null,
   songAnalysis: async (id) => demoAnalysis(demoSongs.find((s) => s.id === id)),
+  profile: async () => (await wait(200), demoProfileView()),
+  handleIdeas: async (name) => (await wait(150), demoIdeas(name)),
+  saveProfile: async (input) => {
+    await wait(300);
+    if (input.name?.trim()) demoProfile.name = input.name.trim();
+    if (input.handle?.trim()) demoHandle = input.handle.trim().toLowerCase().replace(/^@/, "");
+    if (input.avatar !== undefined) demoProfile.avatar = input.avatar ? { preset: input.avatar } : null;
+    return demoProfileView();
+  },
+  // Demo mode has no server to keep the photo; the form shows the picked photo itself.
+  uploadProfilePhoto: async (photo) => (await wait(500), (demoProfile.avatar = { url: photo.uri }), demoProfileView()),
   handle: async () => (await wait(200), { handle: demoHandle, canChangeAt: null, suggestions: demoHandle ? [] : ["priya.sings", "priya_music", "priyacooks"] }),
   checkHandle: async (handle) => (await wait(150), { handle, ok: /^[a-z0-9._]{3,20}$/.test(handle), problem: /^[a-z0-9._]{3,20}$/.test(handle) ? null : "Use letters a-z, numbers, dots and underscores." }),
   setHandle: async (handle) => (await wait(200), (demoHandle = handle.toLowerCase())),
