@@ -375,16 +375,6 @@ export default function Create() {
                 : "About 2 minutes · you can leave this screen"}
           </Txt>
           {recipe ? <Txt variant="cap" style={{ textAlign: "center" }}>{earnsLine(recipe.handle, recipeEarns)}</Txt> : null}
-          {editing ? null : (
-            <>
-              <Button label="Build with Claude" kind="secondary" icon="sparkle" block onPress={buildWithClaude} />
-              <Pressable accessibilityRole="link" disabled={!CONNECT_URL} onPress={() => Linking.openURL(CONNECT_URL).catch(() => undefined)}>
-                <Txt variant="cap" style={{ textAlign: "center" }}>
-                  {`Needs the Reelkar connector in Claude. Set it up in Connect AI ${CONNECT_URL ? `at ${CONNECT_URL.replace(/^https?:\/\//, "")}` : "on the Reelkar website"}`}
-                </Txt>
-              </Pressable>
-            </>
-          )}
         </>
         )
       }>
@@ -623,6 +613,15 @@ export default function Create() {
               ))}
             </Card>
           ) : null}
+          {/* Out of the pinned footer, so on an iPhone SE the footer is just the Make button and its hint. */}
+          <Card flat>
+            <ListRow icon="sparkle" title="Build it with Claude" sub="Claude writes and makes this reel with you, using the Reelkar connector" onPress={buildWithClaude} />
+            <Pressable accessibilityRole="link" disabled={!CONNECT_URL} onPress={() => Linking.openURL(CONNECT_URL).catch(() => undefined)} style={{ minHeight: 44, justifyContent: "center" }}>
+              <Txt variant="cap" color={CONNECT_URL ? "tealText" : "inkMuted"}>
+                {`Set it up once in Connect AI ${CONNECT_URL ? `at ${CONNECT_URL.replace(/^https?:\/\//, "")}` : "on the Reelkar website"}`}
+              </Txt>
+            </Pressable>
+          </Card>
           <View style={{ gap: 6 }}>
             <Txt variant="cap">Voice and captions</Txt>
             <ChipRow options={LANGUAGES.map((l) => ({ value: l.code, label: l.label }))} value={language} onChange={setLanguage} />
