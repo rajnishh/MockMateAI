@@ -45,19 +45,25 @@ export default function MusicVideoScreen() {
   const [danceStyle, setDanceStyle] = useState("bollywood");
   const [danceClip, setDanceClip] = useState<Picked | null>(null);
   const [danceConsent, setDanceConsent] = useState<"no" | "yes">("no");
-  // "Copy my moves" from "What should we make?": the clip just filmed becomes the dance to copy.
+  const [photo, setPhoto] = useState<Picked | null>(null);
+  const [photoConsent, setPhotoConsent] = useState<"no" | "yes">("no");
+  // From "What should we make?": a clip becomes the dance to copy (Copy my moves, 15 s), a photo the
+  // star who sings it (Performance). Consent is always asked again here.
   const [captureParam, setCaptureParam] = useState<string | undefined>();
   if (from === "capture" && t !== captureParam) {
     setCaptureParam(t);
     const c = capture.take();
     if (c?.kind === "video") {
       setKind("full");
+      setLengthSec("15");
       setDanceClip({ uri: c.uri, name: c.name, type: c.type });
       setDanceConsent("no");
+    } else if (c) {
+      setKind("performance");
+      setPhoto({ uri: c.uri, name: c.name, type: c.type });
+      setPhotoConsent("no");
     }
   }
-  const [photo, setPhoto] = useState<Picked | null>(null);
-  const [photoConsent, setPhotoConsent] = useState<"no" | "yes">("no");
   const [captions, setCaptions] = useState<"on" | "off">("on");
   const [kids, setKids] = useState<"no" | "yes">("no");
   const [videoId, setVideoId] = useState<string | null>(film ?? null);
