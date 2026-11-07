@@ -845,6 +845,43 @@ export interface AiEngineChange {
 export const MAX_AI_ENGINES = 8;
 export const aiNeedsKey = (id: string) => id !== "reelkar" && id !== "ollama";
 
+// Progress and Cancel for a long upload.
+export interface UploadOpts {
+  onProgress?: (sentBytes: number, totalBytes: number) => void;
+  signal?: AbortSignal;
+}
+export const UPLOAD_CANCELLED = "Upload cancelled";
+export const UPLOAD_OFFLINE = "You're offline. Connect to Wi-Fi or mobile data, then tap Try again. Your clip is kept.";
+
+async function xhrUpload(url: string, form: FormData, opts: UploadOpts): Promise<{ status: number; body: Record<string, unknown> }> {
+  const cookie = await authClient.getCookie();
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url);
+    // The session cookie goes in by hand, as with fetch; the system cookie jar stays out of it.
+    xhr.withCredentials = false;
+    if (cookie) xhr.setRequestHeader("Cookie", cookie);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) opts.onProgress?.(e.loaded, e.total);
+    };
+    xhr.onload = () => {
+      let body: Record<string, unknown> = {};
+      try {
+        body = JSON.parse(xhr.responseText);
+      } catch {
+        // A web page (Cloudflare) or nothing: the status says enough.
+      }
+      resolve({ status: xhr.status, body });
+    };
+    xhr.onerror = () => reject(new ApiError(UPLOAD_OFFLINE, 0));
+    xhr.ontimeout = () => reject(new ApiError(UPLOAD_OFFLINE, 0));
+    xhr.onabort = () => reject(new ApiError(UPLOAD_CANCELLED, 499));
+    if (opts.signal?.aborted) return xhr.abort();
+    opts.signal?.addEventListener("abort", () => xhr.abort());
+    xhr.send(form);
+  });
+}
+
 const real = {
   films: async () => (await call<{ films: Film[] }>("/api/films")).films,
   film: (id: string) => call<Film>(`/api/films/${id}`),
@@ -856,10 +893,13 @@ const real = {
     (await call<{ ideas: Idea[] }>("/api/suggestions", { method: "POST", body: JSON.stringify({ niche, language, ...more }) })).ideas,
   caption: (id: string, platform: Platform) => call<PostCopy>(`/api/films/${id}/copy`, { method: "POST", body: JSON.stringify({ platform }) }),
   // "Edit my video": multipart upload; the server adds captions, zooms, cards, effects and sounds.
-  uploadEdit: async (input: EditUpload) => {
+  // "Edit my video": multipart upload; the server adds captions, zooms, cards, effects and sounds.
+  // Sent with XMLHttpRequest so the screen can show "Uploading 38 of 62 MB" and Cancel it (capture.md 5).
+  uploadEdit: async (input: EditUpload, opts: UploadOpts = {}) => {
     const form = new FormData();
-    // Expo's fetch only sends files given as Blobs (expo-file-system's File is one); { uri, name, type } throws.
-    form.append("video", new File(input.video.uri) as unknown as Blob, input.video.name);
+    // React Native's own networking sends { uri, name, type } parts straight from the file
+    // (Expo's fetch is the one that wants Blobs; XHR doesn't go through it).
+    form.append("video", { uri: input.video.uri, name: input.video.name, type: input.video.type } as unknown as Blob);
     form.append("language", input.language);
     form.append("captions", String(input.captions));
     form.append("zooms", String(input.zooms));
@@ -871,13 +911,11 @@ const real = {
     if (input.keyword) form.append("keyword", input.keyword);
     if (input.brand) form.append("brand", JSON.stringify(input.brand));
     if (input.recipe) form.append("recipe", input.recipe);
-    const cookie = await authClient.getCookie();
-    const res = await fetch(`${API_URL}/api/edits`, { method: "POST", body: form, credentials: "omit", headers: cookie ? { Cookie: cookie } : {} });
-    const body = await res.json().catch(() => ({}));
+    const { status, body } = await xhrUpload(`${API_URL}/api/edits`, form, opts);
     // Cloudflare answers 413 with a web page, before the server sees the video.
-    if (res.status === 413) throw new ApiError("That video is too large to upload (100 MB max). Trim it, or film at 1080p.", 413);
-    if (!res.ok) throw new ApiError(body.error ?? `Upload failed (${res.status})`, res.status, Boolean(body.needCredits));
-    return body as { id: string; credits: number };
+    if (status === 413) throw new ApiError("That video is too large to upload (100 MB max). Trim it, or film at 1080p.", 413);
+    if (status < 200 || status >= 300) throw new ApiError((body.error as string) ?? `Upload failed (${status})`, status, Boolean(body.needCredits));
+    return body as unknown as { id: string; credits: number };
   },
   // A photo for an AI-animated or Cinematic reel; returns the id the reel request names.
   uploadPhoto: async (photo: { uri: string; name: string; type: string }) => {
@@ -1375,8 +1413,13 @@ const demo: typeof real = {
     return { title, caption: `${title} 🎬 Save this for later! · Made with AI`, hashtags: tags };
   },
   uploadPhoto: async () => (await wait(500), "00000000-0000-4000-8000-000000000000.jpg"),
-  uploadEdit: async (input) => {
-    await wait(800);
+  uploadEdit: async (input, opts = {}) => {
+    // A pretend 20 MB upload, so the progress bar and Cancel can be tried without a server.
+    for (let i = 1; i <= 8; i++) {
+      if (opts.signal?.aborted) throw new ApiError(UPLOAD_CANCELLED, 499);
+      await wait(400);
+      opts.onProgress?.(i * 2.5 * 1048576, 20 * 1048576);
+    }
     const status = input.review ? "review" : "queued";
     const f: Film = { ...sample(`d${Date.now()}`, input.video.name.replace(/\.[a-z0-9]+$/i, ""), status, 0), story: `Edit of ${input.video.name}`, format: "edit" };
     demoFilms.push(f);

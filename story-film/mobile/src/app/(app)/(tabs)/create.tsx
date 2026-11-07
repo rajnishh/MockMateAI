@@ -1,14 +1,14 @@
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
-import { Linking, Pressable, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { AccessibilityInfo, ActivityIndicator, Linking, Pressable, View } from "react-native";
 
 import { Icon } from "@/components/icon";
 import { FestivalCard, RecipeLockCard, RecipeRail } from "@/components/recipes";
-import { Banner, Button, Card, ChipRow, Credits, Field, Header, ListRow, Row, Screen, Txt } from "@/components/ui";
-import { api, ApiError, type Idea, type Quality, type RecipePage, type Voice } from "@/lib/api";
+import { Banner, Button, Card, ChipRow, Credits, Field, Header, ListRow, ProgressBar, Row, Screen, Txt } from "@/components/ui";
+import { api, ApiError, UPLOAD_CANCELLED, type Idea, type Quality, type RecipePage, type Voice } from "@/lib/api";
 import { buildClaudePrompt, claudeUrl } from "@/lib/claude-prompt";
-import { capture } from "@/lib/capture";
+import { capture, chooseFromGallery, filmNow, saveClip, snapPhoto, usePreparing } from "@/lib/capture";
 import { API_URL } from "@/lib/config";
 import { ideaBrief } from "@/lib/formats";
 import { LANGUAGES } from "@/lib/languages";
@@ -42,7 +42,7 @@ export default function Create() {
   const billing = useData(() => api.billing());
   // "Use this recipe" opens Create with ?recipe={publicId}; the recipe locks the kind, look and length.
   // Studio's Lab opens Create with ?kind=dance.
-  const params = useLocalSearchParams<{ recipe?: string; kind?: string; from?: string; t?: string; idea?: string }>();
+  const params = useLocalSearchParams<{ recipe?: string; kind?: string; from?: string; t?: string; idea?: string; quality?: string }>();
   const [used, setUsed] = useState<RecipePage | null>(null);
   const [recipeGone, setRecipeGone] = useState<string | null>(null);
   const recipesHome = useData(() => api.recipesHome("en", Intl.DateTimeFormat().resolvedOptions().timeZone ?? ""));
@@ -70,13 +70,17 @@ export default function Create() {
   const [preparing, setPreparing] = useState(false);
   // From "What should we make?": Edit my video with the clip just filmed (lib/capture.ts).
   const [captureParam, setCaptureParam] = useState<string | undefined>();
+  // A clip from "What should we make?": Create becomes its "Add effects" step, with the clip and
+  // its options first (capture.md 4) instead of below the camera strip and recipes.
+  const [fromCapture, setFromCapture] = useState(false);
   if (params.from === "capture" && params.t !== captureParam) {
     setCaptureParam(params.t);
     const c = capture.take();
+    setFromCapture(Boolean(c));
     if (c?.kind === "photo") {
       // A reel starring the photo: AI animation is the cheapest look that uses a photo.
       setKind("story");
-      setQuality("premium");
+      setQuality(params.quality === "cinematic" ? "cinematic" : "premium");
       setPhoto({ uri: c.uri, name: c.name, type: c.type });
       setPhotoConsent("no");
     } else if (c) {
@@ -100,6 +104,12 @@ export default function Create() {
   const [review, setReview] = useState<"on" | "off">("off");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ text: string; credits: boolean } | null>(null);
+  // Edit my video's upload: bytes sent so far, and Cancel (capture.md 5).
+  const [sent, setSent] = useState<{ done: number; total: number } | null>(null);
+  const abort = useRef<AbortController | null>(null);
+  const spoken = useRef(0);
+  const [saved, setSaved] = useState<string | null>(null);
+  const galleryBusy = usePreparing();
 
   useEffect(() => {
     if (!params.recipe) return;
@@ -136,6 +146,7 @@ export default function Create() {
   // Motion and dance reels are drawn by Reelkar: free weekly reels, no AI animation choice.
   const drawn = motion || dance;
   const editing = kind === "edit";
+  const focus = fromCapture && (editing ? Boolean(video) : kind === "story" && Boolean(photo));
   // Only story reels in AI animation or Cinematic use a photo.
   const usesPhoto = kind === "story" && quality !== "standard";
   const tooLong = Boolean(video?.seconds && video.seconds > MAX_EDIT_SEC + 0.5);
@@ -198,9 +209,28 @@ export default function Create() {
     setPhotoConsent("no");
   }
 
+  function onSent(done: number, total: number) {
+    setSent({ done, total });
+    // VoiceOver hears 25, 50, 75 and 100%.
+    const quarter = Math.floor((done / total) * 4);
+    if (quarter > spoken.current) {
+      spoken.current = quarter;
+      AccessibilityInfo.announceForAccessibility(`Uploaded ${quarter * 25}%`);
+    }
+  }
+
+  async function keepClip() {
+    if (!video) return;
+    const r = await saveClip(video.uri).catch(() => "denied" as const);
+    setSaved(r === "saved" ? "Saved to Photos." : r === "blocked" ? "Turn on Photos for Reelkar in Settings to save it." : "Couldn't save it to Photos.");
+  }
+
   async function make() {
     setBusy(true);
     setError(null);
+    setSaved(null);
+    spoken.current = 0;
+    abort.current = new AbortController();
     try {
       const fromRecipe = recipe ? { recipe: recipe.publicId } : {};
       const { id } = editing
@@ -217,7 +247,7 @@ export default function Create() {
             ending,
             keyword: keywordValue,
             brand: prefs?.brand,
-          })
+          }, { onProgress: onSent, signal: abort.current.signal })
         : recipe
           ? // The recipe sets the kind, look, length, ending and script shape; the rest is the user's.
             await api.createFilm({
@@ -242,14 +272,18 @@ export default function Create() {
             });
       setStory("");
       setVideo(null);
+      setFromCapture(false);
       setPhoto(null);
       router.push(`/making/${id}`);
     } catch (err) {
       // The maker stopped sharing meanwhile: nothing was charged, the topic is kept.
       if (err instanceof ApiError && err.status === 410) setRecipeGone(err.message);
-      else setError({ text: (err as Error).message, credits: err instanceof ApiError && err.needCredits });
+      // Cancel keeps the video and says nothing; Edit my video sends it again.
+      else if (!(err instanceof ApiError && err.message === UPLOAD_CANCELLED)) setError({ text: (err as Error).message, credits: err instanceof ApiError && err.needCredits });
     } finally {
       setBusy(false);
+      setSent(null);
+      abort.current = null;
     }
   }
 
@@ -306,6 +340,18 @@ export default function Create() {
   return (
     <Screen
       footer={
+        editing && busy ? (
+          <View style={{ gap: 8 }}>
+            <ProgressBar value={sent ? sent.done / sent.total : 0} />
+            <Txt variant="label" style={{ textAlign: "center" }}>
+              {sent ? `Uploading ${Math.round(sent.done / 1048576)} of ${Math.max(1, Math.round(sent.total / 1048576))} MB` : "Starting the upload…"}
+            </Txt>
+            <Txt variant="cap" style={{ textAlign: "center" }}>
+              Stay on this screen until it&apos;s uploaded.
+            </Txt>
+            <Button label="Cancel" kind="ghost" block onPress={() => abort.current?.abort()} />
+          </View>
+        ) : (
         <>
           <Button
             label={editing ? (busy ? "Uploading…" : "Edit my video") : dance ? "Make the dance" : quality !== "standard" && !drawn ? `Make my reel · ${quality === "cinematic" ? cinematicCost : premiumCost} credits` : "Make my reel"}
@@ -340,8 +386,30 @@ export default function Create() {
             </>
           )}
         </>
+        )
       }>
-      <Header title="Make a reel" right={<Credits count={billing.data?.balance ?? null} />} />
+      {focus ? (
+        <>
+          {editing ? (
+            <Header title="Add effects" sub={video?.seconds ? `${Math.round(video.seconds)} s video` : "Your video"} right={<Credits count={billing.data?.balance ?? null} />} />
+          ) : (
+            <Header title="Star in a story reel" sub="Your photo" right={<Credits count={billing.data?.balance ?? null} />} />
+          )}
+          <Button label="Make something else" kind="ghost" small icon="back" disabled={busy} onPress={() => (setFromCapture(false), setVideo(null), setPhoto(null), setError(null))} style={{ alignSelf: "flex-start", paddingHorizontal: 0 }} />
+        </>
+      ) : (
+        <Header title="Make a reel" right={<Credits count={billing.data?.balance ?? null} />} />
+      )}
+      {focus ? null : (
+      <>
+      <Card>
+        <Txt variant="md">Start with your camera</Txt>
+        <Row style={{ gap: 8, flexWrap: "nowrap" }}>
+          <CaptureTile icon="video" label="Film" a11y="Film a video" disc={colors.brand} ink={colors.onBrand} onPress={filmNow} />
+          <CaptureTile icon="camera" label="Snap" a11y="Take a photo" disc={colors.teal} ink={colors.onTeal} onPress={snapPhoto} />
+          <CaptureTile icon="image" label={galleryBusy ? "Preparing…" : "Gallery"} a11y="Choose from gallery" disc={colors.surfaceSunken} ink={colors.ink} busy={galleryBusy} onPress={chooseFromGallery} />
+        </Row>
+      </Card>
       <Card onPress={() => router.push("/hum")} style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.deep, borderColor: colors.deep }}>
         <View style={{ width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center", backgroundColor: colors.brand }}>
           <Icon name="mic" size={26} color={colors.onBrand} />
@@ -365,15 +433,27 @@ export default function Create() {
           <RecipeRail title="Start from a recipe" cards={recipesHome.data?.start ?? []} onSeeAll={() => router.push("/recipes")} />
         </>
       )}
+      </>
+      )}
       {error ? (
         <Banner
           kind="error"
           title={error.credits ? "Not enough credits" : undefined}
           text={error.text}
-          action={error.credits ? <Button label="Get credits" small onPress={() => router.push("/credits")} /> : undefined}
+          action={
+            error.credits ? (
+              <Button label="Get credits" small onPress={() => router.push("/credits")} />
+            ) : editing && video ? (
+              <View style={{ gap: 6 }}>
+                <Button label="Try again" small onPress={make} />
+                <Button label="Save clip to Photos" small kind="ghost" onPress={keepClip} />
+              </View>
+            ) : undefined
+          }
         />
       ) : null}
-      {recipe ? null : (
+      {saved ? <Txt variant="cap">{saved}</Txt> : null}
+      {recipe || focus ? null : (
       <View style={{ gap: 6 }}>
         <Txt variant="cap">What do you want to make?</Txt>
         <ChipRow<Kind>
@@ -391,6 +471,7 @@ export default function Create() {
         {editing ? <Txt variant="cap">Upload a video you filmed. We add captions in your language, zooms, cards for your main points, effects around you and sounds.</Txt> : null}
       </View>
       )}
+      {focus ? null : (
       <Card flat onPress={() => router.push("/songs")}>
         <Row style={{ flexWrap: "nowrap" }}>
           <Icon name="music" color={colors.tealText} />
@@ -401,6 +482,7 @@ export default function Create() {
           <Icon name="right" size={18} color={colors.inkMuted} />
         </Row>
       </Card>
+      )}
 
       {editing ? (
         <>
@@ -606,5 +688,36 @@ export default function Create() {
         </>
       )}
     </Screen>
+  );
+}
+
+// Film, Snap or Gallery at the top of Create (design/v3.0/capture.md 1): one word under an icon disc.
+function CaptureTile({ icon, label, a11y, disc, ink, busy, onPress }: { icon: "video" | "camera" | "image"; label: string; a11y: string; disc: string; ink: string; busy?: boolean; onPress: () => void }) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={a11y}
+      accessibilityState={{ busy, disabled: busy }}
+      disabled={busy}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flex: 1,
+        minHeight: 96,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: colors.line,
+        backgroundColor: colors.surfaceRaised,
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+        paddingVertical: 12,
+        opacity: pressed ? 0.85 : 1,
+      })}>
+      <View style={{ width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: disc }}>
+        {busy ? <ActivityIndicator color={ink} /> : <Icon name={icon} size={24} color={ink} />}
+      </View>
+      <Txt variant="label">{label}</Txt>
+    </Pressable>
   );
 }
