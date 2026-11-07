@@ -1,3 +1,4 @@
+import { File } from "expo-file-system";
 // Music videos for a song: the four kinds with prices, a free storyboard to check, then the render.
 // Mirrors src/app/api/songs/[id]/music-video on the server.
 import type { Href } from "expo-router";
@@ -98,7 +99,7 @@ const real = {
   // A clip of the creator dancing; the full music video copies its moves. Needs their consent.
   uploadDanceClip: async (songId: string, clip: { uri: string; name: string; type: string }) => {
     const form = new FormData();
-    form.append("clip", clip as unknown as Blob);
+    form.append("clip", new File(clip.uri) as unknown as Blob, clip.name);
     form.append("consent", "true");
     const res = await fetch(`${API_URL}${base(songId)}/dance-clip`, { method: "POST", body: form, credentials: "omit", headers: await headers() });
     const body = await res.json().catch(() => ({}));
