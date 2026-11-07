@@ -8,6 +8,7 @@ import { FestivalCard, RecipeLockCard, RecipeRail } from "@/components/recipes";
 import { Banner, Button, Card, ChipRow, Credits, Field, Header, ListRow, Row, Screen, Txt } from "@/components/ui";
 import { api, ApiError, type Idea, type Quality, type RecipePage, type Voice } from "@/lib/api";
 import { buildClaudePrompt, claudeUrl } from "@/lib/claude-prompt";
+import { capture } from "@/lib/capture";
 import { API_URL } from "@/lib/config";
 import { ideaBrief } from "@/lib/formats";
 import { LANGUAGES } from "@/lib/languages";
@@ -41,7 +42,7 @@ export default function Create() {
   const billing = useData(() => api.billing());
   // "Use this recipe" opens Create with ?recipe={publicId}; the recipe locks the kind, look and length.
   // Studio's Lab opens Create with ?kind=dance.
-  const params = useLocalSearchParams<{ recipe?: string; kind?: string }>();
+  const params = useLocalSearchParams<{ recipe?: string; kind?: string; from?: string; t?: string }>();
   const [used, setUsed] = useState<RecipePage | null>(null);
   const [recipeGone, setRecipeGone] = useState<string | null>(null);
   const recipesHome = useData(() => api.recipesHome("en", Intl.DateTimeFormat().resolvedOptions().timeZone ?? ""));
@@ -67,6 +68,16 @@ export default function Create() {
   const [ideasBusy, setIdeasBusy] = useState(false);
   const [video, setVideo] = useState<Picked | null>(null);
   const [preparing, setPreparing] = useState(false);
+  // From "What should we make?": Edit my video with the clip just filmed (lib/capture.ts).
+  const [captureParam, setCaptureParam] = useState<string | undefined>();
+  if (params.from === "capture" && params.t !== captureParam) {
+    setCaptureParam(params.t);
+    const c = capture.take();
+    if (c) {
+      setKind("edit");
+      setVideo(c);
+    }
+  }
   const [captions, setCaptions] = useState<"on" | "off">("on");
   const [zooms, setZooms] = useState<"on" | "off">("on");
   const [effects, setEffects] = useState<"on" | "off">("on");

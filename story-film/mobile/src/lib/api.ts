@@ -58,6 +58,8 @@ export interface Billing {
   plans: Offer[];
   balance: number;
   freeVideosPerWeek: number;
+  // Free standard reels left this week (the server sends it; the demo leaves it out).
+  freeLeft?: number;
   premiumAvailable: boolean;
   premiumCreditsPerShot: number;
   // Hyper-real 1080p reels (Kling 3.0 or Veo 3.1); missing on older servers.

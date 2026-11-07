@@ -10,7 +10,7 @@ import {
 } from "expo-audio";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, Linking, Modal, Pressable, StyleSheet, View } from "react-native";
 
@@ -22,6 +22,7 @@ import { api, ApiError } from "@/lib/api";
 import { allowDeviceSpeech, transcribeOnDevice } from "@/lib/device-speech";
 import { duetPart } from "@/lib/duets";
 import { occasionLabel, replyContext } from "@/lib/gifts";
+import { capture } from "@/lib/capture";
 import { currentTake, hum, level, type Picked } from "@/lib/hum";
 import { useSession } from "@/lib/session";
 import { formatTime } from "@/lib/songs";
@@ -39,6 +40,7 @@ type Sheet = "mic" | "camera" | "siri" | null;
 
 // "Hum it": one big mic. Hum a tune, sing a few lines or say what you want; Reelkar works out which.
 export default function HumRecord() {
+  const { from } = useLocalSearchParams<{ from?: string }>();
   const { colors } = useTheme();
   const { prefs } = useSession();
   const reduced = useReducedMotion();
@@ -53,6 +55,13 @@ export default function HumRecord() {
   const [step, setStep] = useState("");
   const [hint, setHint] = useState(false);
   const warned = useRef(false);
+  // From "What should we make?": the clip just filmed goes straight to review.
+  const [fromCapture, setFromCapture] = useState(() => (from === "capture" ? capture.take() : null));
+  if (fromCapture) {
+    setFromCapture(null);
+    setFile({ uri: fromCapture.uri, name: fromCapture.name, type: fromCapture.type, sec: fromCapture.seconds ?? 0, video: true });
+    setPhase("review");
+  }
   const stopRef = useRef<() => void>(() => undefined);
   const player = useAudioPlayer(null, { updateInterval: 250 });
   const playing = useAudioPlayerStatus(player).playing;

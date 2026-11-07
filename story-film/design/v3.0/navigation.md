@@ -15,6 +15,8 @@ Keep the floating deep-plum bar, mint for the current tab, and the round chilli 
 | 1 | `home` | Home | `home` | What's happening with my reels today |
 | 2 | `studio` | Studio | **`studio` (new)** | Songs, Hum, Jugalbandi, Recipes, Lab |
 | 3 | `create` | Create (a11y label only) | `plus` in the chilli button | Make a reel |
+
+Since 2026-11-07 a chilli **tap** opens the quick-options arc and a **hold** films (`quick-create.md` 3); "All makers" in the arc opens the Create tab.
 | 4 | `listen` | Listen | `headphones` | Public song feed |
 | 5 | `you` | You | `user` | My reels, calendar, inbox, money, settings |
 
