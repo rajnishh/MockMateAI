@@ -1,3 +1,4 @@
+import { File } from "expo-file-system";
 import { authClient } from "./auth-client";
 import type { Style } from "./styles";
 import { API_URL, DEMO } from "./config";
@@ -855,8 +856,8 @@ const real = {
   // "Edit my video": multipart upload; the server adds captions, zooms, cards, effects and sounds.
   uploadEdit: async (input: EditUpload) => {
     const form = new FormData();
-    // React Native's FormData takes { uri, name, type } for files.
-    form.append("video", input.video as unknown as Blob);
+    // Expo's fetch only sends files given as Blobs (expo-file-system's File is one); { uri, name, type } throws.
+    form.append("video", new File(input.video.uri) as unknown as Blob, input.video.name);
     form.append("language", input.language);
     form.append("captions", String(input.captions));
     form.append("zooms", String(input.zooms));
@@ -879,7 +880,7 @@ const real = {
   // A photo for an AI-animated or Cinematic reel; returns the id the reel request names.
   uploadPhoto: async (photo: { uri: string; name: string; type: string }) => {
     const form = new FormData();
-    form.append("photo", photo as unknown as Blob);
+    form.append("photo", new File(photo.uri) as unknown as Blob, photo.name);
     const cookie = await authClient.getCookie();
     const res = await fetch(`${API_URL}/api/photos`, { method: "POST", body: form, credentials: "omit", headers: cookie ? { Cookie: cookie } : {} });
     const body = await res.json().catch(() => ({}));
@@ -980,7 +981,7 @@ const real = {
   saveProfile: (input: ProfileInput) => call<Profile>("/api/me/profile", { method: "PUT", body: JSON.stringify(input) }),
   uploadProfilePhoto: async (photo: { uri: string; name: string; type: string }) => {
     const form = new FormData();
-    form.append("photo", photo as unknown as Blob);
+    form.append("photo", new File(photo.uri) as unknown as Blob, photo.name);
     const cookie = await authClient.getCookie();
     const res = await fetch(`${API_URL}/api/me/profile/photo`, { method: "POST", body: form, credentials: "omit", headers: cookie ? { Cookie: cookie } : {} });
     const body = await res.json().catch(() => ({}));
