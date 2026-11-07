@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Pressable, View } from "react-native";
 
 import { Icon } from "@/components/icon";
+import { INSTANT_CLEARANCE, InstantButton } from "@/components/instant-button";
 import { ClipCard, DuetCard, GiftCard, OwnSongCard, Rail, RecipeTile, ReelCard } from "@/components/rail";
 import { UnreadDot } from "@/components/tab-bar";
 import { Banner, Button, Card, CheckRow, Credits, Hero, ListRow, ProgressBar, Row, Screen, Sheet, Txt } from "@/components/ui";
@@ -85,7 +86,8 @@ export default function Home() {
   }
 
   return (
-    <Screen>
+    <View style={{ flex: 1 }}>
+      <Screen>
       <Row style={{ justifyContent: "space-between" }}>
         <View>
           <Txt variant="cap">Namaste, {user?.name?.split(" ")[0] ?? "creator"}</Txt>
@@ -229,7 +231,10 @@ export default function Home() {
         />
         <CheckRow label="Make 5 reels this week" done={thisWeek.length >= 5} sub={`${Math.min(thisWeek.length, 5)} of 5`} />
       </Sheet>
-    </Screen>
+      <View style={{ height: INSTANT_CLEARANCE }} />
+      </Screen>
+      <InstantButton />
+    </View>
   );
 }
 

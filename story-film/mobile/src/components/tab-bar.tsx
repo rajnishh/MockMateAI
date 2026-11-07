@@ -1,10 +1,13 @@
 import type { BottomTabBarProps } from "expo-router/js-tabs";
+import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { filmNow } from "@/lib/capture";
 import { useInboxUnread } from "@/lib/inbox-unread";
 import { fonts, useTheme } from "@/theme";
 import { Icon, type IconName } from "./icon";
+import { QuickFan } from "./quick-fan";
 
 const ICONS: Record<string, IconName> = { home: "home", studio: "studio", create: "plus", listen: "headphones", you: "user" };
 
@@ -14,6 +17,7 @@ export function TabBar({ state, descriptors, navigateToTab }: BottomTabBarProps)
   const insets = useSafeAreaInsets();
   const unread = useInboxUnread() > 0;
   const muted = "rgba(255, 241, 230, 0.68)";
+  const [fan, setFan] = useState(false);
   return (
     <View style={{ backgroundColor: colors.surface, paddingBottom: Math.max(insets.bottom, 10), paddingHorizontal: 12, paddingTop: 6 }}>
       <View accessibilityRole="tablist" style={[styles.bar, { backgroundColor: colors.deep }]}>
@@ -27,12 +31,19 @@ export function TabBar({ state, descriptors, navigateToTab }: BottomTabBarProps)
           return (
             <Pressable
               key={route.key}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: focused }}
+              accessibilityRole={create ? "button" : "tab"}
               accessibilityLabel={dot ? `${label}, new in Inbox` : label}
+              // The chilli opens quick options; holding it films (design/v3.0/quick-create.md 3.1).
+              accessibilityHint={create ? "Opens quick options. Double-tap and hold to film." : undefined}
+              accessibilityState={create ? { expanded: fan } : { selected: focused }}
+              accessibilityActions={create ? [{ name: "activate" }, { name: "film", label: "Film now" }] : undefined}
+              onAccessibilityAction={create ? (e) => (e.nativeEvent.actionName === "film" ? filmNow() : setFan(true)) : undefined}
               onPress={() => {
-                if (!focused) navigateToTab(route.key);
+                if (create) setFan(true);
+                else if (!focused) navigateToTab(route.key);
               }}
+              onLongPress={create ? filmNow : undefined}
+              delayLongPress={500}
               style={styles.tab}>
               {create ? (
                 <View style={[styles.make, { backgroundColor: colors.action, borderColor: focused ? colors.action : "transparent" }]}>
@@ -51,6 +62,7 @@ export function TabBar({ state, descriptors, navigateToTab }: BottomTabBarProps)
           );
         })}
       </View>
+      <QuickFan open={fan} onClose={() => setFan(false)} />
     </View>
   );
 }

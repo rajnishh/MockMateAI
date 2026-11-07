@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 
+import { INSTANT_CLEARANCE, InstantButton } from "@/components/instant-button";
 import { SongRail } from "@/components/song-rail";
 import { useSongPlayer } from "@/components/song-player";
 import { Banner, Button, Empty, Hero, Screen, Skeleton, Txt } from "@/components/ui";
@@ -36,7 +37,8 @@ export default function ListenTab() {
 
   const empty = h && !h.new.length;
   return (
-    <Screen>
+    <View style={{ flex: 1 }}>
+      <Screen>
       <Hero>
         <Txt variant="over" style={{ color: colors.onBrandMuted }}>
           LISTEN
@@ -114,7 +116,10 @@ export default function ListenTab() {
           ) : null}
         </>
       ) : null}
-    </Screen>
+      <View style={{ height: INSTANT_CLEARANCE }} />
+      </Screen>
+      <InstantButton />
+    </View>
   );
 }
 
