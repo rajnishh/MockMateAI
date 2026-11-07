@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Pressable, View } from "react-native";
 
 import { Icon } from "@/components/icon";
+import { instantScrollProps } from "@/lib/instant-prefs";
 import { INSTANT_CLEARANCE, InstantButton } from "@/components/instant-button";
 import { ClipCard, DuetCard, GiftCard, OwnSongCard, Rail, RecipeTile, ReelCard } from "@/components/rail";
 import { UnreadDot } from "@/components/tab-bar";
@@ -87,7 +88,7 @@ export default function Home() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Screen>
+      <Screen scrollProps={instantScrollProps}>
       <Row style={{ justifyContent: "space-between" }}>
         <View>
           <Txt variant="cap">Namaste, {user?.name?.split(" ")[0] ?? "creator"}</Txt>

@@ -1,6 +1,7 @@
 import { router, type Href } from "expo-router";
 import { createContext, type ReactNode, useContext } from "react";
 import {
+  type ScrollViewProps,
   ActivityIndicator,
   Modal,
   Pressable,
@@ -70,13 +71,14 @@ export function Txt({
   );
 }
 
-export function Screen({ children, scroll = true, footer }: { children: ReactNode; scroll?: boolean; footer?: ReactNode }) {
+// scrollProps: extra ScrollView listeners, e.g. the camera bubble's scroll shrink on Home and Listen.
+export function Screen({ children, scroll = true, footer, scrollProps }: { children: ReactNode; scroll?: boolean; footer?: ReactNode; scrollProps?: ScrollViewProps }) {
   const { colors } = useTheme();
   const body = <View style={styles.screenBody}>{children}</View>;
   return (
     <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: colors.surface }}>
       {scroll ? (
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <ScrollView {...scrollProps} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           {body}
         </ScrollView>
       ) : (

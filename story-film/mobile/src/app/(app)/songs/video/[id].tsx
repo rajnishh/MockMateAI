@@ -6,6 +6,7 @@ import { Image, Pressable, StyleSheet, TextInput, View } from "react-native";
 import { ReelVideo } from "@/components/reel-video";
 import { Banner, Button, Card, ChipRow, Header, ProgressBar, Row, Screen, Skeleton, Txt } from "@/components/ui";
 import { api, ApiError, type Film } from "@/lib/api";
+import { capture } from "@/lib/capture";
 import { musicVideos, type MusicVideo, type MusicVideoKind, type MusicVideoOptions, type ShotType, type StoryboardShot } from "@/lib/music-video";
 import { formatTime } from "@/lib/songs";
 import { useData } from "@/lib/use-data";
@@ -35,7 +36,7 @@ type Picked = { uri: string; name: string; type: string };
 
 export default function MusicVideoScreen() {
   // film: a storyboard to pick up again, from My videos.
-  const { id, film } = useLocalSearchParams<{ id: string; film?: string }>();
+  const { id, film, from, t } = useLocalSearchParams<{ id: string; film?: string; from?: string; t?: string }>();
   const song = useData(() => api.song(id));
   const [kind, setKind] = useState<MusicVideoKind>("full");
   const [lengthSec, setLengthSec] = useState<"15" | "30" | "all">("30");
@@ -44,6 +45,17 @@ export default function MusicVideoScreen() {
   const [danceStyle, setDanceStyle] = useState("bollywood");
   const [danceClip, setDanceClip] = useState<Picked | null>(null);
   const [danceConsent, setDanceConsent] = useState<"no" | "yes">("no");
+  // "Copy my moves" from "What should we make?": the clip just filmed becomes the dance to copy.
+  const [captureParam, setCaptureParam] = useState<string | undefined>();
+  if (from === "capture" && t !== captureParam) {
+    setCaptureParam(t);
+    const c = capture.take();
+    if (c?.kind === "video") {
+      setKind("full");
+      setDanceClip({ uri: c.uri, name: c.name, type: c.type });
+      setDanceConsent("no");
+    }
+  }
   const [photo, setPhoto] = useState<Picked | null>(null);
   const [photoConsent, setPhotoConsent] = useState<"no" | "yes">("no");
   const [captions, setCaptions] = useState<"on" | "off">("on");
