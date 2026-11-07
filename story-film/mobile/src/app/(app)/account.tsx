@@ -7,6 +7,7 @@ import { Avatar } from "@/components/avatar";
 import { Banner, Button, Card, ChipRow, Field, Header, ListRow, Row, Screen, Txt } from "@/components/ui";
 import { api, type PushKind, type PushPrefs } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
+import { setInstantLeft, useInstantLeft } from "@/lib/instant-prefs";
 import { DEMO, PRIVACY_URL, SUPPORT_EMAIL, SUPPORT_URL, TERMS_URL } from "@/lib/config";
 import { LANGUAGES } from "@/lib/languages";
 import { profileTodo } from "@/lib/profile";
@@ -123,6 +124,7 @@ export default function Account() {
   const [error, setError] = useState<string | null>(null);
   const brand: Brand = prefs?.brand ?? {};
   const [handle, setHandle] = useState(brand.handle ?? "");
+  const instantLeft = useInstantLeft();
   const saveBrand = (b: Brand) => prefs && savePrefs({ ...prefs, brand: { ...brand, ...b } });
 
   async function deleteAccount() {
@@ -178,6 +180,18 @@ export default function Account() {
           ]}
           value={preference}
           onChange={setPreference}
+        />
+        <ListRow
+          title="Camera button on the left"
+          sub="Moves the camera bubble on Home and Listen to your left thumb"
+          right={
+            <Switch
+              accessibilityLabel="Camera button on the left"
+              value={instantLeft}
+              onValueChange={setInstantLeft}
+              trackColor={{ true: colors.tealText, false: colors.lineStrong }}
+            />
+          }
         />
       </Card>
 

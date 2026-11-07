@@ -5,6 +5,8 @@ import { I18nManager, Modal, PixelRatio, Pressable, StyleSheet, Text, useWindowD
 import Animated, { FadeIn, ZoomIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { festivalNear, regionNow } from "@/lib/festivals";
+import { useSession } from "@/lib/session";
 import { fonts, useTheme } from "@/theme";
 import { Icon, type IconName } from "./icon";
 
@@ -29,6 +31,14 @@ export const chilliCentre = (bottomInset: number) => Math.max(bottomInset, 10) +
 export function QuickFan({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const { prefs } = useSession();
+  // A festival near you (by time zone and the calendar) gets a chip that prefills the story maker.
+  const festival = open ? festivalNear(new Date(), regionNow(), prefs?.language) : null;
+  const goFestival = () => {
+    if (!festival) return;
+    onClose();
+    router.push({ pathname: "/create", params: { kind: "story", idea: festival.idea, t: String(Date.now()) } });
+  };
   const { width } = useWindowDimensions();
   // Large text: a tile panel is easier to read than an arc of crowded labels.
   const panel = PixelRatio.getFontScale() >= 1.35;
@@ -59,6 +69,12 @@ export function QuickFan({ open, onClose }: { open: boolean; onClose: () => void
                 <Text style={[styles.tileLabel, { color: colors.ink }]}>{it.label}</Text>
               </Pressable>
             ))}
+            {festival ? (
+              <Pressable accessibilityRole="button" onPress={goFestival} style={[styles.tile, { backgroundColor: colors.surfaceRaised }]}>
+                <Icon name="sparkle" color={colors.action} />
+                <Text style={[styles.tileLabel, { color: colors.ink }]}>Make a {festival.name} reel</Text>
+              </Pressable>
+            ) : null}
             <Pressable accessibilityRole="button" onPress={() => go(null)} style={[styles.tile, { backgroundColor: colors.surfaceRaised }]}>
               <Icon name="grid" color={colors.ink} />
               <Text style={[styles.tileLabel, { color: colors.ink }]}>All makers</Text>
@@ -90,6 +106,14 @@ export function QuickFan({ open, onClose }: { open: boolean; onClose: () => void
                 <Text maxFontSizeMultiplier={1.6} style={[styles.allLabel, { color: colors.onDeep }]}>All makers</Text>
               </Pressable>
             </Animated.View>
+            {festival ? (
+              <Animated.View entering={FadeIn.delay(160)} style={[styles.all, { bottom: centreY + radius + DISC + 34 }]}>
+                <Pressable accessibilityRole="button" onPress={goFestival} style={[styles.allPill, { backgroundColor: colors.action }]}>
+                  <Icon name="sparkle" size={18} color={colors.onAction} />
+                  <Text maxFontSizeMultiplier={1.6} style={[styles.allLabel, { color: colors.onAction }]}>Make a {festival.name} reel</Text>
+                </Pressable>
+              </Animated.View>
+            ) : null}
           </>
         )}
         {/* The chilli turns into Close in the same spot, so the thumb that opened it closes it. */}

@@ -1,27 +1,39 @@
 import { I18nManager, Pressable, StyleSheet } from "react-native";
+import Animated, { useAnimatedStyle, useReducedMotion, withTiming } from "react-native-reanimated";
 
-import { filmNow } from "@/lib/capture";
+import { filmNow, snapPhoto } from "@/lib/capture";
+import { instantSmall, useInstantLeft } from "@/lib/instant-prefs";
 import { useTheme } from "@/theme";
 import { Icon } from "./icon";
 
 // "Snap & suggest" (design/v3.0/quick-create.md 2, option B): a camera bubble at the bottom corner on the
-// thumb side that films straight away, then "What should we make?" ranks what the clip can become.
-// Only Home and Listen render it; screens add bottom padding so it never covers the last row.
+// thumb side. Tap films, hold snaps a photo; then "What should we make?" ranks what it can become.
+// Only Home and Listen render it; they pass instantScrollProps to Screen so it shrinks while scrolling down,
+// and leave INSTANT_CLEARANCE under the last row. Settings can move it to the left.
 export function InstantButton() {
   const { colors } = useTheme();
+  const leftHanded = useInstantLeft();
+  const reduced = useReducedMotion();
+  // The start side flips in Arabic; the left-handed switch flips it again.
+  const onLeft = leftHanded !== I18nManager.isRTL;
+  const shrink = useAnimatedStyle(() => ({
+    transform: [{ scale: reduced ? 1 : withTiming(instantSmall.value ? 44 / 56 : 1, { duration: 180 }) }],
+  }));
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Film now"
-      accessibilityHint="Opens the camera, then suggests what to make"
-      onPress={filmNow}
-      style={({ pressed }) => [
-        styles.bubble,
-        I18nManager.isRTL ? { left: 16 } : { right: 16 },
-        { backgroundColor: colors.action, borderColor: colors.surface, transform: [{ scale: pressed ? 0.94 : 1 }] },
-      ]}>
-      <Icon name="camera" color={colors.onAction} />
-    </Pressable>
+    <Animated.View style={[styles.wrap, onLeft ? { left: 16 } : { right: 16 }, shrink]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Film now"
+        accessibilityHint="Opens the camera, then suggests what to make. Hold to take a photo instead."
+        accessibilityActions={[{ name: "longpress", label: "Take a photo" }]}
+        onAccessibilityAction={(e) => e.nativeEvent.actionName === "longpress" && snapPhoto()}
+        onPress={filmNow}
+        onLongPress={snapPhoto}
+        delayLongPress={450}
+        style={({ pressed }) => [styles.bubble, { backgroundColor: colors.action, borderColor: colors.surface, transform: [{ scale: pressed ? 0.94 : 1 }] }]}>
+        <Icon name="camera" color={colors.onAction} />
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -29,9 +41,8 @@ export function InstantButton() {
 export const INSTANT_CLEARANCE = 56 + 24;
 
 const styles = StyleSheet.create({
+  wrap: { position: "absolute", bottom: 12 },
   bubble: {
-    position: "absolute",
-    bottom: 12,
     width: 56,
     height: 56,
     borderRadius: 28,

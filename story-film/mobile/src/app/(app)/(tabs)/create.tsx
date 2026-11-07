@@ -42,7 +42,7 @@ export default function Create() {
   const billing = useData(() => api.billing());
   // "Use this recipe" opens Create with ?recipe={publicId}; the recipe locks the kind, look and length.
   // Studio's Lab opens Create with ?kind=dance.
-  const params = useLocalSearchParams<{ recipe?: string; kind?: string; from?: string; t?: string }>();
+  const params = useLocalSearchParams<{ recipe?: string; kind?: string; from?: string; t?: string; idea?: string }>();
   const [used, setUsed] = useState<RecipePage | null>(null);
   const [recipeGone, setRecipeGone] = useState<string | null>(null);
   const recipesHome = useData(() => api.recipesHome("en", Intl.DateTimeFormat().resolvedOptions().timeZone ?? ""));
@@ -73,10 +73,24 @@ export default function Create() {
   if (params.from === "capture" && params.t !== captureParam) {
     setCaptureParam(params.t);
     const c = capture.take();
-    if (c) {
+    if (c?.kind === "photo") {
+      // A reel starring the photo: AI animation is the cheapest look that uses a photo.
+      setKind("story");
+      setQuality("premium");
+      setPhoto({ uri: c.uri, name: c.name, type: c.type });
+      setPhotoConsent("no");
+    } else if (c) {
       setKind("edit");
       setVideo(c);
     }
+    if (params.idea) setStory(params.idea);
+  }
+  // A festival chip (lib/festivals.ts) opens Create with ?idea=, which prefills the story.
+  const [ideaParam, setIdeaParam] = useState<string | undefined>();
+  if (params.from !== "capture" && params.idea && params.t !== ideaParam) {
+    setIdeaParam(params.t);
+    setKind("story");
+    setStory(params.idea);
   }
   const [captions, setCaptions] = useState<"on" | "off">("on");
   const [zooms, setZooms] = useState<"on" | "off">("on");

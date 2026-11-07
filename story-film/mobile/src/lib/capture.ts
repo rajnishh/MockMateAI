@@ -6,6 +6,7 @@ import { Alert, Linking } from "react-native";
 // What the camera bubble or a chilli long-press just filmed, kept in memory (never in a URL) until a
 // maker takes it, so "What should we make?" and a retry never mean filming again. design/v3.0/quick-create.md
 export interface Captured {
+  kind: "video" | "photo";
   uri: string;
   name: string;
   type: string;
@@ -51,10 +52,36 @@ export async function filmNow() {
   const a = res.canceled ? null : res.assets[0];
   if (!a) return;
   capture.set({
+    kind: "video",
     uri: a.uri,
     name: a.fileName ?? `clip-${Date.now()}.mp4`,
     type: a.mimeType ?? "video/mp4",
     seconds: a.duration ? a.duration / 1000 : null,
+    mb: a.fileSize ? a.fileSize / 1048576 : null,
+  });
+  router.push("/capture");
+}
+
+// Snap a photo (hold the camera bubble): the same chooser, which offers a reel starring the photo.
+export async function snapPhoto() {
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined);
+  const perm = await ImagePicker.requestCameraPermissionsAsync();
+  if (!perm.granted) {
+    Alert.alert("Camera is off for Reelkar", "Turn on Camera for Reelkar in Settings to take a photo.", [
+      { text: "Not now", style: "cancel" },
+      ...(perm.canAskAgain ? [] : [{ text: "Open Settings", onPress: () => Linking.openSettings() }]),
+    ]);
+    return;
+  }
+  const res = await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], cameraType: ImagePicker.CameraType.front, quality: 0.85 });
+  const a = res.canceled ? null : res.assets[0];
+  if (!a) return;
+  capture.set({
+    kind: "photo",
+    uri: a.uri,
+    name: a.fileName ?? `photo-${Date.now()}.jpg`,
+    type: a.mimeType ?? "image/jpeg",
+    seconds: null,
     mb: a.fileSize ? a.fileSize / 1048576 : null,
   });
   router.push("/capture");
