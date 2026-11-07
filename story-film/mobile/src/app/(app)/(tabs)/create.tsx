@@ -1,7 +1,7 @@
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, ActivityIndicator, Linking, Pressable, View } from "react-native";
+import { AccessibilityInfo, ActivityIndicator, Linking, Pressable, useWindowDimensions, View } from "react-native";
 
 import { Icon } from "@/components/icon";
 import { FestivalCard, RecipeLockCard, RecipeRail } from "@/components/recipes";
@@ -110,6 +110,7 @@ export default function Create() {
   const spoken = useRef(0);
   const [saved, setSaved] = useState<string | null>(null);
   const galleryBusy = usePreparing();
+  const { fontScale } = useWindowDimensions();
 
   useEffect(() => {
     if (!params.recipe) return;
@@ -394,11 +395,20 @@ export default function Create() {
       <>
       <Card>
         <Txt variant="md">Start with your camera</Txt>
-        <Row style={{ gap: 8, flexWrap: "nowrap" }}>
-          <CaptureTile icon="video" label="Film" a11y="Film a video" disc={colors.brand} ink={colors.onBrand} onPress={filmNow} />
-          <CaptureTile icon="camera" label="Snap" a11y="Take a photo" disc={colors.teal} ink={colors.onTeal} onPress={snapPhoto} />
-          <CaptureTile icon="image" label={galleryBusy ? "Preparing…" : "Gallery"} a11y="Choose from gallery" disc={colors.surfaceSunken} ink={colors.ink} busy={galleryBusy} onPress={chooseFromGallery} />
-        </Row>
+        {fontScale >= 1.5 ? (
+          // Accessibility text sizes: three full-width rows, so the words never squeeze into a tile.
+          <>
+            <ListRow icon="video" title="Film a video" onPress={filmNow} />
+            <ListRow icon="camera" title="Take a photo" onPress={snapPhoto} />
+            <ListRow icon="image" title={galleryBusy ? "Preparing…" : "Choose from gallery"} onPress={galleryBusy ? undefined : chooseFromGallery} />
+          </>
+        ) : (
+          <Row style={{ gap: 8, flexWrap: "nowrap" }}>
+            <CaptureTile icon="video" label="Film" a11y="Film a video" disc={colors.brand} ink={colors.onBrand} onPress={filmNow} />
+            <CaptureTile icon="camera" label="Snap" a11y="Take a photo" disc={colors.teal} ink={colors.onTeal} onPress={snapPhoto} />
+            <CaptureTile icon="image" label={galleryBusy ? "Preparing…" : "Gallery"} a11y="Choose from gallery" disc={colors.surfaceSunken} ink={colors.ink} busy={galleryBusy} onPress={chooseFromGallery} />
+          </Row>
+        )}
       </Card>
       <Card onPress={() => router.push("/hum")} style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.deep, borderColor: colors.deep }}>
         <View style={{ width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center", backgroundColor: colors.brand }}>

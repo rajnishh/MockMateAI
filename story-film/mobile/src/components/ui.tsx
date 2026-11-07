@@ -39,6 +39,11 @@ const TYPE: Record<Variant, TextStyle> = {
   mono: { fontFamily: fonts.mono, fontSize: 13, lineHeight: 18, fontVariant: ["tabular-nums"] },
 };
 
+// Larger text grows up to these limits: small text up to double, so captions stay readable at the
+// biggest accessibility sizes, while titles and buttons stop before they break the layout on an SE.
+const MAX_SCALE: Record<Variant, number> = { xl: 1.3, lg: 1.3, md: 1.6, bodyLg: 1.8, body: 2, label: 2, cap: 2, over: 1.6, mono: 1.6 };
+const BUTTON_MAX_SCALE = 1.5;
+
 export function Txt({
   variant = "body",
   color,
@@ -65,7 +70,7 @@ export function Txt({
     else if (ARABIC.test(children)) family = undefined;
   }
   return (
-    <Text selectable={selectable} accessibilityRole={accessibilityRole} numberOfLines={numberOfLines} style={[base, { fontFamily: family, color: colors[color ?? (muted ? "inkMuted" : "ink")] }, style]}>
+    <Text selectable={selectable} accessibilityRole={accessibilityRole} numberOfLines={numberOfLines} maxFontSizeMultiplier={MAX_SCALE[variant]} style={[base, { fontFamily: family, color: colors[color ?? (muted ? "inkMuted" : "ink")] }, style]}>
       {children}
     </Text>
   );
@@ -173,7 +178,7 @@ export function Button({
         style,
       ]}>
       {loading ? <ActivityIndicator color={l.fg} /> : icon ? <Icon name={icon} size={18} color={l.fg} /> : null}
-      <Text style={{ flexShrink: 1, textAlign: "center", fontFamily: fonts.bold, fontSize: small ? 14 : 16, color: l.fg }}>{label}</Text>
+      <Text maxFontSizeMultiplier={BUTTON_MAX_SCALE} style={{ flexShrink: 1, textAlign: "center", fontFamily: fonts.bold, fontSize: small ? 14 : 16, color: l.fg }}>{label}</Text>
     </Pressable>
   );
 }
@@ -367,7 +372,7 @@ export function Credits({ count, onPress }: { count: number | null; onPress?: ()
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={`${count ?? 0} credits`} onPress={onPress ?? (() => router.push("/credits"))} style={styles.credits} hitSlop={8}>
       <Icon name="sparkle" size={18} color={colors.tealText} />
-      <Text style={{ fontFamily: fonts.extrabold, fontSize: 14, color: colors.tealText, fontVariant: ["tabular-nums"] }}>{count ?? "–"}</Text>
+      <Text maxFontSizeMultiplier={BUTTON_MAX_SCALE} style={{ fontFamily: fonts.extrabold, fontSize: 14, color: colors.tealText, fontVariant: ["tabular-nums"] }}>{count ?? "–"}</Text>
     </Pressable>
   );
 }
